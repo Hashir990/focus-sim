@@ -2,6 +2,12 @@ node_modules/
 dist/
 release/
 
+# The full-length source recordings (hundreds of MB). Keep them locally; the
+# one-hour cuts in dist/audio are produced from them by tools/encode-audio.sh.
+*.mp3
+audio-src/
+!src/**/*.mp3
+
 # Capacitor native projects (regenerate with `npm run cap:add:android` / `:ios`)
 android/
 ios/

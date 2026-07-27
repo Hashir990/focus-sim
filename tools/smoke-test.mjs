@@ -17,7 +17,7 @@ const html = readFileSync(htmlPath, 'utf8');
 
 // jsdom can't navigate (blob download, location.reload) or paint to a canvas.
 // All three are fine in a real browser, so they are not real failures.
-const IGNORE = /Not implemented: (navigation|HTMLCanvasElement)/;
+const IGNORE = /Not implemented: (navigation|HTMLCanvasElement|HTMLMediaElement)/;
 
 const log = (s) => process.stderr.write(s + '\n');
 const checks = [];
@@ -86,6 +86,20 @@ function boot(pageHtml) {
     }
   };
   window.__audioLog = audioLog;
+
+  // jsdom has no media playback, so record the calls instead. This is what lets
+  // us check the right file gets loaded and that stopping actually pauses.
+  const media = { plays: [], pauses: 0, loads: 0 };
+  // `paused` is getter-only in jsdom, so back it with our own field
+  Object.defineProperty(window.HTMLMediaElement.prototype, 'paused', {
+    configurable: true,
+    get() { return this.__paused !== false; },
+  });
+  window.HTMLMediaElement.prototype.play = function () { media.plays.push(this.src); this.__paused = false; return Promise.resolve(); };
+  window.HTMLMediaElement.prototype.pause = function () { media.pauses++; this.__paused = true; };
+  window.HTMLMediaElement.prototype.load = function () { media.loads++; };
+  window.__media = media;
+
   window.navigator.vibrate = () => true;
   window.URL.createObjectURL = () => 'blob:stub';
   window.URL.revokeObjectURL = () => {};
@@ -421,18 +435,20 @@ check('volume hidden while off', $('amb-vol-row').classList.contains('hide'));
 
 const ambProblems = [];
 for (const id of ['rain', 'forest', 'cafe', 'office', 'campfire']) {
-  const before = window.__audioLog.sources + window.__audioLog.oscillators;
   ambBtn(id).click();
   await wait(60);
   if (window.document.body.getAttribute('data-amb') !== id) ambProblems.push(`${id}: theme not applied`);
   if ($('app').getAttribute('data-amb') !== id) ambProblems.push(`${id}: app theme not applied`);
-  if (window.__audioLog.sources + window.__audioLog.oscillators <= before) ambProblems.push(`${id}: built no audio nodes`);
   if (!ambBtn(id).classList.contains('on')) ambProblems.push(`${id}: button not marked active`);
+  const el = window.document.querySelector('audio');
+  if (!el) ambProblems.push(`${id}: no audio element`);
+  else if (el.src.indexOf(`audio/${id}.mp3`) === -1) ambProblems.push(`${id}: src is ${el.src}`);
+  if (!window.__media.plays.some((s) => s.indexOf(`audio/${id}.mp3`) !== -1)) ambProblems.push(`${id}: never played`);
 }
-check('every ambience builds an audio graph', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
-// A limiter on the output is what stops layers summing into clipping — clipping
-// is what the buzzing was.
-check('each ambience is limited on output', window.__audioLog.limiters >= 5, `${window.__audioLog.limiters} limiters`);
+check('every ambience loads and plays its track', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+check('one shared audio element, not five', window.document.querySelectorAll('audio').length === 1, `${window.document.querySelectorAll('audio').length}`);
+check('audio is not preloaded before it is chosen', window.document.querySelector('audio').preload === 'none', window.document.querySelector('audio').preload);
+check('app handles the repeat, not the element', window.document.querySelector('audio').loop === false);
 check('volume shown once an ambience is on', !$('amb-vol-row').classList.contains('hide'));
 check('ambience persisted', JSON.parse(window.localStorage.getItem('focus_amb')).id === 'campfire', window.localStorage.getItem('focus_amb'));
 
@@ -442,14 +458,23 @@ await wait(20);
 check('volume persisted', Math.abs(JSON.parse(window.localStorage.getItem('focus_amb')).vol - 0.2) < 0.01, window.localStorage.getItem('focus_amb'));
 
 // switching off must silence everything and stop the schedulers
+const pausesBefore = window.__media.pauses;
 ambBtn('off').click();
-await wait(40);
+await wait(400);
 check('off clears the theme', window.document.body.getAttribute('data-amb') === '');
-check('off stops every source', window.__audioLog.live() === 0, `${window.__audioLog.live()} still playing`);
-const afterOff = window.__audioLog.sources + window.__audioLog.oscillators;
-await wait(600);
-check('off cancels scheduled sounds', window.__audioLog.sources + window.__audioLog.oscillators === afterOff, `${window.__audioLog.sources + window.__audioLog.oscillators - afterOff} fired after stopping`);
-check('ambience included in the backup', true);
+check('off pauses playback', window.__media.pauses > pausesBefore, `${window.__media.pauses - pausesBefore} pauses`);
+check('off fades out rather than cutting', window.document.querySelector('audio').volume < 0.05, `volume ${window.document.querySelector('audio').volume}`);
+
+// reaching the end must restart the track, not stop
+ambBtn('rain').click();
+await wait(60);
+const playsBefore = window.__media.plays.length;
+const audioEl = window.document.querySelector('audio');
+audioEl.dispatchEvent(new window.Event('ended'));
+await wait(40);
+check('track restarts when it ends', window.__media.plays.length > playsBefore, `${window.__media.plays.length - playsBefore} replays`);
+ambBtn('off').click();
+await wait(300);
 
 // --- overlays --------------------------------------------------------------
 $('note-input').value = 'smoke test note';
@@ -492,7 +517,8 @@ const seedLog = [0, 1, 2, 5].flatMap((back, i) =>
     d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() - back);
     const ts = d.getTime() + n * 3600000;
-    return { id: 's' + ts + '_' + i + n, ts, day: key(ts), secs: 1500, note: '' };
+    // some entries carry notes, so the calendar's note markers have something to find
+    return { id: 's' + ts + '_' + i + n, ts, day: key(ts), secs: 1500, note: n === 0 ? `worked on thing ${i}` : '' };
   }),
 );
 const seeded = html.replace(
@@ -513,6 +539,46 @@ check('stats cards rendered', $2('stats-body').querySelectorAll('.stat-card').le
 check('stats bar chart has 14 days', $2('stats-body').querySelectorAll('.sbar').length === 14, `${$2('stats-body').querySelectorAll('.sbar').length}`);
 check('streak counted (3 consecutive days)', /3 days/.test(statsText), statsText.match(/\d+ days?/g)?.join(' / ') || '');
 check('best hour computed', $2('stats-body').textContent.includes('Best hour'));
+
+// --- calendar density ------------------------------------------------------
+$2('stats-close').click();
+$2('d-history').click();
+await wait(120);
+check('calendar marks days that have notes', $2('cal-grid').querySelectorAll('.note-dot').length > 0, `${$2('cal-grid').querySelectorAll('.note-dot').length} dots`);
+check('calendar starts at normal density', $2('cal-overlay').dataset.dense === '0', $2('cal-overlay').dataset.dense);
+
+// today was seeded with 2 sessions, so selecting it stays roomy
+const cells = [...$2('cal-grid').querySelectorAll('.cal-cell.has')];
+cells[cells.length - 1].click();
+await wait(60);
+check('two sessions keeps the roomy layout', $2('cal-overlay').dataset.dense === '0', $2('cal-overlay').dataset.dense);
+check('records rendered for the day', $2('cal-detail').querySelectorAll('.cal-rec').length === 2, `${$2('cal-detail').querySelectorAll('.cal-rec').length}`);
+check('note textareas auto-sized', [...$2('cal-detail').querySelectorAll('textarea')].every((t) => t.style.height), 'no height set');
+
+// A day with eight sessions, built from scratch rather than derived from the
+// previous window, so the fixture can't drift.
+$2('cal-close').click();
+const heavyDay = new Date();
+heavyDay.setHours(12, 0, 0, 0);
+const heavy = [];
+for (let i = 0; i < 8; i++) {
+  const ts = heavyDay.getTime() + i * 60000;
+  heavy.push({ id: 'h' + i, ts, day: key(ts), secs: 900, note: 'note ' + i });
+}
+const heavySeeded = html.replace(
+  '<script>',
+  `<script>localStorage.setItem('focus_log', ${JSON.stringify(JSON.stringify(heavy))});</script>\n<script>`,
+);
+const { window: w3 } = boot(heavySeeded);
+await wait(400);
+const $3 = (id) => w3.document.getElementById(id);
+$3('d-history').click();
+await wait(120);
+const heavyCells = [...$3('cal-grid').querySelectorAll('.cal-cell.has')];
+heavyCells[heavyCells.length - 1].click();
+await wait(60);
+check('eight sessions compacts the calendar', $3('cal-overlay').dataset.dense === '2', $3('cal-overlay').dataset.dense);
+check('all eight records shown', $3('cal-detail').querySelectorAll('.cal-rec').length === 8, `${$3('cal-detail').querySelectorAll('.cal-rec').length}`);
 
 // --- ending a session early still logs it -----------------------------------
 const sessionCount = () => Number($2('stats-body').querySelectorAll('.stat-card')[1].querySelector('b').textContent);

@@ -34,7 +34,7 @@ adds tasks and ticks them off, starts a session, checks the ticked items land in
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
-recording stand-in for Web Audio. 99 checks. Run it after any change you're unsure about.
+recording stand-in for media playback, and checks the calendar compacts as notes pile up. 109 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -276,35 +276,45 @@ Serve it over HTTPS from any static host and it installs from the browser direct
 
 ## Ambience
 
-Five looping backgrounds — **rain, forest, café, office, campfire** — chosen from the
+Five one-hour recordings — **rain, forest, café, office, campfire** — chosen from the
 side menu, with a volume slider. They start with the timer, pause when you pause, and
-stop when you end a session. Selecting one also repaints the app in colours that suit it
-(rain is cool blue, campfire orange, and so on); choose **Off** and the original
-focus/rest palettes return.
+stop when you end a session. Selecting one also repaints the app in colours that suit it;
+choose **Off** and the original focus/rest palettes return.
 
-**There are no audio files.** Everything is synthesised live with the Web Audio API, so
-the app stays a single self-contained HTML file and works offline in every packaged
-build. Each sound is a filtered noise bed with randomly scheduled events on top —
-spatter for rain, birdsong for forest, laughter and crockery for café, keyboards, a desk
-phone and low talk for office, crackles for campfire. The chatter is two-formant noise
-syllables: unintelligible, but recognisably people.
+Each track plays to its end, **fades out over three seconds, restarts, and fades back
+in**. The fade is driven by an 80 ms ticker rather than the `timeupdate` event, which
+only fires about four times a second — too coarse to sound smooth.
 
-Three rules keep it from buzzing, learned by getting them wrong first:
+### The audio folder
 
-1. **One white-noise buffer, everything else is a filter on it.** The first version built
-   "brown" noise as a scaled random walk, which ran past ±1 — and clipping *is* what
-   distortion sounds like. A lowpass on white noise gives the same warmth safely, and
-   loops without the click a low-frequency buffer produces at its seam.
-2. **No sustained oscillators.** A steady sine is a hum, not an ambience; the office had
-   one at 104 Hz. Pitched tones now only ever appear as short events.
-3. **Low filter Q.** A high-Q bandpass on noise rings like a whistle — that was the
-   "buzz" in the rain droplets.
+This is the one part of the app that isn't inside `index.html`. An hour of audio can't be
+inlined, so it ships as `dist/audio/` next to it:
 
-Everything sums into one gain, then a limiter, so no combination of layers can drive the
-output into distortion. `node tools/audio-levels.mjs` renders each ambience offline with
-a real Web Audio implementation and prints peak and RMS; at full volume the loudest peaks
-around 0.22, leaving roughly 13 dB of headroom.
+| | |
+| --- | --- |
+| length | 60 min each |
+| format | mono MP3, 32 kbps, 32 kHz |
+| size | 13.7 MB each, **69 MB total** |
+| level | normalised to about -26 LUFS, all five within 2.4 dB of each other |
 
-To change one, edit its builder in `AMB_BUILD` in `src/js/28-ambience.js`. To add one,
-add a builder there, an entry in `AMB_LIST`, and a `[data-amb="…"]` palette in
-`src/css/22-ambience.css`.
+`preload="none"`, and only the chosen track is ever fetched — the app does not pull
+69 MB at startup.
+
+Put the full-length recordings in `audio-src/<name>.mp3` and run:
+
+```bash
+bash tools/encode-audio.sh          # all five
+bash tools/encode-audio.sh rain     # just one
+```
+
+The per-track gains in that script were measured with `ebur128`. Sources are gitignored,
+since they run to hundreds of megabytes.
+
+**This replaced a synthesised version.** Web Audio can make a passable rain or fire, but
+next to a real recording it sounds harsh and no amount of filtering fixes it. The synth
+is in the git history if it's ever wanted.
+
+Packaging: Electron unpacks `dist/audio` from the asar so the files stay seekable;
+Capacitor and Tauri copy `dist/` wholesale. Expect the Electron installer to grow by
+about 69 MB.
+

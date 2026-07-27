@@ -41,6 +41,7 @@
     "productName": "Focus Simulator",
     "directories": { "output": "release" },
     "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "asarUnpack": ["dist/audio/**"],
     "win": { "target": ["nsis"] },
     "mac": { "target": ["dmg"], "category": "public.app-category.productivity" },
     "linux": { "target": ["AppImage"], "category": "Utility" }

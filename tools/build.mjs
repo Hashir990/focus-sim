@@ -98,10 +98,21 @@ function verify() {
   return false;
 }
 
+/** The one thing that isn't inside index.html — warn loudly if it's missing. */
+function checkAudio() {
+  const dir = join(DIST, 'audio');
+  const want = ['rain', 'forest', 'cafe', 'office', 'campfire'];
+  const missing = want.filter((n) => !existsSync(join(dir, n + '.mp3')));
+  if (missing.length) {
+    console.log(`! dist/audio is missing: ${missing.join(', ')} — run  bash tools/encode-audio.sh`);
+  }
+}
+
 const run = () => {
   const t = Date.now();
   const html = build();
   console.log(`built dist/index.html — ${(html.length / 1024).toFixed(1)} KB in ${Date.now() - t}ms`);
+  checkAudio();
 };
 
 run();
