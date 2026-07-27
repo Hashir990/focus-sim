@@ -1,0 +1,40 @@
+    <!-- ============ TIMER ============ -->
+    <section class="view hide" id="timer">
+      <div class="cycle" id="cycle"></div>
+
+      <div class="dial-wrap">
+        <div class="dial" id="dial">
+          <div class="halo"></div>
+          <svg viewBox="0 0 240 240" aria-hidden="true">
+            <circle class="ring-track" cx="120" cy="120" r="108"></circle>
+            <circle class="ring-prog"  cx="120" cy="120" r="108"></circle>
+          </svg>
+          <div class="readout">
+            <div class="phase-name" id="phase-name">Focus</div>
+            <div class="clock" id="clock">25:00</div>
+            <div class="subline" id="subline">Session 1</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quote" id="focus-quote" aria-hidden="true"></div>
+
+      <div class="controls">
+        <button class="icon-btn" id="stop" aria-label="End session">
+          <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+        </button>
+        <button class="primary" id="toggle-run">Pause</button>
+        <button class="icon-btn" id="skip" aria-label="Skip to next phase">
+          <svg viewBox="0 0 24 24"><path d="M5 5v14l9-7z"></path><path d="M18 5v14"></path></svg>
+        </button>
+      </div>
+
+      <div class="rest-extra hide" id="rest-extra">
+        <div class="note-box" id="note-box">
+          <label class="note-label" id="note-label" for="note-input">Note this session</label>
+          <textarea id="note-input" class="note-input" rows="2" placeholder="What did you get done? (saved to your calendar)"></textarea>
+        </div>
+        <button class="arcade-btn" id="arcade-open">Open the <span class="g">Rest arcade</span></button>
+      </div>
+    </section>
+

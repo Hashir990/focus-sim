@@ -1,0 +1,48 @@
+/* ---------- setup ---------- */
+#setup{justify-content:safe center; gap:26px}
+.lede{margin-bottom:2px}
+.lede h1{
+  font-family:'Fraunces',serif; font-style:italic; font-weight:400;
+  font-size:31px; line-height:1.08; letter-spacing:-.01em;
+}
+.lede p{margin-top:9px; color:var(--muted); font-size:14.5px; line-height:1.5; transition:color 1.1s ease}
+
+.field{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:17px 18px}
+.field .flabel{
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  transition:color 1.1s ease;
+}
+.field .flabel .tag{font-family:'Fraunces',serif; font-style:italic; text-transform:none; letter-spacing:0; font-size:15px; color:var(--accent); transition:color 1.1s ease}
+.stepper{display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:14px}
+.step-btn{
+  width:52px; height:52px; flex:0 0 auto; border-radius:16px;
+  border:1px solid var(--line); background:transparent; color:var(--text);
+  font-size:26px; font-weight:400; cursor:pointer; display:grid; place-items:center;
+  transition:background .18s ease, border-color .18s ease, transform .1s ease;
+}
+.step-btn:hover{background:rgba(255,255,255,.05)}
+.step-btn:active{transform:scale(.93)}
+.step-btn:disabled{opacity:.32; cursor:default}
+.step-val{flex:1; text-align:center; line-height:1}
+.step-val .num{font-size:44px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.step-val .unit{display:block; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); margin-top:3px; transition:color 1.1s ease}
+.presets{display:flex; gap:8px; margin-top:14px}
+.chip{
+  flex:1; padding:9px 0; border-radius:11px; border:1px solid var(--line);
+  background:transparent; color:var(--muted); font-family:inherit; font-size:13.5px;
+  font-weight:500; cursor:pointer; transition:.18s ease;
+}
+.chip:hover{color:var(--text)}
+.chip.on{background:var(--accent); border-color:var(--accent); color:#08111a; font-weight:600}
+
+.toggles{display:flex; gap:10px}
+.toggle{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--card);
+  color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; transition:.18s ease;
+}
+.toggle .dot{width:8px; height:8px; border-radius:50%; background:var(--muted); transition:.2s ease}
+.toggle.on{color:var(--text)}
+.toggle.on .dot{background:var(--accent); box-shadow:0 0 0 4px var(--glow)}
+

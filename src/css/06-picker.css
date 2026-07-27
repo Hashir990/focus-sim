@@ -1,0 +1,32 @@
+/* picker */
+.picker{gap:12px; display:flex; flex-direction:column; padding-top:10px}
+.pick-lede{color:var(--muted); font-size:13.5px; line-height:1.5; margin-bottom:2px}
+.pcard{
+  text-align:left; cursor:pointer; padding:18px; border-radius:18px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font-family:inherit; transition:background .18s ease, transform .1s ease, border-color .18s;
+  display:flex; align-items:center; gap:16px;
+}
+.pcard:hover{background:rgba(255,255,255,.07)}
+.pcard:active{transform:scale(.99)}
+.pcard .emoji{font-size:26px; width:46px; height:46px; flex:0 0 auto; display:grid; place-items:center;
+  border-radius:13px; background:var(--track)}
+.pcard h3{font-size:16.5px; font-weight:600; margin-bottom:3px}
+.pcard p{font-size:12.5px; color:var(--muted); line-height:1.45}
+.pcard .prog{margin-left:auto; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); text-align:right; white-space:nowrap; flex:0 0 auto}
+.pcard .prog span{display:block; color:var(--muted); font-size:10px; margin-top:2px}
+
+.game-top{display:flex; align-items:center; justify-content:space-between; margin:6px 0 14px}
+.game-top .gname{font-family:'Fraunces',serif; font-style:italic; font-size:16px}
+.game-top .meta{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; letter-spacing:.04em}
+.mini-btn{
+  padding:8px 12px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:500;
+  border:1px solid var(--line); background:var(--card); color:var(--text); transition:background .18s;
+}
+.mini-btn:hover{background:rgba(255,255,255,.07)}
+.mini-btn.on{background:var(--accent); color:#08111a; border-color:var(--accent)}
+.diffs{display:flex; gap:6px}
+.diffs .mini-btn{padding:8px 11px}
+.sdk-ctrl{display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:360px; margin:2px auto 12px; width:100%}
+

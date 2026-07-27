@@ -1,0 +1,35 @@
+    <!-- ============ SETUP ============ -->
+    <section class="view" id="setup">
+      <div class="lede">
+        <h1>Set the rhythm<br>of your session.</h1>
+        <p>Pick how long to focus, then how long to recover. Every fourth focus earns a long rest.</p>
+      </div>
+
+      <div class="field">
+        <div class="flabel"><span>Focus for</span><span class="tag">deep work</span></div>
+        <div class="stepper">
+          <button class="step-btn" id="f-minus" aria-label="Less focus time">−</button>
+          <div class="step-val"><span class="num" id="f-num">25</span><span class="unit">minutes</span></div>
+          <button class="step-btn" id="f-plus" aria-label="More focus time">+</button>
+        </div>
+        <div class="presets" id="f-presets"></div>
+      </div>
+
+      <div class="field">
+        <div class="flabel"><span>Rest for</span><span class="tag">recover</span></div>
+        <div class="stepper">
+          <button class="step-btn" id="r-minus" aria-label="Less rest time">−</button>
+          <div class="step-val"><span class="num" id="r-num">5</span><span class="unit">minutes</span></div>
+          <button class="step-btn" id="r-plus" aria-label="More rest time">+</button>
+        </div>
+        <div class="presets" id="r-presets"></div>
+      </div>
+
+      <div class="rep-row">
+        <span class="rep-lbl">Repeat</span>
+        <div class="rep-chips" id="rep-chips"></div>
+      </div>
+
+      <button class="primary begin-btn" id="begin">Begin focus</button>
+    </section>
+

@@ -1,0 +1,68 @@
+/* ---------- timer ---------- */
+#timer{justify-content:space-between; align-items:center; gap:8px}
+.cycle{display:flex; align-items:center; gap:9px; margin-top:12px}
+.pip{width:9px; height:9px; border-radius:50%; border:1.5px solid var(--muted); transition:.3s ease}
+.pip.done{background:var(--accent); border-color:var(--accent); box-shadow:0 0 0 3px var(--glow)}
+.pip.long{width:11px; height:11px; border-style:solid; border-color:var(--accent)}
+
+.dial-wrap{flex:1; display:flex; align-items:center; justify-content:center; width:100%}
+.dial{
+  position:relative; width:min(78vw,300px); aspect-ratio:1;
+  display:grid; place-items:center;
+  animation:breathe var(--breathe) ease-in-out infinite;
+}
+@keyframes breathe{0%,100%{transform:scale(1)} 50%{transform:scale(1.028)}}
+.halo{
+  position:absolute; inset:8%; border-radius:50%;
+  background:radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  animation:pulse var(--breathe) ease-in-out infinite; transition:background 1.1s ease;
+}
+@keyframes pulse{0%,100%{opacity:.5} 50%{opacity:1}}
+.dial svg{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg)}
+.ring-track{fill:none; stroke:var(--track); stroke-width:7; transition:stroke 1.1s ease}
+.ring-prog{
+  fill:none; stroke:var(--accent); stroke-width:7; stroke-linecap:round;
+  filter:drop-shadow(0 0 9px var(--glow));
+  transition:stroke-dashoffset .35s linear, stroke 1.1s ease;
+}
+.readout{position:relative; text-align:center; z-index:2}
+.phase-name{
+  font-family:'Fraunces',serif; font-style:italic; font-weight:400;
+  font-size:19px; color:var(--accent); letter-spacing:.01em; transition:color 1.1s ease;
+}
+.clock{
+  font-size:64px; font-weight:600; letter-spacing:-.02em; line-height:1.02;
+  font-variant-numeric:tabular-nums; margin-top:2px;
+}
+.subline{font-size:12.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:5px; transition:color 1.1s ease}
+
+.controls{display:flex; align-items:center; gap:14px; width:100%; margin-top:4px}
+.primary{
+  flex:1; height:60px; border-radius:18px; border:none; cursor:pointer;
+  background:var(--accent); color:#07121a; font-family:inherit; font-size:16px; font-weight:600;
+  letter-spacing:.02em; transition:transform .1s ease, filter .18s ease, background 1.1s ease;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+}
+.primary:active{transform:scale(.97)}
+.primary.ghost{background:transparent; border:1px solid var(--line); color:var(--text)}
+.icon-btn{
+  width:60px; height:60px; flex:0 0 auto; border-radius:18px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  display:grid; place-items:center; transition:background .18s ease, transform .1s ease;
+}
+.icon-btn:hover{background:rgba(255,255,255,.06)}
+.icon-btn:active{transform:scale(.94)}
+.icon-btn svg{width:22px; height:22px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round}
+
+button:focus-visible, .toggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+@media (prefers-reduced-motion: reduce){
+  .dial,.halo{animation:none}
+  .view{animation:none}
+}
+@media (max-height:680px){
+  .lede h1{font-size:27px}
+  .clock{font-size:56px}
+  #setup{gap:18px}
+}
+

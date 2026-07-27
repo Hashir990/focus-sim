@@ -1,0 +1,24 @@
+<!-- ============ CALENDAR / HISTORY OVERLAY ============ -->
+<div class="overlay hide" id="cal-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="cal-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">History</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <div class="cal-nav">
+      <button id="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="cal-month" id="cal-month">—</div>
+      <button id="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="cal-summary">
+      <div class="cal-stat"><b id="cal-sessions">0</b><span>sessions</span></div>
+      <div class="cal-stat"><b id="cal-time">0m</b><span>focused</span></div>
+    </div>
+    <div class="cal-week"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-detail" id="cal-detail"></div>
+  </div>
+</div>

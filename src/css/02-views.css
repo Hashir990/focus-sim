@@ -1,0 +1,5 @@
+/* ---------- shared view mechanics ---------- */
+.view{flex:1; display:flex; flex-direction:column; animation:fade .5s ease both}
+.view.hide{display:none}
+@keyframes fade{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+

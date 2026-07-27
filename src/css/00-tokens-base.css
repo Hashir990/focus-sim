@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap');
+
+:root{
+  --bg:#0b1220; --bg2:#111a2c;
+  --accent:#8aa2f0; --glow:rgba(138,162,240,.28);
+  --text:#e7ecf6; --muted:#8695b4; --track:rgba(255,255,255,.06);
+  --card:rgba(255,255,255,.045); --line:rgba(255,255,255,.09);
+  --breathe:6s;
+}
+[data-phase="focus"]{
+  --bg:#05121a; --bg2:#0a2130;
+  --accent:#4fe0c8; --glow:rgba(79,224,200,.30);
+  --text:#e6f6f2; --muted:#6f96a0; --track:rgba(255,255,255,.05);
+  --breathe:4.6s;
+}
+[data-phase="rest"]{
+  --bg:#150c17; --bg2:#2a1622;
+  --accent:#f2a765; --glow:rgba(242,167,101,.30);
+  --text:#f7ece2; --muted:#a88b7d; --track:rgba(255,255,255,.05);
+  --breathe:7.4s;
+}
+
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  color:var(--text);
+  background:var(--bg);
+  transition:background 1.1s ease;
+  overflow:hidden;
+}
+.app{
+  position:fixed; inset:0;
+  background:
+    radial-gradient(120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 62%);
+  transition:background 1.1s ease;
+  display:flex; align-items:center; justify-content:center;
+}
+.stage{
+  width:100%; max-width:430px; height:100%;
+  padding:22px 24px calc(26px + env(safe-area-inset-bottom));
+  padding-top:calc(20px + env(safe-area-inset-top));
+  display:flex; flex-direction:column;
+}
+
