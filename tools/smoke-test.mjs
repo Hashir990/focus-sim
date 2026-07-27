@@ -71,6 +71,9 @@ check('presets rendered', $('f-presets').children.length > 0);
 check('repeat chips rendered', $('rep-chips').children.length > 0);
 
 // --- session tasks (added before starting) ---------------------------------
+check('setup uses dropdowns', $('drop-rest').tagName === 'DETAILS' && $('drop-tasks').tagName === 'DETAILS');
+check('rest summary filled in', /\d+ min · (×\d+|endless)/.test($('rest-summary').textContent), $('rest-summary').textContent);
+check('task summary starts empty', $('task-summary').textContent === 'None yet', $('task-summary').textContent);
 check('task empty state shown', $('task-list-setup').textContent.includes('Optional'));
 const addTask = (text) => { $('task-input').value = text; click('task-add'); };
 addTask('write the report');
@@ -81,6 +84,7 @@ $('task-list-setup').querySelectorAll('.task-x')[1].click();
 check('task can be removed', $('task-list-setup').querySelectorAll('.task-row').length === 1);
 addTask('reply to emails');
 check('task re-added', $('task-list-setup').querySelectorAll('.task-row').length === 2);
+check('task summary counts', $('task-summary').textContent === '0/2 done', $('task-summary').textContent);
 
 // --- timer -----------------------------------------------------------------
 click('f-plus');

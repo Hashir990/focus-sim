@@ -15,29 +15,39 @@
         <div class="presets" id="f-presets"></div>
       </div>
 
-      <div class="field">
-        <div class="flabel"><span>Rest for</span><span class="tag">recover</span></div>
-        <div class="stepper">
-          <button class="step-btn" id="r-minus" aria-label="Less rest time">−</button>
-          <div class="step-val"><span class="num" id="r-num">5</span><span class="unit">minutes</span></div>
-          <button class="step-btn" id="r-plus" aria-label="More rest time">+</button>
+      <details class="drop" id="drop-rest">
+        <summary>
+          <span class="drop-name">Rest &amp; repeat</span>
+          <span class="drop-val" id="rest-summary">5 min · ×4</span>
+        </summary>
+        <div class="drop-body">
+          <div class="stepper">
+            <button class="step-btn" id="r-minus" aria-label="Less rest time">−</button>
+            <div class="step-val"><span class="num" id="r-num">5</span><span class="unit">minutes</span></div>
+            <button class="step-btn" id="r-plus" aria-label="More rest time">+</button>
+          </div>
+          <div class="presets" id="r-presets"></div>
+          <div class="rep-row">
+            <span class="rep-lbl">Repeat</span>
+            <div class="rep-chips" id="rep-chips"></div>
+          </div>
         </div>
-        <div class="presets" id="r-presets"></div>
-      </div>
+      </details>
 
-      <div class="rep-row">
-        <span class="rep-lbl">Repeat</span>
-        <div class="rep-chips" id="rep-chips"></div>
-      </div>
-
-      <div class="field">
-        <div class="flabel"><span>Tasks</span><button class="task-clear hide" id="task-clear">Clear done</button></div>
-        <div class="task-add">
-          <input id="task-input" class="task-field" type="text" maxlength="90" placeholder="What will you work on?" autocomplete="off" />
-          <button class="mini-btn" id="task-add">Add</button>
+      <details class="drop" id="drop-tasks">
+        <summary>
+          <span class="drop-name">Tasks</span>
+          <span class="drop-val" id="task-summary">None yet</span>
+        </summary>
+        <div class="drop-body">
+          <div class="task-add">
+            <input id="task-input" class="task-field" type="text" maxlength="90" placeholder="What will you work on?" autocomplete="off" />
+            <button class="mini-btn" id="task-add">Add</button>
+          </div>
+          <div class="task-list" id="task-list-setup"></div>
+          <button class="task-clear hide" id="task-clear">Clear done</button>
         </div>
-        <div class="task-list" id="task-list-setup"></div>
-      </div>
+      </details>
 
       <button class="primary begin-btn" id="begin">Begin focus</button>
     </section>

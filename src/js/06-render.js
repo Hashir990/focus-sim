@@ -24,6 +24,8 @@
 
     if(S.mode==='setup'){
       $('f-num').textContent=S.focusMin; $('r-num').textContent=S.breakMin;
+      const rs=$('rest-summary');
+      if(rs) rs.textContent = S.breakMin+' min · '+(S.repeat>0 ? '×'+S.repeat : 'endless');
       $('f-minus').disabled = S.focusMin<=5; $('f-plus').disabled = S.focusMin>=120;
       $('r-minus').disabled = S.breakMin<=5; $('r-plus').disabled = S.breakMin>=30;
       markPresets();

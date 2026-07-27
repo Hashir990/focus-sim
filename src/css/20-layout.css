@@ -1,0 +1,152 @@
+/* ---- layout, fit & scrolling ----
+   Loaded last so it tunes the sizes set in earlier files. Two goals:
+   1. everything fits on one screen at any sensible window size
+   2. when content genuinely can't fit, scrolling is quiet and smooth
+   Sizes use vh as well as vw, because a desktop window is usually wide but short —
+   that's what made this feel wrong on other machines. */
+
+/* ---- smooth, unobtrusive scrolling ---- */
+html{ scroll-behavior:smooth }
+.view, .ov-body, .drawer, .task-live, .q-list, .cal-detail, .drop-body{
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+.view::-webkit-scrollbar, .ov-body::-webkit-scrollbar, .drawer::-webkit-scrollbar,
+.task-live::-webkit-scrollbar, .q-list::-webkit-scrollbar, .drop-body::-webkit-scrollbar{
+  width:9px;
+}
+.view::-webkit-scrollbar-track, .ov-body::-webkit-scrollbar-track,
+.drawer::-webkit-scrollbar-track, .task-live::-webkit-scrollbar-track,
+.q-list::-webkit-scrollbar-track, .drop-body::-webkit-scrollbar-track{ background:transparent }
+.view::-webkit-scrollbar-thumb, .ov-body::-webkit-scrollbar-thumb,
+.drawer::-webkit-scrollbar-thumb, .task-live::-webkit-scrollbar-thumb,
+.q-list::-webkit-scrollbar-thumb, .drop-body::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--muted) 40%, transparent);
+  border-radius:99px;
+  border:2px solid transparent;
+  background-clip:content-box;
+}
+.view:hover::-webkit-scrollbar-thumb, .ov-body:hover::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--muted) 70%, transparent);
+  background-clip:content-box;
+}
+@media (prefers-reduced-motion: reduce){
+  html, .view, .ov-body, .drawer{ scroll-behavior:auto }
+}
+
+/* ---- the shell: don't stretch on big monitors ---- */
+.stage{
+  max-width:min(96vw, 440px);
+  height:min(100%, 940px);
+  padding-left:clamp(14px, 4vw, 24px);
+  padding-right:clamp(14px, 4vw, 24px);
+  padding-top:calc(clamp(10px, 2vh, 20px) + env(safe-area-inset-top));
+  padding-bottom:calc(clamp(12px, 2.2vh, 26px) + env(safe-area-inset-bottom));
+}
+
+/* ---- setup screen: compact, and only scrolls as a last resort ---- */
+#setup{ gap:clamp(9px, 1.7vh, 20px) }
+.lede h1{ font-size:clamp(20px, 3.4vh, 31px) }
+.lede p{ font-size:clamp(12px, 1.6vh, 14.5px); margin-top:clamp(5px, .9vh, 9px) }
+.field{
+  padding:clamp(11px, 1.6vh, 17px) clamp(13px, 3.4vw, 18px);
+  border-radius:clamp(14px, 2vh, 20px);
+}
+.stepper{ margin-top:clamp(7px, 1.3vh, 12px) }
+.step-btn{
+  width:clamp(42px, 6.2vh, 52px); height:clamp(42px, 6.2vh, 52px);
+  font-size:clamp(20px, 3vh, 26px); border-radius:clamp(12px, 1.8vh, 16px);
+}
+.step-val .num{ font-size:clamp(29px, 5.2vh, 44px) }
+.presets{ margin-top:clamp(8px, 1.4vh, 14px) }
+.chip{ padding:clamp(7px, 1.1vh, 9px) 0; font-size:clamp(12px, 1.6vh, 13.5px) }
+.begin-btn{ flex:0 0 auto }
+
+/* ---- dropdowns ---- */
+.drop{
+  background:var(--card); border:1px solid var(--line);
+  border-radius:clamp(14px, 2vh, 20px); overflow:hidden; flex:0 0 auto;
+}
+.drop>summary{
+  list-style:none; cursor:pointer;
+  display:flex; align-items:center; gap:10px;
+  padding:clamp(11px, 1.6vh, 15px) clamp(13px, 3.4vw, 18px);
+  font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  transition:color .18s ease;
+}
+.drop>summary::-webkit-details-marker{ display:none }
+.drop>summary:hover{ color:var(--text) }
+.drop>summary::after{
+  content:''; flex:0 0 auto; width:7px; height:7px; margin-left:2px;
+  border-right:1.6px solid currentColor; border-bottom:1.6px solid currentColor;
+  transform:rotate(45deg) translate(-1px,-2px);
+  transition:transform .22s ease;
+}
+.drop[open]>summary::after{ transform:rotate(-135deg) translate(-1px,-1px) }
+.drop-val{
+  margin-left:auto; font-family:'Fraunces',serif; font-style:italic;
+  text-transform:none; letter-spacing:0; font-size:15px; color:var(--accent);
+  transition:color 1.1s ease;
+}
+.drop[open]>summary{ border-bottom:1px solid var(--line) }
+.drop-body{
+  padding:clamp(11px, 1.6vh, 15px) clamp(13px, 3.4vw, 18px) clamp(13px, 1.9vh, 17px);
+  display:flex; flex-direction:column; gap:clamp(9px, 1.4vh, 13px);
+  max-height:46vh;
+}
+.drop-body .stepper{ margin-top:0 }
+.drop-body .presets{ margin-top:0 }
+.drop .task-clear{ align-self:flex-start }
+@media (prefers-reduced-motion: reduce){
+  .drop>summary::after{ transition:none }
+}
+
+/* ---- timer screen ---- */
+#timer{ justify-content:flex-start; gap:clamp(5px, 1vh, 10px) }
+.cycle{ flex:0 0 auto; margin-top:clamp(4px, 1.2vh, 12px) }
+
+/* dial follows the shorter axis so short desktop windows still fit it */
+.dial-wrap{ flex:1 1 0; min-height:0 }
+.dial{ width:min(78vw, 300px, 44vh) }
+.clock{ font-size:clamp(36px, 7.4vh, 64px) }
+.phase-name{ font-size:clamp(15px, 2.2vh, 19px) }
+.subline{ font-size:clamp(11px, 1.5vh, 12.5px) }
+
+/* the quote takes the space between the dial and the buttons, and centres in it —
+   so it reads as sitting midway rather than clinging to the controls */
+.quote{
+  flex:1 1 0; min-height:clamp(34px, 6vh, 58px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  margin:0 6px;
+}
+.quote .qt{ font-size:clamp(13.5px, 2vh, 15.5px) }
+
+.task-live{ flex:0 1 auto; max-height:min(22vh, 180px); margin:0 auto }
+.controls{ flex:0 0 auto; gap:clamp(10px, 2vw, 14px) }
+.primary{ height:clamp(46px, 6.8vh, 60px); font-size:clamp(14px, 2vh, 16px) }
+.icon-btn{
+  width:clamp(46px, 6.8vh, 60px); height:clamp(46px, 6.8vh, 60px);
+  border-radius:clamp(13px, 2vh, 18px);
+}
+.rest-extra{ flex:0 0 auto; gap:clamp(8px, 1.4vh, 12px) }
+
+/* ---- short windows: shed the decorative bits rather than scroll ---- */
+@media (max-height: 700px){
+  .lede p{ display:none }
+}
+@media (max-height: 600px){
+  .lede{ display:none }
+}
+@media (max-height: 520px){
+  .cycle{ display:none }
+  .quote{ min-height:0 }
+}
+
+/* ---- wide, short desktop windows: sit the app a touch higher than dead centre ---- */
+@media (min-width: 900px) and (min-height: 900px){
+  .stage{ height:min(100%, 880px) }
+}

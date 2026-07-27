@@ -77,6 +77,12 @@
     const clear = $('task-clear');
     if(clear) clear.classList.toggle('hide', !TASKS.some(t=>t.done));
 
+    const sum = $('task-summary');
+    if(sum){
+      const done = TASKS.filter(t=>t.done).length;
+      sum.textContent = TASKS.length ? (done+'/'+TASKS.length+' done') : 'None yet';
+    }
+
     const live = $('task-list-live');
     if(live){
       live.innerHTML = TASKS.map(t=>
