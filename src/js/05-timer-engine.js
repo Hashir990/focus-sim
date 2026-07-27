@@ -3,6 +3,7 @@
     S.running=true;
     S.endAt = Date.now() + S.remaining*1000;
     acquireWake();
+    ambStart();
     clearInterval(loop);
     loop = setInterval(tick,250);
     render();
@@ -12,6 +13,7 @@
     S.remaining = Math.max(0, Math.round((S.endAt-Date.now())/1000));
     clearInterval(loop); loop=null;
     releaseWake();
+    ambStop();
     render();
   }
   function tick(){
@@ -77,6 +79,7 @@
       }
     }
     clearInterval(loop); loop=null; S.running=false; releaseWake();
+    ambStop();
     if(Arcade.open) Arcade.close();
     Quote.stop();
     S.mode='setup'; S.restIsLong=false;

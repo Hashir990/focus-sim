@@ -182,15 +182,66 @@
     ],
   };
 
-  /* Every grid is 9x9, like a newspaper puzzle.
-       words = how many entries to reach for (aspirational; rarely all fit)
+  /* Size and difficulty are separate choices: size sets the geometry, difficulty
+     picks which word bank the clues come from.
+       n     = grid is n x n
+       words = entries to reach for (aspirational; rarely do they all fit)
        good  = stop early once a layout reaches this many, so generating a puzzle
-               doesn't visibly freeze the app — without it, hard took ~2.3s
-       tries = ceiling on layout attempts if `good` is never reached */
-  const CROSS_SIZE = 9;
-  const CROSS_SETTINGS = {
-    easy:   { words: 16, good: 14, tries: 120 },
-    medium: { words: 16, good: 12, tries: 120 },
-    hard:   { words: 15, good: 12, tries: 120 },
+               never visibly freezes the app */
+  /* Short fill, shared by every difficulty. Newspaper grids lean on 3 and 4 letter
+     words for exactly this reason: they're what let long answers interlock. Without
+     a deep pool here the grids come out sparse, and a sparse grid can't be solved
+     from its crossings. */
+  const CROSS_SHORT = [
+    ['ACE','Top card'],['AGE','Years lived'],['AID','Help'],['ALE','Pub drink'],
+    ['APE','Gorilla, for one'],['ARC','Curved path'],['ART','Gallery contents'],
+    ['ASH','Fire remains'],['AXE','Chopping tool'],['BAY','Coastal inlet'],
+    ['BED','You sleep in it'],['BEE','Honey maker'],['BIN','Rubbish container'],
+    ['BOW','Archer’s weapon'],['BUD','Unopened flower'],['CAP','Head cover'],
+    ['COD','White fish'],['COT','Baby’s bed'],['CUP','You drink from it'],
+    ['DEN','Animal’s lair'],['DEW','Morning moisture'],['DIG','Excavate'],
+    ['DOT','Small point'],['DUE','Owed'],['DYE','Colouring agent'],
+    ['ELM','Tall tree'],['END','Final part'],['EVE','Night before'],
+    ['FAN','It cools you'],['FEW','Not many'],['FIG','Soft fruit'],
+    ['FIN','Fish’s limb'],['FOG','Thick mist'],['GAP','Opening'],
+    ['GEM','Precious stone'],['HEN','Farm bird'],['HUE','Shade of colour'],
+    ['ICY','Very cold'],['IRE','Anger'],['JAR','Glass container'],
+    ['JET','Fast plane'],['KEY','It opens a lock'],['LAP','Circuit of a track'],
+    ['LAW','Rule of the land'],['LID','Container top'],['LOG','Fallen timber'],
+    ['MAP','It shows the way'],['NET','Fishing mesh'],['NUT','Bolt’s partner'],
+    ['OAR','Rowing blade'],['OIL','Engine lubricant'],['ORB','Sphere'],
+    ['OWE','Be in debt'],['PAN','Cooking vessel'],['PEA','Small green vegetable'],
+    ['PEN','Writing tool'],['PIT','Deep hole'],['POT','Plant container'],
+    ['RAT','Long-tailed rodent'],['RAW','Uncooked'],['RED','Colour of blood'],
+    ['RIB','Chest bone'],['ROW','Line, or an argument'],['RUG','Floor covering'],
+    ['SAW','Cutting tool'],['SKY','It is above you'],['SUM','Total'],
+    ['TAN','Sun colour'],['TIN','Metal can'],['TIP','Advice, or a point'],
+    ['TOE','Foot digit'],['TOP','Highest part'],['URN','Large vase'],
+    ['VAN','Delivery vehicle'],['WAX','Candle material'],['WEB','Spider’s trap'],
+    ['ACID','Sour substance'],['AREA','Region'],['BARN','Farm building'],
+    ['CAVE','Hollow in rock'],['CLAY','Potter’s material'],['COIN','Metal money'],
+    ['DUSK','Twilight'],['ECHO','Reflected sound'],['FERN','Shade plant'],
+    ['GATE','Garden entrance'],['HERB','Kitchen plant'],['IRIS','Eye part, or a flower'],
+    ['ISLE','Small island'],['KITE','It flies on a string'],['LEAF','It falls in autumn'],
+    ['MOSS','Damp green growth'],['NOTE','Brief message'],['OPEN','Not shut'],
+    ['PATH','Walking route'],['PINE','Evergreen tree'],['RAFT','Simple float'],
+    ['REED','Marsh grass'],['ROOT','Underground part'],['SAND','Beach material'],
+    ['SEED','Plant’s start'],['SILK','Smooth fabric'],['TIDE','Sea’s rise and fall'],
+    ['VASE','Flower holder'],['WAVE','Sea swell, or a greeting'],['WELL','Water source'],
+  ];
+
+  const CROSS_SIZES = {
+    small:  { n: 5, label: '5×5', words: 8,  good: 6  },
+    medium: { n: 7, label: '7×7', words: 13, good: 10 },
+    large:  { n: 9, label: '9×9', words: 20, good: 15 },
   };
+
+  const CROSS_SETTINGS = { tries: 400, deadlineMs: 420 };
+
+  // Fold the shared short fill into every bank, skipping anything already there.
+  for(const level in CROSS_BANK){
+    const have = {};
+    for(const e of CROSS_BANK[level]) have[e[0]] = 1;
+    for(const e of CROSS_SHORT) if(!have[e[0]]) CROSS_BANK[level].push(e);
+  }
 

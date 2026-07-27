@@ -104,11 +104,11 @@
   }
 
   /** Build a finished puzzle: normalised grid, numbering and clue entries. */
-  function crossBuild(diff){
+  function crossBuild(diff, sizeKey){
     const bank = CROSS_BANK[diff] || CROSS_BANK.easy;
-    const cfg = CROSS_SETTINGS[diff] || CROSS_SETTINGS.easy;
-
-    const size = CROSS_SIZE;
+    const geo = CROSS_SIZES[sizeKey] || CROSS_SIZES.large;
+    const cfg = CROSS_SETTINGS;
+    const size = geo.n;
 
     // Score layouts by how interlocked they are, not just how many words fit.
     const density = (r)=>{
@@ -126,11 +126,11 @@
     };
 
     let best = null;
-    const deadline = Date.now() + 400;   // never block the UI for longer than this
+    const deadline = Date.now() + cfg.deadlineMs;   // never block the UI longer
     for(let t=0;t<cfg.tries;t++){
-      const r = crossAttempt(bank, cfg.words, size);
+      const r = crossAttempt(bank, geo.words, size);
       if(r && density(r) > density(best)) best = r;
-      if(best && best.placed.length >= cfg.good) break;
+      if(best && best.placed.length >= geo.good) break;
       if(Date.now() > deadline && best) break;
     }
     if(!best) return null;
@@ -189,33 +189,36 @@
     // an entry with no clue means the layout produced an unintended word — reject
     if(entries.some(e=>!e.clue)) return null;
 
-    return {size, sol, num, entries, diff};
+    return {size, sol, num, entries, diff, sizeKey:(CROSS_SIZES[sizeKey] ? sizeKey : 'large')};
   }
 
-  function crossGenerate(diff){
-    for(let i=0;i<25;i++){
-      const p = crossBuild(diff);
-      if(p && p.entries.length >= 5) return p;
+  function crossGenerate(diff, sizeKey){
+    const least = (CROSS_SIZES[sizeKey] || CROSS_SIZES.large).n <= 5 ? 4 : 5;
+    for(let i=0;i<12;i++){
+      const p = crossBuild(diff, sizeKey);
+      if(p && p.entries.length >= least) return p;
     }
-    return crossBuild(diff);
+    return crossBuild(diff, sizeKey);
   }
 
   const Cross = {
     key:'arcade_cross', built:false, loaded:false,
-    diff:'easy', puz:null, user:[], sel:-1, dir:'across',
+    diff:'easy', sizeKey:'large', puz:null, user:[], sel:-1, dir:'across',
     done:false, elapsed:0, tick:null, wrong:null,
-    pendDiff:null, pendT:null,
+    pend:null, pendT:null,
 
     async enter(){
       if(!this.loaded){
         const d = await readGame(this.key);
         if(d && d.puz && d.puz.sol){
           this.puz = d.puz; this.user = d.user || [];
-          this.diff = d.diff || 'easy'; this.elapsed = d.elapsed || 0; this.done = !!d.done;
+          this.diff = d.diff || 'easy';
+          this.sizeKey = d.sizeKey || d.puz.sizeKey || 'large';
+          this.elapsed = d.elapsed || 0; this.done = !!d.done;
         }
         this.loaded = true;
       }
-      if(!this.puz) this._new(this.diff);
+      if(!this.puz) this._new(this.diff, this.sizeKey);
       this.build();
       this.render();
       $('cw-banner').classList.toggle('hide', !this.done);
@@ -224,9 +227,10 @@
     },
     leave(){ this.stop(); this.persist(); },
 
-    _new(diff){
+    _new(diff, sizeKey){
       this.diff = diff || this.diff;
-      const p = crossGenerate(this.diff);
+      this.sizeKey = sizeKey || this.sizeKey;
+      const p = crossGenerate(this.diff, this.sizeKey);
       if(!p){ toast('Could not build a puzzle — try again'); return; }
       this.puz = p;
       this.user = new Array(p.size*p.size).fill('');
@@ -235,20 +239,25 @@
       this.done = false; this.elapsed = 0; this.wrong = null;
     },
     /** Asks before throwing away a part-filled grid, the way Sudoku does. */
-    newGame(diff, force){
+    newGame(diff, sizeKey, force){
+      diff = diff || this.diff;
+      sizeKey = sizeKey || this.sizeKey;
+      const tag = diff+'/'+sizeKey;
       const started = this.user && this.user.some(v=>v);
-      if(!force && !this.done && started && this.pendDiff !== diff){
-        this.pendDiff = diff;
+      if(!force && !this.done && started && this.pend !== tag){
+        this.pend = tag;
         clearTimeout(this.pendT);
-        this.pendT = setTimeout(()=>{ this.pendDiff = null; }, 3000);
-        toast(diff===this.diff
-          ? 'Tap again for a new puzzle — this one will be lost'
-          : 'Tap again to switch to '+diff+' — this puzzle will be lost');
+        this.pendT = setTimeout(()=>{ this.pend = null; }, 3000);
+        const changing = diff!==this.diff || sizeKey!==this.sizeKey;
+        const what = sizeKey!==this.sizeKey ? (CROSS_SIZES[sizeKey]||{}).label : diff;
+        toast(changing
+          ? 'Tap again to switch to '+what+' — this puzzle will be lost'
+          : 'Tap again for a new puzzle — this one will be lost');
         return;
       }
-      this.pendDiff = null; clearTimeout(this.pendT);
+      this.pend = null; clearTimeout(this.pendT);
       this.stop();
-      this._new(diff);
+      this._new(diff, sizeKey);
       this.persist();
       this.built = false;      // the grid is rebuilt from scratch
       this.build();
@@ -276,14 +285,23 @@
         grid.appendChild(d);
       }
 
-      // difficulty buttons + on-screen letters, built once
+      // difficulty and size pickers + on-screen letters
       const bar = $('cw-ctrl');
       bar.innerHTML = '';
       [['Easy','easy'],['Med','medium'],['Hard','hard']].forEach(([label,d])=>{
         const b = document.createElement('button');
         b.className = 'mini-btn'; b.dataset.d = d; b.textContent = label;
-        b.onclick = ()=>this.newGame(d);
+        b.onclick = ()=>this.newGame(d, this.sizeKey);
         bar.appendChild(b);
+      });
+
+      const sizeBar = $('cw-size');
+      sizeBar.innerHTML = '';
+      ['small','medium','large'].forEach(k=>{
+        const b = document.createElement('button');
+        b.className = 'mini-btn'; b.dataset.s = k; b.textContent = CROSS_SIZES[k].label;
+        b.onclick = ()=>this.newGame(this.diff, k);
+        sizeBar.appendChild(b);
       });
 
       const kbd = $('cw-kbd');
@@ -438,15 +456,21 @@
         };
       });
 
-      $('cw-meta').textContent = this.diff.replace(/^./,m=>m.toUpperCase())+' · '+fmt(this.elapsed);
+      $('cw-meta').textContent = this._label();
       document.querySelectorAll('#cw-ctrl .mini-btn').forEach(b=>b.classList.toggle('on', b.dataset.d===this.diff));
+      document.querySelectorAll('#cw-size .mini-btn').forEach(b=>b.classList.toggle('on', b.dataset.s===this.sizeKey));
+    },
+
+    _label(){
+      const g = CROSS_SIZES[this.sizeKey] || CROSS_SIZES.large;
+      return g.label+' · '+this.diff.replace(/^./,m=>m.toUpperCase())+' · '+fmt(this.elapsed);
     },
 
     run(){
       this.stop();
       this.tick = setInterval(()=>{
         this.elapsed++;
-        $('cw-meta').textContent = this.diff.replace(/^./,m=>m.toUpperCase())+' · '+fmt(this.elapsed);
+        $('cw-meta').textContent = this._label();
         if(this.elapsed % 10 === 0) this.persist();
       }, 1000);
     },
@@ -455,7 +479,8 @@
     persist(){
       try{
         KV.set(this.key, JSON.stringify({
-          puz:this.puz, user:this.user, diff:this.diff, elapsed:this.elapsed, done:this.done
+          puz:this.puz, user:this.user, diff:this.diff, sizeKey:this.sizeKey,
+          elapsed:this.elapsed, done:this.done
         }));
       }catch(e){}
     }
@@ -489,7 +514,8 @@
       if(d.done) return 'Filled<span>new puzzle</span>';
       const total = d.puz.sol.filter(Boolean).length;
       const got = d.puz.sol.filter((v,i)=>v && d.user && d.user[i]).length;
-      return got>0 ? (got+'/'+total+'<span>'+(d.diff||'easy')+'</span>') : 'New<span>tap to start</span>';
+      const g = CROSS_SIZES[d.sizeKey] || CROSS_SIZES.large;
+      return got>0 ? (got+'/'+total+'<span>'+g.label+' '+(d.diff||'easy')+'</span>') : 'New<span>tap to start</span>';
     }
   });
 

@@ -33,7 +33,8 @@ Edit anything in `src/`, save, refresh the page. That's the whole loop.
 adds tasks and ticks them off, starts a session, checks the ticked items land in the
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
-and stats, and generates a dozen crosswords to check the generator. 86 checks. Run it after any change you're unsure about.
+and stats, generates crosswords at every size, and plays every ambience through a
+recording stand-in for Web Audio. 99 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -74,8 +75,9 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `23-memory.js` | Memory match — **currently disabled**, see `MEMORY_ENABLED` |
 | `24-stats.js` | The "Your focus" dashboard, computed from `focus_log` |
 | `25-tasks.js` | Session task list, and folding ticked items into the note |
-| `26-crossword-data.js` | Crossword word/clue banks + difficulty settings |
+| `26-crossword-data.js` | Crossword word/clue banks, shared short fill, size settings |
 | **`27-crossword.js`** | **Crossword — layout generator, grid, clues, keyboard** |
+| **`28-ambience.js`** | **Ambience — Web Audio synthesis, picker, per-sound themes** |
 | `90-init.js` | Kicks everything off |
 | `99-outro.js` | Closes the IIFE |
 
@@ -84,7 +86,7 @@ Files are concatenated in **filename order**, which is why everything has a numb
 `06-picker` · **`07-sudoku`** · **`08-wordle`** · `09-banner-toast` · `10-misc` ·
 `11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · `15-memory` ·
 `16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks` · `20-layout` ·
-**`21-crossword`**
+**`21-crossword`** · **`22-ambience`**
 
 `20-layout.css` loads last on purpose: it tunes the sizes set in every earlier file
 so the app fits a desktop window (which is usually wide but short) as well as a phone.
@@ -151,14 +153,19 @@ at a time, each crossing a word already on the grid, so every intersection is gu
 to agree and every answer is a real word with a matching clue. Candidate positions are
 scored for compactness — picking at random gave sprawling 25-square grids.
 
-Three difficulties, set in `CROSS_SETTINGS` in `src/js/26-crossword-data.js`. Every
-grid is **9x9** and the fill is centred in it:
+**Size and difficulty are separate choices.** Size sets the geometry, difficulty picks
+which word bank the clues come from. Both are in `src/js/26-crossword-data.js`, and the
+fill is always centred in the grid.
 
-| | typical entries | crossing squares | word lengths |
-| --- | --- | --- | --- |
-| easy | 13–15 | ~32% | 3–5 |
-| medium | 11–12 | ~28% | 3–7 |
-| hard | 11–13 | ~26% | 3–9 |
+| size | grid | typical entries | squares filled | crossing squares |
+| --- | --- | --- | --- | --- |
+| small | 5×5 | 6–7 | ~62% | ~35% |
+| medium | 7×7 | 9–11 | ~56% | ~35% |
+| large | 9×9 | 14–18 | ~52% | ~36% |
+
+Density comes from `CROSS_SHORT` — a large shared pool of 3 and 4 letter answers folded
+into every bank. Long answers can't interlock without them, and a sparse grid can't be
+solved from its crossings.
 
 Clues come in three styles, mixed like a newspaper puzzle: plain, **anagram**
 (`['REGENT','N greet (anag.)']`) and **abbreviation** (`['ETC','Et cetera (abbr.)']`).
@@ -266,3 +273,22 @@ Serve it over HTTPS from any static host and it installs from the browser direct
   Bundle the font as base64 there if you want the packaged apps to be truly offline.
 - `tools/split.mjs` is the one-shot script that performed the original split. You never
   need to run it again; it's kept so the provenance of every line is checkable.
+
+## Ambience
+
+Five looping backgrounds — **rain, forest, café, office, campfire** — chosen from the
+side menu, with a volume slider. They start with the timer, pause when you pause, and
+stop when you end a session. Selecting one also repaints the app in colours that suit it
+(rain is cool blue, campfire orange, and so on); choose **Off** and the original
+focus/rest palettes return.
+
+**There are no audio files.** Everything is synthesised live with the Web Audio API, so
+the app stays a single self-contained HTML file and works offline in every packaged
+build. Each sound is a filtered noise bed with randomly scheduled one-shot events on top
+— droplets for rain, birdsong for forest, crockery for café, keystrokes for office,
+crackles for campfire. They're impressions rather than recordings: the goal is something
+steady to focus against.
+
+To change one, edit its builder in `AMB_BUILD` in `src/js/28-ambience.js`. To add one,
+add a builder there, an entry in `AMB_LIST`, and a `[data-amb="…"]` palette in
+`src/css/22-ambience.css`.

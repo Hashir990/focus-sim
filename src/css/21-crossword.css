@@ -1,4 +1,10 @@
 /* ---- crossword ---- */
+.cw-bars{
+  display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+  align-items:center; margin-top:10px;
+}
+.cw-bars .diffs{ display:flex; gap:6px }
+
 .cw{
   --n:9;
   display:grid; grid-template-columns:repeat(var(--n), 1fr);

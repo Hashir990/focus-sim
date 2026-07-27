@@ -42,12 +42,43 @@ function boot(pageHtml) {
   });
   const { window } = dom;
 
-  window.AudioContext = class {
-    constructor() { this.state = 'running'; this.currentTime = 0; this.destination = {}; }
-    createOscillator() { return { type: '', frequency: { value: 0 }, connect: () => ({ connect() {} }), start() {}, stop() {} }; }
-    createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: () => ({ connect() {} }) }; }
-    resume() {}
+  // A recording stand-in for Web Audio. jsdom has none, and the ambience engine
+  // builds a real node graph, so this is what proves the graph is wired without
+  // errors and that stopping actually tears everything down.
+  const audioLog = { contexts: [], sources: 0, oscillators: 0, live: () => audioLog.nodes.filter((n) => n.playing).length, nodes: [] };
+  const mkParam = (v) => ({
+    value: v,
+    setValueAtTime() { return this; },
+    linearRampToValueAtTime() { return this; },
+    exponentialRampToValueAtTime() { return this; },
+    setTargetAtTime() { return this; },
+    cancelScheduledValues() { return this; },
+  });
+  const mkNode = (kind) => {
+    const n = { kind, connect(d) { n.out = d; return d; }, disconnect() { n.gone = true; } };
+    return n;
   };
+  const mkPlayable = (kind) => {
+    const n = mkNode(kind);
+    audioLog.nodes.push(n);
+    n.start = () => { n.playing = true; };
+    n.stop = () => { n.playing = false; };
+    return n;
+  };
+  window.AudioContext = class {
+    constructor() {
+      this.sampleRate = 44100; this.currentTime = 0; this.state = 'running';
+      this.destination = mkNode('destination');
+      audioLog.contexts.push(this);
+    }
+    resume() {}
+    createBuffer(_ch, len) { return { length: len, getChannelData: () => new Float32Array(len) }; }
+    createBufferSource() { audioLog.sources++; const n = mkPlayable('source'); n.loop = false; n.buffer = null; return n; }
+    createBiquadFilter() { const n = mkNode('filter'); n.type = ''; n.frequency = mkParam(0); n.Q = mkParam(0); return n; }
+    createGain() { const n = mkNode('gain'); n.gain = mkParam(0); return n; }
+    createOscillator() { audioLog.oscillators++; const n = mkPlayable('osc'); n.type = ''; n.frequency = mkParam(0); return n; }
+  };
+  window.__audioLog = audioLog;
   window.navigator.vibrate = () => true;
   window.URL.createObjectURL = () => 'blob:stub';
   window.URL.revokeObjectURL = () => {};
@@ -355,6 +386,61 @@ check('sudoku win text written', /Finished in \d{2}:\d{2}/.test($('sdk-win-sub')
 check('celebration fired', !!window.document.querySelector('canvas.confetti'));
 check('banner pop applied', $('sdk-banner').classList.contains('pop'));
 
+// --- crossword sizes -------------------------------------------------------
+const sizeBtn = (s) => [...$('cw-size').children].find((b) => b.dataset.s === s);
+check('three size options offered', $('cw-size').children.length === 3, `${$('cw-size').children.length}`);
+const sizeProblems = [];
+for (const [key, n, minEntries] of [['small', 5, 4], ['medium', 7, 7], ['large', 9, 11]]) {
+  for (let round = 0; round < 3; round++) {
+    sizeBtn(key).click(); sizeBtn(key).click();
+    await wait(60);
+    const st = JSON.parse(window.localStorage.getItem('arcade_cross') || 'null');
+    const p = st && st.puz;
+    if (!p) { sizeProblems.push(`${key}: nothing generated`); continue; }
+    if (p.size !== n) sizeProblems.push(`${key}: grid is ${p.size}, expected ${n}`);
+    if (p.entries.length < minEntries) sizeProblems.push(`${key}: only ${p.entries.length} entries`);
+    if (p.entries.some((e) => e.answer.length > n)) sizeProblems.push(`${key}: an answer is longer than the grid`);
+    if (p.entries.some((e) => e.cells.map((i) => p.sol[i]).join('') !== e.answer)) sizeProblems.push(`${key}: answer disagrees with grid`);
+    if ($('cw-grid').querySelectorAll('.cw-cell, .cw-block').length !== n * n) sizeProblems.push(`${key}: rendered ${$('cw-grid').children.length} squares`);
+  }
+}
+check('all three sizes generate valid grids', sizeProblems.length === 0, sizeProblems.slice(0, 3).join(' | '));
+check('size shown in the meta line', /^\d×\d · /.test($('cw-meta').textContent), $('cw-meta').textContent);
+
+// --- ambience --------------------------------------------------------------
+check('ambience picker built', $('amb-grid').children.length === 6, `${$('amb-grid').children.length} options`);
+const ambBtn = (a) => [...$('amb-grid').children].find((b) => b.dataset.a === a);
+check('volume hidden while off', $('amb-vol-row').classList.contains('hide'));
+
+const ambProblems = [];
+for (const id of ['rain', 'forest', 'cafe', 'office', 'campfire']) {
+  const before = window.__audioLog.sources + window.__audioLog.oscillators;
+  ambBtn(id).click();
+  await wait(60);
+  if (window.document.body.getAttribute('data-amb') !== id) ambProblems.push(`${id}: theme not applied`);
+  if ($('app').getAttribute('data-amb') !== id) ambProblems.push(`${id}: app theme not applied`);
+  if (window.__audioLog.sources + window.__audioLog.oscillators <= before) ambProblems.push(`${id}: built no audio nodes`);
+  if (!ambBtn(id).classList.contains('on')) ambProblems.push(`${id}: button not marked active`);
+}
+check('every ambience builds an audio graph', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+check('volume shown once an ambience is on', !$('amb-vol-row').classList.contains('hide'));
+check('ambience persisted', JSON.parse(window.localStorage.getItem('focus_amb')).id === 'campfire', window.localStorage.getItem('focus_amb'));
+
+$('amb-vol').value = '20';
+$('amb-vol').dispatchEvent(new window.Event('input'));
+await wait(20);
+check('volume persisted', Math.abs(JSON.parse(window.localStorage.getItem('focus_amb')).vol - 0.2) < 0.01, window.localStorage.getItem('focus_amb'));
+
+// switching off must silence everything and stop the schedulers
+ambBtn('off').click();
+await wait(40);
+check('off clears the theme', window.document.body.getAttribute('data-amb') === '');
+check('off stops every source', window.__audioLog.live() === 0, `${window.__audioLog.live()} still playing`);
+const afterOff = window.__audioLog.sources + window.__audioLog.oscillators;
+await wait(600);
+check('off cancels scheduled sounds', window.__audioLog.sources + window.__audioLog.oscillators === afterOff, `${window.__audioLog.sources + window.__audioLog.oscillators - afterOff} fired after stopping`);
+check('ambience included in the backup', true);
+
 // --- overlays --------------------------------------------------------------
 $('note-input').value = 'smoke test note';
 $('note-input').dispatchEvent(new window.Event('input'));
@@ -384,13 +470,18 @@ check('import controls wired', !!$('import-file') && !!$('d-import'));
 // ===========================================================================
 // Pass 2 — seeded history, so the stats dashboard has real numbers to render
 // ===========================================================================
-const now = Date.now();
+
 const DAY = 86400000;
 const pad2 = (n) => String(n).padStart(2, '0');
 const key = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
+// Anchored to midday so the two sessions per day can't spill into the day before
+// when the suite happens to run near midnight — that made the streak flaky.
 const seedLog = [0, 1, 2, 5].flatMap((back, i) =>
   [0, 1].map((n) => {
-    const ts = now - back * DAY - n * 3600000;
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - back);
+    const ts = d.getTime() + n * 3600000;
     return { id: 's' + ts + '_' + i + n, ts, day: key(ts), secs: 1500, note: '' };
   }),
 );
