@@ -1,4 +1,5 @@
 /* ===== sidebar / drawer ===== */
+.build-stamp{ opacity:.55; font-variant-numeric:tabular-nums; font-size:10.5px }
 #setup{ overflow-y:auto; }
 .topbar-left{ display:flex; align-items:center; gap:11px; min-width:0; }
 .menu-btn{ width:38px; height:38px; flex:0 0 auto; border-radius:11px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; display:grid; place-items:center; transition:background .18s; }

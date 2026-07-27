@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch, existsSync 
 import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
+import { execSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(root, 'src');
@@ -34,13 +35,25 @@ function readDirJoined(sub, ext) {
   return files.map((f) => readFileSync(join(dir, f), 'utf8')).join('');
 }
 
+/** Stamped into the drawer footer so you can always see which build you're looking at. */
+function buildStamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const when = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  let hash = '';
+  try {
+    hash = ' · ' + execSync('git rev-parse --short HEAD', { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch (e) { /* not a git repo — fine */ }
+  return when + hash;
+}
+
 export function build() {
   const head = readFileSync(join(SRC, 'head.html'), 'utf8');
   const css = readDirJoined('css', '.css');
   const body = readDirJoined('body', '.html');
   const js = readDirJoined('js', '.js');
 
-  const html =
+  const html = (
     head +
     '<style>\n' +
     css +
@@ -52,7 +65,8 @@ export function build() {
     js +
     '</script>\n' +
     '</body>\n' +
-    '</html>\n';
+    '</html>\n'
+  ).replace(/__BUILD__/g, buildStamp());
 
   mkdirSync(DIST, { recursive: true });
   writeFileSync(join(DIST, 'index.html'), html, 'utf8');
