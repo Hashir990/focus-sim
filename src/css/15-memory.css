@@ -1,0 +1,38 @@
+/* ---- memory match ---- */
+.mem{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:9px;
+  width:min(92vw,340px); margin:10px auto 0;
+}
+.mcard{
+  aspect-ratio:1; position:relative; border:0; padding:0; background:none;
+  cursor:pointer; perspective:600px; -webkit-tap-highlight-color:transparent;
+}
+.mface{
+  position:absolute; inset:0; display:grid; place-items:center;
+  border-radius:12px; backface-visibility:hidden;
+  transition:transform .34s cubic-bezier(.3,.9,.4,1);
+  font-size:26px; line-height:1;
+}
+.mback{
+  background:var(--card); border:1px solid var(--line);
+  transform:rotateY(0deg);
+}
+.mback::after{
+  content:''; width:16px; height:16px; border-radius:50%;
+  background:var(--track);
+}
+.mfront{
+  background:color-mix(in srgb, var(--accent) 16%, transparent);
+  border:1px solid var(--accent); color:var(--text);
+  transform:rotateY(180deg);
+}
+.mcard.up .mback{ transform:rotateY(-180deg) }
+.mcard.up .mfront{ transform:rotateY(0deg) }
+.mcard.matched .mfront{
+  background:color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow:0 0 16px var(--glow);
+}
+.mcard.matched{ cursor:default }
+@media (prefers-reduced-motion: reduce){
+  .mface{ transition:none }
+}

@@ -50,7 +50,7 @@
       if(this.cur===this.answer){ this.won=true; this.done=true; }
       else if(this.guesses.length>=6){ this.done=true; }
       this.cur=''; this.persist(); this.render();
-      if(this.done){ chime(this.won?false:false); if(this.won) buzz(120); this._banner(); }
+      if(this.done){ chime(false); if(this.won) buzz(120); this._banner(this.won); }
     },
     render(){
       for(let r=0;r<6;r++){
@@ -69,11 +69,18 @@
       for(const ch in this.keys){ this.keys[ch].className='key'; if(best[ch]) this.keys[ch].classList.add(best[ch]); }
       $('wdl-meta').textContent = this.done ? (this.won?'Solved':'Missed') : (this.guesses.length+'/6');
     },
-    _banner(){
+    // justWon is only true on the guess that ends the game, so re-opening a
+    // finished board doesn't fire the confetti again.
+    _banner(justWon){
       const bn=$('wdl-banner');
       if(!this.done){ bn.classList.add('hide'); return; }
-      $('wdl-win-title').textContent = this.won ? 'Nice.' : 'So close.';
-      $('wdl-win-sub').textContent = this.won ? ('Found it in '+this.guesses.length+'/6.') : ('The word was '+this.answer.toUpperCase()+'.');
+      const title = this.won ? 'Nice.' : 'So close.';
+      const sub = this.won
+        ? ('Found it in '+this.guesses.length+'/6.')
+        : ('The word was '+this.answer.toUpperCase()+'.');
+      if(justWon && this.won){ showBanner('wdl-banner', title, sub); return; }
+      $('wdl-win-title').textContent = title;
+      $('wdl-win-sub').textContent = sub;
       bn.classList.remove('hide');
     },
     persist(){ try{ KV.set(this.skey, JSON.stringify({answer:this.answer,guesses:this.guesses,done:this.done,won:this.won})); }catch(e){} }
@@ -85,5 +92,15 @@
     if(e.key==='Enter') Wordle.key('enter');
     else if(e.key==='Backspace') Wordle.key('back');
     else if(/^[a-zA-Z]$/.test(e.key)) Wordle.key(e.key.toLowerCase());
+  });
+
+  registerGame('wordle', {
+    el:'game-wordle', title:'Word guess', progEl:'prog-wordle', game:()=>Wordle,
+    async progress(){
+      const w = await readGame(Wordle.skey);
+      if(!w) return 'New<span>tap to start</span>';
+      if(w.done) return w.won ? 'Solved<span>new word</span>' : '—<span>new word</span>';
+      return (w.guesses.length)+'/6<span>in progress</span>';
+    }
   });
 

@@ -1,0 +1,33 @@
+/* ---- 2048 ---- */
+.g2048{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+  width:min(92vw,340px); margin:10px auto 0; padding:8px;
+  background:var(--track); border-radius:16px;
+  touch-action:none; user-select:none;
+}
+.g2048 .t{
+  aspect-ratio:1; display:grid; place-items:center;
+  border-radius:11px; background:rgba(255,255,255,.035);
+  font-weight:700; font-size:23px; letter-spacing:-.5px; color:var(--text);
+}
+.g2048 .t[data-v="0"]{ color:transparent }
+.g2048 .t[data-v="2"]{ background:color-mix(in srgb, var(--accent) 10%, transparent) }
+.g2048 .t[data-v="4"]{ background:color-mix(in srgb, var(--accent) 18%, transparent) }
+.g2048 .t[data-v="8"]{ background:color-mix(in srgb, var(--accent) 27%, transparent) }
+.g2048 .t[data-v="16"]{ background:color-mix(in srgb, var(--accent) 36%, transparent) }
+.g2048 .t[data-v="32"]{ background:color-mix(in srgb, var(--accent) 46%, transparent) }
+.g2048 .t[data-v="64"]{ background:color-mix(in srgb, var(--accent) 56%, transparent) }
+.g2048 .t[data-v="128"]{ background:color-mix(in srgb, var(--accent) 66%, transparent); font-size:20px }
+.g2048 .t[data-v="256"]{ background:color-mix(in srgb, var(--accent) 74%, transparent); font-size:20px }
+.g2048 .t[data-v="512"]{ background:color-mix(in srgb, var(--accent) 82%, transparent); font-size:20px; color:var(--bg) }
+.g2048 .t[data-v="1024"]{ background:var(--accent); font-size:17px; color:var(--bg) }
+.g2048 .t[data-v="2048"]{ background:var(--accent); font-size:17px; color:var(--bg); box-shadow:0 0 22px var(--glow) }
+.g2048 .t[data-v="4096"],.g2048 .t[data-v="8192"]{ background:var(--text); color:var(--bg); font-size:16px }
+.g2048 .t.pop{ animation:t-pop .17s ease }
+@keyframes t-pop{ from{ transform:scale(.68) } to{ transform:scale(1) } }
+.g2048-hint{
+  text-align:center; font-size:12.5px; color:var(--muted); margin-top:10px;
+}
+@media (prefers-reduced-motion: reduce){
+  .g2048 .t.pop{ animation:none }
+}

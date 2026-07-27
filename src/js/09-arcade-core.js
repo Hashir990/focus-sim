@@ -12,6 +12,21 @@
     return null;
   }
 
+  /* Every game registers itself here, so this file never needs editing when you
+     add one. Call registerGame() from the bottom of your game's own file:
+
+       registerGame('chess', {
+         el:'game-chess',            // id of the game's container div
+         title:'Chess',              // shown in the overlay header
+         progEl:'prog-chess',        // id of the .prog span on its picker card
+         game:()=>Chess,             // lazy — Chess is defined after this runs
+         async progress(){ return 'New<span>tap to start</span>'; }
+       });
+
+     Then add a .pcard with data-game="chess" to src/body/06-arcade-picker.html. */
+  const GAMES = {};
+  function registerGame(id, def){ GAMES[id] = Object.assign({id}, def); }
+
   const Arcade = {
     open:false, active:null,
     show(){
@@ -20,45 +35,40 @@
       if(this.active) this._showGame(this.active); else this._picker();
     },
     close(){
-      if(this.active==='sudoku') Sudoku.leave();
-      if(this.active==='wordle') Wordle.leave();
+      this._leaveActive();
       this.open=false; $('overlay').classList.add('hide');
     },
     back(){
-      if(this.active){
-        if(this.active==='sudoku') Sudoku.leave();
-        if(this.active==='wordle') Wordle.leave();
-        this.active=null; this._picker();
-      }else this.close();
+      if(this.active){ this._leaveActive(); this.active=null; this._picker(); }
+      else this.close();
     },
-    async pick(g){ this.active=g; this._showGame(g); },
+    _leaveActive(){
+      const def = this.active && GAMES[this.active];
+      if(!def) return;
+      try{ const g = def.game(); if(g && g.leave) g.leave(); }catch(e){}
+    },
+    async pick(g){ this.active=g; await this._showGame(g); },
     _picker(){
       this.active=null;
       $('picker').classList.remove('hide');
-      $('game-sudoku').classList.add('hide');
-      $('game-wordle').classList.add('hide');
+      for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.add('hide'); }
       $('ov-title').textContent='Rest arcade';
       this._refresh();
     },
     async _refresh(){
-      const s=await readGame(Sudoku.key), w=await readGame(Wordle.skey);
-      $('prog-sudoku').innerHTML = (function(){
-        if(!s) return 'New<span>tap to start</span>';
-        if(s.done) return 'Solved<span>new game</span>';
-        const filled = s.grid.filter((v,i)=>v && !s.given[i]).length;
-        return filled>0 ? (filled+' filled<span>in progress</span>') : 'New<span>tap to start</span>';
-      })();
-      $('prog-wordle').innerHTML = w
-        ? (w.done ? (w.won?'Solved<span>new word</span>':'—<span>new word</span>') : (w.guesses.length+'/6<span>in progress</span>'))
-        : 'New<span>tap to start</span>';
+      for(const id in GAMES){
+        const def=GAMES[id], el=$(def.progEl);
+        if(!el || !def.progress) continue;
+        try{ el.innerHTML = await def.progress(); }
+        catch(e){ el.innerHTML = 'New<span>tap to start</span>'; }
+      }
     },
     async _showGame(g){
       $('picker').classList.add('hide');
-      $('game-sudoku').classList.toggle('hide', g!=='sudoku');
-      $('game-wordle').classList.toggle('hide', g!=='wordle');
-      $('ov-title').textContent = g==='sudoku' ? 'Sudoku' : 'Word guess';
-      if(g==='sudoku') await Sudoku.enter();
-      else await Wordle.enter();
+      for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.toggle('hide', id!==g); }
+      const def=GAMES[g];
+      $('ov-title').textContent = def ? def.title : 'Rest arcade';
+      if(def){ try{ await def.game().enter(); }catch(e){} }
     }
   };
 

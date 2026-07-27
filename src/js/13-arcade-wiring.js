@@ -5,4 +5,8 @@
   $('sdk-again').onclick = ()=>Sudoku.newGame(Sudoku.diff);
   $('wdl-new').onclick = ()=>Wordle.newGame();
   $('wdl-again').onclick = ()=>Wordle.newGame();
+  $('g2048-new').onclick = ()=>G2048.newGame();
+  $('g2048-again').onclick = ()=>G2048.newGame();
+  $('mem-new').onclick = ()=>Memory.newGame();
+  $('mem-again').onclick = ()=>Memory.newGame();
 

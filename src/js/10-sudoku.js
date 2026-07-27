@@ -131,11 +131,21 @@
       for(let i=0;i<81;i++) if(this.grid[i]!==this.sol[i]){ toast('Not quite — check the reds'); return; }
       this.done=true; this.stop(); this.persist();
       chime(false); buzz(120);
-      $('sdk-win-sub').textContent='Finished in '+fmt(this.elapsed)+', across your breaks.';
-      $('sdk-banner').classList.remove('hide');
+      showBanner('sdk-banner', 'Solved.', 'Finished in '+fmt(this.elapsed)+', across your breaks.');
     },
     run(){ this.stop(); this.tick=setInterval(()=>{ this.elapsed++; $('sdk-meta').textContent=this.diff.replace(/^./,m=>m.toUpperCase())+' · '+fmt(this.elapsed); if(this.elapsed%10===0) this.persist(); },1000); },
     stop(){ clearInterval(this.tick); this.tick=null; },
     persist(){ try{ KV.set(this.key, JSON.stringify({grid:this.grid,given:this.given,sol:this.sol,notes:this.notes,diff:this.diff,elapsed:this.elapsed,done:this.done})); }catch(e){} }
   };
+
+  registerGame('sudoku', {
+    el:'game-sudoku', title:'Sudoku', progEl:'prog-sudoku', game:()=>Sudoku,
+    async progress(){
+      const s = await readGame(Sudoku.key);
+      if(!s) return 'New<span>tap to start</span>';
+      if(s.done) return 'Solved<span>new game</span>';
+      const filled = s.grid.filter((v,i)=>v && !s.given[i]).length;
+      return filled>0 ? (filled+' filled<span>in progress</span>') : 'New<span>tap to start</span>';
+    }
+  });
 
