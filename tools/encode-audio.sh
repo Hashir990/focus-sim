@@ -40,9 +40,22 @@ for pair in $TRACKS; do
   [ "$n" = campfire ] && start=0
 
   echo "encoding $n ..."
-  # 2025 s of source -> 2700 s (45 min) out at 0.75x
+  # 2025 s of source -> 2700 s (45 min) out at 0.75x.
+  #
+  # cafe uses librubberband instead of atempo. atempo is a simple overlap-add and
+  # it mangles voices at this much stretch — the chatter came out warbling. A
+  # phase vocoder holds speech together, at roughly 5x the encoding cost. The
+  # other four are steady noise, where atempo is fine and much faster.
+  # cafe also gets a deeper bass cut and an 8.2 kHz roll-off, to take the edge off
+  # the crockery.
+  if [ "$n" = cafe ]; then
+    FILT="volume=${g}dB,highpass=f=65,bass=g=-9:f=220:w=0.6,rubberband=tempo=0.75:transients=smooth:detector=soft:window=long:smoothing=on,lowpass=f=8200,alimiter=limit=0.95"
+  else
+    FILT="volume=${g}dB,bass=g=-7:f=180:w=0.6,highpass=f=55,atempo=0.75,alimiter=limit=0.95"
+  fi
+
   ffmpeg -v error -y -ss "$start" -t 2025 -i "audio-src/$n.mp3" \
-    -af "volume=${g}dB,bass=g=-7:f=180:w=0.6,highpass=f=55,atempo=0.75,alimiter=limit=0.95" \
+    -af "$FILT" \
     -ac 1 -ar 32000 -c:a libmp3lame -b:a 32k -write_xing 1 \
     "dist/audio/$n.mp3"
 done

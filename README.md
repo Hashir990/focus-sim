@@ -34,7 +34,7 @@ adds tasks and ticks them off, starts a session, checks the ticked items land in
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
-recording stand-in for media playback, and checks the calendar compacts and zooms as notes pile up. 119 checks. Run it after any change you're unsure about.
+recording stand-in for media playback, and checks you can move between days in the calendar. 114 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -297,13 +297,23 @@ inlined, so it ships as `dist/audio/` next to it:
 | tone | 7 dB off the low shelf, sub-bass below 55 Hz removed |
 | format | mono MP3, 32 kbps, 32 kHz |
 | size | 10.3 MB each, **52 MB total** |
-| level | normalised to about -27 LUFS, all five within 3 dB of each other |
+| level | -26.5 to -30.5 LUFS as encoded, matched at playback by `AMB_GAIN` |
 
 `preload="none"`, and only the chosen track is ever fetched — the app does not pull
 69 MB at startup.
 
-The slow-down is a time-stretch (`atempo`), not a pitch shift — rain doesn't drop
-into a growl and birdsong stays birdsong. 33 min 45 s of source yields 45 minutes.
+The slow-down is a time-stretch, not a pitch shift — rain doesn't drop into a growl and
+birdsong stays birdsong. 33 min 45 s of source yields 45 minutes.
+
+**Café is stretched with `librubberband`, the other four with `atempo`.** atempo is a
+simple overlap-add: fine on steady noise, but at 0.75x it mangles voices, and the café
+chatter came out warbling. A phase vocoder holds speech together. It costs about 5x more
+to encode, which is why only the one track that needs it uses it. Café also gets a deeper
+bass cut and an 8.2 kHz roll-off to take the edge off the crockery.
+
+Levels are matched at **playback**, not in the files — `AMB_GAIN` in
+`src/js/28-ambience.js` trims each track down to the quietest. Baking the gain in would
+mean re-encoding an already-32 kbps file, which is exactly how you reintroduce artifacts.
 
 Put the full-length recordings in `audio-src/<name>.mp3` and run:
 
@@ -327,15 +337,12 @@ about 52 MB.
 ## Calendar
 
 Days with notes carry a dot — larger if there are several — so you can find writing
-without opening every day. Selecting a day with three or more sessions compacts the
-record cards; six or more also drops the month summary to buy vertical space.
+without opening every day. **Every day is selectable**, including days with no sessions,
+so you can always move from one day to another; empty days say so.
 
-**Scrolling down zooms the month grid out**, smoothly, so the notes rise to meet you;
-scrolling back up restores it. The whole month block scales as one unit, so level bars
-and note dots stay in proportion with the cells instead of drifting.
+Selecting a day with three or more sessions compacts the record cards, and six or more
+also drops the month summary to buy vertical space. Note boxes grow to fit their text
+rather than being a fixed two-line peephole. Beyond that the overlay simply scrolls.
 
-The height the grid gives up is added as padding beneath the notes, keeping the total
-scrollable height constant. That detail matters: without it the page gets shorter as you
-scroll, the browser clamps `scrollTop`, that changes the zoom, and the two fight each
-other in a visible judder. `npm test` asserts grid height plus padding always equals the
-grid's natural height.
+There was briefly a scroll-driven zoom on the month grid. It's gone: it broke day
+selection and juddered. Plain scrolling is what's there now.

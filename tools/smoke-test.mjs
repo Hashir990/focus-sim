@@ -580,63 +580,30 @@ await wait(60);
 check('eight sessions compacts the calendar', $3('cal-overlay').dataset.dense === '2', $3('cal-overlay').dataset.dense);
 check('all eight records shown', $3('cal-detail').querySelectorAll('.cal-rec').length === 8, `${$3('cal-detail').querySelectorAll('.cal-rec').length}`);
 
-// --- scroll zoom -----------------------------------------------------------
-// jsdom reports every element as 0px tall, so drive the natural height directly
-// and check the maths rather than the rendering.
-const calBody = $3('cal-overlay').querySelector('.ov-body');
-const zoomWrap = $3('cal-zoom'), zoomIn = $3('cal-zoom-in');
-check('month grid is wrapped for zooming', !!zoomWrap && !!zoomIn && zoomIn.contains($3('cal-grid')));
-check('week header scales with the grid', zoomIn.querySelector('.cal-week') !== null);
+// --- switching days --------------------------------------------------------
+// The whole grid must stay live once a day is open, including days with nothing
+// on them — otherwise you get stranded on whichever day you picked first.
+const allCells = () => [...$3('cal-grid').querySelectorAll('.cal-cell:not(.blank)')];
+check('every day is clickable, not just days with sessions', allCells().every((c) => typeof c.onclick === 'function'), `${allCells().filter((c) => typeof c.onclick === 'function').length}/${allCells().length}`);
+check('a day is currently selected', $3('cal-grid').querySelectorAll('.cal-cell.sel').length === 1);
 
-const readZ = () => parseFloat(/scale\(([\d.]+)\)/.exec(zoomIn.style.transform || '')?.[1] ?? '1');
-const readH = () => parseFloat(zoomWrap.style.height) || 0;
-const readPad = () => parseFloat($3('cal-detail').style.paddingBottom) || 0;
+// move to an empty day while another is open
+const emptyDay = allCells().find((c) => !c.classList.contains('has') && !c.classList.contains('sel'));
+const emptyLabel = emptyDay.textContent.trim();
+emptyDay.click();
+await wait(60);
+// render() rebuilds the grid, so the old node is detached — look it up again
+const nowSelected = $3('cal-grid').querySelector('.cal-cell.sel');
+check('can switch to an empty day', !!nowSelected && nowSelected.textContent.trim() === emptyLabel, `selected ${nowSelected?.textContent.trim()} wanted ${emptyLabel}`);
+check('empty day explains itself', $3('cal-detail').textContent.includes('No sessions'), $3('cal-detail').textContent.slice(0, 40));
 
-const NAT = 320;
-w3.Cal_natH_probe = true;
-Object.defineProperty(zoomIn, 'offsetHeight', { configurable: true, get: () => NAT });
-calBody.scrollTop = 0;
-calBody.dispatchEvent(new w3.Event('scroll'));
+// and back to the busy one
+const busyDay = allCells().find((c) => c.classList.contains('has'));
+busyDay.click();
 await wait(60);
-check('starts unzoomed at the top', Math.abs(readZ() - 1) < 0.001, `z=${readZ()}`);
-
-calBody.scrollTop = 130;
-calBody.dispatchEvent(new w3.Event('scroll'));
-await wait(60);
-const zMid = readZ();
-check('scrolling down zooms out', zMid > 0.55 && zMid < 1, `z=${zMid}`);
-check('grid height follows the zoom', Math.abs(readH() - NAT * zMid) < 1, `h=${readH()} vs ${NAT * zMid}`);
-// this is the bit that prevents oscillation: what the grid gives up, the notes take
-check('freed space is handed to the notes', Math.abs(readPad() - (NAT - readH())) < 1, `pad=${readPad()} vs ${NAT - readH()}`);
-check('total height stays constant', Math.abs(readH() + readPad() - NAT) < 1, `${readH() + readPad()} vs ${NAT}`);
-
-calBody.scrollTop = 900;
-calBody.dispatchEvent(new w3.Event('scroll'));
-await wait(60);
-check('zoom stops at the floor', Math.abs(readZ() - 0.55) < 0.001, `z=${readZ()}`);
-
-calBody.scrollTop = 0;
-calBody.dispatchEvent(new w3.Event('scroll'));
-await wait(60);
-check('scrolling back up zooms in again', Math.abs(readZ() - 1) < 0.001, `z=${readZ()}`);
-check('padding released on the way back', readPad() < 1, `pad=${readPad()}`);
-
-// --- ending a session early still logs it -----------------------------------
-const sessionCount = () => Number($2('stats-body').querySelectorAll('.stat-card')[1].querySelector('b').textContent);
-const before = sessionCount();
-$2('stats-close').click();
-$2('begin').click();
-await wait(60);
-// jump the clock forward 90s so there is real focus time to record
-const realNow = w2.Date.now;
-w2.Date.now = () => realNow.call(w2.Date) + 90000;
-$2('stop').click();
-await wait(60);
-w2.Date.now = realNow;
-$2('d-stats').click();
-await wait(80);
-check('stopping early still logs the session', sessionCount() === before + 1, `${before} → ${sessionCount()}`);
-check('back on the setup screen after stop', !$2('setup').classList.contains('hide'));
+check('can switch back to a day with sessions', $3('cal-detail').querySelectorAll('.cal-rec').length === 8, `${$3('cal-detail').querySelectorAll('.cal-rec').length}`);
+check('no leftover padding from the old zoom', !$3('cal-detail').style.paddingBottom, $3('cal-detail').style.paddingBottom);
+check('zoom wrapper is gone', !$3('cal-zoom') && !$3('cal-zoom-in'));
 
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2);

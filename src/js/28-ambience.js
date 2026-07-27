@@ -1,5 +1,5 @@
   /* ---------------- AMBIENCE ----------------
-     Real recordings, one hour each, in dist/audio/. They are the only part of the
+     Real recordings, 45 minutes each, in dist/audio/. They are the only part of the
      app that isn't inside the single HTML file — an hour of audio can't be
      inlined, so `audio/` ships alongside index.html and every packaging target
      copies it.
@@ -13,7 +13,7 @@
      event, which only fires about four times a second — too coarse to sound
      smooth. */
 
-  var AMB = { id:'off', vol:0.55, el:null, tick:null, wanted:false, warned:false };
+  var AMB = { id:'off', vol:0.7, el:null, tick:null, wanted:false, warned:false };
 
   var AMB_LIST = [
     ['off','Off'], ['rain','Rain'], ['forest','Forest'],
@@ -25,12 +25,26 @@
     office:'audio/office.mp3', campfire:'audio/campfire.mp3',
   };
 
+  /* Per-track trim, so no ambience is louder than another.
+
+     Measured with ebur128 after encoding; each track is scaled down to match the
+     quietest (café, at -30.5 LUFS). Doing it here rather than baking gain into the
+     files avoids a second lossy encode — and re-encoding an already-32 kbps file
+     is exactly how you reintroduce the artifacts we just removed. */
+  var AMB_GAIN = {
+    rain: 0.79,       // -28.5 LUFS
+    forest: 0.68,     // -27.1
+    cafe: 1.00,       // -30.5, the quietest, so it sets the reference
+    office: 0.63,     // -26.5
+    campfire: 0.88,   // -29.4
+  };
+
   var AMB_FADE = 3;          // seconds, in and out
 
   function ambElement(){
     if(AMB.el) return AMB.el;
     const el = document.createElement('audio');
-    el.preload = 'none';     // 69 MB of audio must not load until it's asked for
+    el.preload = 'none';     // 52 MB of audio must not load until it's asked for
     el.loop = false;         // we handle the repeat, so we can fade across it
     el.volume = 0;
     el.setAttribute('aria-hidden','true');
@@ -61,13 +75,16 @@
     return 1;
   }
 
+  function ambLevel(el){
+    return AMB.vol * (AMB_GAIN[AMB.id] || 1) * ambFadeFactor(el);
+  }
+
   function ambTicker(){
     clearInterval(AMB.tick);
     AMB.tick = setInterval(()=>{
       const el = AMB.el;
       if(!el || el.paused){ return; }
-      const v = AMB.vol * ambFadeFactor(el);
-      el.volume = Math.max(0, Math.min(1, v));
+      el.volume = Math.max(0, Math.min(1, ambLevel(el)));
     }, 80);
   }
 
@@ -108,7 +125,7 @@
   function ambSetVolume(v){
     AMB.vol = Math.max(0, Math.min(1, v));
     const el = AMB.el;
-    if(el && !el.paused) el.volume = Math.max(0, Math.min(1, AMB.vol * ambFadeFactor(el)));
+    if(el && !el.paused) el.volume = Math.max(0, Math.min(1, ambLevel(el)));
     ambSave();
   }
 

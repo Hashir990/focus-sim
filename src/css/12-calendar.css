@@ -61,17 +61,3 @@
 
 .cal-rec textarea{ overflow:hidden; min-height:38px; transition:height .12s ease }
 @media (prefers-reduced-motion: reduce){ .cal-rec textarea{ transition:none } }
-
-/* ---- scroll zoom ----
-   The whole month block scales as one, so the level bars and note dots shrink
-   with the cells instead of drifting out of proportion. Height is driven from
-   JS (Cal.zoom) rather than CSS, because the space it gives up has to be handed
-   to the notes below exactly. */
-.cal-zoom{ overflow:hidden }
-.cal-zoom-in{
-  transform-origin:top center;
-  will-change:transform;
-}
-/* the grid is already at its most compact by this point — stop shrinking the
-   text further or the dates stop being readable */
-.cal-zoom[data-z="0.55"] .cal-cell{ color:var(--text) }
