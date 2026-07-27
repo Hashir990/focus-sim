@@ -45,7 +45,7 @@ function boot(pageHtml) {
   // A recording stand-in for Web Audio. jsdom has none, and the ambience engine
   // builds a real node graph, so this is what proves the graph is wired without
   // errors and that stopping actually tears everything down.
-  const audioLog = { contexts: [], sources: 0, oscillators: 0, live: () => audioLog.nodes.filter((n) => n.playing).length, nodes: [] };
+  const audioLog = { contexts: [], sources: 0, oscillators: 0, limiters: 0, live: () => audioLog.nodes.filter((n) => n.playing).length, nodes: [] };
   const mkParam = (v) => ({
     value: v,
     setValueAtTime() { return this; },
@@ -77,6 +77,13 @@ function boot(pageHtml) {
     createBiquadFilter() { const n = mkNode('filter'); n.type = ''; n.frequency = mkParam(0); n.Q = mkParam(0); return n; }
     createGain() { const n = mkNode('gain'); n.gain = mkParam(0); return n; }
     createOscillator() { audioLog.oscillators++; const n = mkPlayable('osc'); n.type = ''; n.frequency = mkParam(0); return n; }
+    createDynamicsCompressor() {
+      audioLog.limiters++;
+      const n = mkNode('compressor');
+      n.threshold = mkParam(-24); n.knee = mkParam(30); n.ratio = mkParam(12);
+      n.attack = mkParam(0.003); n.release = mkParam(0.25);
+      return n;
+    }
   };
   window.__audioLog = audioLog;
   window.navigator.vibrate = () => true;
@@ -423,6 +430,9 @@ for (const id of ['rain', 'forest', 'cafe', 'office', 'campfire']) {
   if (!ambBtn(id).classList.contains('on')) ambProblems.push(`${id}: button not marked active`);
 }
 check('every ambience builds an audio graph', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+// A limiter on the output is what stops layers summing into clipping — clipping
+// is what the buzzing was.
+check('each ambience is limited on output', window.__audioLog.limiters >= 5, `${window.__audioLog.limiters} limiters`);
 check('volume shown once an ambience is on', !$('amb-vol-row').classList.contains('hide'));
 check('ambience persisted', JSON.parse(window.localStorage.getItem('focus_amb')).id === 'campfire', window.localStorage.getItem('focus_amb'));
 

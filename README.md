@@ -284,10 +284,26 @@ focus/rest palettes return.
 
 **There are no audio files.** Everything is synthesised live with the Web Audio API, so
 the app stays a single self-contained HTML file and works offline in every packaged
-build. Each sound is a filtered noise bed with randomly scheduled one-shot events on top
-— droplets for rain, birdsong for forest, crockery for café, keystrokes for office,
-crackles for campfire. They're impressions rather than recordings: the goal is something
-steady to focus against.
+build. Each sound is a filtered noise bed with randomly scheduled events on top —
+spatter for rain, birdsong for forest, laughter and crockery for café, keyboards, a desk
+phone and low talk for office, crackles for campfire. The chatter is two-formant noise
+syllables: unintelligible, but recognisably people.
+
+Three rules keep it from buzzing, learned by getting them wrong first:
+
+1. **One white-noise buffer, everything else is a filter on it.** The first version built
+   "brown" noise as a scaled random walk, which ran past ±1 — and clipping *is* what
+   distortion sounds like. A lowpass on white noise gives the same warmth safely, and
+   loops without the click a low-frequency buffer produces at its seam.
+2. **No sustained oscillators.** A steady sine is a hum, not an ambience; the office had
+   one at 104 Hz. Pitched tones now only ever appear as short events.
+3. **Low filter Q.** A high-Q bandpass on noise rings like a whistle — that was the
+   "buzz" in the rain droplets.
+
+Everything sums into one gain, then a limiter, so no combination of layers can drive the
+output into distortion. `node tools/audio-levels.mjs` renders each ambience offline with
+a real Web Audio implementation and prints peak and RMS; at full volume the loudest peaks
+around 0.22, leaving roughly 13 dB of headroom.
 
 To change one, edit its builder in `AMB_BUILD` in `src/js/28-ambience.js`. To add one,
 add a builder there, an entry in `AMB_LIST`, and a `[data-amb="…"]` palette in
