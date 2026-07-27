@@ -1,0 +1,47 @@
+{
+  "name": "focus-simulator",
+  "version": "1.0.0",
+  "description": "A focus timer with a rest arcade, fading quotes, and a progress calendar.",
+  "private": true,
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "dev": "node tools/build.mjs --serve",
+    "watch": "node tools/build.mjs --watch",
+    "verify": "node tools/build.mjs --verify",
+    "test": "node tools/build.mjs && node tools/smoke-test.mjs",
+
+    "cap:add:android": "npm run build && npx cap add android",
+    "cap:add:ios": "npm run build && npx cap add ios",
+    "cap:sync": "npm run build && npx cap sync",
+    "android": "npm run cap:sync && npx cap open android",
+    "ios": "npm run cap:sync && npx cap open ios",
+
+    "electron": "npm run build && electron .",
+    "electron:pack": "npm run build && electron-builder",
+
+    "tauri": "npm run build && tauri dev",
+    "tauri:build": "npm run build && tauri build"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^25.0.1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "build": {
+    "appId": "app.focussimulator.desktop",
+    "productName": "Focus Simulator",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "win": { "target": ["nsis"] },
+    "mac": { "target": ["dmg"], "category": "public.app-category.productivity" },
+    "linux": { "target": ["AppImage"], "category": "Utility" }
+  }
+}

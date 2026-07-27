@@ -1,23 +1,20 @@
 node_modules/
 dist/
-build/
-coverage/
-.next/
-out/
-.expo/
-.expo-shared/
-*.tsbuildinfo
+release/
+
+# Capacitor native projects (regenerate with `npm run cap:add:android` / `:ios`)
+android/
+ios/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
 
 .env
 .env.local
-.env.*.local
-
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/*
-!.vscode/extensions.json
-
 *.log
 npm-debug.log*
-.turbo/
+.idea/
+.vscode/

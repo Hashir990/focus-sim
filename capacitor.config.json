@@ -1,0 +1,17 @@
+{
+  "appId": "app.focussimulator.mobile",
+  "appName": "Focus Simulator",
+  "webDir": "dist",
+  "backgroundColor": "#0b1220",
+  "android": {
+    "backgroundColor": "#0b1220",
+    "allowMixedContent": false
+  },
+  "ios": {
+    "backgroundColor": "#0b1220",
+    "contentInset": "always"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
