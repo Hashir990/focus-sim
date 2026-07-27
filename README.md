@@ -34,7 +34,7 @@ adds tasks and ticks them off, starts a session, checks the ticked items land in
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
-recording stand-in for media playback, and checks the calendar compacts as notes pile up. 109 checks. Run it after any change you're unsure about.
+recording stand-in for media playback, and checks the calendar compacts and zooms as notes pile up. 119 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -292,13 +292,18 @@ inlined, so it ships as `dist/audio/` next to it:
 
 | | |
 | --- | --- |
-| length | 60 min each |
+| length | 45 min each |
+| speed | slowed to **0.75x**, pitch unchanged |
+| tone | 7 dB off the low shelf, sub-bass below 55 Hz removed |
 | format | mono MP3, 32 kbps, 32 kHz |
-| size | 13.7 MB each, **69 MB total** |
-| level | normalised to about -26 LUFS, all five within 2.4 dB of each other |
+| size | 10.3 MB each, **52 MB total** |
+| level | normalised to about -27 LUFS, all five within 3 dB of each other |
 
 `preload="none"`, and only the chosen track is ever fetched — the app does not pull
 69 MB at startup.
+
+The slow-down is a time-stretch (`atempo`), not a pitch shift — rain doesn't drop
+into a growl and birdsong stays birdsong. 33 min 45 s of source yields 45 minutes.
 
 Put the full-length recordings in `audio-src/<name>.mp3` and run:
 
@@ -316,5 +321,21 @@ is in the git history if it's ever wanted.
 
 Packaging: Electron unpacks `dist/audio` from the asar so the files stay seekable;
 Capacitor and Tauri copy `dist/` wholesale. Expect the Electron installer to grow by
-about 69 MB.
+about 52 MB.
 
+
+## Calendar
+
+Days with notes carry a dot — larger if there are several — so you can find writing
+without opening every day. Selecting a day with three or more sessions compacts the
+record cards; six or more also drops the month summary to buy vertical space.
+
+**Scrolling down zooms the month grid out**, smoothly, so the notes rise to meet you;
+scrolling back up restores it. The whole month block scales as one unit, so level bars
+and note dots stay in proportion with the cells instead of drifting.
+
+The height the grid gives up is added as padding beneath the notes, keeping the total
+scrollable height constant. That detail matters: without it the page gets shorter as you
+scroll, the browser clamps `scrollTop`, that changes the zoom, and the two fight each
+other in a visible judder. `npm test` asserts grid height plus padding always equals the
+grid's natural height.

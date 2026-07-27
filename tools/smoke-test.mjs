@@ -580,6 +580,47 @@ await wait(60);
 check('eight sessions compacts the calendar', $3('cal-overlay').dataset.dense === '2', $3('cal-overlay').dataset.dense);
 check('all eight records shown', $3('cal-detail').querySelectorAll('.cal-rec').length === 8, `${$3('cal-detail').querySelectorAll('.cal-rec').length}`);
 
+// --- scroll zoom -----------------------------------------------------------
+// jsdom reports every element as 0px tall, so drive the natural height directly
+// and check the maths rather than the rendering.
+const calBody = $3('cal-overlay').querySelector('.ov-body');
+const zoomWrap = $3('cal-zoom'), zoomIn = $3('cal-zoom-in');
+check('month grid is wrapped for zooming', !!zoomWrap && !!zoomIn && zoomIn.contains($3('cal-grid')));
+check('week header scales with the grid', zoomIn.querySelector('.cal-week') !== null);
+
+const readZ = () => parseFloat(/scale\(([\d.]+)\)/.exec(zoomIn.style.transform || '')?.[1] ?? '1');
+const readH = () => parseFloat(zoomWrap.style.height) || 0;
+const readPad = () => parseFloat($3('cal-detail').style.paddingBottom) || 0;
+
+const NAT = 320;
+w3.Cal_natH_probe = true;
+Object.defineProperty(zoomIn, 'offsetHeight', { configurable: true, get: () => NAT });
+calBody.scrollTop = 0;
+calBody.dispatchEvent(new w3.Event('scroll'));
+await wait(60);
+check('starts unzoomed at the top', Math.abs(readZ() - 1) < 0.001, `z=${readZ()}`);
+
+calBody.scrollTop = 130;
+calBody.dispatchEvent(new w3.Event('scroll'));
+await wait(60);
+const zMid = readZ();
+check('scrolling down zooms out', zMid > 0.55 && zMid < 1, `z=${zMid}`);
+check('grid height follows the zoom', Math.abs(readH() - NAT * zMid) < 1, `h=${readH()} vs ${NAT * zMid}`);
+// this is the bit that prevents oscillation: what the grid gives up, the notes take
+check('freed space is handed to the notes', Math.abs(readPad() - (NAT - readH())) < 1, `pad=${readPad()} vs ${NAT - readH()}`);
+check('total height stays constant', Math.abs(readH() + readPad() - NAT) < 1, `${readH() + readPad()} vs ${NAT}`);
+
+calBody.scrollTop = 900;
+calBody.dispatchEvent(new w3.Event('scroll'));
+await wait(60);
+check('zoom stops at the floor', Math.abs(readZ() - 0.55) < 0.001, `z=${readZ()}`);
+
+calBody.scrollTop = 0;
+calBody.dispatchEvent(new w3.Event('scroll'));
+await wait(60);
+check('scrolling back up zooms in again', Math.abs(readZ() - 1) < 0.001, `z=${readZ()}`);
+check('padding released on the way back', readPad() < 1, `pad=${readPad()}`);
+
 // --- ending a session early still logs it -----------------------------------
 const sessionCount = () => Number($2('stats-body').querySelectorAll('.stat-card')[1].querySelector('b').textContent);
 const before = sessionCount();

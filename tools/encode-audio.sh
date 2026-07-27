@@ -1,8 +1,16 @@
 #!/bin/bash
-# Cuts the full-length source recordings down to the one-hour tracks the app ships.
+# Cuts the full-length source recordings down to the tracks the app ships.
 #
 #   audio-src/<name>.mp3   full recording (1-4 hours, 55-235 MB) — not in git
-#   dist/audio/<name>.mp3  one hour, mono, 32 kbps, ~13.7 MB
+#   dist/audio/<name>.mp3  45 min, mono, 32 kbps, ~10.3 MB
+#
+# The recordings are slowed to 75% speed to make them calmer to work to. atempo
+# does this by time-stretching, so pitch is unchanged — rain doesn't drop into a
+# growl and birdsong stays birdsong. 33 min 45 s of source therefore yields the
+# 45 minutes we want.
+#
+# bass= takes 7 dB off the low shelf and highpass= clears the sub-bass rumble
+# underneath it, which is what made them feel heavy through speakers.
 #
 # The gain per track was measured with ebur128 on a 90-second sample and brings
 # each one to about -26 LUFS, so no ambience is louder or harsher than another:
@@ -32,8 +40,9 @@ for pair in $TRACKS; do
   [ "$n" = campfire ] && start=0
 
   echo "encoding $n ..."
-  ffmpeg -v error -y -ss "$start" -t 3600 -i "audio-src/$n.mp3" \
-    -af "volume=${g}dB,alimiter=limit=0.95" \
+  # 2025 s of source -> 2700 s (45 min) out at 0.75x
+  ffmpeg -v error -y -ss "$start" -t 2025 -i "audio-src/$n.mp3" \
+    -af "volume=${g}dB,bass=g=-7:f=180:w=0.6,highpass=f=55,atempo=0.75,alimiter=limit=0.95" \
     -ac 1 -ar 32000 -c:a libmp3lame -b:a 32k -write_xing 1 \
     "dist/audio/$n.mp3"
 done
