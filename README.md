@@ -33,7 +33,7 @@ Edit anything in `src/`, save, refresh the page. That's the whole loop.
 adds tasks and ticks them off, starts a session, checks the ticked items land in the
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
-and stats, and generates a dozen crosswords to check the generator. 74 checks. Run it after any change you're unsure about.
+and stats, and generates a dozen crosswords to check the generator. 86 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -151,20 +151,26 @@ at a time, each crossing a word already on the grid, so every intersection is gu
 to agree and every answer is a real word with a matching clue. Candidate positions are
 scored for compactness — picking at random gave sprawling 25-square grids.
 
-Three difficulties, set in `CROSS_SETTINGS` in `src/js/26-crossword-data.js`:
+Three difficulties, set in `CROSS_SETTINGS` in `src/js/26-crossword-data.js`. Every
+grid is **9x9** and the fill is centred in it:
 
-| | words | max grid | typical |
+| | typical entries | crossing squares | word lengths |
 | --- | --- | --- | --- |
-| easy | 7 | 11 | 4–5 letter words, 8–11 squares |
-| medium | 9 | 13 | 6–8 letters, 11–13 squares |
-| hard | 10 | 15 | 5–10 letters, 14–15 squares |
+| easy | 13–15 | ~32% | 3–5 |
+| medium | 11–12 | ~28% | 3–7 |
+| hard | 11–13 | ~26% | 3–9 |
+
+Clues come in three styles, mixed like a newspaper puzzle: plain, **anagram**
+(`['REGENT','N greet (anag.)']`) and **abbreviation** (`['ETC','Et cetera (abbr.)']`).
+Letter counts are shown after every clue and derived from the entry, so they can't
+drift out of step with the answer.
 
 To add clues, drop `['WORD','Its clue']` into the relevant bank — it joins the rotation
 immediately. Type with a real keyboard or the on-screen one; Tab moves between clues,
 arrow keys move within one, and tapping a square you're already on flips across/down.
 
 `npm test` generates 12 puzzles across the three difficulties and asserts each one is
-self-consistent: every entry's recorded answer matches the letters actually in those
+self-consistent: every entry’s recorded answer matches the letters actually in those
 squares, every entry has a clue, every entry is contiguous, and no filled square is
 orphaned outside an entry.
 

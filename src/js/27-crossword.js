@@ -53,12 +53,19 @@
     // The longest word forms the spine; the rest stay shuffled rather than sorted
     // by length. Feeding them longest-first meant only the long words ever got
     // used, which is what made the hard grids so wide.
-    const pool = crossShuffle(bank).slice(0, Math.max(want*4, want+14));
+    // Only words that can physically fit are considered. The longest forms the
+    // spine; the rest stay shuffled rather than sorted by length, because feeding
+    // them longest-first meant only the long words ever got used.
+    const usable = bank.filter(e=>e[0].length <= maxSide);
+    const pool = crossShuffle(usable).slice(0, Math.max(want*5, want+20));
     pool.sort((a,b)=>b[0].length-a[0].length);
     const order = [pool[0]].concat(crossShuffle(pool.slice(1)));
 
     put(order[0][0], order[0][1], 0, 0, 'across');
 
+    // Several sweeps: a word that wouldn't fit early often fits once more
+    // letters are on the grid, and that's where the extra interlocking comes from.
+    for(let sweep=0; sweep<3 && placed.length<want; sweep++)
     for(let p=1; p<order.length && placed.length<want; p++){
       const [word, clue] = order[p];
       if(placed.some(e=>e.word===word)) continue;
@@ -80,9 +87,11 @@
             const ec = cc + (dir==='across' ? word.length-1 : 0);
             const h = Math.max(maxR, er) - Math.min(minR, rr) + 1;
             const w = Math.max(maxC, ec) - Math.min(minC, cc) + 1;
-            if(Math.max(h,w) > maxSide) continue;      // hard ceiling on grid size
-            // squareness first, then total area, then reward extra crossings
-            const score = Math.max(h,w)*400 + h*w - crossings*30 + Math.random()*8;
+            if(h > maxSide || w > maxSide) continue;   // must stay inside the 9x9
+            // Crossings dominate: a word that locks into two existing words is
+            // worth far more than one that just dangles off a single letter.
+            // Area is the tie-breaker, keeping the fill dense rather than spidery.
+            const score = -crossings*260 + h*w*3 + Math.max(h,w)*12 + Math.random()*6;
             if(score < bestScore){ bestScore = score; bestSpot = [rr,cc,dir]; }
           }
         }
@@ -99,15 +108,35 @@
     const bank = CROSS_BANK[diff] || CROSS_BANK.easy;
     const cfg = CROSS_SETTINGS[diff] || CROSS_SETTINGS.easy;
 
+    const size = CROSS_SIZE;
+
+    // Score layouts by how interlocked they are, not just how many words fit.
+    const density = (r)=>{
+      if(!r) return -1;
+      let crossings = 0;
+      const seen = new Set();
+      for(const p of r.placed){
+        const dr = p.dir==='down'?1:0, dc = p.dir==='across'?1:0;
+        for(let i=0;i<p.word.length;i++){
+          const k = (p.r+dr*i)+','+(p.c+dc*i);
+          if(seen.has(k)) crossings++; else seen.add(k);
+        }
+      }
+      return r.placed.length*10 + crossings*4;
+    };
+
     let best = null;
+    const deadline = Date.now() + 400;   // never block the UI for longer than this
     for(let t=0;t<cfg.tries;t++){
-      const r = crossAttempt(bank, cfg.words, cfg.maxSide);
-      if(r && (!best || r.placed.length > best.placed.length)) best = r;
-      if(best && best.placed.length >= cfg.words) break;
+      const r = crossAttempt(bank, cfg.words, size);
+      if(r && density(r) > density(best)) best = r;
+      if(best && best.placed.length >= cfg.good) break;
+      if(Date.now() > deadline && best) break;
     }
     if(!best) return null;
 
-    // normalise coordinates to a 0-based square grid
+    // normalise, then centre the fill inside the 9x9 rather than pinning it
+    // to the top-left corner
     let minR=Infinity, maxR=-Infinity, minC=Infinity, maxC=-Infinity;
     for(const k of best.cells.keys()){
       const [r,c] = k.split(',').map(Number);
@@ -115,11 +144,13 @@
       if(c<minC) minC=c; if(c>maxC) maxC=c;
     }
     const rows = maxR-minR+1, cols = maxC-minC+1;
-    const size = Math.max(rows, cols);
+    if(rows > size || cols > size) return null;
+    const offR = Math.floor((size-rows)/2), offC = Math.floor((size-cols)/2);
+
     const sol = new Array(size*size).fill(null);
     for(const [k,v] of best.cells){
       const [r,c] = k.split(',').map(Number);
-      sol[(r-minR)*size + (c-minC)] = v;
+      sol[(r-minR+offR)*size + (c-minC+offC)] = v;
     }
 
     // standard numbering: a square starts an entry if it has no filled neighbour
@@ -173,6 +204,7 @@
     key:'arcade_cross', built:false, loaded:false,
     diff:'easy', puz:null, user:[], sel:-1, dir:'across',
     done:false, elapsed:0, tick:null, wrong:null,
+    pendDiff:null, pendT:null,
 
     async enter(){
       if(!this.loaded){
@@ -202,11 +234,23 @@
       this.dir = 'across';
       this.done = false; this.elapsed = 0; this.wrong = null;
     },
-    newGame(diff){
+    /** Asks before throwing away a part-filled grid, the way Sudoku does. */
+    newGame(diff, force){
+      const started = this.user && this.user.some(v=>v);
+      if(!force && !this.done && started && this.pendDiff !== diff){
+        this.pendDiff = diff;
+        clearTimeout(this.pendT);
+        this.pendT = setTimeout(()=>{ this.pendDiff = null; }, 3000);
+        toast(diff===this.diff
+          ? 'Tap again for a new puzzle — this one will be lost'
+          : 'Tap again to switch to '+diff+' — this puzzle will be lost');
+        return;
+      }
+      this.pendDiff = null; clearTimeout(this.pendT);
       this.stop();
       this._new(diff);
       this.persist();
-      this.built = false;      // grid dimensions change, so rebuild the DOM
+      this.built = false;      // the grid is rebuilt from scratch
       this.build();
       this.render();
       $('cw-banner').classList.add('hide');
@@ -368,9 +412,10 @@
         if(let_) let_.textContent = this.user[i] || '';
       }
 
-      // clue strip: the one you're on
+      // clue strip: the one you're on. The letter count is derived from the entry
+      // itself, so it can never drift out of step with the answer.
       $('cw-clue').textContent = cur
-        ? (cur.num+' '+cur.dir+' · '+cur.clue)
+        ? (cur.num+' '+cur.dir+' · '+cur.clue+' ('+cur.answer.length+')')
         : 'Pick a square to start';
 
       // full clue list
@@ -381,7 +426,7 @@
           const on = cur && cur.num===e.num && cur.dir===e.dir;
           return '<button class="cw-clue-item'+(on?' on':'')+(filled?' filled':'')+'" '
             + 'data-num="'+e.num+'" data-dir="'+e.dir+'">'
-            + '<b>'+e.num+'</b><span>'+esc(e.clue)+'</span></button>';
+            + '<b>'+e.num+'</b><span>'+esc(e.clue)+' <i>('+e.answer.length+')</i></span></button>';
         }).join('');
         return '<div class="cw-clue-col"><p class="q-sec">'+label+'</p>'+items+'</div>';
       };

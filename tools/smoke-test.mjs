@@ -174,6 +174,10 @@ check('crossword grid rendered', $('cw-grid').querySelectorAll('.cw-cell').lengt
 const diffBtn = (d) => [...$('cw-ctrl').children].find((b) => b.dataset.d === d);
 let genProblems = [];
 let puzzlesChecked = 0;
+const gridSizes = [];
+const centreProblems = [];
+const crossRatios = [];
+const allPuzzles = [];
 
 for (const d of ['easy', 'medium', 'hard']) {
   for (let round = 0; round < 4; round++) {
@@ -183,6 +187,30 @@ for (const d of ['easy', 'medium', 'hard']) {
     const p = st && st.puz;
     if (!p) { genProblems.push(`${d}: no puzzle produced`); continue; }
     puzzlesChecked++;
+    allPuzzles.push(p);
+    gridSizes.push(p.size);
+
+    // the fill should sit centrally: margins on opposite sides within 1 of each other
+    const rowsUsed = [], colsUsed = [];
+    for (let i = 0; i < p.sol.length; i++) {
+      if (!p.sol[i]) continue;
+      rowsUsed.push(Math.floor(i / p.size));
+      colsUsed.push(i % p.size);
+    }
+    const top = Math.min(...rowsUsed), bottom = p.size - 1 - Math.max(...rowsUsed);
+    const left = Math.min(...colsUsed), right = p.size - 1 - Math.max(...colsUsed);
+    if (Math.abs(top - bottom) > 1) centreProblems.push(`${d}: vertical margins ${top}/${bottom}`);
+    if (Math.abs(left - right) > 1) centreProblems.push(`${d}: horizontal margins ${left}/${right}`);
+
+    // how much of the fill is shared between an across and a down entry
+    const filled = p.sol.filter(Boolean).length;
+    const shared = p.sol.reduce((n, v, i) => {
+      if (!v) return n;
+      const inAcross = p.entries.some((e) => e.dir === 'across' && e.cells.indexOf(i) !== -1);
+      const inDown = p.entries.some((e) => e.dir === 'down' && e.cells.indexOf(i) !== -1);
+      return n + (inAcross && inDown ? 1 : 0);
+    }, 0);
+    crossRatios.push(shared / filled);
 
     if (p.entries.length < 5) genProblems.push(`${d}: only ${p.entries.length} entries`);
     for (const e of p.entries) {
@@ -206,6 +234,35 @@ for (const d of ['easy', 'medium', 'hard']) {
 }
 check('generated 12 puzzles across 3 difficulties', puzzlesChecked === 12, `${puzzlesChecked}`);
 check('every generated puzzle is self-consistent', genProblems.length === 0, genProblems.slice(0, 3).join(' | '));
+check('all grids are 9x9', gridSizes.every((s) => s === 9), [...new Set(gridSizes)].join(','));
+check('puzzles are centred in the grid', centreProblems.length === 0, centreProblems.slice(0, 2).join(' | '));
+check('grids are well interlocked', crossRatios.every((r) => r >= 0.1), `min crossing ratio ${Math.min(...crossRatios).toFixed(2)}`);
+
+// every "(anag.)" clue must use fodder that is a true rearrangement of the answer
+const sortLetters = (s) => s.toUpperCase().replace(/[^A-Z]/g, '').split('').sort().join('');
+const anagramProblems = [];
+let anagramCount = 0;
+for (const p of allPuzzles) {
+  for (const e of p.entries) {
+    const m = /^(.*?)\s*\(anag\.\)$/i.exec(e.clue);
+    if (!m) continue;
+    anagramCount++;
+    if (sortLetters(m[1]) !== sortLetters(e.answer)) {
+      anagramProblems.push(`${m[1]} is not an anagram of ${e.answer}`);
+    }
+  }
+}
+check('anagram clues use genuine anagrams', anagramProblems.length === 0, [...new Set(anagramProblems)].slice(0, 3).join(' | '));
+check('anagram clues actually appear', anagramCount > 0, `${anagramCount} seen`);
+
+// abbreviation clues should be short answers
+const abbrevBad = [];
+for (const p of allPuzzles) {
+  for (const e of p.entries) {
+    if (/\(abbr\.\)$/i.test(e.clue) && e.answer.length > 6) abbrevBad.push(`${e.answer} too long for an abbreviation`);
+  }
+}
+check('abbreviation clues are short answers', abbrevBad.length === 0, abbrevBad.slice(0, 2).join(' | '));
 
 // now solve the current puzzle by clicking squares and typing
 const cwState = JSON.parse(window.localStorage.getItem('arcade_cross'));
@@ -220,9 +277,39 @@ await wait(120);
 check('crossword completes when filled correctly', !$('cw-banner').classList.contains('hide'));
 check('crossword win text written', /clues, (easy|medium|hard), in \d{2}:\d{2}/.test($('cw-win-sub').textContent), $('cw-win-sub').textContent);
 
+// changing difficulty mid-puzzle must ask first
+diffBtn('easy').click();
+await wait(80);
+const beforeSwitch = JSON.parse(window.localStorage.getItem('arcade_cross'));
+const someSquare = beforeSwitch.puz.sol.findIndex((v) => v);
+[...$('cw-grid').children][someSquare].click();
+window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'a' }));
+await wait(30);
+diffBtn('hard').click();
+await wait(30);
+const afterFirstTap = JSON.parse(window.localStorage.getItem('arcade_cross'));
+check('first tap does not discard the puzzle', afterFirstTap.diff === 'easy', afterFirstTap.diff);
+check('confirmation toast shown', $('toast').classList.contains('show') && /Tap again/.test($('toast').textContent), $('toast').textContent);
+diffBtn('hard').click();
+await wait(120);
+check('second tap switches difficulty', JSON.parse(window.localStorage.getItem('arcade_cross')).diff === 'hard');
+
+// letter counts appear on the clues
+diffBtn('easy').click();
+await wait(120);
+check('clue strip shows the letter count', /\(\d+\)$/.test($('cw-clue').textContent.trim()), $('cw-clue').textContent);
+check('clue list shows letter counts', [...$('cw-clues').querySelectorAll('.cw-clue-item i')].every((i) => /^\(\d+\)$/.test(i.textContent)), `${$('cw-clues').querySelectorAll('.cw-clue-item i').length} items`);
+const clueCountsMatch = [...$('cw-clues').querySelectorAll('.cw-clue-item')].every((b) => {
+  const st = JSON.parse(window.localStorage.getItem('arcade_cross'));
+  const e = st.puz.entries.find((x) => x.num === +b.dataset.num && x.dir === b.dataset.dir);
+  return e && b.querySelector('i').textContent === `(${e.answer.length})`;
+});
+check('letter counts match the answers', clueCountsMatch);
+
 // checker flags a wrong letter
 diffBtn('easy').click();
-await wait(60);
+diffBtn('easy').click();
+await wait(120);
 const fresh = JSON.parse(window.localStorage.getItem('arcade_cross'));
 const firstSquare = fresh.puz.sol.findIndex((v) => v);
 const badLetter = fresh.puz.sol[firstSquare] === 'Z' ? 'Y' : 'Z';

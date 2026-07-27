@@ -53,3 +53,4 @@
 .cw-clue-item:hover{ background:rgba(255,255,255,.04); color:var(--text) }
 .cw-clue-item.on{ background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--text) }
 .cw-clue-item.filled b{ color:var(--accent) }
+.cw-clue-item i{ font-style:normal; opacity:.7; white-space:nowrap }
