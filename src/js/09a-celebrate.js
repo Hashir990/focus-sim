@@ -28,8 +28,9 @@
       cv.style.width = W+'px'; cv.style.height = H+'px';
       ctx.setTransform(dpr,0,0,dpr,0,0);
 
-      const accent = (getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent') || '').trim() || '#8aa2f0';
+      // Read the accent from whichever menu is open, so the confetti matches it.
+      const src = document.querySelector('.overlay:not(.hide)') || document.documentElement;
+      const accent = (getComputedStyle(src).getPropertyValue('--accent') || '').trim() || '#8aa2f0';
       const palette = [accent, '#f2a765', '#4fe0c8', '#e7ecf6', '#8aa2f0'];
 
       const n = opts.count || 100;

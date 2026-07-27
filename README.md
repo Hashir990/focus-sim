@@ -29,9 +29,10 @@ Edit anything in `src/`, save, refresh the page. That's the whole loop.
 | `npm test` | Build, then run the app headlessly and exercise every screen |
 
 `npm test` loads `dist/index.html` in a real DOM and drives it the way you would —
-starts a session, builds a Sudoku, plays a Wordle guess, slides the 2048 board, solves
-a whole Memory game to trigger the celebration, then opens the quote bank, calendar and
-stats. 49 checks. Run it after any change you're unsure about.
+adds tasks and ticks them off, starts a session, checks the ticked items land in the
+note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
+cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
+and stats. 60 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -69,16 +70,17 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `19-wiring.js` | Drawer, overlays, note box |
 | `20-data-io.js` | Export / import backup (see below) |
 | **`22-2048.js`** | **2048 — sliding, merging, swipe and arrow keys** |
-| **`23-memory.js`** | **Memory match — 8 pairs, flip animation, timer** |
+| `23-memory.js` | Memory match — **currently disabled**, see `MEMORY_ENABLED` |
 | `24-stats.js` | The "Your focus" dashboard, computed from `focus_log` |
+| `25-tasks.js` | Session task list, and folding ticked items into the note |
 | `90-init.js` | Kicks everything off |
 | `99-outro.js` | Closes the IIFE |
 
 ### `src/css/` — one file per visual area
 `00-tokens-base` · `01-topbar` · `02-views` · `03-setup` · `04-timer` · `05-arcade` ·
 `06-picker` · **`07-sudoku`** · **`08-wordle`** · `09-banner-toast` · `10-misc` ·
-`11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · **`15-memory`** ·
-`16-stats` · `17-celebrate`
+`11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · `15-memory` ·
+`16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks`
 
 ### `src/body/` — one file per screen
 `01-shell-drawer` · `02-topbar` · `03-setup` · `04-timer` · `05-shell-close` ·
@@ -109,8 +111,8 @@ Games register themselves, so `09-arcade-core.js` never needs editing.
 
 1. `src/body/08c-arcade-chess.html` — markup, following the `#game-sudoku` pattern.
    Must sort before `09-arcade-close.html`.
-2. `src/css/18-chess.css` — its styles.
-3. `src/js/25-chess.js` — its logic. Expose an object with `enter()` and `leave()`,
+2. `src/css/20-chess.css` — its styles.
+3. `src/js/26-chess.js` — its logic. Expose an object with `enter()` and `leave()`,
    then register it at the bottom of the file:
 
 ```js
@@ -128,12 +130,38 @@ registerGame('chess', {
 Then `npm run build`. Call `showBanner('chess-banner', 'You win.', '…')` when the
 player wins and you get the confetti for free.
 
+### Turning a game off
+
+Memory is currently disconnected as an example of how to do this without deleting
+anything: `MEMORY_ENABLED` at the bottom of `src/js/23-memory.js` is `false`, and its
+`.pcard` in `src/body/06-arcade-picker.html` is commented out. Set the flag to `true`
+and un-comment the card to bring it back — the game code itself was never touched.
+
+## Session tasks
+
+Add tasks on the setup screen before you start. While you're focusing they appear as a
+checklist under the dial; tick them as you go. When the focus block ends, everything you
+ticked **during that block** is written into that session's note automatically, so it
+shows up in the calendar. Anything you tick outside a focus block is just a checkbox.
+
+Tasks persist under `focus_tasks` and survive across sessions — use **Clear done** on the
+setup screen to tidy up.
+
+## Menu colours
+
+Each full-screen menu sets its own `--accent`, `--glow` and background on itself, so
+everything inside — buttons, tiles, chart bars, even the confetti — follows along:
+arcade is amber, quote bank violet, calendar blue, stats green. The timer screen keeps
+its original behaviour of shifting between focus and rest palettes. All of it lives in
+`src/css/18-menu-colors.css`; change a hex there and the whole menu re-themes.
+
 ---
 
 ## Your data
 
-Data lives in `localStorage` under three keys: `focus_sim` (settings), `focus_log`
-(session history + notes), `focus_quotes` (your saved quotes). Each arcade game also
+Data lives in `localStorage` under four keys: `focus_sim` (settings), `focus_log`
+(session history + notes), `focus_quotes` (your saved quotes), `focus_tasks` (your task
+list). Each arcade game also
 saves its own board under `arcade_sudoku`, `arcade_wordle`, `arcade_2048` and
 `arcade_memory` — those are unfinished puzzles, not history, so the backup skips them.
 

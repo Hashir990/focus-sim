@@ -1,0 +1,10 @@
+{
+  "app": "focus-simulator",
+  "version": 1,
+  "exportedAt": "2026-07-27T13:45:11.764Z",
+  "data": {
+    "focus_sim": "{\"focusMin\":30,\"breakMin\":20,\"autoContinue\":true,\"sound\":true,\"sessionsToday\":2,\"cycle\":2,\"repeat\":4,\"day\":\"Mon Jul 27 2026\"}",
+    "focus_log": "[{\"id\":\"s1785159399365_8597\",\"ts\":1785159399365,\"day\":\"2026-07-27\",\"secs\":2,\"note\":\"gay gay time\"},{\"id\":\"s1785159533969_9653\",\"ts\":1785159533969,\"day\":\"2026-07-27\",\"secs\":6,\"note\":\"poopoo papa \"}]",
+    "focus_quotes": "[{\"t\":\"I love you baby\",\"a\":\"Tony Stark\"}]"
+  }
+}

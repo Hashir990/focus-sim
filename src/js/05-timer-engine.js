@@ -29,6 +29,7 @@
     if(wasFocus){
       S.cycle++; S.sessionsToday++; S.runCount++;
       logSession(focusSecs);
+      tasksFlushToNote();   // ticked tasks become this session's note
       // reached the requested number of focus blocks? end the run.
       if(S.repeat>0 && S.runCount>=S.repeat){
         save();

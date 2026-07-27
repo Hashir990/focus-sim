@@ -1,0 +1,52 @@
+/* ---- session tasks ---- */
+.task-add{ display:flex; gap:8px; margin-top:2px }
+.task-field{
+  flex:1; min-width:0; background:var(--card); border:1px solid var(--line);
+  border-radius:12px; padding:11px 13px; font:inherit; font-size:14px;
+  color:var(--text); outline:none;
+}
+.task-field::placeholder{ color:var(--muted) }
+.task-field:focus{ border-color:var(--accent) }
+.task-clear{
+  background:none; border:0; color:var(--muted); font:inherit; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.7px; cursor:pointer; padding:0;
+}
+.task-clear:hover{ color:var(--text) }
+.task-clear.hide{ display:none }
+
+.task-list{ margin-top:9px; display:flex; flex-direction:column; gap:6px }
+.task-empty{ font-size:12.5px; color:var(--muted); line-height:1.5 }
+
+.task-row{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:10px 12px; font:inherit; font-size:13.5px; color:var(--text);
+  text-align:left;
+}
+.task-row.live{ cursor:pointer; -webkit-tap-highlight-color:transparent }
+.task-row.live:hover{ border-color:var(--accent) }
+.task-row.done{ border-color:color-mix(in srgb, var(--accent) 40%, transparent) }
+
+.task-text{ flex:1; min-width:0; word-break:break-word }
+.task-text.done{ color:var(--muted); text-decoration:line-through }
+
+.task-check{
+  flex:0 0 auto; width:19px; height:19px; border-radius:6px;
+  border:1.5px solid var(--line); display:grid; place-items:center;
+  font-size:12px; line-height:1; color:var(--bg);
+}
+.task-row.done .task-check{ background:var(--accent); border-color:var(--accent) }
+
+.task-x{
+  flex:0 0 auto; background:none; border:0; color:var(--muted);
+  font-size:19px; line-height:1; cursor:pointer; padding:0 2px;
+}
+.task-x:hover{ color:var(--text) }
+
+/* live checklist on the timer screen */
+.task-live{
+  width:100%; max-width:360px; margin:2px auto 0;
+  max-height:26vh; overflow-y:auto;
+}
+.task-live.hide{ display:none }
+.task-live .task-row{ padding:9px 11px; font-size:13px }

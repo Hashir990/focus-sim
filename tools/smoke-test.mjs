@@ -70,6 +70,18 @@ for (const id of ['setup', 'timer', 'overlay', 'quotes-overlay', 'cal-overlay', 
 check('presets rendered', $('f-presets').children.length > 0);
 check('repeat chips rendered', $('rep-chips').children.length > 0);
 
+// --- session tasks (added before starting) ---------------------------------
+check('task empty state shown', $('task-list-setup').textContent.includes('Optional'));
+const addTask = (text) => { $('task-input').value = text; click('task-add'); };
+addTask('write the report');
+addTask('reply to emails');
+check('two tasks added', $('task-list-setup').querySelectorAll('.task-row').length === 2, `${$('task-list-setup').querySelectorAll('.task-row').length}`);
+check('task text escaped and shown', $('task-list-setup').textContent.includes('write the report'));
+$('task-list-setup').querySelectorAll('.task-x')[1].click();
+check('task can be removed', $('task-list-setup').querySelectorAll('.task-row').length === 1);
+addTask('reply to emails');
+check('task re-added', $('task-list-setup').querySelectorAll('.task-row').length === 2);
+
 // --- timer -----------------------------------------------------------------
 click('f-plus');
 check('focus stepper responds', $('f-num').textContent !== '');
@@ -82,18 +94,38 @@ check('pause label is valid', /^(Pause|Resume|Begin (focus|rest))$/.test($('togg
 click('toggle-run');
 check('resumes', $('toggle-run').textContent.trim() === 'Pause', $('toggle-run').textContent);
 
+// --- ticking tasks during the focus block ----------------------------------
+check('live checklist visible while focusing', !$('task-live').classList.contains('hide'));
+const liveRows = () => [...$('task-list-live').querySelectorAll('.task-row')];
+check('live checklist has both tasks', liveRows().length === 2, `${liveRows().length}`);
+liveRows()[0].click();
+await wait(20);
+check('task ticks', liveRows()[0].classList.contains('done'));
+liveRows()[0].click();
+await wait(20);
+check('task un-ticks', !liveRows()[0].classList.contains('done'));
+liveRows()[0].click();
+liveRows()[1].click();
+await wait(20);
+check('both tasks ticked', liveRows().every((r) => r.classList.contains('done')));
+
 // --- arcade ----------------------------------------------------------------
 click('skip');
 await wait(60);
+// skip() ends the focus block, which logs the session and folds the ticked
+// tasks into its note.
+check('ticked tasks written into the session note', /✓ write the report[\s\S]*✓ reply to emails/.test($('note-input').value), JSON.stringify($('note-input').value));
+check('live checklist hidden during rest', $('task-live').classList.contains('hide'));
 // Open it the way a user does — Arcade.show() sets Arcade.open, which the
 // keyboard handlers guard on. Poking the class directly would skip that.
 click('arcade-open');
 await wait(80);
 check('arcade opens from the rest screen', !$('overlay').classList.contains('hide'));
 const pcards = [...window.document.querySelectorAll('.pcard')];
-check('arcade has four games', pcards.length === 4, `${pcards.length} cards`);
+check('arcade has three games', pcards.length === 3, `${pcards.length} cards`);
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('all games registered in picker', ['sudoku', 'wordle', 'g2048', 'memory'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('memory is disconnected', !byGame.memory);
 
 // sudoku
 byGame.sudoku.click();
@@ -130,24 +162,30 @@ const afterMove = [...$('g2048-grid').children].map((t) => t.dataset.v).join(','
 check('2048 board responds to arrow keys', afterMove !== beforeMove);
 check('2048 score shown', /Score \d+ · Best \d+/.test($('g2048-meta').textContent), $('g2048-meta').textContent);
 
-// memory — solve it completely, which also exercises the celebration
-byGame.memory.click();
+// celebration — actually solve the Sudoku, clicking cells and numpad keys the way
+// a player would. The answer comes from the game's own saved state, not from
+// reaching into the closure, so this exercises the real input path end to end.
+byGame.sudoku.click();
 await wait(250);
-const cards = [...$('mem-grid').children];
-check('memory board built', cards.length === 16, `${cards.length} cards`);
-const symbols = cards.map((c) => c.querySelector('.mfront').textContent);
-check('memory has 8 distinct pairs', new Set(symbols).size === 8, `${new Set(symbols).size} symbols`);
+const saved = JSON.parse(window.localStorage.getItem('arcade_sudoku') || 'null');
+check('sudoku persisted its board', !!(saved && saved.sol && saved.sol.length === 81));
 
-const seen = {};
-const pairs = [];
-symbols.forEach((s, i) => { if (seen[s] === undefined) seen[s] = i; else pairs.push([seen[s], i]); });
-for (const [a, b] of pairs) { cards[a].click(); cards[b].click(); await wait(30); }
+const sdkCells = [...$('sdk-grid').children];
+const padKeys = [...$('sdk-pad').children];
+const digitKey = (n) => padKeys.find((b) => b.dataset.n === String(n));
+
+for (let i = 0; i < 81; i++) {
+  if (saved.given[i]) continue;
+  if (saved.sol[i] === saved.grid[i]) continue;
+  sdkCells[i].click();
+  const key = digitKey(saved.sol[i]);
+  if (key) key.click();
+}
 await wait(120);
-check('memory board solved', cards.every((c) => c.classList.contains('matched')));
-check('memory win banner shown', !$('mem-banner').classList.contains('hide'));
-check('memory win text written', $('mem-win-sub').textContent.includes('moves'), $('mem-win-sub').textContent);
+check('sudoku solved by clicking', !$('sdk-banner').classList.contains('hide'));
+check('sudoku win text written', /Finished in \d{2}:\d{2}/.test($('sdk-win-sub').textContent), $('sdk-win-sub').textContent);
 check('celebration fired', !!window.document.querySelector('canvas.confetti'));
-check('banner pop applied', $('mem-banner').classList.contains('pop'));
+check('banner pop applied', $('sdk-banner').classList.contains('pop'));
 
 // --- overlays --------------------------------------------------------------
 $('note-input').value = 'smoke test note';

@@ -1,0 +1,34 @@
+/* ---- per-menu colour ----
+   The timer screen shifts palette with the phase (focus / rest). These give each
+   full-screen menu its own identity so you always know where you are. Setting the
+   variables on the overlay itself overrides what it would otherwise inherit, and
+   everything inside — buttons, tiles, bars, confetti — follows along. */
+
+/* rest arcade — warm amber */
+#overlay{
+  --accent:#f2a765; --glow:rgba(242,167,101,.30);
+  --bg:#150c17; --bg2:#2f1826; --muted:#a88b7d;
+}
+
+/* quote bank — violet */
+#quotes-overlay{
+  --accent:#c2a0f5; --glow:rgba(194,160,245,.30);
+  --bg:#100d1c; --bg2:#241a38; --muted:#93899f;
+}
+
+/* calendar / history — cool blue */
+#cal-overlay{
+  --accent:#74c4f2; --glow:rgba(116,196,242,.30);
+  --bg:#08121c; --bg2:#122a3c; --muted:#7d93a6;
+}
+
+/* your focus / stats — green */
+#stats-overlay{
+  --accent:#7cd9a0; --glow:rgba(124,217,160,.30);
+  --bg:#07160f; --bg2:#0f2c1e; --muted:#7d9c8a;
+}
+
+/* the side menu keeps the calm default indigo */
+#drawer{
+  --accent:#8aa2f0; --glow:rgba(138,162,240,.28);
+}

@@ -19,6 +19,7 @@
   function render(){
     document.getElementById('app').setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     document.body.setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
+    tasksRefresh();
     $('today-count').textContent = S.sessionsToday;
 
     if(S.mode==='setup'){
