@@ -126,9 +126,9 @@ click('arcade-open');
 await wait(80);
 check('arcade opens from the rest screen', !$('overlay').classList.contains('hide'));
 const pcards = [...window.document.querySelectorAll('.pcard')];
-check('arcade has three games', pcards.length === 3, `${pcards.length} cards`);
+check('arcade has four games', pcards.length === 4, `${pcards.length} cards`);
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('enabled games in picker', ['sudoku', 'wordle', 'g2048'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'crossword'].every((g) => byGame[g]), Object.keys(byGame).join(','));
 check('memory is disconnected', !byGame.memory);
 
 // sudoku
@@ -165,6 +165,72 @@ for (const key of ['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp']) {
 const afterMove = [...$('g2048-grid').children].map((t) => t.dataset.v).join(',');
 check('2048 board responds to arrow keys', afterMove !== beforeMove);
 check('2048 score shown', /Score \d+ · Best \d+/.test($('g2048-meta').textContent), $('g2048-meta').textContent);
+
+// crossword — validate real generator output at every difficulty, then solve one
+byGame.crossword.click();
+await wait(300);
+check('crossword grid rendered', $('cw-grid').querySelectorAll('.cw-cell').length > 10, `${$('cw-grid').querySelectorAll('.cw-cell').length} squares`);
+
+const diffBtn = (d) => [...$('cw-ctrl').children].find((b) => b.dataset.d === d);
+let genProblems = [];
+let puzzlesChecked = 0;
+
+for (const d of ['easy', 'medium', 'hard']) {
+  for (let round = 0; round < 4; round++) {
+    diffBtn(d).click();
+    await wait(60);
+    const st = JSON.parse(window.localStorage.getItem('arcade_cross') || 'null');
+    const p = st && st.puz;
+    if (!p) { genProblems.push(`${d}: no puzzle produced`); continue; }
+    puzzlesChecked++;
+
+    if (p.entries.length < 5) genProblems.push(`${d}: only ${p.entries.length} entries`);
+    for (const e of p.entries) {
+      // the answer recorded must equal the letters actually sitting in those squares
+      const fromGrid = e.cells.map((i) => p.sol[i]).join('');
+      if (fromGrid !== e.answer) genProblems.push(`${d}: ${e.num}${e.dir} answer ${e.answer} vs grid ${fromGrid}`);
+      if (!e.clue) genProblems.push(`${d}: ${e.num}${e.dir} has no clue`);
+      if (e.cells.length < 2) genProblems.push(`${d}: ${e.num}${e.dir} is only ${e.cells.length} long`);
+      // every square of the entry must be contiguous in the right direction
+      const step = e.dir === 'across' ? 1 : p.size;
+      for (let k = 1; k < e.cells.length; k++) {
+        if (e.cells[k] !== e.cells[k - 1] + step) genProblems.push(`${d}: ${e.num}${e.dir} not contiguous`);
+      }
+    }
+    // every filled square must belong to at least one entry
+    for (let i = 0; i < p.sol.length; i++) {
+      if (!p.sol[i]) continue;
+      if (!p.entries.some((e) => e.cells.indexOf(i) !== -1)) genProblems.push(`${d}: square ${i} in no entry`);
+    }
+  }
+}
+check('generated 12 puzzles across 3 difficulties', puzzlesChecked === 12, `${puzzlesChecked}`);
+check('every generated puzzle is self-consistent', genProblems.length === 0, genProblems.slice(0, 3).join(' | '));
+
+// now solve the current puzzle by clicking squares and typing
+const cwState = JSON.parse(window.localStorage.getItem('arcade_cross'));
+const cwCells = [...$('cw-grid').children];
+for (let i = 0; i < cwState.puz.sol.length; i++) {
+  const want = cwState.puz.sol[i];
+  if (!want) continue;
+  cwCells[i].click();
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: want.toLowerCase() }));
+}
+await wait(120);
+check('crossword completes when filled correctly', !$('cw-banner').classList.contains('hide'));
+check('crossword win text written', /clues, (easy|medium|hard), in \d{2}:\d{2}/.test($('cw-win-sub').textContent), $('cw-win-sub').textContent);
+
+// checker flags a wrong letter
+diffBtn('easy').click();
+await wait(60);
+const fresh = JSON.parse(window.localStorage.getItem('arcade_cross'));
+const firstSquare = fresh.puz.sol.findIndex((v) => v);
+const badLetter = fresh.puz.sol[firstSquare] === 'Z' ? 'Y' : 'Z';
+[...$('cw-grid').children][firstSquare].click();
+window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: badLetter.toLowerCase() }));
+$('cw-check').click();
+await wait(20);
+check('crossword checker flags a wrong letter', !!window.document.querySelector('.cw-cell.wrong'));
 
 // celebration — actually solve the Sudoku, clicking cells and numpad keys the way
 // a player would. The answer comes from the game's own saved state, not from

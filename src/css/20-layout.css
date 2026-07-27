@@ -6,8 +6,10 @@
    that's what made this feel wrong on other machines. */
 
 /* ---- smooth, unobtrusive scrolling ---- */
+   Note: scrolling is scoped to #setup, NOT .view. Putting overflow on .view made
+   #timer a scroll container, which clipped the dial's drop-shadow glow. */
 html{ scroll-behavior:smooth }
-.view, .ov-body, .drawer, .task-live, .q-list, .cal-detail, .drop-body{
+#setup, .ov-body, .drawer, .task-live, .q-list, .cal-detail, .drop-body{
   overflow-y:auto;
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
@@ -15,14 +17,14 @@ html{ scroll-behavior:smooth }
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb, var(--muted) 45%, transparent) transparent;
 }
-.view::-webkit-scrollbar, .ov-body::-webkit-scrollbar, .drawer::-webkit-scrollbar,
+#setup::-webkit-scrollbar, .ov-body::-webkit-scrollbar, .drawer::-webkit-scrollbar,
 .task-live::-webkit-scrollbar, .q-list::-webkit-scrollbar, .drop-body::-webkit-scrollbar{
   width:9px;
 }
-.view::-webkit-scrollbar-track, .ov-body::-webkit-scrollbar-track,
+#setup::-webkit-scrollbar-track, .ov-body::-webkit-scrollbar-track,
 .drawer::-webkit-scrollbar-track, .task-live::-webkit-scrollbar-track,
 .q-list::-webkit-scrollbar-track, .drop-body::-webkit-scrollbar-track{ background:transparent }
-.view::-webkit-scrollbar-thumb, .ov-body::-webkit-scrollbar-thumb,
+#setup::-webkit-scrollbar-thumb, .ov-body::-webkit-scrollbar-thumb,
 .drawer::-webkit-scrollbar-thumb, .task-live::-webkit-scrollbar-thumb,
 .q-list::-webkit-scrollbar-thumb, .drop-body::-webkit-scrollbar-thumb{
   background:color-mix(in srgb, var(--muted) 40%, transparent);
@@ -30,12 +32,12 @@ html{ scroll-behavior:smooth }
   border:2px solid transparent;
   background-clip:content-box;
 }
-.view:hover::-webkit-scrollbar-thumb, .ov-body:hover::-webkit-scrollbar-thumb{
+#setup:hover::-webkit-scrollbar-thumb, .ov-body:hover::-webkit-scrollbar-thumb{
   background:color-mix(in srgb, var(--muted) 70%, transparent);
   background-clip:content-box;
 }
 @media (prefers-reduced-motion: reduce){
-  html, .view, .ov-body, .drawer{ scroll-behavior:auto }
+  html, #setup, .ov-body, .drawer{ scroll-behavior:auto }
 }
 
 /* ---- the shell: don't stretch on big monitors ---- */
@@ -105,24 +107,19 @@ html{ scroll-behavior:smooth }
   .drop>summary::after{ transition:none }
 }
 
-/* ---- timer screen ---- */
-#timer{ justify-content:flex-start; gap:clamp(5px, 1vh, 10px) }
+/* ---- timer screen ----
+   The original flex behaviour is kept deliberately: #timer stays space-between and
+   .dial-wrap keeps flex:1. Giving the quote its own flex share centred it between
+   the dial and the buttons, but it also threw the rest screen's layout out when
+   .rest-extra appeared. Only sizes are tuned here, never the flex distribution. */
 .cycle{ flex:0 0 auto; margin-top:clamp(4px, 1.2vh, 12px) }
 
 /* dial follows the shorter axis so short desktop windows still fit it */
-.dial-wrap{ flex:1 1 0; min-height:0 }
 .dial{ width:min(78vw, 300px, 44vh) }
 .clock{ font-size:clamp(36px, 7.4vh, 64px) }
 .phase-name{ font-size:clamp(15px, 2.2vh, 19px) }
 .subline{ font-size:clamp(11px, 1.5vh, 12.5px) }
 
-/* the quote takes the space between the dial and the buttons, and centres in it —
-   so it reads as sitting midway rather than clinging to the controls */
-.quote{
-  flex:1 1 0; min-height:clamp(34px, 6vh, 58px);
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  margin:0 6px;
-}
 .quote .qt{ font-size:clamp(13.5px, 2vh, 15.5px) }
 
 .task-live{ flex:0 1 auto; max-height:min(22vh, 180px); margin:0 auto }
@@ -143,7 +140,6 @@ html{ scroll-behavior:smooth }
 }
 @media (max-height: 520px){
   .cycle{ display:none }
-  .quote{ min-height:0 }
 }
 
 /* ---- wide, short desktop windows: sit the app a touch higher than dead centre ---- */

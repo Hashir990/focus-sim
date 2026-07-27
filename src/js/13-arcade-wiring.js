@@ -7,6 +7,8 @@
   $('wdl-again').onclick = ()=>Wordle.newGame();
   $('g2048-new').onclick = ()=>G2048.newGame();
   $('g2048-again').onclick = ()=>G2048.newGame();
+  $('cw-check').onclick = ()=>Cross.check();
+  $('cw-again').onclick = ()=>Cross.newGame(Cross.diff);
   $('mem-new').onclick = ()=>Memory.newGame();
   $('mem-again').onclick = ()=>Memory.newGame();
 

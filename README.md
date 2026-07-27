@@ -33,7 +33,7 @@ Edit anything in `src/`, save, refresh the page. That's the whole loop.
 adds tasks and ticks them off, starts a session, checks the ticked items land in the
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
-and stats. 60 checks. Run it after any change you're unsure about.
+and stats, and generates a dozen crosswords to check the generator. 74 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -74,6 +74,8 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `23-memory.js` | Memory match — **currently disabled**, see `MEMORY_ENABLED` |
 | `24-stats.js` | The "Your focus" dashboard, computed from `focus_log` |
 | `25-tasks.js` | Session task list, and folding ticked items into the note |
+| `26-crossword-data.js` | Crossword word/clue banks + difficulty settings |
+| **`27-crossword.js`** | **Crossword — layout generator, grid, clues, keyboard** |
 | `90-init.js` | Kicks everything off |
 | `99-outro.js` | Closes the IIFE |
 
@@ -81,12 +83,16 @@ Files are concatenated in **filename order**, which is why everything has a numb
 `00-tokens-base` · `01-topbar` · `02-views` · `03-setup` · `04-timer` · `05-arcade` ·
 `06-picker` · **`07-sudoku`** · **`08-wordle`** · `09-banner-toast` · `10-misc` ·
 `11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · `15-memory` ·
-`16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks`
+`16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks` · `20-layout` ·
+**`21-crossword`**
+
+`20-layout.css` loads last on purpose: it tunes the sizes set in every earlier file
+so the app fits a desktop window (which is usually wide but short) as well as a phone.
 
 ### `src/body/` — one file per screen
 `01-shell-drawer` · `02-topbar` · `03-setup` · `04-timer` · `05-shell-close` ·
 `06-arcade-picker` · **`07-arcade-sudoku`** · **`08-arcade-wordle`** ·
-**`08a-arcade-2048`** · **`08b-arcade-memory`** · `09-arcade-close` ·
+**`08a-arcade-2048`** · `08b-arcade-memory` · **`08c-arcade-crossword`** · `09-arcade-close` ·
 `10-quotes-overlay` · `11-calendar-overlay` · `12-stats-overlay`
 
 Note the `08a` / `08b` names: every game's markup must sort **before**
@@ -137,6 +143,30 @@ Memory is currently disconnected as an example of how to do this without deletin
 anything: `MEMORY_ENABLED` at the bottom of `src/js/23-memory.js` is `false`, and its
 `.pcard` in `src/body/06-arcade-picker.html` is commented out. Set the flag to `true`
 and un-comment the card to bring it back — the game code itself was never touched.
+
+## Crossword
+
+Puzzles are **generated fresh each game**, not drawn by hand. Words are laid down one
+at a time, each crossing a word already on the grid, so every intersection is guaranteed
+to agree and every answer is a real word with a matching clue. Candidate positions are
+scored for compactness — picking at random gave sprawling 25-square grids.
+
+Three difficulties, set in `CROSS_SETTINGS` in `src/js/26-crossword-data.js`:
+
+| | words | max grid | typical |
+| --- | --- | --- | --- |
+| easy | 7 | 11 | 4–5 letter words, 8–11 squares |
+| medium | 9 | 13 | 6–8 letters, 11–13 squares |
+| hard | 10 | 15 | 5–10 letters, 14–15 squares |
+
+To add clues, drop `['WORD','Its clue']` into the relevant bank — it joins the rotation
+immediately. Type with a real keyboard or the on-screen one; Tab moves between clues,
+arrow keys move within one, and tapping a square you're already on flips across/down.
+
+`npm test` generates 12 puzzles across the three difficulties and asserts each one is
+self-consistent: every entry's recorded answer matches the letters actually in those
+squares, every entry has a clue, every entry is contiguous, and no filled square is
+orphaned outside an entry.
 
 ## Session tasks
 
