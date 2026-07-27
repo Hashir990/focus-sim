@@ -1,4 +1,9 @@
 /* ---- sudoku ---- */
+.sdk .cell.wrong{
+  background:rgba(240,90,90,.22) !important;
+  color:#ff9d9d !important;
+  box-shadow:inset 0 0 0 1.5px rgba(240,90,90,.7);
+}
 .sdk{width:100%; max-width:360px; margin:0 auto; aspect-ratio:1;
   display:grid; grid-template-columns:repeat(9,1fr); grid-template-rows:repeat(9,1fr);
   border:2px solid var(--accent); border-radius:8px; overflow:hidden;

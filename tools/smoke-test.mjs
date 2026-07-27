@@ -170,6 +170,17 @@ await wait(250);
 const saved = JSON.parse(window.localStorage.getItem('arcade_sudoku') || 'null');
 check('sudoku persisted its board', !!(saved && saved.sol && saved.sol.length === 81));
 
+// the Check button: put one deliberately wrong digit in and confirm it's flagged
+const firstFree = saved.given.findIndex((g, i) => !g && saved.sol[i] !== saved.grid[i]);
+const wrongDigit = saved.sol[firstFree] === 9 ? 8 : 9;
+[...$('sdk-grid').children][firstFree].click();
+[...$('sdk-pad').children].find((b) => b.dataset.n === String(wrongDigit))?.click();
+$('sdk-check').click();
+await wait(20);
+check('checker flags a wrong cell', [...$('sdk-grid').children][firstFree].classList.contains('wrong'));
+[...$('sdk-pad').children].find((b) => b.dataset.n === String(wrongDigit))?.click();
+check('checker clears on new input', !window.document.querySelector('.sdk .cell.wrong'));
+
 const sdkCells = [...$('sdk-grid').children];
 const padKeys = [...$('sdk-pad').children];
 const digitKey = (n) => padKeys.find((b) => b.dataset.n === String(n));
@@ -244,6 +255,23 @@ check('stats cards rendered', $2('stats-body').querySelectorAll('.stat-card').le
 check('stats bar chart has 14 days', $2('stats-body').querySelectorAll('.sbar').length === 14, `${$2('stats-body').querySelectorAll('.sbar').length}`);
 check('streak counted (3 consecutive days)', /3 days/.test(statsText), statsText.match(/\d+ days?/g)?.join(' / ') || '');
 check('best hour computed', $2('stats-body').textContent.includes('Best hour'));
+
+// --- ending a session early still logs it -----------------------------------
+const sessionCount = () => Number($2('stats-body').querySelectorAll('.stat-card')[1].querySelector('b').textContent);
+const before = sessionCount();
+$2('stats-close').click();
+$2('begin').click();
+await wait(60);
+// jump the clock forward 90s so there is real focus time to record
+const realNow = w2.Date.now;
+w2.Date.now = () => realNow.call(w2.Date) + 90000;
+$2('stop').click();
+await wait(60);
+w2.Date.now = realNow;
+$2('d-stats').click();
+await wait(80);
+check('stopping early still logs the session', sessionCount() === before + 1, `${before} → ${sessionCount()}`);
+check('back on the setup screen after stop', !$2('setup').classList.contains('hide'));
 
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2);

@@ -78,9 +78,11 @@
         const bar=document.createElement('div'); bar.id='sdk-ctrl'; bar.className='sdk-ctrl';
         const notes=document.createElement('button'); notes.id='sdk-notes'; notes.className='mini-btn';
         notes.onclick=()=>{ this.notesMode=!this.notesMode; this.render(); };
+        const chk=document.createElement('button'); chk.id='sdk-check'; chk.className='mini-btn'; chk.textContent='Check';
+        chk.onclick=()=>this.check();
         const diffs=document.createElement('div'); diffs.className='diffs';
         [['Easy','easy'],['Med','medium'],['Hard','hard']].forEach(([l,d])=>{ const b=document.createElement('button'); b.className='mini-btn'; b.dataset.d=d; b.textContent=l; b.onclick=()=>this.newGame(d); diffs.appendChild(b); });
-        bar.appendChild(notes); bar.appendChild(diffs);
+        bar.appendChild(notes); bar.appendChild(chk); bar.appendChild(diffs);
         $('sdk-grid').parentNode.insertBefore(bar, $('sdk-grid'));
       }
     },
@@ -95,7 +97,23 @@
       }else{
         this.grid[i]= this.grid[i]===n?0:n; this.notes[i]=[];
       }
+      this.wrong=null;                    // a new entry clears the last check
       this.persist(); this.render(); this.checkDone();
+    },
+    /** Marks every filled-in cell that disagrees with the solution. */
+    check(){
+      if(this.done) return;
+      const bad=[];
+      for(let i=0;i<81;i++){
+        if(this.given[i] || !this.grid[i]) continue;
+        if(this.grid[i]!==this.sol[i]) bad.push(i);
+      }
+      const blank=this.grid.filter((v,i)=>!v && !this.given[i]).length;
+      this.wrong=bad;
+      this.render();
+      if(bad.length) toast(bad.length+' wrong '+(bad.length===1?'cell':'cells'));
+      else if(blank) toast('All good so far — '+blank+' left');
+      else toast('All correct');
     },
     erase(){ if(this.done||this.sel<0||this.given[this.sel]) return; this.grid[this.sel]=0; this.notes[this.sel]=[]; this.persist(); this.render(); },
     conflict(i,v){
@@ -116,6 +134,7 @@
         else if(sel>=0 && (r===sr||col===sc||((r/3|0)===sbr&&(col/3|0)===sbc))) cls+=' peer';
         if(sv&&v===sv&&i!==sel) cls+=' same';
         if(v&&this.conflict(i,v)) cls+=' bad';
+        if(this.wrong && this.wrong.indexOf(i)!==-1) cls+=' wrong';
         c.className=cls;
         if(v){ c.textContent=v; }
         else if(this.notes[i].length){ c.textContent=''; const nd=document.createElement('div'); nd.className='notes'; for(let k=1;k<=9;k++){ const s=document.createElement('span'); s.textContent=this.notes[i].includes(k)?k:''; nd.appendChild(s);} c.appendChild(nd); }

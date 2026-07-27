@@ -64,6 +64,18 @@
     S.endAt=Date.now(); S.remaining=0; complete(actual);
   }
   function stop(){
+    // Ending early still counts: log whatever focus time was actually done, so it
+    // reaches the calendar and the stats instead of vanishing.
+    if(S.mode==='focus'){
+      const rem = S.running ? Math.max(0, Math.round((S.endAt-Date.now())/1000)) : S.remaining;
+      const done = Math.max(0, S.total - rem);
+      if(done >= 30){
+        S.sessionsToday++;
+        logSession(done);
+        tasksFlushToNote();
+        toast('Saved '+fmtDur(done)+' to your history');
+      }
+    }
     clearInterval(loop); loop=null; S.running=false; releaseWake();
     if(Arcade.open) Arcade.close();
     Quote.stop();

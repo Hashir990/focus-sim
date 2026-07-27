@@ -27,6 +27,7 @@ Edit anything in `src/`, save, refresh the page. That's the whole loop.
 | `npm run dev` | Watch **and** serve on `localhost:4321` |
 | `npm run verify` | Diff the build against `tools/original.reference.html` |
 | `npm test` | Build, then run the app headlessly and exercise every screen |
+| `npm run ship` | Build + test + produce the installer in `release/` |
 
 `npm test` loads `dist/index.html` in a real DOM and drives it the way you would —
 adds tasks and ticks them off, starts a session, checks the ticked items land in the

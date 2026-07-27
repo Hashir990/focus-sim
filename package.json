@@ -20,6 +20,7 @@
 
     "electron": "npm run build && electron .",
     "electron:pack": "npm run build && electron-builder",
+    "ship": "npm run build && node tools/smoke-test.mjs && electron-builder",
 
     "tauri": "npm run build && tauri dev",
     "tauri:build": "npm run build && tauri build"
