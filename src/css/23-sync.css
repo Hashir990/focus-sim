@@ -64,3 +64,7 @@
 #timer .primary:disabled, #timer .icon-btn:disabled, .begin-btn:disabled{
   opacity:.4; cursor:not-allowed;
 }
+
+.sync-person .mini-btn{ flex:0 0 auto; padding:5px 9px; font-size:11.5px }
+.sync-person span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.sync-person span i{ font-style:normal; color:var(--muted); font-size:11.5px }

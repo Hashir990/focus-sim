@@ -35,7 +35,7 @@ note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by 
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
 recording stand-in for media playback, checks you can move between days in the calendar, and runs two windows against a
-fake peer network to prove a shared timer works. 147 checks. Run it after any change you're unsure about.
+fake peer network to prove a shared timer works. 162 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -365,10 +365,19 @@ Share a timer with someone else. Open the side menu → **Focus together**.
 - **One-off room** — a throwaway code for a single session. Doesn't touch your own code.
 - **Join** — paste someone's code. Save it with a name and it lands in your friends list.
 
-**One leader.** Whoever creates the room drives the clock: their start, pause, skip and
-stop propagate to everyone. Followers' own controls are disabled and greyed out, and a
-band on the timer screen says who is leading. Followers never broadcast — that's what
-stops two clocks fighting each other.
+**Two roles, kept separate.** The **host** is the network hub — everyone connects to it
+and it relays. The **leader** is whose timer everyone follows. It starts as the host but
+can be handed to anyone, and separating them is what makes a handover possible without
+every device reconnecting to a new address.
+
+Only the leader broadcasts, which is what stops two clocks fighting. Everyone else's
+controls are disabled and greyed, and a band on the timer screen says who holds it.
+
+**The leader manages the room.** Next to each person: **Give timer** hands the clock
+over, **×** removes them. The host enforces both, since it holds every connection — a
+non-host leader asks the host to act, and the host ignores anyone who isn't the current
+leader. If the person holding the timer disconnects, the host takes it back rather than
+leaving the room without a clock.
 
 ### How it works
 
@@ -394,4 +403,6 @@ there's no TURN relay configured. And the host leaving ends the room for everyon
 each other in memory, then runs the real protocol end to end: join by code, roster
 exchange, leader starts the timer, follower's clock matches within a second, follower's
 controls are locked, a follower poking its own buttons cannot drive the leader, friends
-persist, and leaving tears the room down on both sides.
+persist, and leaving tears the room down on both sides. A third window joins for the
+handover tests: giving the timer away, the new leader driving everyone through the host's
+relay, removing a member, and the host reclaiming the timer when the holder leaves.

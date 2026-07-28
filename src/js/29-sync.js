@@ -2,18 +2,29 @@
      Peer-to-peer sync over WebRTC, using PeerJS's public signalling server. No
      account, no backend of ours, no data stored anywhere but on the devices.
 
-     Shape: a star, not a mesh. Whoever creates the room is the host, and the host
-     is the leader — their timer drives everyone's. Followers send nothing but a
-     greeting; they never broadcast, which is what stops two clocks fighting.
+     Two roles, deliberately separate:
+
+       HOST   — the network hub. Everyone connects to the host and the host relays.
+                Fixed for the life of the room, because it owns the peer id that
+                the room code resolves to.
+       LEADER — whose timer everyone follows. Starts as the host but can be handed
+                to anyone. Only the leader broadcasts state, which is what stops
+                two clocks fighting.
+
+     Keeping those apart is what makes "give someone else the timer" possible
+     without every device reconnecting to a new address. A non-host leader sends
+     its state to the host, and the host relays it onward.
+
+     The leader also holds membership: it can hand the timer over and remove
+     people. The host enforces both, since it's the only one holding every
+     connection.
 
      PeerJS is fetched from a CDN the first time you open this screen, not at
-     startup. Everything else in the app works offline; this obviously can't, so
-     there's no reason to make every launch pay for it.
+     startup. Everything else in the app works offline; this obviously can't.
 
      Codes are 6 characters from an alphabet with no confusable pairs (no O/0,
      no I/1). Your own code is saved and reusable — that's a "friend". A room code
-     is generated fresh and thrown away — that's a "room". Same mechanism, and the
-     only difference is whether we keep it. */
+     is generated fresh and thrown away — that's a "room". */
 
   var SYNC_CDN = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
   var SYNC_NS = 'fsim-';                     // namespace on the shared PeerJS server
@@ -22,8 +33,10 @@
 
   var SYNC = {
     lib:null, peer:null, code:null, mode:'off',   // 'off' | 'hosting' | 'joined'
-    conns:{}, roster:{}, name:'', myCode:null, friends:[],
-    leader:null, beat:null, lastApplied:0, status:'',
+    selfId:null, leaderId:null,
+    conns:{}, roster:{}, remoteList:null,
+    name:'', myCode:null, friends:[],
+    beat:null, lastApplied:0, status:'',
   };
 
   function syncCode(n){
@@ -37,8 +50,9 @@
       .replace(/0/g,'O').replace(/1/g,'J')     // ...then map them to real letters
       .slice(0,6);
   }
-  function syncIsLeader(){ return SYNC.mode === 'hosting'; }
   function syncActive(){ return SYNC.mode !== 'off'; }
+  function syncIsHost(){ return SYNC.mode === 'hosting'; }
+  function syncIsLeader(){ return syncActive() && !!SYNC.selfId && SYNC.leaderId === SYNC.selfId; }
 
   /** Load PeerJS once, on demand. */
   function syncLoadLib(){
@@ -65,7 +79,16 @@
   }
 
   /* ---- the wire protocol ----
-     Deliberately small. Everything is a plain object with a `t` tag. */
+     Small on purpose. Every message is a plain object with a `t` tag.
+
+       hello      {name}                greeting, both directions
+       roster     {leaderId, list}      host -> everyone, who is here and who leads
+       state      {timer fields}        leader -> everyone (relayed by the host)
+       setleader  {id}                  leader -> host, hand the timer over
+       kick       {id}                  leader -> host, remove someone
+       kicked     {}                    host -> the removed person
+       bye        {}                    polite disconnect
+  */
 
   function syncStateMsg(){
     return {
@@ -117,48 +140,119 @@
   }
 
   function syncSend(conn, msg){ try{ conn.send(msg); }catch(e){} }
-  function syncBroadcast(msg){
-    for(const id in SYNC.conns) syncSend(SYNC.conns[id], msg);
+  function syncBroadcast(msg, exceptId){
+    for(const id in SYNC.conns) if(id !== exceptId) syncSend(SYNC.conns[id], msg);
   }
 
-  /** Called by the timer engine whenever anything changes. No-op unless leading. */
+  /** Called by the timer engine on every change. No-op unless we hold the timer. */
   function syncBroadcastState(){
     if(!syncIsLeader()) return;
     syncBroadcast(syncStateMsg());
   }
 
   function syncRosterMsg(){
-    const list = [{code:SYNC.code, name:SYNC.name, leader:true}];
-    for(const id in SYNC.roster) list.push({code:id, name:SYNC.roster[id], leader:false});
-    return {t:'roster', list};
+    const list = [{id:SYNC.selfId, name:SYNC.name || 'Host'}];
+    for(const id in SYNC.roster) list.push({id, name:SYNC.roster[id]});
+    return {t:'roster', leaderId:SYNC.leaderId, list};
+  }
+
+  /** Host only: change who holds the timer and tell everyone. */
+  function syncSetLeader(id){
+    if(!syncIsHost()) return;
+    if(id !== SYNC.selfId && !SYNC.conns[id]) return;
+    SYNC.leaderId = id;
+    syncBroadcast(syncRosterMsg());
+    if(syncIsLeader()) syncBroadcastState();     // took it back: re-assert at once
+    syncSetStatus(id === SYNC.selfId ? 'You hold the timer' : 'Timer handed over');
+  }
+
+  /** Host only: drop someone from the room. */
+  function syncRemove(id){
+    if(!syncIsHost() || !SYNC.conns[id]) return;
+    syncSend(SYNC.conns[id], {t:'kicked'});
+    const conn = SYNC.conns[id];
+    const wasLeader = SYNC.leaderId === id;
+    setTimeout(()=>{ try{ conn.close(); }catch(e){} }, 60);
+    delete SYNC.conns[id]; delete SYNC.roster[id];
+    if(wasLeader) SYNC.leaderId = SYNC.selfId;   // never leave the room leaderless
+    syncBroadcast(syncRosterMsg());
+    if(wasLeader) syncBroadcastState();
+    syncSetStatus('Removed from the room');
+    syncRender();
+  }
+
+  /* What the buttons call. If we're the host we act directly; if not, we ask the
+     host to do it. Either way the host is the single point of authority. */
+  function syncHandOver(id){
+    if(syncIsHost()) syncSetLeader(id);
+    else if(syncIsLeader()) syncBroadcast({t:'setleader', id});
+  }
+  function syncKick(id){
+    if(syncIsHost()) syncRemove(id);
+    else if(syncIsLeader()) syncBroadcast({t:'kick', id});
   }
 
   function syncWire(conn, isIncoming){
     conn.on('open', ()=>{
       SYNC.conns[conn.peer] = conn;
-      syncSend(conn, {t:'hello', name:SYNC.name, code:SYNC.code});
-      if(syncIsLeader()){
-        syncSend(conn, syncStateMsg());
-        syncBroadcast(syncRosterMsg());
+      syncSend(conn, {t:'hello', name:SYNC.name});
+      if(syncIsHost()){
+        syncSend(conn, syncRosterMsg());
+        if(syncIsLeader()) syncSend(conn, syncStateMsg());
       }
       syncSetStatus(isIncoming ? 'Someone joined' : 'Connected');
     });
+
     conn.on('data', (m)=>{
       if(!m || typeof m !== 'object') return;
+
       if(m.t === 'hello'){
         SYNC.roster[conn.peer] = m.name || 'Someone';
-        if(syncIsLeader()) syncBroadcast(syncRosterMsg());
+        if(syncIsHost()) syncBroadcast(syncRosterMsg());
         syncRender();
       }
-      else if(m.t === 'state') syncApplyState(m);
-      else if(m.t === 'roster'){ SYNC.remoteList = m.list || []; syncRender(); }
+
+      else if(m.t === 'roster'){
+        SYNC.remoteList = m.list || [];
+        SYNC.leaderId = m.leaderId || null;
+        if(syncIsLeader()) syncBroadcastState();   // just been handed the timer
+        syncRender();
+      }
+
+      else if(m.t === 'state'){
+        // The host is the referee: only the current leader's state is honoured,
+        // and the host is what carries it to everyone else.
+        if(syncIsHost()){
+          if(conn.peer !== SYNC.leaderId) return;
+          syncBroadcast(m, conn.peer);
+        }
+        syncApplyState(m);
+      }
+
+      else if(m.t === 'setleader'){
+        if(syncIsHost() && conn.peer === SYNC.leaderId) syncSetLeader(m.id);
+      }
+      else if(m.t === 'kick'){
+        if(syncIsHost() && conn.peer === SYNC.leaderId) syncRemove(m.id);
+      }
+      else if(m.t === 'kicked'){
+        syncLeave(true);
+        syncSetStatus('You were removed from the room');
+      }
       else if(m.t === 'bye'){ try{ conn.close(); }catch(e){} }
     });
+
     conn.on('close', ()=>{
       delete SYNC.conns[conn.peer];
       delete SYNC.roster[conn.peer];
-      if(syncIsLeader()) syncBroadcast(syncRosterMsg());
-      else if(SYNC.mode === 'joined'){ syncSetStatus('Host disconnected'); syncLeave(true); }
+      if(syncIsHost()){
+        // if the person holding the timer drops, the host takes it back
+        if(SYNC.leaderId === conn.peer){ SYNC.leaderId = SYNC.selfId; syncBroadcastState(); }
+        syncBroadcast(syncRosterMsg());
+      }else if(SYNC.mode === 'joined'){
+        syncSetStatus('Host disconnected');
+        syncLeave(true);
+      }
       syncRender();
     });
     conn.on('error', ()=>{});
@@ -169,7 +263,11 @@
     return new Promise((resolve, reject)=>{
       const peer = new Peer(id, {debug:0});
       let settled = false;
-      peer.on('open', (realId)=>{ settled = true; resolve({peer, id:realId}); });
+      peer.on('open', (realId)=>{
+        settled = true;
+        SYNC.selfId = realId || id;
+        resolve({peer, id:SYNC.selfId});
+      });
       peer.on('error', (err)=>{
         if(settled) return;
         settled = true;
@@ -185,8 +283,9 @@
     const code = useMine ? (SYNC.myCode || syncCode()) : syncCode();
     syncSetStatus('Opening…');
     try{
-      const {peer} = await syncOpenPeer(SYNC_NS + code.toLowerCase());
+      const {peer, id} = await syncOpenPeer(SYNC_NS + code.toLowerCase());
       SYNC.peer = peer; SYNC.code = code; SYNC.mode = 'hosting';
+      SYNC.selfId = id; SYNC.leaderId = id;
       if(useMine){ SYNC.myCode = code; syncSave(); }
       clearInterval(SYNC.beat);
       SYNC.beat = setInterval(syncBroadcastState, SYNC_BEAT);
@@ -208,9 +307,11 @@
     syncSetStatus('Connecting to '+code+'…');
     try{
       const {peer} = await syncOpenPeer(undefined);
-      SYNC.peer = peer; SYNC.mode = 'joined'; SYNC.code = code;
+      SYNC.peer = peer; SYNC.mode = 'joined'; SYNC.code = code; SYNC.leaderId = null;
       const conn = peer.connect(SYNC_NS + code.toLowerCase(), {reliable:true});
       syncWire(conn, false);
+      clearInterval(SYNC.beat);
+      SYNC.beat = setInterval(syncBroadcastState, SYNC_BEAT);   // idle unless we lead
       setTimeout(()=>{
         if(SYNC.mode === 'joined' && !Object.keys(SYNC.conns).length){
           syncSetStatus('No answer — are they hosting right now?');
@@ -230,6 +331,7 @@
     SYNC.conns = {}; SYNC.roster = {}; SYNC.remoteList = null;
     try{ if(SYNC.peer) SYNC.peer.destroy(); }catch(e){}
     SYNC.peer = null; SYNC.mode = 'off'; SYNC.code = null;
+    SYNC.selfId = null; SYNC.leaderId = null;
     if(!quiet) syncSetStatus('Left');
     syncRender();
   }
@@ -270,23 +372,22 @@
 
   /* ---- screen ---- */
   function syncPeople(){
-    if(syncIsLeader()){
-      const list = [{code:SYNC.code, name:SYNC.name||'You', leader:true, me:true}];
-      for(const id in SYNC.roster) list.push({code:id, name:SYNC.roster[id], leader:false});
-      return list;
+    if(syncIsHost()){
+      const list = [{id:SYNC.selfId, name:SYNC.name || 'You', me:true}];
+      for(const id in SYNC.roster) list.push({id, name:SYNC.roster[id], me:false});
+      return list.map(p=>Object.assign(p, {leader:p.id === SYNC.leaderId}));
     }
     if(SYNC.remoteList){
       return SYNC.remoteList.map(p=>({
-        code:p.code, name:p.name || (p.leader?'Host':'Someone'),
-        leader:!!p.leader, me:false
+        id:p.id, name:p.name || 'Someone',
+        leader:p.id === SYNC.leaderId, me:p.id === SYNC.selfId,
       }));
     }
     return [];
   }
 
   function syncRender(){
-    const box = $('sync-body');
-    if(!box) return;
+    if(!$('sync-body')) return;
 
     const codeEl = $('sync-mycode');
     if(codeEl) codeEl.textContent = SYNC.myCode || '——————';
@@ -306,21 +407,28 @@
     $('sync-host').classList.toggle('hide', syncActive());
     $('sync-room').classList.toggle('hide', syncActive());
 
-    // who's here
     const people = syncPeople();
+    const canManage = syncIsLeader();
     const pbox = $('sync-people');
     if(pbox){
       pbox.classList.toggle('hide', !syncActive());
       pbox.innerHTML = people.length
-        ? '<p class="q-sec">In this room</p>' + people.map(p=>
-            '<div class="sync-person'+(p.leader?' lead':'')+'">'
-            + '<span>'+esc(p.name || 'Someone')+'</span>'
-            + (p.leader ? '<em>leads the timer</em>' : '<em>following</em>')
-            + '</div>').join('')
+        ? '<p class="q-sec">In this room</p>' + people.map(p=>{
+            const tag = p.leader ? '<em>holds the timer</em>' : '<em>following</em>';
+            // Only the timer holder gets the controls, and never against itself.
+            const acts = (canManage && !p.me)
+              ? '<button class="mini-btn" data-lead="'+esc(p.id)+'">Give timer</button>'
+                + '<button class="sync-x" data-kick="'+esc(p.id)+'" aria-label="Remove">×</button>'
+              : '';
+            return '<div class="sync-person'+(p.leader?' lead':'')+'">'
+              + '<span>'+esc(p.name)+(p.me?' <i>(you)</i>':'')+'</span>'
+              + tag + acts + '</div>';
+          }).join('')
         : '<p class="cal-empty">Nobody else yet. Share your code.</p>';
+      pbox.querySelectorAll('[data-lead]').forEach(b=>{ b.onclick = ()=>syncHandOver(b.dataset.lead); });
+      pbox.querySelectorAll('[data-kick]').forEach(b=>{ b.onclick = ()=>syncKick(b.dataset.kick); });
     }
 
-    // friends
     const fbox = $('sync-friends');
     if(fbox){
       fbox.innerHTML = SYNC.friends.length
@@ -333,20 +441,19 @@
       fbox.querySelectorAll('[data-drop]').forEach(b=>{ b.onclick = ()=>syncRemoveFriend(b.dataset.drop); });
     }
 
-    // the follower banner on the timer screen
     const band = $('sync-band');
     if(band){
-      const leading = syncIsLeader();
       const show = syncActive() && Object.keys(SYNC.conns).length > 0;
       band.classList.toggle('hide', !show);
       if(show){
         const host = people.find(p=>p.leader);
-        band.textContent = leading
-          ? 'You lead · '+people.length+' here'
-          : 'Following '+esc((host && host.name) || 'the host');
+        band.textContent = syncIsLeader()
+          ? 'You hold the timer · '+people.length+' here'
+          : 'Following '+((host && host.name) || 'the host');
       }
     }
-    // followers don't drive the clock
+
+    // whoever isn't holding the timer doesn't drive it
     const lock = syncActive() && !syncIsLeader();
     ['toggle-run','skip','stop','begin'].forEach(id=>{
       const b = $(id); if(b) b.disabled = lock;

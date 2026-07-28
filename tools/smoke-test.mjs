@@ -741,7 +741,7 @@ $g('sync-join').click();
 await wait(250);
 check('guest connects to the host', $g('sync-state').textContent.includes('Joined'), $g('sync-state').textContent);
 check('host sees the guest by name', $h('sync-people').textContent.includes('Friend'), $h('sync-people').textContent.slice(0, 60));
-check('guest sees who is leading', $g('sync-people').textContent.includes('leads the timer'), $g('sync-people').textContent.slice(0, 60));
+check('guest sees who is leading', $g('sync-people').textContent.includes('holds the timer'), $g('sync-people').textContent.slice(0, 60));
 
 // leader starts the timer; the follower should follow
 $h('begin').click();
@@ -755,7 +755,7 @@ check('clocks agree within a second', Math.abs(hostSecs - guestSecs) <= 1, `host
 check("follower's own controls are locked", $g('toggle-run').disabled && $g('skip').disabled, `run=${$g('toggle-run').disabled} skip=${$g('skip').disabled}`);
 check("leader's controls stay usable", !$h('toggle-run').disabled);
 check('follower is told it is following', !$g('sync-band').classList.contains('hide') && /Following/.test($g('sync-band').textContent), $g('sync-band').textContent);
-check('leader is told it leads', /You lead/.test($h('sync-band').textContent), $h('sync-band').textContent);
+check('leader is told it leads', /You hold the timer/.test($h('sync-band').textContent), $h('sync-band').textContent);
 
 // leader pauses
 $h('toggle-run').click();
@@ -794,8 +794,65 @@ check('one-off room does not overwrite your code', $h('sync-mycode').textContent
 $h('sync-leave').click();
 await wait(100);
 
+
+// --- handing the timer over, and removing people ---------------------------
+// A third window, so a handover has somewhere to go and a witness to see it.
+const { window: third, errors: thirdErr } = boot(html);
+await wait(300);
+const $t = (id) => third.document.getElementById(id);
+
+$h('sync-host').click();
+await wait(150);
+const roomCode = $h('sync-mycode').textContent;
+
+for (const [w, $w, nm] of [[guest, $g, 'Friend'], [third, $t, 'Third']]) {
+  $w('sync-name').value = nm;
+  $w('sync-name').dispatchEvent(new w.Event('input'));
+  $w('d-sync').click();
+  $w('sync-code').value = roomCode;
+  $w('sync-join').click();
+}
+await wait(400);
+check('three in the room', $h('sync-people').querySelectorAll('.sync-person').length === 3, `${$h('sync-people').querySelectorAll('.sync-person').length}`);
+check('host holds the timer to begin with', /You[\s\S]*holds the timer/.test($h('sync-people').innerHTML) || $h('sync-people').querySelector('.sync-person.lead')?.textContent.includes('you'), $h('sync-people').querySelector('.sync-person.lead')?.textContent);
+check('only the holder sees management buttons', $h('sync-people').querySelectorAll('[data-lead]').length === 2 && $g('sync-people').querySelectorAll('[data-lead]').length === 0, `host ${$h('sync-people').querySelectorAll('[data-lead]').length} / guest ${$g('sync-people').querySelectorAll('[data-lead]').length}`);
+
+// hand the timer to the guest
+$h('sync-people').querySelectorAll('[data-lead]')[0].click();
+await wait(300);
+check('guest now holds the timer', /You hold the timer/.test($g('sync-band').textContent) || $g('sync-people').querySelector('.sync-person.lead')?.textContent.includes('(you)'), $g('sync-people').querySelector('.sync-person.lead')?.textContent);
+check('host is now following', $h('toggle-run').disabled === true, `disabled=${$h('toggle-run').disabled}`);
+check('guest controls unlocked', $g('begin').disabled === false);
+check('guest can now manage', $g('sync-people').querySelectorAll('[data-lead]').length === 2, `${$g('sync-people').querySelectorAll('[data-lead]').length}`);
+check('host no longer manages', $h('sync-people').querySelectorAll('[data-lead]').length === 0, `${$h('sync-people').querySelectorAll('[data-lead]').length}`);
+
+// the new leader drives everyone, relayed through the host
+$g('begin').click();
+await wait(400);
+check('new leader starts everyone', $h('setup').classList.contains('hide') && $t('setup').classList.contains('hide'), `host ${$h('setup').classList.contains('hide')} third ${$t('setup').classList.contains('hide')}`);
+check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock').textContent.trim()), $t('clock').textContent);
+
+// new leader removes the third member
+const kickBtn = [...$g('sync-people').querySelectorAll('[data-kick]')].find((b) => {
+  const row = b.closest('.sync-person');
+  return row && row.textContent.includes('Third');
+});
+kickBtn.click();
+await wait(400);
+check('removed member is disconnected', $t('sync-state').textContent === 'Not connected', $t('sync-state').textContent);
+check('removed member is told why', /removed/i.test($t('sync-status').textContent), $t('sync-status').textContent);
+check('room is down to two', $h('sync-people').querySelectorAll('.sync-person').length === 2, `${$h('sync-people').querySelectorAll('.sync-person').length}`);
+check('removed member regains its controls', !$t('toggle-run').disabled);
+
+// if the timer holder leaves, the host takes it back rather than stranding everyone
+$g('sync-leave').click();
+await wait(400);
+check('host reclaims the timer when the holder leaves', !$h('toggle-run').disabled, `disabled=${$h('toggle-run').disabled}`);
+$h('sync-leave').click();
+await wait(200);
+
 // --- verdict ---------------------------------------------------------------
-const allErrors = errors.concat(errors2, hostErr, guestErr);
+const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
 log('');
 if (allErrors.length) {
   log(`✗ ${allErrors.length} runtime error(s):`);
