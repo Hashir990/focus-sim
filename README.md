@@ -1,5 +1,7 @@
 # Focus Simulator
 
+> **New session? Read `HANDOFF.md` first** — architecture, decisions, gotchas and open work.
+
 A focus timer with a rest arcade, fading quotes, and a progress calendar.
 
 The app used to be one 1,433-line `focus-simulator_2.html`. It is now split into small
