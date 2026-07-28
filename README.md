@@ -34,7 +34,7 @@ adds tasks and ticks them off, starts a session, checks the ticked items land in
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
-recording stand-in for media playback, and checks you can move between days in the calendar. 114 checks. Run it after any change you're unsure about.
+recording stand-in for media playback, and checks you can move between days in the calendar. 119 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -173,8 +173,15 @@ Letter counts are shown after every clue and derived from the entry, so they can
 drift out of step with the answer.
 
 To add clues, drop `['WORD','Its clue']` into the relevant bank — it joins the rotation
-immediately. Type with a real keyboard or the on-screen one; Tab moves between clues,
-arrow keys move within one, and tapping a square you're already on flips across/down.
+immediately. Type with a real keyboard or the on-screen one.
+
+**Direction is shown, never inferred.** Every square belongs to two words, so an
+Across/Down button in the header says which way typing will go; press it or the space
+bar to switch. Tapping a square you're already on still flips, and clicking a square
+whose word in the current direction is already complete switches to the crossing word
+rather than typing over finished letters.
+
+Tab moves between clues, arrow keys move within one.
 
 `npm test` generates 12 puzzles across the three difficulties and asserts each one is
 self-consistent: every entry’s recorded answer matches the letters actually in those

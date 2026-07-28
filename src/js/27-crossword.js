@@ -336,15 +336,33 @@
       return this.entryAt(this.sel, this.dir) || this.entryAt(this.sel, this.dir==='across'?'down':'across');
     },
 
+    _other(){ return this.dir==='across' ? 'down' : 'across'; },
+    _full(e){ return !!e && e.cells.every(c=>this.user[c]); },
+
+    /** Flip between across and down, if the square has both. */
+    toggleDir(){
+      const other = this._other();
+      if(this.sel>=0 && !this.entryAt(this.sel, other)) return;
+      this.dir = other;
+      this.render();
+    },
+
     select(i){
       if(this.done) return;
       if(this.sel === i){
         // tapping the same square flips direction, if there is one to flip to
-        const other = this.dir==='across' ? 'down' : 'across';
+        const other = this._other();
         if(this.entryAt(i, other)) this.dir = other;
       }else{
         this.sel = i;
-        if(!this.entryAt(i, this.dir)) this.dir = this.dir==='across' ? 'down' : 'across';
+        const here = this.entryAt(i, this.dir);
+        const other = this.entryAt(i, this._other());
+        // No word in the current direction — the choice makes itself.
+        if(!here) this.dir = this._other();
+        // Otherwise, if the word we'd land on is already finished and the
+        // crossing one isn't, take the crossing one. Typing over a completed
+        // word is never what you meant.
+        else if(other && this._full(here) && !this._full(other)) this.dir = this._other();
       }
       this.render();
     },
@@ -456,6 +474,14 @@
         };
       });
 
+      // Direction is shown, not inferred. Squares belong to two words, so which
+      // way typing goes has to be visible or it feels random.
+      const dirBtn = $('cw-dir');
+      if(dirBtn){
+        dirBtn.textContent = this.dir==='across' ? 'Across →' : 'Down ↓';
+        dirBtn.disabled = this.sel>=0 && !this.entryAt(this.sel, this._other());
+      }
+
       $('cw-meta').textContent = this._label();
       document.querySelectorAll('#cw-ctrl .mini-btn').forEach(b=>b.classList.toggle('on', b.dataset.d===this.diff));
       document.querySelectorAll('#cw-size .mini-btn').forEach(b=>b.classList.toggle('on', b.dataset.s===this.sizeKey));
@@ -489,6 +515,7 @@
   document.addEventListener('keydown', e=>{
     if(!Arcade.open || Arcade.active!=='crossword') return;
     if(e.key === 'Backspace'){ e.preventDefault(); Cross.back(); }
+    else if(e.key === ' '){ e.preventDefault(); Cross.toggleDir(); }
     else if(e.key === 'Tab'){ e.preventDefault(); Cross.nextClue(e.shiftKey ? -1 : 1); }
     else if(e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown'){
       e.preventDefault();

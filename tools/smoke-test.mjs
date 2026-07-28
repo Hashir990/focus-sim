@@ -218,6 +218,52 @@ const afterMove = [...$('g2048-grid').children].map((t) => t.dataset.v).join(','
 check('2048 board responds to arrow keys', afterMove !== beforeMove);
 check('2048 score shown', /Score \d+ · Best \d+/.test($('g2048-meta').textContent), $('g2048-meta').textContent);
 
+// crossword direction: typing must go the way the button says, every time
+byGame.crossword.click();
+await wait(300);
+[...$('cw-size').children].find((b) => b.dataset.s === 'small').click();
+await wait(250);
+{
+  const st = JSON.parse(window.localStorage.getItem('arcade_cross'));
+  const p = st.puz;
+  const sq = [...$('cw-grid').children];
+  const dirLabel = () => $('cw-dir').textContent.trim();
+  // a square that belongs to both an across and a down word
+  const both = p.entries.filter((e) => e.dir === 'down')
+    .flatMap((e) => e.cells)
+    .find((c) => p.entries.some((a) => a.dir === 'across' && a.cells.includes(c)));
+  sq[both].click();
+  await wait(30);
+  check('direction is shown on screen', /^(Across →|Down ↓)$/.test(dirLabel()), dirLabel());
+
+  // force Down, type, and confirm the letters go downwards
+  if (dirLabel() !== 'Down ↓') { $('cw-dir').click(); await wait(30); }
+  check('toggle switches to Down', dirLabel() === 'Down ↓', dirLabel());
+  const downEntry = p.entries.find((e) => e.dir === 'down' && e.cells.includes(both));
+  const startAt = downEntry.cells.indexOf(both);
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q' }));
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q' }));
+  await wait(60);
+  const typed = JSON.parse(window.localStorage.getItem('arcade_cross')).user
+    .map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  const wantDown = downEntry.cells.slice(startAt, startAt + 2);
+  check('typing Down moves down the grid', wantDown.every((c) => typed.includes(c)), `landed ${typed.join(',')} wanted ${wantDown.join(',')}`);
+  check('nothing landed sideways', typed.every((c) => downEntry.cells.includes(c)), typed.join(','));
+
+  // space bar flips direction too
+  $('cw-dir').click();
+  await wait(30);
+  const before = dirLabel();
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
+  await wait(30);
+  check('space flips direction', dirLabel() !== before, `${before} -> ${dirLabel()}`);
+
+  // put the size back to 9x9 — the generator checks below assume it
+  [...$('cw-size').children].find((b) => b.dataset.s === 'large').click();
+  [...$('cw-size').children].find((b) => b.dataset.s === 'large').click();
+  await wait(250);
+}
+
 // crossword — validate real generator output at every difficulty, then solve one
 byGame.crossword.click();
 await wait(300);
