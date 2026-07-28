@@ -1,0 +1,50 @@
+
+<!-- ============ FOCUS TOGETHER OVERLAY ============ -->
+<div class="overlay hide" id="sync-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="sync-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">Focus together</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body" id="sync-body">
+    <p class="q-intro">Share a timer with someone else. Whoever starts the room leads —
+      their start, pause and skip drive everyone's clock. Nothing goes through a server
+      of ours; the devices talk to each other directly.</p>
+
+    <div class="sync-state" id="sync-state">Not connected</div>
+    <p class="sync-status" id="sync-status"></p>
+
+    <div class="field">
+      <div class="flabel"><span>Your code</span></div>
+      <div class="sync-mine">
+        <code id="sync-mycode">——————</code>
+        <button class="mini-btn" id="sync-copy">Copy</button>
+      </div>
+      <input id="sync-name" class="task-field" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off" />
+      <div class="sync-actions">
+        <button class="primary" id="sync-host">Host with my code</button>
+        <button class="mini-btn" id="sync-room">One-off room</button>
+        <button class="mini-btn hide" id="sync-leave">Leave</button>
+      </div>
+    </div>
+
+    <div class="sync-people hide" id="sync-people"></div>
+
+    <div class="field">
+      <div class="flabel"><span>Join someone</span></div>
+      <div class="sync-join">
+        <input id="sync-code" class="task-field" type="text" maxlength="7" placeholder="Their code" autocomplete="off" spellcheck="false" />
+        <button class="mini-btn" id="sync-join">Join</button>
+      </div>
+      <div class="sync-join">
+        <input id="sync-friend-name" class="task-field" type="text" maxlength="24" placeholder="Save as (name)" autocomplete="off" />
+        <button class="mini-btn" id="sync-add">Save</button>
+      </div>
+    </div>
+
+    <p class="q-sec">Friends</p>
+    <div id="sync-friends"></div>
+  </div>
+</div>

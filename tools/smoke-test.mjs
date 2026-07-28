@@ -19,6 +19,9 @@ const html = readFileSync(htmlPath, 'utf8');
 // All three are fine in a real browser, so they are not real failures.
 const IGNORE = /Not implemented: (navigation|HTMLCanvasElement|HTMLMediaElement)/;
 
+// Shared address book for the fake peer network, so windows can reach each other.
+const FAKE_NET = {};
+
 const log = (s) => process.stderr.write(s + '\n');
 const checks = [];
 const check = (label, ok, detail = '') => {
@@ -99,6 +102,50 @@ function boot(pageHtml) {
   window.HTMLMediaElement.prototype.pause = function () { media.pauses++; this.__paused = true; };
   window.HTMLMediaElement.prototype.load = function () { media.loads++; };
   window.__media = media;
+
+  // A fake PeerJS. Instances registered here can find each other, so two windows
+  // can genuinely talk — no network, but the real protocol runs end to end.
+  window.Peer = function FakePeer(id, _opts) {
+    const self = this;
+    const handlers = {};
+    self.id = id || 'anon-' + Math.random().toString(36).slice(2, 9);
+    self.destroyed = false;
+    self.on = (ev, fn) => { (handlers[ev] = handlers[ev] || []).push(fn); return self; };
+    self._emit = (ev, ...a) => (handlers[ev] || []).forEach((f) => f(...a));
+    self.destroy = () => { self.destroyed = true; delete FAKE_NET[self.id]; };
+
+    self.connect = (target) => {
+      const conn = mkConn(self.id, target);
+      const remote = FAKE_NET[target];
+      setTimeout(() => {
+        if (!remote) { conn._emit('error', new Error('peer-unavailable')); return; }
+        const back = mkConn(target, self.id);
+        conn._peerConn = back; back._peerConn = conn;
+        remote._emit('connection', back);
+        setTimeout(() => { back._emit('open'); conn._emit('open'); }, 0);
+      }, 0);
+      return conn;
+    };
+
+    if (FAKE_NET[self.id]) {
+      setTimeout(() => self._emit('error', Object.assign(new Error('taken'), { type: 'unavailable-id' })), 0);
+    } else {
+      FAKE_NET[self.id] = self;
+      setTimeout(() => self._emit('open', self.id), 0);
+    }
+
+    function mkConn(from, to) {
+      const h = {};
+      const c = {
+        peer: to, open: true,
+        on: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); return c; },
+        _emit: (ev, ...a) => (h[ev] || []).forEach((f) => f(...a)),
+        send: (msg) => { setTimeout(() => c._peerConn && c._peerConn._emit('data', JSON.parse(JSON.stringify(msg))), 0); },
+        close: () => { setTimeout(() => { c._emit('close'); c._peerConn && c._peerConn._emit('close'); }, 0); },
+      };
+      return c;
+    }
+  };
 
   window.navigator.vibrate = () => true;
   window.URL.createObjectURL = () => 'blob:stub';
@@ -250,10 +297,17 @@ await wait(250);
   check('typing Down moves down the grid', wantDown.every((c) => typed.includes(c)), `landed ${typed.join(',')} wanted ${wantDown.join(',')}`);
   check('nothing landed sideways', typed.every((c) => downEntry.cells.includes(c)), typed.join(','));
 
-  // space bar flips direction too
-  $('cw-dir').click();
-  await wait(30);
+  // Space flips direction — but only on a square that actually has both words.
+  // Typing moved the cursor down, and the square it landed on may have no across
+  // entry at all, in which case refusing to flip is the right behaviour.
+  const acrossE = p.entries.find((a) => a.dir === 'across' && a.cells.includes(both));
+  const elsewhere = acrossE.cells.find((c) => c !== both);
+  sq[elsewhere].click();
+  await wait(20);
+  sq[both].click();
+  await wait(20);
   const before = dirLabel();
+  check('toggle is available on a crossing square', !$('cw-dir').disabled);
   window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
   await wait(30);
   check('space flips direction', dirLabel() !== before, `${before} -> ${dirLabel()}`);
@@ -651,8 +705,97 @@ check('can switch back to a day with sessions', $3('cal-detail').querySelectorAl
 check('no leftover padding from the old zoom', !$3('cal-detail').style.paddingBottom, $3('cal-detail').style.paddingBottom);
 check('zoom wrapper is gone', !$3('cal-zoom') && !$3('cal-zoom-in'));
 
+
+// ===========================================================================
+// Pass 3 — two devices sharing a timer over the fake peer network
+// ===========================================================================
+const { window: host, errors: hostErr } = boot(html);
+const { window: guest, errors: guestErr } = boot(html);
+await wait(400);
+const $h = (id) => host.document.getElementById(id);
+const $g = (id) => guest.document.getElementById(id);
+
+check('a friend code is generated', /^[2-9A-HJ-NP-Z]{6}$/.test($h('sync-mycode').textContent), $h('sync-mycode').textContent);
+check('the code avoids confusable characters', !/[OI01]/.test($h('sync-mycode').textContent), $h('sync-mycode').textContent);
+check('two devices get different codes', $h('sync-mycode').textContent !== $g('sync-mycode').textContent);
+
+$h('sync-name').value = 'Hashir';
+$h('sync-name').dispatchEvent(new host.Event('input'));
+$h('d-sync').click();
+await wait(40);
+check('sync screen opens', !$h('sync-overlay').classList.contains('hide'));
+
+// host with the saved friend code
+$h('sync-host').click();
+await wait(120);
+const hostCode = $h('sync-mycode').textContent;
+check('hosting starts', $h('sync-state').textContent.includes('Hosting'), $h('sync-state').textContent);
+check('leave button appears while connected', !$h('sync-leave').classList.contains('hide'));
+
+// guest joins by code
+$g('sync-name').value = 'Friend';
+$g('sync-name').dispatchEvent(new guest.Event('input'));
+$g('d-sync').click();
+$g('sync-code').value = hostCode;
+$g('sync-join').click();
+await wait(250);
+check('guest connects to the host', $g('sync-state').textContent.includes('Joined'), $g('sync-state').textContent);
+check('host sees the guest by name', $h('sync-people').textContent.includes('Friend'), $h('sync-people').textContent.slice(0, 60));
+check('guest sees who is leading', $g('sync-people').textContent.includes('leads the timer'), $g('sync-people').textContent.slice(0, 60));
+
+// leader starts the timer; the follower should follow
+$h('begin').click();
+await wait(250);
+check('follower left the setup screen', $g('setup').classList.contains('hide'));
+check('follower clock is running', $g('toggle-run').textContent.trim() === 'Pause', $g('toggle-run').textContent);
+const hostSecs = parseInt($h('clock').textContent.split(':')[0], 10) * 60 + parseInt($h('clock').textContent.split(':')[1], 10);
+const guestSecs = parseInt($g('clock').textContent.split(':')[0], 10) * 60 + parseInt($g('clock').textContent.split(':')[1], 10);
+check('clocks agree within a second', Math.abs(hostSecs - guestSecs) <= 1, `host ${$h('clock').textContent} guest ${$g('clock').textContent}`);
+
+check("follower's own controls are locked", $g('toggle-run').disabled && $g('skip').disabled, `run=${$g('toggle-run').disabled} skip=${$g('skip').disabled}`);
+check("leader's controls stay usable", !$h('toggle-run').disabled);
+check('follower is told it is following', !$g('sync-band').classList.contains('hide') && /Following/.test($g('sync-band').textContent), $g('sync-band').textContent);
+check('leader is told it leads', /You lead/.test($h('sync-band').textContent), $h('sync-band').textContent);
+
+// leader pauses
+$h('toggle-run').click();
+await wait(250);
+check('pause propagates to the follower', $g('toggle-run').textContent.trim() !== 'Pause', $g('toggle-run').textContent);
+
+// a follower must never broadcast, even if its buttons are poked directly
+$g('toggle-run').disabled = false;
+const hostBefore = $h('toggle-run').textContent;
+$g('toggle-run').click();
+await wait(200);
+check('follower cannot drive the leader', $h('toggle-run').textContent === hostBefore, `${hostBefore} -> ${$h('toggle-run').textContent}`);
+
+// friends list
+$g('sync-code').value = hostCode;
+$g('sync-friend-name').value = 'Study buddy';
+$g('sync-add').click();
+await wait(40);
+check('friend saved with a name', $g('sync-friends').textContent.includes('Study buddy'), $g('sync-friends').textContent.slice(0, 60));
+check('friend saved with the code', $g('sync-friends').textContent.includes(hostCode));
+check('friends persist', JSON.parse(guest.localStorage.getItem('focus_sync')).friends.length === 1);
+
+// leaving tears the room down on both sides
+$h('sync-leave').click();
+await wait(250);
+check('host returns to disconnected', $h('sync-state').textContent === 'Not connected', $h('sync-state').textContent);
+check('guest notices the host left', $g('sync-state').textContent === 'Not connected', $g('sync-state').textContent);
+check('controls unlock after leaving', !$g('toggle-run').disabled);
+check('band hidden once alone', $h('sync-band').classList.contains('hide'));
+
+// one-off room codes are not the saved friend code
+$h('sync-room').click();
+await wait(150);
+check('one-off room uses a different code', $h('sync-state').textContent.includes('Hosting') && !$h('sync-state').textContent.includes(hostCode), $h('sync-state').textContent);
+check('one-off room does not overwrite your code', $h('sync-mycode').textContent === hostCode);
+$h('sync-leave').click();
+await wait(100);
+
 // --- verdict ---------------------------------------------------------------
-const allErrors = errors.concat(errors2);
+const allErrors = errors.concat(errors2, hostErr, guestErr);
 log('');
 if (allErrors.length) {
   log(`✗ ${allErrors.length} runtime error(s):`);

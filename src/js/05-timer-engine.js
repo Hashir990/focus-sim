@@ -7,6 +7,7 @@
     clearInterval(loop);
     loop = setInterval(tick,250);
     render();
+    syncBroadcastState();
   }
   function pause(){
     S.running=false;
@@ -15,6 +16,7 @@
     releaseWake();
     ambStop();
     render();
+    syncBroadcastState();
   }
   function tick(){
     const rem = Math.max(0, Math.round((S.endAt-Date.now())/1000));
@@ -50,6 +52,7 @@
     }
     S.remaining = S.total;
     save(); render();
+    syncBroadcastState();
 
     if(S.autoContinue){ setTimeout(()=>{ if(!S.running && S.mode!=='setup') start(); }, 1000); }
   }
@@ -59,6 +62,7 @@
     // prime audio on user gesture
     try{ audio = audio || new (window.AudioContext||window.webkitAudioContext)(); audio.resume(); }catch(e){}
     swapView(); start();
+    syncBroadcastState();
   }
   function skip(){
     let actual=null;
@@ -85,6 +89,7 @@
     S.mode='setup'; S.restIsLong=false;
     S.remaining=S.total=S.focusMin*60;
     swapView(); render();
+    syncBroadcastState();
   }
   function focusNow(){
     if(Arcade.open) Arcade.close();

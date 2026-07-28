@@ -1,0 +1,66 @@
+/* ---- focus together ---- */
+.sync-state{
+  display:inline-block; padding:7px 13px; border-radius:99px;
+  border:1px solid var(--line); background:var(--card);
+  font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+  margin-bottom:6px;
+}
+.sync-state.on{
+  border-color:var(--accent); color:var(--text);
+  background:color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.sync-status{ font-size:12.5px; color:var(--muted); min-height:1.2em; margin-bottom:12px }
+
+.sync-mine{ display:flex; align-items:center; gap:9px; margin:10px 0 9px }
+.sync-mine code{
+  flex:1; font-family:'Space Grotesk',monospace; font-size:21px; font-weight:600;
+  letter-spacing:.22em; color:var(--accent);
+  background:var(--track); border-radius:12px; padding:11px 14px; text-align:center;
+}
+
+.sync-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap }
+.sync-actions .primary{ flex:1; height:46px; font-size:14px; min-width:150px }
+.sync-actions .hide{ display:none }
+
+.sync-join{ display:flex; gap:8px; margin-top:9px }
+.sync-join .task-field{ text-transform:uppercase; letter-spacing:.12em }
+#sync-friend-name{ text-transform:none; letter-spacing:0 }
+
+.sync-people{ margin:4px 0 16px }
+.sync-people.hide{ display:none }
+.sync-person{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:10px 13px; margin-bottom:7px; font-size:13.5px;
+}
+.sync-person.lead{ border-color:var(--accent) }
+.sync-person em{ font-style:normal; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.sync-person.lead em{ color:var(--accent) }
+
+.sync-friend{
+  display:flex; align-items:center; gap:9px;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:9px 11px; margin-bottom:7px; font-size:13.5px;
+}
+.sync-friend b{ flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.sync-friend code{ color:var(--accent); letter-spacing:.14em; font-size:12.5px }
+.sync-x{
+  background:none; border:0; color:var(--muted); font-size:18px; line-height:1;
+  cursor:pointer; padding:0 2px;
+}
+.sync-x:hover{ color:#ff7a7a }
+
+/* the band on the timer screen — small, so it doesn't compete with the dial */
+.sync-band{
+  align-self:center; margin-top:8px;
+  padding:5px 12px; border-radius:99px;
+  background:color-mix(in srgb, var(--accent) 15%, transparent);
+  border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent);
+}
+.sync-band.hide{ display:none }
+
+/* a follower's controls are locked; make that visible rather than mysterious */
+#timer .primary:disabled, #timer .icon-btn:disabled, .begin-btn:disabled{
+  opacity:.4; cursor:not-allowed;
+}

@@ -34,7 +34,8 @@ adds tasks and ticks them off, starts a session, checks the ticked items land in
 note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by clicking
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
-recording stand-in for media playback, and checks you can move between days in the calendar. 119 checks. Run it after any change you're unsure about.
+recording stand-in for media playback, checks you can move between days in the calendar, and runs two windows against a
+fake peer network to prove a shared timer works. 147 checks. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -77,7 +78,8 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `25-tasks.js` | Session task list, and folding ticked items into the note |
 | `26-crossword-data.js` | Crossword word/clue banks, shared short fill, size settings |
 | **`27-crossword.js`** | **Crossword — layout generator, grid, clues, keyboard** |
-| **`28-ambience.js`** | **Ambience — Web Audio synthesis, picker, per-sound themes** |
+| **`28-ambience.js`** | **Ambience — track playback, picker, per-sound themes** |
+| **`29-sync.js`** | **Focus together — WebRTC peers, friend codes, leader timer** |
 | `90-init.js` | Kicks everything off |
 | `99-outro.js` | Closes the IIFE |
 
@@ -86,7 +88,7 @@ Files are concatenated in **filename order**, which is why everything has a numb
 `06-picker` · **`07-sudoku`** · **`08-wordle`** · `09-banner-toast` · `10-misc` ·
 `11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · `15-memory` ·
 `16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks` · `20-layout` ·
-**`21-crossword`** · **`22-ambience`**
+**`21-crossword`** · **`22-ambience`** · **`23-sync`**
 
 `20-layout.css` loads last on purpose: it tunes the sizes set in every earlier file
 so the app fits a desktop window (which is usually wide but short) as well as a phone.
@@ -95,7 +97,7 @@ so the app fits a desktop window (which is usually wide but short) as well as a 
 `01-shell-drawer` · `02-topbar` · `03-setup` · `04-timer` · `05-shell-close` ·
 `06-arcade-picker` · **`07-arcade-sudoku`** · **`08-arcade-wordle`** ·
 **`08a-arcade-2048`** · `08b-arcade-memory` · **`08c-arcade-crossword`** · `09-arcade-close` ·
-`10-quotes-overlay` · `11-calendar-overlay` · `12-stats-overlay`
+`10-quotes-overlay` · `11-calendar-overlay` · `12-stats-overlay` · **`13-sync-overlay`**
 
 Note the `08a` / `08b` names: every game's markup must sort **before**
 `09-arcade-close.html`, because that file closes the overlay's containing divs.
@@ -353,3 +355,43 @@ rather than being a fixed two-line peephole. Beyond that the overlay simply scro
 
 There was briefly a scroll-driven zoom on the month grid. It's gone: it broke day
 selection and juddered. Plain scrolling is what's there now.
+
+## Focus together
+
+Share a timer with someone else. Open the side menu → **Focus together**.
+
+- **Host with my code** — your saved 6-character code. Give it to a friend once and they
+  can rejoin you any time.
+- **One-off room** — a throwaway code for a single session. Doesn't touch your own code.
+- **Join** — paste someone's code. Save it with a name and it lands in your friends list.
+
+**One leader.** Whoever creates the room drives the clock: their start, pause, skip and
+stop propagate to everyone. Followers' own controls are disabled and greyed out, and a
+band on the timer screen says who is leading. Followers never broadcast — that's what
+stops two clocks fighting each other.
+
+### How it works
+
+Peer-to-peer over WebRTC via [PeerJS](https://peerjs.com), in a star: everyone connects
+to the host, the host relays. There is no backend of ours and no account; the only
+third-party involvement is PeerJS's public signalling server, which introduces the two
+devices and then steps out of the way. Nothing is stored anywhere but on the devices.
+
+PeerJS is fetched from a CDN the first time you open the screen, not at startup —
+everything else in the app works offline, and there's no reason to make every launch pay
+for a library most sessions never use.
+
+Codes are six characters from an alphabet with no confusable pairs (no `O`/`0`, no
+`I`/`1`), and input is normalised, so a mistyped `O` still finds the right room.
+
+**Limitations worth knowing.** Both devices must be online at the same time; there's no
+store-and-forward. Strict corporate or school firewalls can block WebRTC entirely, since
+there's no TURN relay configured. And the host leaving ends the room for everyone.
+
+### Testing it
+
+`npm test` boots two windows against a fake PeerJS implementation that lets them find
+each other in memory, then runs the real protocol end to end: join by code, roster
+exchange, leader starts the timer, follower's clock matches within a second, follower's
+controls are locked, a follower poking its own buttons cannot drive the leader, friends
+persist, and leaving tears the room down on both sides.

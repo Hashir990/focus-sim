@@ -3,7 +3,7 @@
      private storage — a Capacitor app cannot read the localStorage your browser
      tab wrote. These two buttons are the bridge: export from the old one,
      import into the new one, and nothing is lost. */
-  const DATA_KEYS = ['focus_sim', 'focus_log', 'focus_quotes', 'focus_tasks', 'focus_amb'];
+  const DATA_KEYS = ['focus_sim', 'focus_log', 'focus_quotes', 'focus_tasks', 'focus_amb', 'focus_sync'];
 
   async function collectData(){
     const out = { app:'focus-simulator', version:1, exportedAt:new Date().toISOString(), data:{} };
