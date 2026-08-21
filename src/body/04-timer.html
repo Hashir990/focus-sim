@@ -4,6 +4,40 @@
       <div class="cycle" id="cycle"></div>
 
       <div class="dial-wrap">
+        <!-- Spider-Man's web, behind the dial and only ever visible under that
+             light (04-timer.css shows it; 30-embers.css carries the palette).
+             Inline because the app ships as a single file and there is nowhere
+             to fetch an image from. Twelve spokes and five rings, each segment
+             sagging towards the centre — a web drawn with straight rings reads
+             as a dartboard. The geometry was generated, not typed. -->
+        <svg class="dial-web" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+          <g class="dial-web-g">
+            <path class="dial-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
+            <path class="dial-web-rings" d="M120 90Q126.8 94.8 135 94Q138.5 101.5 146 105Q145.2 113.2 150 120Q145.2 126.8 146 135Q138.5 138.5 135 146Q126.8 145.2 120 150Q113.2 145.2 105 146Q101.5 138.5 94 135Q94.8 126.8 90 120Q94.8 113.2 94 105Q101.5 101.5 105 94Q113.2 94.8 120 90ZM120 68Q131.7 76.3 146 75Q152 88 165 94Q163.7 108.3 172 120Q163.7 131.7 165 146Q152 152 146 165Q131.7 163.7 120 172Q108.3 163.7 94 165Q88 152 75 146Q76.3 131.7 68 120Q76.3 108.3 75 94Q88 88 94 75Q108.3 76.3 120 68ZM120 46Q136.7 57.8 157 55.9Q165.5 74.5 184.1 83Q182.2 103.3 194 120Q182.2 136.7 184.1 157Q165.5 165.5 157 184.1Q136.7 182.2 120 194Q103.3 182.2 83 184.1Q74.5 165.5 55.9 157Q57.8 136.7 46 120Q57.8 103.3 55.9 83Q74.5 74.5 83 55.9Q103.3 57.8 120 46ZM120 24Q141.6 39.3 168 36.9Q179.1 60.9 203.1 72Q200.7 98.4 216 120Q200.7 141.6 203.1 168Q179.1 179.1 168 203.1Q141.6 200.7 120 216Q98.4 200.7 72 203.1Q60.9 179.1 36.9 168Q39.3 141.6 24 120Q39.3 98.4 36.9 72Q60.9 60.9 72 36.9Q98.4 39.3 120 24ZM120 4Q146.1 22.5 178 19.5Q191.4 48.6 220.5 62Q217.5 93.9 236 120Q217.5 146.1 220.5 178Q191.4 191.4 178 220.5Q146.1 217.5 120 236Q93.9 217.5 62 220.5Q48.6 191.4 19.5 178Q22.5 146.1 4 120Q22.5 93.9 19.5 62Q48.6 48.6 62 19.5Q93.9 22.5 120 4Z"/>
+            <!-- The mask *is* the centre, and the web above radiates out of it —
+                 which is why the disc is drawn after the spokes and rings: it
+                 covers their inner ends, and the inner web below is redrawn on
+                 top of it in the ground colour. Black lines on red inside, red
+                 lines on blue outside, meeting exactly at the rim because both
+                 are struck from the same centre on the same twelve spokes.
+                 The eyes were mirrored arithmetically rather than eyeballed —
+                 that is the difference between a mask and a squint. -->
+            <g class="dial-web-mask">
+              <defs>
+                <clipPath id="dw-face-clip"><circle cx="120" cy="120" r="52"/></clipPath>
+              </defs>
+              <circle class="dw-mask-face" cx="120" cy="120" r="52"/>
+              <g class="dw-mask-web" clip-path="url(#dw-face-clip)">
+                <path class="dw-mask-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
+                <path class="dw-mask-web-rings" d="M120 106Q123.2 108.2 127 107.9Q128.6 111.4 132.1 113Q131.8 116.8 134 120Q131.8 123.2 132.1 127Q128.6 128.6 127 132.1Q123.2 131.8 120 134Q116.8 131.8 113 132.1Q111.4 128.6 107.9 127Q108.2 123.2 106 120Q108.2 116.8 107.9 113Q111.4 111.4 113 107.9Q116.8 108.2 120 106ZM120 93Q126.1 97.3 133.5 96.6Q136.6 103.4 143.4 106.5Q142.7 113.9 147 120Q142.7 126.1 143.4 133.5Q136.6 136.6 133.5 143.4Q126.1 142.7 120 147Q113.9 142.7 106.5 143.4Q103.4 136.6 96.6 133.5Q97.3 126.1 93 120Q97.3 113.9 96.6 106.5Q103.4 103.4 106.5 96.6Q113.9 97.3 120 93ZM120 80Q129 86.4 140 85.4Q144.6 95.4 154.6 100Q153.6 111 160 120Q153.6 129 154.6 140Q144.6 144.6 140 154.6Q129 153.6 120 160Q111 153.6 100 154.6Q95.4 144.6 85.4 140Q86.4 129 80 120Q86.4 111 85.4 100Q95.4 95.4 100 85.4Q111 86.4 120 80ZM120 69Q131.5 77.1 145.5 75.8Q151.4 88.6 164.2 94.5Q162.9 108.5 171 120Q162.9 131.5 164.2 145.5Q151.4 151.4 145.5 164.2Q131.5 162.9 120 171Q108.5 162.9 94.5 164.2Q88.6 151.4 75.8 145.5Q77.1 131.5 69 120Q77.1 108.5 75.8 94.5Q88.6 88.6 94.5 75.8Q108.5 77.1 120 69Z"/>
+              </g>
+              <g class="dw-mask-eyes">
+                <path class="dw-mask-eye" d="M124 133C128 112 145 97 165 95C173 94 175 106 169 118C161 133 140 143 124 133Z"/>
+                <path class="dw-mask-eye" d="M116 133C112 112 95 97 75 95C67 94 65 106 71 118C79 133 100 143 116 133Z"/>
+              </g>
+            </g>
+          </g>
+        </svg>
         <div class="dial" id="dial">
           <div class="halo"></div>
           <svg viewBox="0 0 240 240" aria-hidden="true">
@@ -12,7 +46,79 @@
           </svg>
           <div class="readout">
             <div class="phase-name" id="phase-name">Focus</div>
+            <!-- Four ways of showing the same number. Only one is ever on
+                 screen — `#app[data-face]` picks it, the rest are display:none,
+                 and 43-faces.js only writes to whichever is showing so three of
+                 these cost nothing per second. See 33-faces.css. -->
             <div class="clock" id="clock">25:00</div>
+
+            <!-- Analog. Not a wall clock: the hands show what is *left*, so the
+                 long hand sweeps the minutes remaining and the thin one the
+                 seconds. Rotating a group is one transform, no reflow. -->
+            <svg class="face face-analog" id="face-analog" viewBox="0 0 100 100" aria-hidden="true">
+              <!-- The rim runs right to the edge of the box. At r=43 the drawn
+                   circle was 86% of an element already sized to 90% of the dial,
+                   so the face read as three-quarters of the ring it was supposed
+                   to match. Everything inside is scaled to suit. -->
+              <circle class="fa-rim" cx="50" cy="50" r="48.4"/>
+              <g class="fa-ticks" id="fa-ticks"></g>
+              <g id="fa-min"><rect class="fa-hand fa-hand-min" x="48.6" y="14" width="2.8" height="38" rx="1.4"/></g>
+              <g id="fa-sec"><rect class="fa-hand fa-hand-sec" x="49.35" y="8" width="1.3" height="44" rx=".65"/></g>
+              <circle class="fa-pin" cx="50" cy="50" r="2.6"/>
+            </svg>
+
+            <!-- Flip. **One card per digit**, because that is what a real one
+                 does: the tens of minutes sits still for ten minutes at a time
+                 and has no business turning when the units do. Each card is
+                 written and animated on its own, and each turn is one soft
+                 paper sound — so 09:59 → 10:00 sounds like the four-card
+                 clatter it should be, and 25:31 → 25:30 is a single tick. -->
+            <div class="face face-flip" id="face-flip">
+              <b class="ff-card" data-d="0">2</b>
+              <b class="ff-card" data-d="1">5</b>
+              <s class="ff-sep"></s>
+              <b class="ff-card" data-d="2">0</b>
+              <b class="ff-card" data-d="3">0</b>
+            </div>
+
+            <!-- Hourglass. The sand is two clipped rectangles rather than two
+                 shaped paths: the glass is the clip, the sand is a plain box
+                 moved inside it, so a level change is one `y` attribute. -->
+            <svg class="face face-glass" id="face-glass" viewBox="0 0 100 128" aria-hidden="true">
+              <defs>
+                <clipPath id="hg-top"><path d="M24 12H76C76 36 57 58 50 64C43 58 24 36 24 12Z"/></clipPath>
+                <clipPath id="hg-bot"><path d="M24 116H76C76 92 57 70 50 64C43 70 24 92 24 116Z"/></clipPath>
+              </defs>
+              <!-- The sand in each bulb is a rectangle clipped to the bulb, so a
+                   level change is one `y` and one `height`. The shape of the
+                   *surface* is two ellipses on top of that: a dip where the
+                   upper sand is funnelling into the neck, and a mound where the
+                   lower sand is piling up under it. Both are one `cy` per tick.
+                   That is what makes it read as sand rather than as a bar. -->
+              <!-- **One shape per bulb, surface and all.** This was a rectangle
+                   with an ellipse laid over it for the curve — the upper one
+                   painted in `--bg` to dish the surface, the lower one in the
+                   sand colour to heap it. Two fills for one material, and the
+                   dished one could never match what was behind it, so the top
+                   surface read as a grey lens sitting on the sand. A path with
+                   a curved top edge is the same picture in one colour, and the
+                   curve can be as shallow as it likes without showing a seam.
+                   `d` is rebuilt each tick in 43-faces.js; it is one string. -->
+              <path class="hg-sand" id="hg-sand-top" clip-path="url(#hg-top)"
+                    d="M18 12Q50 12 82 12L82 66L18 66Z"/>
+              <path class="hg-sand" id="hg-sand-bot" clip-path="url(#hg-bot)"
+                    d="M18 116Q50 116 82 116L82 118L18 118Z"/>
+              <!-- The grains themselves, built by faceGrains() in 43-faces.js:
+                   a dozen little circles falling the length of the neck on their
+                   own clocks. Individually they are two pixels; together they
+                   are a stream, and the illusion is entirely in their being on
+                   different schedules. -->
+              <g class="hg-grains" id="hg-grains"></g>
+              <path class="hg-glass" d="M24 12H76C76 36 57 58 50 64C43 58 24 36 24 12Z"/>
+              <path class="hg-glass" d="M24 116H76C76 92 57 70 50 64C43 70 24 92 24 116Z"/>
+              <path class="hg-frame" d="M18 11H82M18 117H82"/>
+            </svg>
+
             <div class="subline" id="subline">Session 1</div>
           </div>
         </div>
@@ -20,11 +126,40 @@
 
       <div class="quote" id="focus-quote" aria-hidden="true"></div>
 
+      <!-- The checklist, while you are focusing. The plus is here for the same
+           reason it is on the break screen: the thing you remember mid-block is
+           the thing you will forget by the end of it, and ending the session to
+           write it down is the worst way to keep it. Collapsed by default —
+           during focus the list is for ticking, not for editing. -->
       <div class="task-live hide" id="task-live">
         <div class="task-list" id="task-list-live"></div>
+        <div class="task-add hide" id="live-task-add">
+          <input id="live-task-input" class="task-field" type="text" maxlength="90" placeholder="Add one, quickly" autocomplete="off" />
+          <button class="mini-btn" id="live-task-go">Add</button>
+        </div>
+        <button class="live-task-plus" id="live-task-plus">
+          <span aria-hidden="true">+</span> Add a task
+        </button>
       </div>
 
+      <!-- The arcade sits above the transport, not below the note.
+           On a break the arcade is the thing you came to the screen for, and it
+           was the last item on it — under the note box, under the buttons, off
+           the bottom on a short window. Above the controls it is the first
+           thing your thumb reaches, and it reads as an offer rather than as a
+           footnote. -->
+      <button class="arcade-btn hide" id="arcade-open">
+        <span class="arcade-ic" aria-hidden="true">◈</span>
+        <span class="arcade-txt"><b>Rest arcade</b><em>eight games, progress saved</em></span>
+        <span class="arcade-go" aria-hidden="true">→</span>
+      </button>
+
+      <!-- `position:relative` so the sleeper can perch on the Pause button. -->
       <div class="controls">
+        <!-- Asleep on top of the Pause button, when that is the antic chosen.
+             It sits over the controls rather than in them, so he never takes a
+             tap that was meant for the button underneath. -->
+        <div class="bud-slot bud-onpause hide" id="bud-pause" aria-hidden="true"></div>
         <button class="icon-btn" id="stop" aria-label="End session">
           <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
         </button>
@@ -35,11 +170,26 @@
       </div>
 
       <div class="rest-extra hide" id="rest-extra">
+        <!-- What is left, while you are resting. Same card as the note below it
+             on purpose: the rest screen is two quiet boxes and a button, and a
+             third thing shaped differently would be the only loud thing on it.
+             The list is collapsed to what is *left* — a break is not the place
+             to be shown a column of things already crossed off. -->
+        <div class="rest-tasks hide" id="rest-tasks">
+          <div class="rest-tasks-head">
+            <span class="note-label" id="rest-task-label">Still to do</span>
+            <button class="rest-task-plus" id="rest-task-plus" aria-label="Add a task">+</button>
+          </div>
+          <div class="task-list" id="task-list-rest"></div>
+          <div class="task-add hide" id="rest-task-add">
+            <input id="rest-task-input" class="task-field" type="text" maxlength="90" placeholder="Add one for later" autocomplete="off" />
+            <button class="mini-btn" id="rest-task-go">Add</button>
+          </div>
+        </div>
         <div class="note-box" id="note-box">
           <label class="note-label" id="note-label" for="note-input">Note this session</label>
           <textarea id="note-input" class="note-input" rows="2" placeholder="What did you get done? (saved to your calendar)"></textarea>
         </div>
-        <button class="arcade-btn" id="arcade-open">Open the <span class="g">Rest arcade</span></button>
       </div>
     </section>
 

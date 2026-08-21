@@ -61,3 +61,177 @@
 
 .cal-rec textarea{ overflow:hidden; min-height:38px; transition:height .12s ease }
 @media (prefers-reduced-motion: reduce){ .cal-rec textarea{ transition:none } }
+
+.recwith{
+  font-size:11.5px; color:var(--muted); margin:2px 0 6px;
+  display:flex; align-items:center; gap:5px;
+}
+.recwith::before{ content:'◦'; opacity:.7 }
+
+/* ---- what is planned ----
+   A day now carries two things that have not happened yet as well as everything
+   that has. They are marked differently on purpose: an **event** is a fact
+   about the day, drawn in its own colour off to one side, and a **task** is
+   something still waiting on you, drawn in the accent that everything else you
+   owe is drawn in. Both are glows rather than shapes, so a busy month reads as
+   a pattern of light rather than as a wall of dots. */
+.cal-cell{ --ev:#8fb8ff; --todo:var(--accent) }
+.cal-cell .ev-dot, .cal-cell .todo-dot{
+  position:absolute; width:5px; height:5px; border-radius:50%; bottom:4px;
+}
+.cal-cell .ev-dot{
+  left:5px; background:var(--ev);
+  box-shadow:0 0 5px var(--ev), 0 0 10px color-mix(in srgb, var(--ev) 55%, transparent);
+}
+.cal-cell .todo-dot{
+  right:5px; background:var(--todo);
+  box-shadow:0 0 5px var(--todo), 0 0 11px color-mix(in srgb, var(--todo) 60%, transparent);
+}
+/* the whole square lifts a little when something is owed on it */
+.cal-cell.todo{ border-color:color-mix(in srgb, var(--accent) 45%, var(--line)) }
+.cal-cell.ev{ box-shadow:inset 0 0 0 1px color-mix(in srgb, #8fb8ff 30%, transparent) }
+/* the level bar shifts up so the two dots have the bottom corners to themselves */
+.cal-cell.ev .lvl, .cal-cell.todo .lvl{ bottom:11px }
+
+.cal-plan{ margin:2px 0 14px }
+.cal-plan-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px }
+.cal-plan-head b{ font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:600 }
+.cal-plan-add{
+  background:var(--card); border:1px solid var(--line); color:var(--text);
+  font:inherit; font-size:12px; padding:5px 12px; border-radius:10px; cursor:pointer;
+}
+.cal-plan-add:hover{ border-color:var(--accent) }
+.plan-none{ font-size:12.5px; color:var(--muted); line-height:1.5 }
+
+.plan-row{
+  display:flex; align-items:center; gap:10px;
+  background:var(--card); border:1px solid var(--line); border-radius:13px;
+  padding:10px 12px; margin-bottom:7px;
+}
+.plan-row.event{ border-color:color-mix(in srgb, #8fb8ff 34%, var(--line)) }
+.plan-row.done{ opacity:.62 }
+.plan-mid{ flex:1; min-width:0 }
+.plan-mid b{ display:block; font-size:13.5px; font-weight:500; word-break:break-word }
+.plan-row.done .plan-mid b{ text-decoration:line-through; color:var(--muted) }
+.plan-mid em{ display:block; font-style:normal; font-size:11.5px; color:var(--muted); margin-top:2px }
+.plan-tick{
+  flex:0 0 auto; width:20px; height:20px; border-radius:6px; cursor:pointer;
+  border:1.5px solid var(--line); background:transparent; color:var(--bg);
+  display:grid; place-items:center; font-size:12px; line-height:1; padding:0;
+}
+.plan-tick.on{ background:var(--accent); border-color:var(--accent) }
+.plan-bullet{
+  flex:0 0 auto; width:8px; height:8px; border-radius:50%; background:#8fb8ff;
+  box-shadow:0 0 7px color-mix(in srgb, #8fb8ff 70%, transparent);
+  margin:0 6px;
+}
+.plan-x{
+  flex:0 0 auto; background:none; border:0; color:var(--muted);
+  font-size:19px; line-height:1; cursor:pointer; padding:0 2px;
+}
+.plan-x:hover{ color:#ff9a9a }
+
+/* ---- the add form ----
+   Kind, words, time, repeat: the order the decision is actually made in. */
+.plan-form{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:12px; display:flex; flex-direction:column; gap:9px; margin-top:4px;
+}
+.plan-kinds{ display:flex; gap:8px }
+.plan-kind{
+  flex:1; text-align:left; padding:9px 11px; border-radius:11px; cursor:pointer;
+  border:1px solid var(--line); background:transparent; color:var(--text); font:inherit;
+}
+.plan-kind b{ display:block; font-size:13px; font-weight:600 }
+.plan-kind em{ display:block; font-style:normal; font-size:10.5px; color:var(--muted); margin-top:2px; line-height:1.35 }
+.plan-kind.on{ border-color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent) }
+
+.plan-line{ display:flex; gap:8px }
+.plan-text{
+  flex:1; min-width:0; background:var(--bg2); border:1px solid var(--line);
+  border-radius:11px; padding:10px 12px; font:inherit; font-size:13.5px;
+  color:var(--text); outline:none;
+}
+.plan-text:focus, .plan-time:focus, .plan-until:focus, .plan-n:focus{ border-color:var(--accent) }
+.plan-time, .plan-until{
+  background:var(--bg2); border:1px solid var(--line); border-radius:11px;
+  padding:9px 10px; font:inherit; font-size:13px; color:var(--text);
+  outline:none; color-scheme:dark;
+}
+.plan-time{ flex:0 0 auto; width:118px }
+
+.plan-reps, .plan-ends, .plan-dows{ display:flex; gap:6px; flex-wrap:wrap; align-items:center }
+.plan-rep, .plan-end{
+  padding:6px 11px; border-radius:999px; cursor:pointer; font:inherit; font-size:12px;
+  border:1px solid var(--line); background:transparent; color:var(--muted);
+}
+.plan-rep.on, .plan-end.on{
+  border-color:var(--accent); color:var(--text);
+  background:color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.plan-every{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted) }
+.plan-n{
+  width:58px; background:var(--bg2); border:1px solid var(--line); border-radius:9px;
+  padding:6px 8px; font:inherit; font-size:13px; color:var(--text); outline:none;
+}
+.plan-dow{
+  width:30px; height:30px; border-radius:50%; cursor:pointer; padding:0;
+  border:1px solid var(--line); background:transparent; color:var(--muted);
+  font:inherit; font-size:11.5px;
+}
+.plan-dow.on{ border-color:var(--accent); color:var(--text); background:color-mix(in srgb, var(--accent) 18%, transparent) }
+.plan-save{
+  margin-top:2px; padding:11px; border-radius:12px; cursor:pointer; font:inherit;
+  font-size:13.5px; font-weight:500; border:1px solid var(--accent);
+  background:color-mix(in srgb, var(--accent) 22%, transparent); color:var(--text);
+}
+.plan-save:hover{ background:color-mix(in srgb, var(--accent) 32%, transparent) }
+
+/* ---- writing something down needs the room, not the month ----
+   The add form is five rows tall with the repeat options open. Below a full
+   month grid that put it off the bottom of the screen, and scrolling down to
+   it left it jammed against the edge with the grid taking the space.
+
+   So while the form is open the month shrinks to a strip: small squares, no
+   weekday header, no month totals. It is still there to move days with — which
+   is the only thing it is for at that moment — and everything below it moves
+   up by about half a screen. */
+[data-adding="1"] .cal-summary{ display:none }
+[data-adding="1"] .cal-week{ display:none }
+[data-adding="1"] .cal-nav{ margin:0 0 6px }
+[data-adding="1"] .cal-nav .cal-month{ font-size:15px }
+[data-adding="1"] .cal-nav button{ width:30px; height:30px; border-radius:9px }
+[data-adding="1"] .cal-grid{ gap:3px }
+[data-adding="1"] .cal-cell{
+  aspect-ratio:auto; height:19px; font-size:9.5px; border-radius:5px;
+}
+/* the marks stay — they are how you tell which days already have something on
+   them — but the session bar goes, along with the room it needs */
+[data-adding="1"] .cal-cell .lvl{ display:none }
+[data-adding="1"] .cal-cell .ev-dot,
+[data-adding="1"] .cal-cell .todo-dot{ width:3px; height:3px; bottom:2px }
+[data-adding="1"] .cal-cell .ev-dot{ left:2px }
+[data-adding="1"] .cal-cell .todo-dot{ right:2px }
+[data-adding="1"] .cal-cell .note-dot{ display:none }
+[data-adding="1"] .cal-detail h4{ margin-bottom:6px; font-size:15px }
+[data-adding="1"] .cal-detail{ margin-top:10px }
+/* and the records below the form stay out of the way while it is open */
+[data-adding="1"] .cal-rec{ display:none }
+
+/* Reading a day, as opposed to writing one. `data-dense` already shrank the
+   month for a day with a lot of sessions on it; these carry the same idea
+   through the planned rows, which are the other half of what a day holds now.
+   Nothing here fires below three things on the day — a short day fits under a
+   full month, and compressing it then would be taking the calendar away for
+   no reason. */
+[data-dense="1"] .plan-row{ padding:8px 11px; margin-bottom:6px }
+[data-dense="1"] .cal-plan{ margin-bottom:10px }
+[data-dense="2"] .cal-week{ display:none }
+[data-dense="2"] .cal-grid{ gap:3px }
+[data-dense="2"] .cal-cell{ aspect-ratio:auto; height:22px; font-size:10px; border-radius:6px }
+[data-dense="2"] .cal-cell .lvl{ width:11px; height:3px; bottom:3px }
+[data-dense="2"] .cal-cell .ev-dot, [data-dense="2"] .cal-cell .todo-dot{ width:3px; height:3px; bottom:2px }
+[data-dense="2"] .cal-cell.ev .lvl, [data-dense="2"] .cal-cell.todo .lvl{ bottom:7px }
+[data-dense="2"] .plan-row{ padding:7px 10px; margin-bottom:5px; border-radius:11px }
+[data-dense="2"] .plan-mid b{ font-size:13px }
+[data-dense="2"] .cal-plan-head{ margin-bottom:6px }

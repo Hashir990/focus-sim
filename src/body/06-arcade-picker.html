@@ -4,7 +4,20 @@
     <button class="ov-back" id="ov-back" aria-label="Back to timer">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
     </button>
+    <!-- The menu, without leaving whatever you're in the middle of. The edge
+         swipe does the same thing, but a gesture you can't see is no use to
+         somebody who doesn't know it's there — and on the two boards that drag
+         with a finger, this is the only way in. -->
+    <button class="ov-menu" id="ov-menu" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+    </button>
     <div class="ov-title" id="ov-title">Rest arcade</div>
+    <button class="chat-btn hide" id="chat-btn-ov" aria-label="Messages">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-5.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8z"></path>
+      </svg>
+      <span class="chat-dot hide" id="chat-dot-ov"></span>
+    </button>
     <div class="ov-timer" id="ov-timer">00:00</div>
   </div>
   <div class="ov-focus-wrap"><button class="ov-focus" id="ov-focus">Back to focusing →</button></div>
@@ -13,6 +26,8 @@
     <!-- picker -->
     <div class="picker" id="picker">
       <p class="pick-lede">A small, unhurried puzzle for your break. Your progress waits here for the next one.</p>
+
+      <div class="pick-group"><h4>On your own</h4><em>progress is saved</em></div>
       <button class="pcard" data-game="sudoku">
         <span class="emoji">▦</span>
         <span><h3>Sudoku</h3><p>Fill the grid across several breaks. Notes, conflict-checking, one true solution.</p></span>
@@ -32,6 +47,31 @@
         <span class="emoji">▤</span>
         <span><h3>Crossword</h3><p>A fresh grid every time, in three difficulties. Clues cross-check each other.</p></span>
         <span class="prog" id="prog-crossword"></span>
+      </button>
+      <div class="pick-group"><h4>Together</h4><em>needs a room</em></div>
+      <button class="pcard needs-room" data-game="hangman">
+        <span class="tag">2+</span>
+        <span class="emoji">⌇</span>
+        <span><h3>Hangman</h3><p>One of you sets a word, the rest go looking for it.</p></span>
+        <span class="prog" id="prog-hangman"></span>
+      </button>
+      <button class="pcard needs-room" data-game="scrabble">
+        <span class="tag">2+</span>
+        <span class="emoji">▩</span>
+        <span><h3>Scrabble</h3><p>The full board, taking turns. Play a few words between blocks.</p></span>
+        <span class="prog" id="prog-scrabble"></span>
+      </button>
+      <button class="pcard needs-room" data-game="chess">
+        <span class="tag">2</span>
+        <span class="emoji">♞</span>
+        <span><h3>Chess</h3><p>Pick someone and play. A game keeps its place between breaks.</p></span>
+        <span class="prog" id="prog-chess"></span>
+      </button>
+      <button class="pcard needs-room" data-game="pictionary">
+        <span class="tag">2+</span>
+        <span class="emoji">✎</span>
+        <span><h3>Pictionary</h3><p>One draws, everyone else shouts. Sixty seconds a word.</p></span>
+        <span class="prog" id="prog-pictionary"></span>
       </button>
       <!-- Memory is disabled — see MEMORY_ENABLED in src/js/23-memory.js
       <button class="pcard" data-game="memory">

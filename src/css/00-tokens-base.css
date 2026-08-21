@@ -18,10 +18,16 @@
   --accent:#f2a765; --glow:rgba(242,167,101,.30);
   --text:#f7ece2; --muted:#a88b7d; --track:rgba(255,255,255,.05);
   --breathe:7.4s;
+  --stage-pad:24px;          /* the stage's own side padding, shared so a scroll
+                                container can borrow it back for glow room */
 }
 
 *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+/* Chrome treats a drag from the left edge as "go back", which is exactly the
+   gesture that opens the menu — so on the way in, the browser sometimes took
+   the touch and the menu never saw it. This turns that off for the page. */
+html{ overscroll-behavior-x:none }
 body{
   font-family:'Space Grotesk',system-ui,sans-serif;
   color:var(--text);
@@ -34,11 +40,15 @@ body{
   background:
     radial-gradient(120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 62%);
   transition:background 1.1s ease;
-  display:flex; align-items:center; justify-content:center;
+  display:flex; justify-content:center;
+  /* `safe` so that when the content is taller than the window, centring doesn't
+     push the top of it out of reach — the usual centred-flex scrolling trap. */
+  align-items:safe center;
 }
 .stage{
-  width:100%; max-width:430px; height:100%;
-  padding:22px 24px calc(26px + env(safe-area-inset-bottom));
+  position:relative; z-index:1;      /* above the effects layer, which is z-0 */
+  width:100%; max-width:430px; min-height:100%;
+  padding:22px var(--stage-pad) calc(26px + env(safe-area-inset-bottom));
   padding-top:calc(20px + env(safe-area-inset-top));
   display:flex; flex-direction:column;
 }

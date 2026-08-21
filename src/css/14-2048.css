@@ -1,16 +1,44 @@
-/* ---- 2048 ---- */
+/* ---- 2048 ----
+   Two layers, one on top of the other: sixteen empty slots that never move, and
+   the numbers, absolutely placed over them. See the note at the top of
+   22-2048.js for why a single grid cannot animate — a tile's position in a grid
+   *is* its cell, so moving it is a relayout, and a relayout has no in-between
+   for the browser to draw. */
 .g2048{
-  display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
-  width:min(92vw,340px); margin:10px auto 0; padding:8px;
+  position:relative;
+  width:min(92vw,340px); margin:10px auto 0; padding:var(--pad);
   background:var(--track); border-radius:16px;
   touch-action:none; user-select:none;
+  --gap:8px; --pad:8px;
 }
+.g2048-slots{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap);
+}
+.g2048-slots .slot{
+  aspect-ratio:1; border-radius:11px; background:rgba(255,255,255,.035);
+}
+.g2048-tiles{ position:absolute; inset:var(--pad); pointer-events:none }
 .g2048 .t{
-  aspect-ratio:1; display:grid; place-items:center;
-  border-radius:11px; background:rgba(255,255,255,.035);
+  position:absolute; top:0; left:0;
+  width:calc((100% - 3 * var(--gap)) / 4);
+  height:calc((100% - 3 * var(--gap)) / 4);
+  display:grid; place-items:center;
+  border-radius:11px;
   font-weight:700; font-size:23px; letter-spacing:-.5px; color:var(--text);
+  /* A percentage in `translate` resolves against the element's own size, so
+     one tile-width plus one gap is exactly `100% + var(--gap)`. That keeps the
+     placement correct at every board size without measuring anything. */
+  transform:translate(calc(var(--c, 0) * (100% + var(--gap))),
+                      calc(var(--r, 0) * (100% + var(--gap))));
+  transition:transform .13s cubic-bezier(.25, .6, .3, 1);
 }
-.g2048 .t[data-v="0"]{ color:transparent }
+/* The one that merged into another arrives underneath it and is then taken
+   away — without this they overlap and the number reads as bold. */
+.g2048 .t.dying{ z-index:0 }
+.g2048 .t{ z-index:1 }
+/* A tile that has just appeared grows into place rather than blinking on. */
+.g2048 .t.born{ animation:t-born .16s ease both }
+@keyframes t-born{ from{ opacity:0 } to{ opacity:1 } }
 .g2048 .t[data-v="2"]{ background:color-mix(in srgb, var(--accent) 10%, transparent) }
 .g2048 .t[data-v="4"]{ background:color-mix(in srgb, var(--accent) 18%, transparent) }
 .g2048 .t[data-v="8"]{ background:color-mix(in srgb, var(--accent) 27%, transparent) }
@@ -23,11 +51,19 @@
 .g2048 .t[data-v="1024"]{ background:var(--accent); font-size:17px; color:var(--bg) }
 .g2048 .t[data-v="2048"]{ background:var(--accent); font-size:17px; color:var(--bg); box-shadow:0 0 22px var(--glow) }
 .g2048 .t[data-v="4096"],.g2048 .t[data-v="8192"]{ background:var(--text); color:var(--bg); font-size:16px }
-.g2048 .t.pop{ animation:t-pop .17s ease }
-@keyframes t-pop{ from{ transform:scale(.68) } to{ transform:scale(1) } }
+/* The merge pop. It cannot animate `transform`, because transform is what
+   holds the tile in its square — so it is a shadow and a brightness instead,
+   which reads as the same thing and leaves the position alone. */
+.g2048 .t.pop{ animation:t-pop .18s ease }
+@keyframes t-pop{
+  0%{ filter:brightness(1.7); box-shadow:0 0 0 0 var(--glow) }
+  40%{ filter:brightness(1.35); box-shadow:0 0 0 6px color-mix(in srgb, var(--glow) 45%, transparent) }
+  100%{ filter:none; box-shadow:0 0 0 0 transparent }
+}
 .g2048-hint{
   text-align:center; font-size:12.5px; color:var(--muted); margin-top:10px;
 }
 @media (prefers-reduced-motion: reduce){
-  .g2048 .t.pop{ animation:none }
+  .g2048 .t.pop, .g2048 .t.born{ animation:none }
+  .g2048 .t{ transition:none }
 }

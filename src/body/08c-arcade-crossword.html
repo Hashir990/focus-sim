@@ -4,16 +4,33 @@
         <span class="gname">Crossword</span>
         <span class="meta" id="cw-meta"></span>
         <button class="mini-btn on" id="cw-dir" title="Switch typing direction (space)">Across →</button>
-        <button class="mini-btn" id="cw-check">Check</button>
+        <button class="mini-btn" id="cw-list">Puzzles</button>
       </div>
+
       <div class="cw-bars">
-        <div class="diffs" id="cw-ctrl"></div>
         <div class="diffs" id="cw-size"></div>
+        <div class="cw-aids">
+          <button class="mini-btn" id="cw-hint" title="Reveal this letter">Hint</button>
+          <span class="cw-hints" id="cw-hints"></span>
+          <button class="mini-btn" id="cw-check">Check</button>
+        </div>
       </div>
+
       <div class="cw" id="cw-grid"></div>
       <p class="cw-clue" id="cw-clue">Pick a square to start</p>
       <div class="kbd cw-kbd" id="cw-kbd"></div>
       <div class="cw-clues" id="cw-clues"></div>
-      <div class="banner hide" id="cw-banner"><h3>Filled in.</h3><p id="cw-win-sub"></p><button class="mini-btn" id="cw-again">New puzzle</button></div>
+
+      <!-- pick a puzzle. Hold one to start it over. -->
+      <div class="cw-picker hide" id="cw-picker">
+        <div class="cw-picker-head">
+          <p class="q-sec">Pick a puzzle</p>
+          <button class="mini-btn" id="cw-picker-close">Done</button>
+        </div>
+        <p class="cw-picker-note">Finished ones are crossed off. Hold one to start it over.</p>
+        <div class="cw-list" id="cw-list-body"></div>
+      </div>
+
+      <div class="banner hide" id="cw-banner"><h3>Filled in.</h3><p id="cw-win-sub"></p><button class="mini-btn" id="cw-again">Next puzzle</button></div>
     </div>
 

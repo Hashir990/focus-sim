@@ -37,7 +37,8 @@ note, plays a Wordle guess, slides the 2048 board, **solves an entire Sudoku by 
 cells and numpad keys** to trigger the celebration, then opens the quote bank, calendar
 and stats, generates crosswords at every size, and plays every ambience through a
 recording stand-in for media playback, checks you can move between days in the calendar, and runs two windows against a
-fake peer network to prove a shared timer works. 162 checks. Run it after any change you're unsure about.
+fake peer network to prove a shared timer and both shared games work. 337 checks,
+plus 28 more from `tools/scrabble-rules-test.mjs`. Run it after any change you're unsure about.
 
 `npm run verify` only passes on the very first commit, before any features were added.
 It exists to prove the split was lossless. From here on, `git diff` is the safety net.
@@ -74,6 +75,7 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `18-calendar.js` | The month grid and day detail |
 | `19-wiring.js` | Drawer, overlays, note box |
 | `20-data-io.js` | Export / import backup (see below) |
+| `21-dialogs.js` | `askConfirm()` and the hold / right-click menu |
 | **`22-2048.js`** | **2048 — sliding, merging, swipe and arrow keys** |
 | `23-memory.js` | Memory match — **currently disabled**, see `MEMORY_ENABLED` |
 | `24-stats.js` | The "Your focus" dashboard, computed from `focus_log` |
@@ -81,7 +83,13 @@ Files are concatenated in **filename order**, which is why everything has a numb
 | `26-crossword-data.js` | Crossword word/clue banks, shared short fill, size settings |
 | **`27-crossword.js`** | **Crossword — layout generator, grid, clues, keyboard** |
 | **`28-ambience.js`** | **Ambience — track playback, picker, per-sound themes** |
-| **`29-sync.js`** | **Focus together — WebRTC peers, friend codes, leader timer** |
+| **`29-sync.js`** | **Focus together — peers, liveness, presence, the shared-game channel** |
+| **`30-hangman.js`** | **Hangman — shared, one sets and the rest guess** |
+| `31-scrabble-data.js` | 47.7k word bank, tiles, premium squares (generated) |
+| `31a-scrabble-rules.js` | `scrJudge()` — the rules, shared by the host and the live preview |
+| **`32-scrabble.js`** | **Scrabble — board, racks, dragging, scoring** |
+| **`33-chat.js`** | **Messages — the sheet that opens over anything** |
+| **`34-pictionary.js`** | **Pictionary — canvas, guesses, a sixty-second clock** |
 | `90-init.js` | Kicks everything off |
 | `99-outro.js` | Closes the IIFE |
 
@@ -90,7 +98,8 @@ Files are concatenated in **filename order**, which is why everything has a numb
 `06-picker` · **`07-sudoku`** · **`08-wordle`** · `09-banner-toast` · `10-misc` ·
 `11-quotes` · `12-calendar` · `13-drawer` · **`14-2048`** · `15-memory` ·
 `16-stats` · `17-celebrate` · `18-menu-colors` · `19-tasks` · `20-layout` ·
-**`21-crossword`** · **`22-ambience`** · **`23-sync`**
+**`21-crossword`** · **`22-ambience`** · **`23-sync`** · **`24-hangman`** ·
+**`25-scrabble`** · `26-dialogs` · **`27-chat`** · **`28-pictionary`**
 
 `20-layout.css` loads last on purpose: it tunes the sizes set in every earlier file
 so the app fits a desktop window (which is usually wide but short) as well as a phone.
@@ -98,8 +107,11 @@ so the app fits a desktop window (which is usually wide but short) as well as a 
 ### `src/body/` — one file per screen
 `01-shell-drawer` · `02-topbar` · `03-setup` · `04-timer` · `05-shell-close` ·
 `06-arcade-picker` · **`07-arcade-sudoku`** · **`08-arcade-wordle`** ·
-**`08a-arcade-2048`** · `08b-arcade-memory` · **`08c-arcade-crossword`** · `09-arcade-close` ·
-`10-quotes-overlay` · `11-calendar-overlay` · `12-stats-overlay` · **`13-sync-overlay`**
+**`08a-arcade-2048`** · `08b-arcade-memory` · **`08c-arcade-crossword`** ·
+**`08d-arcade-hangman`** · **`08e-arcade-scrabble`** · **`08f-arcade-pictionary`** ·
+`09-arcade-close` ·
+`10-quotes-overlay` · `11-calendar-overlay` · `12-stats-overlay` · **`13-sync-overlay`** ·
+`14-dialogs` · **`15-chat`**
 
 Note the `08a` / `08b` names: every game's markup must sort **before**
 `09-arcade-close.html`, because that file closes the overlay's containing divs.
@@ -201,6 +213,30 @@ shows up in the calendar. Anything you tick outside a focus block is just a chec
 
 Tasks persist under `focus_tasks` and survive across sessions — use **Clear done** on the
 setup screen to tidy up.
+
+## Quotes in a shared session
+
+Tick **Share these during a shared session** in the quote bank and everyone in the
+room sees each other's quotes while you focus together, credited to whoever added
+them. Quotes you borrow that way are on loan: they show under *On loan from the
+room*, they aren't saved to your device, and they go when the room does.
+
+## Which games need somebody else
+
+The arcade is split in two. **On your own** — Sudoku, Word guess, 2048, Crossword
+— keeps your progress between breaks. **Together** — Hangman, Scrabble,
+Pictionary — needs a room open in Focus together, and each card is marked **2+**
+so you can see that before you tap it.
+
+## Reset any game
+
+Hold — or right-click — a game's card in the arcade to start that one over
+without opening it. The solo games clear their saved board; the shared ones ask
+the host, and only offer it to whoever holds the timer.
+
+It's only on the cards, never inside a game: holding is how you pick up a Scrabble
+tile, and a gesture that sometimes means something else is a gesture you can't
+trust.
 
 ## Menu colours
 
@@ -395,9 +431,143 @@ for a library most sessions never use.
 Codes are six characters from an alphabet with no confusable pairs (no `O`/`0`, no
 `I`/`1`), and input is normalised, so a mistyped `O` still finds the right room.
 
+**If somebody vanishes, the room notices.** Everyone speaks every couple of seconds,
+so a slept laptop or a killed tab is spotted and dropped after about six — a closed
+connection isn't something you can rely on being told about. If the person holding
+the timer is the one who disappears, the host takes it back.
+
+**If you drop out, you come back.** A lost connection retries on its own instead
+of ending the room — a phone that sleeps or wifi that blinks reconnects without
+you typing the code again.
+
+**Saving people you meet.** Next to anyone in the room is **+ Friend**, which keeps
+them by their own code rather than the throwaway address they joined on, so you can
+host for them later.
+
+**Who's online** reaches out to each saved code and reports back two separate
+things: **around** (they have the app open) and **room open** (they're hosting
+right now, so Join will work). Those used to be the same signal, which meant a
+friend sitting in the app with no room looked exactly like a friend who'd gone to
+bed. It's still a knock on the door rather than a status feed — no dot means no
+answer, which isn't quite the same as being away.
+
+**Giving the timer away and removing somebody both ask first.** Neither is easy to
+undo in a room of three.
+
+**Your history counts shared time too.** Following someone else's timer records the
+block in your own calendar and stats, with who you were with; the calendar says
+*Studied with…* on those sessions, and stats grow a **Focused alongside** panel
+ranking who you've put the most hours in beside.
+
+### Messages
+
+A **message button** appears in the corner the moment you're in a room, on every
+screen — timer, arcade, mid-Scrabble-turn. Tapping it slides a sheet over
+whatever you were doing rather than taking you somewhere, so talking never costs
+you your place. On a wide window it's a panel down the right instead, and the
+timer stays visible beside it. `M` opens it on a keyboard.
+
+Tabs across the top: **Room** is everyone, and there's one per person for a
+private thread. Room messages belong to the room and go when it does; **direct
+messages are kept on your device**, so a conversation with a friend is still there
+next time you're in a room together.
+
+There are canned lines along the bottom — *Nice one*, *Back in 5* — because typing
+is exactly what a focus app should let you avoid.
+
+**It stays out of your way during a block.** Outside one, a message gets a small
+chime and a count on the button. During a focus block it gets neither — no sound
+and no number, because a count ticking up in the corner is an interruption too, it
+just takes longer to work. Everything's still there when the block ends.
+
+**Nothing is saved.** The conversation lives as long as the room does and is gone
+when you leave. It travels the same direct connections as the timer, so it never
+touches a server of ours either.
+
 **Limitations worth knowing.** Both devices must be online at the same time; there's no
 store-and-forward. Strict corporate or school firewalls can block WebRTC entirely, since
 there's no TURN relay configured. And the host leaving ends the room for everyone.
+
+## Playing together
+
+Two games in the arcade need a room, and say so on their card until you open one.
+Both work the same way underneath: **the host owns the game**. Everyone else's
+window sends what they want to do — "I guess E", "I play these tiles" — and the
+host is the only thing that changes anything, then tells each window what it is
+allowed to see. There is only ever one writer, so there is nothing to reconcile
+when two people act at once.
+
+### Hangman
+
+Each round opens up for grabs: **whoever claims it first sets the word**, and
+everybody else guesses letters against a single shared board and a single shared
+set of eight lives. The one rule is that you can't set two rounds running, so the
+fastest finger doesn't get to hog it.
+
+A letter nobody has tried scores you a point; a wrong one costs you a point,
+though a score never drops below zero. If the guessers run out of rope, the setter
+takes three.
+
+Answers can be short phrases — up to fifteen characters, and spaces, hyphens and
+apostrophes are shown from the start, since nobody guesses punctuation. The board
+stays on one line and shrinks to fit.
+
+The word never leaves the host's window until the round is over — the guessers
+are sent a pattern of blanks, not the answer, so it can't be read off the wire.
+
+### Pictionary
+
+One person claims the round and gets a word; everyone else has sixty seconds to
+type what it is. Six colours, three brush sizes, undo and clear. Guesses scroll
+past for the room to see, and one letter out is called **close**. With twenty
+seconds left the first letter is revealed, because a drawing nobody can read is
+otherwise just a wait for the clock.
+
+Getting it right sooner is worth more, and the artist scores once for every
+person who got there — so a drawing nobody reads is worth nothing and one
+everybody reads is worth a lot. You can't draw two rounds running.
+
+### Scrabble
+
+The full 15×15 board, the standard 100 tiles and the standard premium squares
+(**2L 3L 2W 3W**, labelled), taking turns. Drag a tile onto a square, or tap the
+tile then tap the square — both work, on a mouse and on a screen. Drag or tap a
+tile you've just placed to take it back. **Recall** clears the lot, **Shuffle**
+rearranges your rack, **Swap** puts tiles back in the bag and costs you your turn,
+**Pass** just costs you your turn. Blanks ask which letter you meant, on a QWERTY
+keyboard rather than an alphabetical one.
+
+Fifteen columns on a phone is about 22 pixels a square, so the board **zooms**:
+pinch it with two fingers, or use the buttons underneath. *Fit* squeezes the whole
+thing in; above that it scrolls.
+
+As you lay tiles out, the **Play button becomes the verdict**: it names the word
+you've made and the score it would bank, and refuses to be pressed when the play
+isn't legal — so there's no pressing it and being told no. It stays quiet while
+the tiles are still scattered; it only has an opinion once there's a single word
+to have one about.
+
+Tiles played this turn are filled in your accent colour, last turn's are outlined,
+and everything older sits flat — so you can see what just changed.
+
+Holding or right-clicking the board offers a **reset** to whoever holds the timer.
+
+Words are checked against a bank of **47,716 words**, built by
+`tools/build-scrabble-dict.py` from the hunspell dictionary crossed with a
+frequency list. Every word up to seven letters is in it, common or not — a
+rejected short word is what actually stings, since it's what you reach for when
+the rack is bad. Longer words are limited to the inflections of common stems, so
+*walk* brings *walks*, *walked* and *walking* but obscure stems bring nothing.
+
+Your rack only ever exists in your own window and the host's. The bag is shared
+state, so if each window drew its own tiles they'd disagree within a turn.
+
+**When the break ends, everyone goes back to focusing**, including whoever is
+mid-game. The board is exactly where you left it next break.
+
+A game ends when someone plays out with the bag empty — they collect what
+everybody else is still holding, and the others pay for theirs — or when six
+turns go by with nothing scored.
 
 ### Testing it
 
@@ -408,3 +578,25 @@ controls are locked, a follower poking its own buttons cannot drive the leader, 
 persist, and leaving tears the room down on both sides. A third window joins for the
 handover tests: giving the timer away, the new leader driving everyone through the host's
 relay, removing a member, and the host reclaiming the timer when the holder leaves.
+
+It also silences one window without closing its connection, to prove a vanished
+member is noticed and dropped; drives both confirms; and checks the host refuses a
+game reset from somebody who isn't holding the timer — the rule, not the hidden
+button.
+
+The same two windows then play both shared games for real: a round is claimed, a
+word is set and found letter by letter, the answer is checked never to appear in
+the guesser's window, lives are checked to be shared rather than per-player, wrong
+guesses are checked to cost a point without going below zero, and a second claim by
+the same player is checked to be refused. Then a Scrabble board is opened and the
+test
+**hunts through the host's actual rack for a word it can play**, trying orderings
+until one is accepted — which exercises placement, validation, scoring, the turn
+and the refill without any test-only hooks.
+
+`tools/scrabble-rules-test.mjs` covers what a shuffled bag can't reach
+deterministically — crossing words, parallel plays, blanks, bingos, playing
+tiles you don't hold, and the endgame arithmetic — by lifting the rules engine
+out of `src/js/` and building boards by hand. It also checks the live preview
+agrees with the host on the score, and that it can tell a half-finished play from
+a wrong one. It runs in a tenth of a second and `npm test` runs it first.

@@ -1,0 +1,591 @@
+/* ---------------- the effects layer ----------------
+   One pane of weather behind the app, under `.stage` and over the page
+   gradient, taking no pointer events. Everything on screen that you interact
+   with — the dial, the clock, the buttons — is in front of it.
+
+   One pane, because a light and a track are now alternatives rather than
+   things you stack: see the note in 37-embers.js.
+
+   The first version drew each effect as three tiled gradients moved by
+   background-position, and looked exactly like what it was: a tile repeats, so
+   it read as a regular lattice of identical dots sliding as one sheet.
+
+   These are real particles instead — each element given its own position, size,
+   opacity, delay, duration and drift in JS (38-vfx.js). Only transform and
+   opacity animate, so nothing here touches layout. */
+/* ---- depth of field ----
+   Everything is sharpest and strongest around the clock and falls away towards
+   the edges of the screen, so the weather reads as being *behind* the thing you
+   are looking at rather than beside it.
+
+   Two halves. The mask fades the whole pane out towards the corners. The ::after
+   is a ring of backdrop blur — it blurs whatever is painted beneath it, which is
+   the particles — so the far ones go soft while the ones passing the dial stay
+   crisp. One element rather than a second copy of every speck. */
+.vfx{
+  position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+  opacity:0; transition:opacity 1.4s ease;
+  /* Wide enough to reach the sides. At 96% × 60% the falloff had eaten the left
+     and right thirds of the screen entirely, so a fall of petals was a fall of
+     petals down a narrow strip behind the clock. */
+  -webkit-mask-image:radial-gradient(128% 96% at 50% 46%,
+    #000 0 30%, rgba(0,0,0,.66) 58%, rgba(0,0,0,.3) 80%, rgba(0,0,0,.12) 100%);
+  mask-image:radial-gradient(128% 96% at 50% 46%,
+    #000 0 30%, rgba(0,0,0,.66) 58%, rgba(0,0,0,.3) 80%, rgba(0,0,0,.12) 100%);
+  /* layout and paint, but deliberately not size: this is sized by its insets,
+     and size containment on a full-screen fixed layer is how you end up with an
+     effects pane that is technically there and zero pixels tall. */
+  contain:layout paint style;
+}
+.vfx.on{ opacity:1 }
+/* Effects made of a few enormous soft shapes are a different case: a hard
+   falloff turns a full-screen wash into a visible oval with an edge — which is
+   the "colours cropping" in Late sun. They get a gentle vignette that never
+   reaches transparent, and no blur ring at all. */
+.vfx[data-fx="sun"], .vfx[data-fx="smoke"], .vfx[data-fx="bokeh"]{
+  -webkit-mask-image:radial-gradient(150% 105% at 50% 46%,
+    #000 0 58%, rgba(0,0,0,.82) 82%, rgba(0,0,0,.6) 100%);
+  mask-image:radial-gradient(150% 105% at 50% 46%,
+    #000 0 58%, rgba(0,0,0,.82) 82%, rgba(0,0,0,.6) 100%);
+}
+.vfx[data-fx="sun"]::after, .vfx[data-fx="smoke"]::after,
+.vfx[data-fx="bokeh"]::after{ display:none }
+/* the bursts are the brightest thing in the app; they don't want blurring */
+.vfx[data-fx="fw"]::after{ display:none }
+/* ---- the haze at the edges ----
+   This was a full-screen `backdrop-filter: blur(7px)`, and it was the single
+   most expensive thing in the app. A backdrop filter re-blurs everything
+   underneath it *every frame*, and what is underneath it here is thirty moving
+   particles — so the whole window was being Gaussian-blurred sixty times a
+   second, for an effect nobody could point at. On a laptop that is most of a
+   core and a lot of GPU memory, which is why the app made the machine feel
+   slow rather than merely being slow itself.
+
+   A static wash of the background colour does the same job: the far particles
+   lose contrast towards the edges, which is what the blur was for. It costs one
+   gradient, painted once. */
+.vfx::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(128% 96% at 50% 46%,
+    transparent 0 34%,
+    color-mix(in srgb, var(--bg) 34%, transparent) 74%,
+    color-mix(in srgb, var(--bg) 58%, transparent) 100%);
+}
+/* ---- the flicker ----
+   A fire doesn't pulse, it gutters: mostly steady with sudden dips and a couple
+   of flares, and no two seconds the same. So the keyframes are a hand-written
+   irregular sequence rather than an ease — twenty-odd stops at uneven values,
+   over a length that doesn't divide into anything else on screen. Warm light
+   from below, because that is where a fire is. */
+.vfx[data-flick="1"]::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(120% 70% at 50% 108%,
+      color-mix(in srgb, var(--c, #ffb066) 40%, transparent) 0%, transparent 70%),
+    radial-gradient(90% 55% at 22% 100%,
+      color-mix(in srgb, #ff8f4d 26%, transparent) 0%, transparent 72%),
+    radial-gradient(90% 55% at 80% 100%,
+      color-mix(in srgb, #ffd08a 22%, transparent) 0%, transparent 72%);
+  opacity:.5;
+  animation:vfxFlick 7.3s linear infinite;
+}
+@keyframes vfxFlick{
+  0%{ opacity:.52 }   4%{ opacity:.61 }   7%{ opacity:.44 }   11%{ opacity:.58 }
+  14%{ opacity:.5 }   18%{ opacity:.72 }  21%{ opacity:.47 }  26%{ opacity:.55 }
+  30%{ opacity:.38 }  33%{ opacity:.6 }   38%{ opacity:.5 }   42%{ opacity:.66 }
+  46%{ opacity:.41 }  51%{ opacity:.57 }  55%{ opacity:.79 }  59%{ opacity:.46 }
+  64%{ opacity:.54 }  68%{ opacity:.36 }  73%{ opacity:.62 }  77%{ opacity:.49 }
+  82%{ opacity:.68 }  86%{ opacity:.43 }  91%{ opacity:.57 }  96%{ opacity:.5 }
+  100%{ opacity:.52 }
+}
+@media (prefers-reduced-motion: reduce){ .vfx[data-flick="1"]::before{ animation:none } }
+
+/* No `will-change` here. It reads as a free hint and is not: it promotes every
+   one of these to its own compositing layer for the life of the page, which on
+   thirty particles is thirty textures held in GPU memory whether or not
+   anything is moving. A transform animation gets promoted while it runs
+   anyway, which is exactly as long as the promotion is worth having. */
+.vfx b{
+  position:absolute; display:block; border-radius:50%;
+  background:var(--c, var(--accent));
+  opacity:0;
+}
+
+/* ---- rain ----
+   Thin vertical lines, sparse, and brightest as they pass the middle of the
+   screen — so they read behind the clock rather than across it. The fade is in
+   the keyframes rather than in a mask, because a mask would fade by screen
+   position and this way each drop fades on its own journey. */
+.vfx[data-fx="rain"] b{
+  width:var(--w); height:var(--s); border-radius:2px;
+  left:var(--x); top:-16vh;
+  background:linear-gradient(to bottom, transparent, var(--c) 60%, var(--c));
+  animation:vfxRain var(--t) linear var(--d) infinite;
+}
+@keyframes vfxRain{
+  0%{ transform:translate3d(0,0,0); opacity:0 }
+  28%{ opacity:calc(var(--o) * .25) }
+  50%{ opacity:var(--o) }
+  74%{ opacity:calc(var(--o) * .25) }
+  100%{ transform:translate3d(var(--dx),132vh,0); opacity:0 }
+}
+
+/* ---- spores ----
+   Big, soft, unhurried, and going up. Lit from the top left so they read as
+   round things rather than as dots. */
+.vfx[data-fx="spores"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); bottom:-10vh;
+  background:radial-gradient(circle at 38% 32%,
+    rgba(255,255,255,.55) 0 14%, var(--c) 26% 58%, transparent 74%);
+  filter:blur(.5px);
+  box-shadow:0 0 calc(var(--s) * 1.1) color-mix(in srgb, var(--c) 45%, transparent);
+  animation:vfxRiseSpin var(--t) linear var(--d) infinite;
+}
+/* Four sorts, because things coming off a fern are not all the same thing:
+   a round one, a long one, a seed with a tail, and a ragged one. */
+.vfx[data-fx="spores"] b[data-v="1"]{
+  height:calc(var(--s) * .48); border-radius:50% / 100%;
+}
+.vfx[data-fx="spores"] b[data-v="2"]{
+  border-radius:50% 50% 50% 8%;
+  box-shadow:0 0 calc(var(--s) * .8) color-mix(in srgb, var(--c) 40%, transparent);
+}
+.vfx[data-fx="spores"] b[data-v="3"]{
+  border-radius:64% 36% 58% 42% / 42% 58% 36% 64%;
+  filter:blur(1.1px);
+}
+
+/* ---- sparks ----
+   Small and glowing, also going up. Two colours, picked per speck. */
+.vfx[data-fx="sparks"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); bottom:-6vh;
+  box-shadow:0 0 calc(var(--s) * 2.4) var(--c);
+  animation:vfxRise var(--t) linear var(--d) infinite;
+}
+
+/* Four waypoints rather than a straight line from bottom to top, each one its
+   own random offset — so a spark wanders the way heat actually carries it and
+   no two take the same path. */
+/* The same climb, turning over on the way — spores only. */
+@keyframes vfxRiseSpin{
+  0%{ transform:translate3d(0,0,0) scale(.7) rotate(0deg); opacity:0 }
+  12%{ opacity:var(--o) }
+  28%{ transform:translate3d(var(--x1),-30vh,0) scale(1) rotate(calc(var(--r) * .3)) }
+  52%{ transform:translate3d(var(--x2),-60vh,0) scale(.92) rotate(calc(var(--r) * .6)) }
+  76%{ transform:translate3d(var(--x3),-90vh,0) scale(.78) rotate(calc(var(--r) * .82)); opacity:var(--o) }
+  100%{ transform:translate3d(var(--dx),-122vh,0) scale(.5) rotate(var(--r)); opacity:0 }
+}
+@keyframes vfxRise{
+  0%{ transform:translate3d(0,0,0) scale(.7); opacity:0 }
+  12%{ opacity:var(--o) }
+  28%{ transform:translate3d(var(--x1),-30vh,0) scale(1) }
+  52%{ transform:translate3d(var(--x2),-60vh,0) scale(.92) }
+  76%{ transform:translate3d(var(--x3),-90vh,0) scale(.78); opacity:var(--o) }
+  100%{ transform:translate3d(var(--dx),-122vh,0) scale(.5); opacity:0 }
+}
+
+/* ---- petals ----
+   Blossom. Four cut-outs rather than one, because a dozen identical shapes
+   falling together reads as a sprite sheet; and the fall swings from side to
+   side on the way down rather than travelling in a straight diagonal, which is
+   what a light thing with a lot of drag actually does. */
+.vfx[data-fx="petals"] b{
+  width:var(--s); height:calc(var(--s) * .8);
+  left:var(--x); top:-14vh;
+  background:linear-gradient(135deg, var(--c), var(--c2, var(--c)));
+  animation:vfxSwing var(--t) linear var(--d) infinite;
+}
+.vfx[data-fx="petals"] b[data-v="0"]{ border-radius:64% 0 64% 64% }
+.vfx[data-fx="petals"] b[data-v="1"]{
+  border-radius:50%;
+  clip-path:polygon(50% 0, 92% 26%, 100% 72%, 50% 100%, 0 72%, 8% 26%);
+}
+.vfx[data-fx="petals"] b[data-v="2"]{ border-radius:80% 20% 76% 24% / 68% 62% 38% 32% }
+.vfx[data-fx="petals"] b[data-v="3"]{
+  border-radius:50% 50% 46% 46%;
+  clip-path:path('M 50 0 C 82 14, 100 44, 88 74 C 74 96, 26 96, 12 74 C 0 44, 18 14, 50 0 Z');
+  clip-path:polygon(50% 2%, 78% 16%, 96% 52%, 66% 96%, 34% 96%, 4% 52%, 22% 16%);
+}
+
+/* ---- leaves ----
+   The same fall, five shapes of its own — pointed, lobed, long. Deliberately
+   not the blossom cut-outs: a wood and an orchard should not drop the same
+   thing. */
+.vfx[data-fx="leaves"] b{
+  width:var(--s); height:calc(var(--s) * .62);
+  left:var(--x); top:-14vh;
+  background:linear-gradient(120deg, var(--c), var(--c2, var(--c)));
+  animation:vfxSwing var(--t) linear var(--d) infinite;
+}
+.vfx[data-fx="leaves"] b[data-v="0"]{ border-radius:0 100% 0 100% }
+.vfx[data-fx="leaves"] b[data-v="1"]{ border-radius:100% 0 100% 0 }
+.vfx[data-fx="leaves"] b[data-v="2"]{ border-radius:50% / 100% 100% 0 0 }
+.vfx[data-fx="leaves"] b[data-v="3"]{
+  border-radius:0;
+  clip-path:polygon(0 50%, 26% 18%, 52% 40%, 100% 30%, 62% 62%, 30% 92%);
+}
+.vfx[data-fx="leaves"] b[data-v="4"]{ border-radius:70% 30% 68% 32% / 40% 60% 40% 60% }
+
+/* Four waypoints on the way down, alternating sides, so the thing swings as it
+   falls instead of sliding down a diagonal. */
+@keyframes vfxSwing{
+  0%{ transform:translate3d(0,0,0) rotate(0deg); opacity:0 }
+  10%{ opacity:var(--o) }
+  30%{ transform:translate3d(var(--x1),34vh,0) rotate(calc(var(--r) * .28)) }
+  55%{ transform:translate3d(var(--x2),66vh,0) rotate(calc(var(--r) * .55)) }
+  80%{ transform:translate3d(var(--x3),98vh,0) rotate(calc(var(--r) * .8)); opacity:var(--o) }
+  100%{ transform:translate3d(var(--dx),130vh,0) rotate(var(--r)); opacity:0 }
+}
+
+/* ---- frost ----
+   Snow brings it with it: crystals creeping in from the four corners, on their
+   own slow swell. Two crossed sets of fine lines masked into each corner —
+   fine enough to read as frost on glass rather than as a pattern. */
+.vfx[data-fx="snow"]::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    repeating-linear-gradient(56deg, transparent 0 2.5px,
+      color-mix(in srgb, var(--c, #fff) 30%, transparent) 2.5px 3px, transparent 3px 5.5px),
+    repeating-linear-gradient(-56deg, transparent 0 3.5px,
+      color-mix(in srgb, var(--c, #fff) 24%, transparent) 3.5px 4px, transparent 4px 7.5px),
+    repeating-linear-gradient(14deg, transparent 0 5px,
+      color-mix(in srgb, var(--c, #fff) 14%, transparent) 5px 5.5px, transparent 5.5px 11px),
+    radial-gradient(46% 34% at 0% 0%, rgba(255,255,255,.20), transparent 70%),
+    radial-gradient(46% 34% at 100% 0%, rgba(255,255,255,.18), transparent 70%),
+    radial-gradient(46% 34% at 0% 100%, rgba(255,255,255,.16), transparent 70%),
+    radial-gradient(46% 34% at 100% 100%, rgba(255,255,255,.18), transparent 70%);
+  -webkit-mask-image:radial-gradient(78% 62% at 50% 48%, transparent 0 42%, #000 96%);
+  mask-image:radial-gradient(78% 62% at 50% 48%, transparent 0 42%, #000 96%);
+  filter:blur(.25px);
+  animation:vfxFrost 22s ease-in-out infinite alternate;
+}
+@keyframes vfxFrost{
+  from{ opacity:.5; transform:scale(1) }
+  to{ opacity:.95; transform:scale(1.04) }
+}
+
+/* ---- snow ----
+   Bigger and softer than a dot, with a bright middle, coming down slowly. */
+.vfx[data-fx="snow"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:-10vh;
+  background:radial-gradient(circle at 50% 50%,
+    var(--c) 0 34%,
+    color-mix(in srgb, var(--c) 55%, transparent) 48%,
+    color-mix(in srgb, var(--c) 14%, transparent) 66%, transparent 76%);
+  filter:blur(.4px);
+  animation:vfxSnow var(--t) linear var(--d) infinite;
+}
+@keyframes vfxSnow{
+  0%{ transform:translate3d(0,0,0) rotate(0deg); opacity:0 }
+  9%{ opacity:var(--o) }
+  88%{ opacity:var(--o) }
+  100%{ transform:translate3d(var(--dx),124vh,0) rotate(var(--r)); opacity:0 }
+}
+
+/* ---- smoke ----
+   Wide, very blurred, crossing sideways and taking a minute over it. */
+.vfx[data-fx="smoke"] b{
+  /* **The shape is in pixels and the journey is in `vw`, so the two come
+     apart on a wide window.** Magma shrinks these to four tenths, and at 380px
+     on a 2560px screen that is a speck crossing 265vw of emptiness — eight of
+     them, so the lava thinned out into a few dots drifting through the dark
+     and the look stopped reading as fire at all. It was fine on a laptop,
+     which is why it survived.
+
+     Taking the larger of the two ties the shape to the screen once the screen
+     is the bigger number, and leaves phones exactly as they were. */
+  --w:max(var(--s), 26vw);
+  width:var(--w); height:calc(var(--w) * .38);
+  left:-60vw; top:var(--y);
+  background:radial-gradient(ellipse at 50% 50%, var(--c) 0%, transparent 68%);
+  /* Blur in proportion to the shape, capped where it was. A look that shrinks
+     these to four tenths (Magma) was still paying for a 26px radius on a shape
+     a third of the size — the blur is the expensive part, and its cost goes
+     with the area it covers. Dusk's are big enough to clamp at 26 and are
+     unchanged. */
+  filter:blur(clamp(9px, calc(var(--w) / 14), 26px));
+  animation:vfxAcross var(--t) linear var(--d) infinite;
+}
+/* And on a genuinely wide window, more of them and a shorter run — density is
+   the thing that makes it lava rather than weather, and density is count over
+   distance. Both halves are needed: twice as many over twice the gap is the
+   same picture. */
+@media (min-aspect-ratio:16/10) and (min-width:1100px){
+  .vfx[data-fx="smoke"] b{ --w:max(var(--s), 20vw) }
+  .vfx[data-fx="smoke"] b:nth-child(2n){ animation-duration:calc(var(--t) * .72) }
+  .vfx[data-fx="smoke"] b:nth-child(3n){ top:calc(var(--y) + 22%) }
+  .vfx[data-fx="smoke"] b:nth-child(4n){ top:calc(var(--y) - 18%) }
+}
+@keyframes vfxAcross{
+  0%{ transform:translate3d(0,0,0) scale(1); opacity:0 }
+  16%{ opacity:var(--o) }
+  32%{ transform:translate3d(58vw,var(--y1),0) scale(1.14) }
+  58%{ transform:translate3d(112vw,var(--y2),0) scale(.92) }
+  80%{ transform:translate3d(158vw,var(--y3),0) scale(1.1); opacity:var(--o) }
+  100%{ transform:translate3d(205vw,var(--dy),0) scale(1); opacity:0 }
+}
+
+/* ---- fireworks ----
+   One element per rocket, doing three jobs in sequence.
+
+   The element itself is the shell: a small bright dot that climbs from below,
+   slowing as it goes, and goes out at the top of its arc. `::after` is the
+   burst — a dot carrying a ring of twenty box-shadows at fixed offsets, scaled
+   up from nothing and faded out. A transform scales box-shadows along with the
+   element, which is what turns twenty static dots into a shell of sparks
+   flying apart without twenty more elements to animate. `::before` is what is
+   left over: a looser, slower ring that drifts downward and dims, in a second
+   colour, so the sky keeps something for a moment after the bang.
+
+   Nine rockets on nine unrelated clocks — the sky is never empty and never
+   crowded, and no two bursts land together twice. */
+/* ---- fireworks ----
+   Four kinds of thing per rocket, and the reason for each one.
+
+   `b` is a point that holds still and stays opaque. It has to: a
+   pseudo-element's opacity is multiplied by its parent's, so when the rocket
+   itself was the `b` and faded out at the top of its arc, the burst drawn on
+   its ::after was multiplied by zero and never appeared at all.
+
+   `i` is the shell that climbs, with a tail on its own ::after.
+
+   `b::after` is the flash — one soft white-gold disc at the moment of the bang,
+   gone in a fifth of a second.
+
+   `u` is a spark, and there are a dozen or more of them per rocket, each with
+   its own angle, distance, fall and a few hundredths of delay. They used to be
+   one element carrying twenty box-shadows, scaled up from nothing: that is one
+   big blurred layer being re-rasterised every frame, which is exactly what made
+   the fall stutter. Twelve small elements moving by transform alone composite
+   without repainting, and each can carry its own streak. */
+.vfx[data-fx="fw"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y);
+  background:none; box-shadow:none;
+  opacity:1;
+}
+
+/* the shell */
+.vfx[data-fx="fw"] b i{
+  position:absolute; inset:0; border-radius:50%;
+  background:#fffdf0;
+  box-shadow:0 0 calc(var(--s) * 3) #ffe89a,
+             0 0 calc(var(--s) * 7) var(--c),
+             0 0 calc(var(--s) * 14) var(--c);
+  opacity:0;
+  animation:fwClimb var(--t) linear var(--d) infinite;
+}
+.vfx[data-fx="fw"] b i::after{
+  content:''; position:absolute; left:50%; top:40%;
+  width:66%; height:calc(var(--s) * 11);
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:linear-gradient(to bottom,
+    #ffe89a, color-mix(in srgb, var(--c) 70%, transparent) 35%, transparent);
+  filter:blur(1.4px);
+  opacity:.8;
+}
+@keyframes fwClimb{
+  0%{ transform:translate3d(0, var(--up), 0) scale(.6); opacity:0 }
+  3%{ opacity:var(--o) }
+  16%{ transform:translate3d(calc(var(--dx) * .5), calc(var(--up) * .18), 0) scale(1) }
+  21%{ transform:translate3d(var(--dx), 0, 0) scale(.7); opacity:0 }
+  100%{ transform:translate3d(var(--dx), 0, 0) scale(.7); opacity:0 }
+}
+
+/* the flash */
+.vfx[data-fx="fw"] b::after{
+  content:''; position:absolute; left:50%; top:50%;
+  width:calc(var(--r) * 1.6); height:calc(var(--r) * 1.6);
+  margin:calc(var(--r) * -.8) 0 0 calc(var(--r) * -.8);
+  border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,
+    #fffdf0 0%, color-mix(in srgb, #ffe066 70%, transparent) 30%, transparent 66%);
+  transform:translate3d(var(--dx),0,0) scale(0);
+  opacity:0;
+  animation:fwFlash var(--t) ease-out var(--d) infinite;
+}
+@keyframes fwFlash{
+  0%, 20%{ transform:translate3d(var(--dx),0,0) scale(.1); opacity:0 }
+  22%{ transform:translate3d(var(--dx),0,0) scale(1); opacity:.95 }
+  30%{ transform:translate3d(var(--dx),0,0) scale(1.5); opacity:0 }
+  100%{ transform:translate3d(var(--dx),0,0) scale(1.5); opacity:0 }
+}
+
+/* a spark, and the streak behind it */
+.vfx[data-fx="fw"] b u{
+  position:absolute; left:50%; top:50%;
+  width:var(--ss); height:var(--ss);
+  margin:calc(var(--ss) / -2) 0 0 calc(var(--ss) / -2);
+  border-radius:50%;
+  background:#fffdf0;
+  box-shadow:0 0 calc(var(--ss) * 2.5) var(--c), 0 0 calc(var(--ss) * 6) var(--c);
+  opacity:0;
+  animation:fwSpark var(--t) linear calc(var(--d) + var(--sd)) infinite;
+}
+/* The streak turns with the spark. It points back along the way the thing is
+   travelling, and the way it is travelling changes: outward at the bang, then
+   straight down once gravity has it. A streak still pointing at the centre
+   while the spark falls is the tell that nothing is really moving. */
+.vfx[data-fx="fw"] b u::after{
+  content:''; position:absolute; left:50%; top:50%;
+  width:calc(var(--ss) * 9); height:calc(var(--ss) * .8);
+  margin:calc(var(--ss) * -.4) 0 0 calc(var(--ss) * -9);
+  border-radius:50%;
+  background:linear-gradient(to right, transparent, var(--c));
+  transform:rotate(var(--a)) scaleX(.2);
+  transform-origin:100% 50%;
+  opacity:0;
+  animation:fwTail var(--t) linear calc(var(--d) + var(--sd)) infinite;
+}
+@keyframes fwTail{
+  0%, 20%{ transform:rotate(var(--a)) scaleX(.15); opacity:0 }
+  /* thrown outward: a long streak behind it, pointing back at the burst */
+  23%{ transform:rotate(var(--a)) scaleX(1.15); opacity:.75 }
+  40%{ transform:rotate(var(--a)) scaleX(.7); opacity:.45 }
+  /* the hang: almost stopped, so almost no streak at all */
+  50%{ transform:rotate(calc(var(--a) * .4 + 36deg)) scaleX(.12); opacity:.2 }
+  /* falling: the streak comes back, now pointing straight up */
+  72%{ transform:rotate(90deg) scaleX(.75); opacity:.5 }
+  96%{ transform:rotate(90deg) scaleX(1); opacity:.35 }
+  100%{ transform:rotate(90deg) scaleX(1); opacity:0 }
+}
+
+/* Out fast, then a moment of hanging, then given to gravity properly — three
+   easings in one animation, which is what per-keyframe timing functions are
+   for. The fall is the long part of the cycle now: they used to reach the end
+   of the throw and then drift a token distance, which read as stopping dead. */
+@keyframes fwSpark{
+  0%, 20%{ transform:translate3d(var(--dx),0,0) scale(.2); opacity:0 }
+  21%{ transform:translate3d(var(--dx),0,0) scale(1); opacity:1;
+       animation-timing-function:cubic-bezier(.03,.8,.2,1) }
+  40%{ transform:translate3d(calc(var(--dx) + var(--tx)), var(--ty), 0) scale(.9); opacity:1;
+       animation-timing-function:ease-in-out }
+  50%{ transform:translate3d(calc(var(--dx) + var(--tx) * 1.03),
+                             calc(var(--ty) + 4px), 0) scale(.85); opacity:.95;
+       animation-timing-function:cubic-bezier(.5,0,.8,.55) }
+  88%{ opacity:.5 }
+  100%{ transform:translate3d(calc(var(--dx) + var(--tx) * 1.16),
+                              calc(var(--ty) + var(--fall)), 0) scale(.4); opacity:0 }
+}
+
+/* ---- late sun ----
+   No particles: four enormous soft washes, set down around a ring so the yellow
+   ones and the orange ones sit opposite each other. Each then walks its own
+   slow loop and breathes at its own rate, so the warm side of the room moves
+   around you over the course of a block and the swells never line up twice. */
+.vfx[data-fx="sun"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y); margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  background:radial-gradient(circle at 50% 50%, var(--c) 0%, transparent 62%);
+  filter:blur(52px);
+  animation:vfxSun var(--t) ease-in-out var(--d) infinite;
+}
+/* Wider swings and a lower floor: a wash goes almost out before it comes back,
+   so the room genuinely darkens rather than pulsing around a bright average.
+   Slow, though — the whole loop is a minute or more, and every eased segment is
+   long enough that you notice the light has changed rather than watching it. */
+@keyframes vfxSun{
+  0%{ transform:translate3d(0,0,0) scale(.88); opacity:calc(var(--o) * .06) }
+  18%{ transform:translate3d(calc(var(--ox) * .6), calc(var(--oy) * .5), 0) scale(1.02);
+       opacity:var(--o) }
+  34%{ transform:translate3d(var(--ox), var(--oy), 0) scale(1.12);
+       opacity:calc(var(--o) * .5) }
+  50%{ transform:translate3d(0, calc(var(--oy) * 1.7), 0) scale(.9);
+       opacity:calc(var(--o) * .08) }
+  68%{ transform:translate3d(calc(var(--ox) * -.7), var(--oy), 0) scale(1.08);
+       opacity:calc(var(--o) * .9) }
+  84%{ transform:translate3d(calc(var(--ox) * -1), calc(var(--oy) * .4), 0) scale(1);
+       opacity:calc(var(--o) * .34) }
+  100%{ transform:translate3d(0,0,0) scale(.88); opacity:calc(var(--o) * .06) }
+}
+/* The yellows and the oranges run the loop in opposite directions, so as one
+   side of the room fades the other comes up and the warmth crosses over. */
+.vfx[data-fx="sun"] b:nth-child(2n){ animation-direction:reverse }
+
+/* ---- a room, out of focus ----
+   Each ball arrives, drifts, and goes again rather than sitting there for the
+   whole break. Eleven of them on eleven different clocks means there are
+   usually four or five up, and never the same four or five. */
+.vfx[data-fx="bokeh"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y);
+  filter:blur(calc(var(--s) / 7));
+  animation:vfxPop var(--t) ease-in-out var(--d) infinite;
+}
+@keyframes vfxPop{
+  0%{ transform:translate3d(0,0,0) scale(.6); opacity:0 }
+  22%{ opacity:var(--o) }
+  62%{ opacity:calc(var(--o) * .85) }
+  100%{ transform:translate3d(var(--dx), var(--dy), 0) scale(1.15); opacity:0 }
+}
+
+/* ---- dust, hanging in the air ---- */
+/* ---- somebody typing next door ----
+   This kind had a spec in 38-vfx.js and no rule here at all, so Office built
+   two dozen unstyled `b` elements and drew nothing: the keys were being laid
+   out, sized and timed, and then painted as zero-by-zero transparent boxes.
+   Every other kind has a block; this one was simply missing.
+
+   A key lights, holds for a moment and goes out, on its own clock — `--d` is
+   negative so the field is already mid-flight rather than the whole keyboard
+   striking at once. The grid comes from `spec.grid`, which sets --x and --y
+   with a jitter, because keys in rows read as a keyboard and keys in perfect
+   rows read as a spreadsheet. */
+.vfx[data-fx="keys"] b{
+  /* Square, with the corners taken off — a key is not a letterbox. At .72 tall
+     these read as a row of tiles; at 1:1 with a soft radius they read as keys,
+     which is the whole job of the effect. */
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y);
+  margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  border-radius:calc(var(--s) * .22);
+  background:linear-gradient(180deg, var(--c) 0%, var(--c2, var(--c)) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
+  opacity:0;
+  /* Longhand: jsdom does not expand the `animation` shorthand, so written that
+     way the smoke test cannot see this rule exists at all — which is roughly
+     how it went missing in the first place. */
+  animation-name:vfxKey; animation-duration:var(--t);
+  animation-timing-function:ease-in-out; animation-delay:var(--d);
+  animation-iteration-count:infinite;
+}
+@keyframes vfxKey{
+  0%{ opacity:0; transform:translate3d(0,0,0) scale(.95) }
+  9%{ opacity:var(--o); transform:translate3d(0,1px,0) scale(1) }
+  26%{ opacity:calc(var(--o) * .5) }
+  46%{ opacity:0; transform:translate3d(0,0,0) scale(.97) }
+  100%{ opacity:0 }
+}
+
+.vfx[data-fx="motes"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y);
+  filter:blur(.4px);
+  animation:vfxWander var(--t) ease-in-out var(--d) infinite alternate;
+}
+@keyframes vfxWander{
+  from{ transform:translate3d(0,0,0); opacity:calc(var(--o) * .45) }
+  to{ transform:translate3d(var(--dx), var(--dy), 0); opacity:var(--o) }
+}
+
+/* Weather is the first thing to go: somebody who has asked for less movement
+   has asked for exactly this. There is also a switch in the menu. */
+@media (prefers-reduced-motion: reduce){
+  .vfx{ display:none }
+}
+
+/* ---- nobody is looking ----
+   See idleWatch() in 39-dial-glow.js. Hidden rather than paused: a paused
+   animation keeps its compositing layer, and thirty of those is the memory this
+   is trying not to spend. Everything else that loops on this screen stops here
+   too — the halo, the dial's glow, the flicker. */
+.vfx.idle{ display:none }
+body.away .halo,
+body.away .dial-glow,
+body.away .vfx[data-flick="1"]::before,
+body.away .quote{ animation:none }
+body.away .ring-prog{ transition:none }

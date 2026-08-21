@@ -14,6 +14,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch, existsSync 
 import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
+import { buildDev } from './dev-build.mjs';
 import { execSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -34,6 +35,50 @@ function readDirJoined(sub, ext) {
   if (!files.length) return '';
   return files.map((f) => readFileSync(join(dir, f), 'utf8')).join('');
 }
+
+/** The version in package.json, stamped in so the app knows what it is. */
+function appVersion() {
+  try {
+    return JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version || '0.0.0';
+  } catch (e) {
+    return '0.0.0';
+  }
+}
+
+/* Where a copy of the app looks to find out whether a newer one exists.
+   A plain static file, so it can live anywhere that serves text — a GitHub raw
+   URL, a Pages site, a Dropbox link. Empty by default and empty in every build
+   that is handed out until somebody decides where to host it, and an empty URL
+   means the check never runs and never mentions itself.
+
+   Overridable from the environment so a fork does not have to edit source:
+       FOCUS_UPDATE_URL=https://... npm run build
+   See tools/make-release.mjs for what the file on the other end looks like. */
+function envFile(name) {
+  /* `.env.release` is written by tools/setup-updates.mjs and holds the one
+     setting that has to be the same in every build you hand out. Kept in a file
+     rather than in the shell because a build made from a different terminal — or
+     by a script, or six months later — has to come out the same. */
+  try {
+    const text = readFileSync(join(root, '.env.release'), 'utf8');
+    const line = text.split('\n').find((l) => l.trim().startsWith(name + '='));
+    return line ? line.slice(line.indexOf('=') + 1).trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/* Where the accounts Worker lives. Blank in this repo on purpose, and blank is
+   a working state: with no URL stamped in there is no sign-in anywhere in the
+   app, no request, and no mention of one — the same opt-in-by-hosting rule the
+   update check follows. See ACCOUNTS.md and 48-account.js. */
+const ACCOUNT_URL = process.env.FOCUS_ACCOUNT_URL
+  || envFile('FOCUS_ACCOUNT_URL')
+  || '';
+
+const UPDATE_URL = process.env.FOCUS_UPDATE_URL
+  || envFile('FOCUS_UPDATE_URL')
+  || 'https://raw.githubusercontent.com/OWNER/REPO/main/latest.json';
 
 /** Stamped into the drawer footer so you can always see which build you're looking at. */
 function buildStamp() {
@@ -66,10 +111,15 @@ export function build() {
     '</script>\n' +
     '</body>\n' +
     '</html>\n'
-  ).replace(/__BUILD__/g, buildStamp());
+  ).replace(/__BUILD__/g, buildStamp())
+   .replace(/__VERSION__/g, appVersion())
+   .replace(/__UPDATE_URL__/g, UPDATE_URL)
+   .replace(/__ACCOUNT_URL__/g, ACCOUNT_URL);
 
   mkdirSync(DIST, { recursive: true });
   writeFileSync(join(DIST, 'index.html'), html, 'utf8');
+  // ...and the developer's copy, with everything already bought. See tools/dev-build.mjs.
+  try { buildDev(); } catch (e) { console.log('! dev-unlocked.html: ' + e.message); }
   return html;
 }
 

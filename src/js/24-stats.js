@@ -1,7 +1,9 @@
   /* --- stats dashboard ---
      Reads the same LOG array the calendar uses (focus_log). Adds no new storage. */
   const Stats = {
-    open(){ $('stats-overlay').classList.remove('hide'); this.render(); },
+    /* The buddy and the account panel moved to their own page, so this no
+       longer paints them — it is the totals and the shelf, and nothing else. */
+    open(){ $('stats-overlay').classList.remove('hide'); this.render(); Embers.render(); },
     close(){ $('stats-overlay').classList.add('hide'); },
 
     _compute(){
@@ -32,11 +34,12 @@
       let bestDay = null, bestSecs = 0;
       for(const k in byDay) if(byDay[k].secs > bestSecs){ bestSecs = byDay[k].secs; bestDay = k; }
 
-      // most productive hour of day
-      const hours = new Array(24).fill(0);
-      for(const r of LOG) if(r.ts) hours[new Date(r.ts).getHours()] += r.secs||0;
-      let bestHour = -1, bestHourSecs = 0;
-      hours.forEach((v,h)=>{ if(v > bestHourSecs){ bestHourSecs = v; bestHour = h; } });
+      /* What a day of yours looks like, averaged over the days you actually
+         did something. Divided by active days rather than by days since you
+         started: a fortnight off shouldn't rewrite what your working day looks
+         like, and "an hour a day" is a claim about the days you sat down. */
+      const activeDays = Object.keys(byDay).length;
+      const perDay = activeDays ? Math.round(totalSecs / activeDays) : 0;
 
       // last 14 days, oldest first
       const recent = [];
@@ -46,7 +49,26 @@
         recent.push({key:k, label:String(dt.getDate()), secs:(byDay[k]||{}).secs||0});
       }
 
-      return {totalSecs, sessions, streak, bestDay, bestSecs, bestHour, recent, days:Object.keys(byDay).length};
+      // Time shared with other people. A session with two others counts fully
+      // for both — you really did focus alongside each of them — so these don't
+      // sum to `totalSecs` and aren't meant to.
+      const withWho = {};
+      let sharedSecs = 0;
+      for(const r of LOG){
+        if(!r.with || !r.with.length) continue;
+        sharedSecs += r.secs||0;
+        for(const name of r.with){
+          if(!withWho[name]) withWho[name] = {secs:0, n:0};
+          withWho[name].secs += r.secs||0;
+          withWho[name].n++;
+        }
+      }
+      const company = Object.keys(withWho)
+        .map(name=>({name, secs:withWho[name].secs, n:withWho[name].n}))
+        .sort((a,b)=>b.secs - a.secs);
+
+      return {totalSecs, sessions, streak, bestDay, bestSecs, perDay, recent,
+              days:activeDays, company, sharedSecs};
     },
 
     render(){
@@ -59,19 +81,19 @@
         return;
       }
 
-      const hourLabel = s.bestHour < 0 ? '—'
-        : (s.bestHour === 0 ? '12 AM'
-          : s.bestHour < 12 ? s.bestHour+' AM'
-          : s.bestHour === 12 ? '12 PM'
-          : (s.bestHour-12)+' PM');
-
       const max = Math.max.apply(null, s.recent.map(r=>r.secs).concat([1]));
+      /* Each bar carries its own day and total in data attributes, so pointing
+         at one can say what it is. `title` alone was no use on a phone, which
+         is where most of these are read. */
       const bars = s.recent.map(r=>{
         const h = r.secs ? Math.max(4, Math.round(r.secs/max*100)) : 0;
-        const title = r.key+' · '+(r.secs ? fmtDur(r.secs) : 'nothing');
-        return '<div class="sbar" title="'+esc(title)+'">'
+        const when = new Date(r.key+'T00:00:00')
+          .toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+        const much = r.secs ? fmtDur(r.secs) : 'nothing';
+        return '<button type="button" class="sbar" data-when="'+esc(when)+'" data-much="'+esc(much)+'"'
+          + ' title="'+esc(when+' · '+much)+'">'
           + '<div class="sbar-track"><div class="sbar-fill'+(r.secs?'':' empty')+'" style="height:'+h+'%"></div></div>'
-          + '<span>'+esc(r.label)+'</span></div>';
+          + '<span>'+esc(r.label)+'</span></button>';
       }).join('');
 
       body.innerHTML =
@@ -83,10 +105,55 @@
         + '</div>'
         + '<p class="q-sec">Last 14 days</p>'
         + '<div class="sbars">'+bars+'</div>'
+        + '<p class="sbar-read" id="sbar-read">Tap a bar for that day</p>'
         + '<div class="stat-lines">'
         + '<div><span>Best day</span><b>'+(s.bestDay?esc(s.bestDay)+' · '+fmtDur(s.bestSecs):'—')+'</b></div>'
-        + '<div><span>Best hour</span><b>'+esc(hourLabel)+'</b></div>'
+        + '<div><span>Average day</span><b>'+fmtDur(s.perDay)+'</b></div>'
         + '<div><span>Average session</span><b>'+fmtDur(Math.round(s.totalSecs/s.sessions))+'</b></div>'
+        + '</div>'
+        + this._company(s);
+
+      this._wireBars();
+    },
+
+    /* One line under the chart that says what you are pointing at. A tooltip
+       does this on a desktop and does nothing at all on a phone, which is
+       where most of this is read — so the readout is part of the page, and
+       hovering and tapping both drive it. */
+    _wireBars(){
+      const read = $('sbar-read');
+      if(!read) return;
+      const say = (b)=>{
+        read.textContent = b ? (b.dataset.when + ' · ' + b.dataset.much) : 'Tap a bar for that day';
+        read.classList.toggle('on', !!b);
+      };
+      $('stats-body').querySelectorAll('.sbar').forEach(b=>{
+        b.onmouseenter = ()=>say(b);
+        b.onmouseleave = ()=>{ if(!b.classList.contains('on')) say(null); };
+        b.onclick = ()=>{
+          const was = b.classList.contains('on');
+          $('stats-body').querySelectorAll('.sbar.on').forEach(x=>x.classList.remove('on'));
+          if(was){ say(null); return; }
+          b.classList.add('on');
+          say(b);
+        };
+      });
+    },
+
+    /** Who you've focused alongside, longest first. Absent until it has content. */
+    _company(s){
+      if(!s.company.length) return '';
+      const top = s.company[0];
+      const max = top.secs || 1;
+      return '<p class="q-sec">Focused alongside</p>'
+        + '<p class="stat-note">'+fmtDur(s.sharedSecs)+' of your total was shared with somebody.</p>'
+        + '<div class="stat-company">'
+        + s.company.slice(0,6).map(c=>
+            '<div class="scomp">'
+            + '<span class="scomp-name">'+esc(c.name)+'</span>'
+            + '<span class="scomp-bar"><i style="width:'+Math.max(4, Math.round(c.secs/max*100))+'%"></i></span>'
+            + '<b>'+fmtDur(c.secs)+'</b>'
+            + '</div>').join('')
         + '</div>';
     },
 
@@ -96,5 +163,39 @@
   };
 
   $('d-stats').onclick = ()=>{ closeDrawer(); Stats.open(); };
+  /* Shop opens the same page, then scrolls it to the shelf. The stats above it
+     are a page and a half on a phone, and landing at the top of them after
+     tapping something called Shop is landing in the wrong place — so it jumps
+     to the ember count, which is the first line of the shelf and answers "how
+     many do I have" on the way past.
+
+     After a frame, because the page has just been written and has no scroll
+     height yet; `scrollIntoView` against a zero-height box does nothing. */
+  /* Not every environment that runs this file has `scrollIntoView` — jsdom does
+     not, which is where the tests live, and an unguarded call there throws
+     inside a rAF callback where nothing catches it. Landing at the top of the
+     page is a worse page, not a broken one, so it degrades rather than guards
+     the whole handler. */
+  function scrollTo_(el, block){
+    if(el && typeof el.scrollIntoView === 'function'){
+      el.scrollIntoView({block:block || 'start', behavior:'smooth'});
+    }
+  }
+
+  /* Shop is its own page now, so this opens it rather than opening Your focus
+     and jumping to the middle of it. The jump was the tell: a page that needs
+     a shortcut to its own halfway point is two pages. */
+  const shopOpen = ()=>{
+    closeDrawer();
+    const ov = $('shop-overlay');
+    if(!ov) return;
+    ov.classList.remove('hide');
+    try{ Embers.render(); }catch(e){}
+    try{ faceRender(); }catch(e){}
+  };
+  if($('emb-spend-row')) $('emb-spend-row').onclick = shopOpen;
+  if($('emb-chip')) $('emb-chip').onclick = shopOpen;
+  if($('shop-close')) $('shop-close').onclick = ()=>{ const o = $('shop-overlay'); if(o) o.classList.add('hide'); };
+  /* The corner button is wired in 48-account.js, with the page it opens. */
   $('stats-close').onclick = ()=>Stats.close();
 

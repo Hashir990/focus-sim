@@ -1,0 +1,54 @@
+    <!-- hangman (shared — needs a room) -->
+    <div class="game hide" id="game-hangman">
+      <div class="game-top">
+        <span class="gname">Hangman</span>
+        <span class="meta" id="hm-meta"></span>
+        <button class="mini-btn hide" id="hm-next">Next round</button>
+      </div>
+
+      <p class="sg-need hide" id="hm-need">
+        This one needs someone to play against.
+        <button class="mini-btn" id="hm-need-go">Open Focus together</button>
+      </p>
+
+      <div id="hm-live" class="hide">
+        <div class="hm-top">
+          <svg class="hm-draw" id="hm-draw" viewBox="0 0 110 130" aria-hidden="true">
+            <g class="hm-p" data-p="1"><path d="M8 122 H62"/></g>
+            <g class="hm-p" data-p="2"><path d="M22 122 V14"/></g>
+            <g class="hm-p" data-p="3"><path d="M22 14 H72"/></g>
+            <g class="hm-p" data-p="4"><path d="M72 14 V30"/></g>
+            <g class="hm-p" data-p="5"><circle cx="72" cy="41" r="11"/></g>
+            <g class="hm-p" data-p="6"><path d="M72 52 V84"/></g>
+            <g class="hm-p" data-p="7"><path d="M72 60 L58 74 M72 60 L86 74"/></g>
+            <g class="hm-p" data-p="8"><path d="M72 84 L59 106 M72 84 L85 106"/></g>
+          </svg>
+          <div class="hm-side">
+            <p class="hm-role" id="hm-role"></p>
+            <p class="hm-lives" id="hm-lives"></p>
+            <div class="hm-scores" id="hm-scores"></div>
+          </div>
+        </div>
+
+        <div class="hm-word" id="hm-word"></div>
+        <p class="hm-hint" id="hm-hint"></p>
+
+        <div class="hm-claim hide" id="hm-claim">
+          <button class="mini-btn" id="hm-take">I'll set the word</button>
+        </div>
+
+        <div class="hm-set hide" id="hm-set">
+          <input id="hm-word-in" maxlength="15" autocomplete="off" autocorrect="off"
+                 spellcheck="false" placeholder="a word or short phrase">
+          <input id="hm-hint-in" maxlength="40" autocomplete="off"
+                 placeholder="a hint, if you're feeling kind">
+          <button class="mini-btn" id="hm-go">Set the word</button>
+        </div>
+
+        <div class="hm-keys hide" id="hm-keys"></div>
+        <p class="hm-msg" id="hm-msg"></p>
+      </div>
+
+      <div class="banner hide" id="hm-banner"><h3></h3><p id="hm-win-sub"></p></div>
+    </div>
+

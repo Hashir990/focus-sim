@@ -1,20 +1,80 @@
 /* ================= REST ARCADE ================= */
-.arcade-btn{
-  width:100%; margin-top:14px; padding:14px; border-radius:16px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
-  font-family:inherit; font-size:14px; font-weight:500;
-  display:flex; align-items:center; justify-content:center; gap:9px;
-  transition:background .18s ease, transform .1s ease, opacity .3s ease;
-}
-.arcade-btn:hover{background:rgba(255,255,255,.07)}
-.arcade-btn:active{transform:scale(.98)}
-.arcade-btn .g{font-family:'Fraunces',serif; font-style:italic; color:var(--accent)}
-.arcade-btn.hide{display:none}
+/* ---- the way in, on the rest screen ----
+   It used to be a line of text in a box that said "Open the Rest arcade",
+   sitting under the note at the bottom of the screen. Two things were wrong
+   with that: it looked exactly like the note box above it, so it read as
+   another field rather than as somewhere to go, and it was last on a screen
+   whose whole point it is.
 
+   Now it is a row: a mark on the left, what it is and what is in it in the
+   middle, an arrow on the right. That is the shape of every "go here" control
+   people already know, and it is drawn in the accent so it is the brightest
+   thing between the dial and the buttons. */
+.arcade-btn{
+  width:100%; padding:12px 14px; border-radius:16px; cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+  background:color-mix(in srgb, var(--accent) 12%, transparent);
+  color:var(--text); font-family:inherit; text-align:left;
+  display:flex; align-items:center; gap:12px;
+  transition:background .18s ease, transform .1s ease, border-color .18s ease;
+}
+.arcade-btn:hover{
+  background:color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color:var(--accent);
+}
+.arcade-btn:active{transform:scale(.99)}
+.arcade-btn.hide{display:none}
+.arcade-ic{
+  flex:0 0 auto; width:34px; height:34px; border-radius:11px;
+  display:grid; place-items:center; font-size:16px; line-height:1;
+  color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.arcade-txt{ flex:1; min-width:0 }
+.arcade-txt b{ display:block; font-size:14.5px; font-weight:600; letter-spacing:.01em }
+.arcade-txt em{
+  display:block; font-style:normal; font-size:11.5px; color:var(--muted);
+  margin-top:1px;
+}
+.arcade-go{ flex:0 0 auto; color:var(--accent); font-size:16px; line-height:1; opacity:.85 }
+.arcade-btn:hover .arcade-go{ transform:translateX(2px) }
+.arcade-go{ transition:transform .18s ease }
+@media (prefers-reduced-motion: reduce){ .arcade-go{ transition:none } }
+
+/* ---- frosted, not see-through ----
+   The first attempt at this made the whole overlay translucent, which is a
+   different thing entirely: everything on it — cards, buttons, text — sat over
+   a moving background and the screen looked unfinished.
+
+   Frosted glass is heavy blur plus *most* of the colour. The pane is 88–92%
+   opaque, so the weather behind it survives only as a soft wash of its colour
+   and its brightest shapes, and a 44px blur means none of it has an edge you
+   could follow. Everything drawn on top of the pane is opaque again, which is
+   the half that was missing. */
 .overlay{
   position:fixed; inset:0; z-index:50; display:flex; flex-direction:column;
-  background:radial-gradient(120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 62%);
+  /* 96–97%: a wash of the weather's colour comes through and nothing reads as
+     see-through. Anything less and the app looks unfinished; anything more and
+     there was no point putting the weather behind it. */
+  background:radial-gradient(120% 80% at 50% -10%,
+    color-mix(in srgb, var(--bg2) 96%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 97%, transparent) 62%);
   transition:background 1.1s ease; animation:ovin .32s ease both;
+  /* the components on top of the glass are solid, not glass themselves */
+  --card:color-mix(in srgb, var(--bg2) 82%, var(--text) 7%);
+  --line:color-mix(in srgb, var(--text) 15%, transparent);
+}
+/* Frosted, and cheap enough to leave on.
+   A backdrop filter costs roughly the square of its radius, and it is recomputed
+   whenever anything under it moves — which, with the weather behind, is every
+   frame. At 60px with two extra functions on top this was the second most
+   expensive thing in the app. The pane is already 96% opaque, so almost none of
+   that blur was ever visible: 16px reaches every pixel that shows through, and
+   the saturate and brightness passes were doing nothing a slightly different
+   pane colour cannot do. */
+body.vfx-on .overlay{
+  -webkit-backdrop-filter:blur(16px);
+  backdrop-filter:blur(16px);
 }
 .overlay.hide{display:none}
 @keyframes ovin{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
@@ -29,18 +89,39 @@
   display:grid; place-items:center;
 }
 .ov-back svg{width:20px; height:20px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round}
-.ov-title{flex:1; font-family:'Fraunces',serif; font-style:italic; font-size:18px}
+.ov-menu{
+  width:34px; height:34px; flex:0 0 auto; border-radius:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  display:grid; place-items:center; transition:background .18s;
+}
+.ov-menu:hover{ background:rgba(255,255,255,.06) }
+.ov-menu svg{ width:18px; height:18px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round }
+.ov-head{ gap:9px }
+/* Upright. The one serif italic in the app belongs on the setup screen, not on
+   a header you read forty times a day. */
+.ov-title{
+  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:16px; font-weight:600; letter-spacing:.01em;
+}
 .ov-timer{
   font-variant-numeric:tabular-nums; font-weight:600; font-size:14px; letter-spacing:.02em;
   padding:7px 12px; border-radius:11px; background:var(--card); border:1px solid var(--line);
   color:var(--accent); transition:color 1.1s ease;
 }
 .ov-timer.over{color:var(--muted)}
+/* `pan-y` on the scroller itself, so a drag that begins on any game's guts is
+   handed here rather than being fought over by whatever it landed on. Games
+   that genuinely need the raw gesture — the pictionary canvas — set
+   `touch-action:none` on themselves and win, because they are more specific. */
 .ov-body{
-  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;
   padding:6px 20px calc(24px + env(safe-area-inset-bottom));
   max-width:460px; width:100%; margin:0 auto;
   display:flex; flex-direction:column;
 }
 .game.hide,.picker.hide{display:none}
 
+
+/* No italics in here. The banner headings inherit a serif italic from
+   09-banner-toast.css, which is right on the timer and wrong on a game. */
+#overlay .banner h3{ font-family:inherit; font-style:normal; font-weight:600; font-size:19px }

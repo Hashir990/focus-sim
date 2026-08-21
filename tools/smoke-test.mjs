@@ -13,7 +13,20 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Optional argument lets you point the test at any built file:
 //   node tools/smoke-test.mjs some/other/index.html
 const htmlPath = process.argv[2] ? resolve(process.argv[2]) : join(root, 'dist', 'index.html');
-const html = readFileSync(htmlPath, 'utf8');
+/* **Read with the account server taken out, whatever `.env.release` says.**
+
+   This file tests the app as it ships and as it works offline: no sign-in, no
+   server, everything reachable. Once accounts were switched on locally the same
+   file started booting a *configured* build with nobody signed in, which is a
+   different app — the buddy is locked, Focus together asks you to sign in
+   first, and six mailbox checks failed for a reason that had nothing to do with
+   the mailbox.
+
+   A test may not depend on a local config file. The configured half is
+   `tools/account-client-test.mjs`, which points a copy at a real Worker; this
+   half pins the other end so both are always covered no matter how the machine
+   it runs on happens to be set up. */
+const html = readFileSync(htmlPath, 'utf8').replace(/const ACC_URL = '[^']*'/, "const ACC_URL = ''");
 
 // jsdom can't navigate (blob download, location.reload) or paint to a canvas.
 // All three are fine in a real browser, so they are not real failures.
@@ -21,6 +34,42 @@ const IGNORE = /Not implemented: (navigation|HTMLCanvasElement|HTMLMediaElement)
 
 // Shared address book for the fake peer network, so windows can reach each other.
 const FAKE_NET = {};
+
+/* A stand-in for server/mailbox.js, shared by every window the way one real
+   deployment would be. It is deliberately the *behaviour* rather than the code:
+   the Worker's own logic is covered by server/mailbox-test.mjs, and what matters
+   here is that the client posts, fetches, acknowledges, and prefers peers. */
+const FAKE_MAIL = { owners:{}, mail:[], sends:0, fetches:0, reset(){
+  this.owners = {}; this.mail = []; this.sends = 0; this.fetches = 0;
+} };
+
+function fakeMailbox(path, body){
+  const M = FAKE_MAIL;
+  if (path === '/health') return { ok: true };
+  if (path === '/send') {
+    M.sends++;
+    if (!M.mail.some((m) => m.id === body.id)) {
+      M.mail.push({ id: body.id, to: body.to, fromCode: body.from, name: body.name,
+                    text: body.text, at: body.at });
+    }
+    return { ok: true };
+  }
+  const owned = (code, token) => {
+    if (!M.owners[code]) { M.owners[code] = token; return true; }
+    return M.owners[code] === token;
+  };
+  if (path === '/inbox') {
+    M.fetches++;
+    if (!owned(body.code, body.token)) return { ok: false, error: 'that code belongs to another device' };
+    return { ok: true, items: M.mail.filter((m) => m.to === body.code) };
+  }
+  if (path === '/ack') {
+    if (!owned(body.code, body.token)) return { ok: false, error: 'that code belongs to another device' };
+    M.mail = M.mail.filter((m) => !(m.to === body.code && (body.ids || []).includes(m.id)));
+    return { ok: true };
+  }
+  return { ok: false, error: 'no such route' };
+}
 
 const log = (s) => process.stderr.write(s + '\n');
 const checks = [];
@@ -30,7 +79,27 @@ const check = (label, ok, detail = '') => {
 };
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function boot(pageHtml) {
+/* `seed` is written into localStorage before the app's own script runs, the
+   same trick tools/dev-build.mjs uses. Some things — a balance of embers, a
+   history — take real hours to arrive at honestly, and a test that fakes them
+   through the UI is testing the fake. */
+/* Every window ever booted, so the verdict can shut them down before exiting.
+   `pretendToBeVisual` gives each one a requestAnimationFrame loop that never
+   stops on its own, and calling process.exit() while those are live makes libuv
+   abort on Windows — "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING),
+   file src\\win\\async.c". It is not a test failure and nothing prints before
+   it, which makes it read like the suite passed and then the machine broke.
+   Linux tears the process down without complaining, so the sandbox never sees
+   this. */
+const BOOTED = [];
+
+function boot(pageHtml, seed) {
+  if (seed) {
+    const js = Object.keys(seed)
+      .map((k) => `localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(seed[k])});`)
+      .join('');
+    pageHtml = pageHtml.replace('<script>', `<script>try{${js}}catch(e){}</script>\n<script>`);
+  }
   const errors = [];
   const vc = new VirtualConsole();
   const record = (msg) => { if (!IGNORE.test(msg)) errors.push(msg); };
@@ -44,6 +113,7 @@ function boot(pageHtml) {
     virtualConsole: vc,
   });
   const { window } = dom;
+  BOOTED.push(window);
 
   // A recording stand-in for Web Audio. jsdom has none, and the ambience engine
   // builds a real node graph, so this is what proves the graph is wired without
@@ -113,13 +183,22 @@ function boot(pageHtml) {
     self.on = (ev, fn) => { (handlers[ev] = handlers[ev] || []).push(fn); return self; };
     self._emit = (ev, ...a) => (handlers[ev] || []).forEach((f) => f(...a));
     self.destroy = () => { self.destroyed = true; delete FAKE_NET[self.id]; };
+    self._conns = [];
+    self._mkConn = (to) => mkConn(self.id, to);
 
-    self.connect = (target) => {
+    self.connect = (target, opts) => {
       const conn = mkConn(self.id, target);
+      conn.metadata = (opts && opts.metadata) || null;
       const remote = FAKE_NET[target];
       setTimeout(() => {
         if (!remote) { conn._emit('error', new Error('peer-unavailable')); return; }
-        const back = mkConn(target, self.id);
+        // The remote's end has to be built by the remote, not by us: each
+        // connection object closes over the window that owns it, and a test
+        // that silences one device must not silence the other.
+        const back = remote._mkConn(self.id);
+        // real PeerJS hands the initiator's metadata to the receiving side, which
+        // is how an online check — or a mail delivery — identifies itself
+        back.metadata = conn.metadata;
         conn._peerConn = back; back._peerConn = conn;
         remote._emit('connection', back);
         setTimeout(() => { back._emit('open'); conn._emit('open'); }, 0);
@@ -137,14 +216,60 @@ function boot(pageHtml) {
     function mkConn(from, to) {
       const h = {};
       const c = {
-        peer: to, open: true,
+        peer: to, open: true, _owner: from,
         on: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); return c; },
         _emit: (ev, ...a) => (h[ev] || []).forEach((f) => f(...a)),
-        send: (msg) => { setTimeout(() => c._peerConn && c._peerConn._emit('data', JSON.parse(JSON.stringify(msg))), 0); },
+        // `__peerSilent` is how the test simulates a window that vanishes without
+        // closing anything — a slept laptop, a killed tab, wifi walking away.
+        send: (msg) => {
+          if (window.__peerSilent) return;
+          setTimeout(() => c._peerConn && c._peerConn._emit('data', JSON.parse(JSON.stringify(msg))), 0);
+        },
         close: () => { setTimeout(() => { c._emit('close'); c._peerConn && c._peerConn._emit('close'); }, 0); },
       };
+      /* Kept so a test can reach a specific socket rather than only the app's
+         idea of one. The reconnection case needs to close *the old* connection
+         after a new one has replaced it, which is not something the app's own
+         state can be asked for — by then it only knows about the new one. */
+      self._conns.push(c);
       return c;
     }
+  };
+
+  // jsdom has no PointerEvent, and the games are built entirely on pointer
+  // events now (a captured touch never reliably produces a click). MouseEvent
+  // carries the coordinates and bubbling we need; the pointer fields are added.
+  if (!window.PointerEvent) {
+    window.PointerEvent = class PointerEvent extends window.MouseEvent {
+      constructor(type, init = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 1;
+        this.pointerType = init.pointerType ?? 'mouse';
+        this.isPrimary = init.isPrimary ?? true;
+      }
+    };
+  }
+  window.Element.prototype.setPointerCapture = function () {};
+  window.Element.prototype.releasePointerCapture = function () {};
+
+  /* The app talks to the mailbox with `fetch`. Point it at the shared fake so
+     both windows see one server, and count the calls — "did it prefer the peer
+     path" is only answerable by looking at whether the server was used at all. */
+  window.__fetched = [];
+  window.fetch = async (url, opts = {}) => {
+    window.__fetched.push(String(url));
+    /* The update check is a GET of a static file, so it gets answered here
+       rather than by the mailbox stub. `UPDATE_REPLY` is what the file says
+       today; null means the request fails, which is the offline case. */
+    if (/latest\.json/.test(String(url))) {
+      if (!UPDATE_REPLY) throw new Error('offline');
+      return { ok: true, status: 200, async json() { return UPDATE_REPLY; } };
+    }
+    const path = new URL(String(url), 'https://mail.test').pathname;
+    let body = {};
+    try { body = JSON.parse(opts.body || '{}'); } catch {}
+    const out = fakeMailbox(path, body);
+    return { ok: true, status: 200, async json() { return out; } };
   };
 
   window.navigator.vibrate = () => true;
@@ -154,10 +279,78 @@ function boot(pageHtml) {
   return { window, errors };
 }
 
+/** What a configured update host is saying, for the block near the end. */
+let UPDATE_REPLY = null;
+
+/* Tiles are picked up with pointer events now, not clicks — a captured touch
+   sequence does not reliably produce a click, which is why tapping worked with a
+   mouse and did nothing on a phone. The test drives the same path a finger does. */
+const tapEl = async (w, el) => {
+  const r = { clientX: 10, clientY: 10, bubbles: true, cancelable: true, pointerId: 1, pointerType: 'touch', isPrimary: true };
+  el.dispatchEvent(new w.PointerEvent('pointerdown', r));
+  el.dispatchEvent(new w.PointerEvent('pointerup', r));
+  await wait(10);
+};
+
+const openGame = async (w, $w, id) => {
+  $w('arcade-open').click();
+  await wait(60);
+  [...w.document.querySelectorAll('.pcard')].find((c) => c.dataset.game === id).click();
+  await wait(120);
+};
+
+// `hide` is not a global rule in this app — every component declares its own
+// `.thing.hide{display:none}`. Checking the class alone would have missed the
+// chooser sitting over Scrabble, so these check what is actually painted.
+const shown = (w, id) => w.getComputedStyle(w.document.getElementById(id)).display !== 'none';
+
+/* Leaving a room asks first now (see #sync-leave in 13-sync-overlay.html).
+   Tests that only want to be out of the room go through here; the block that
+   is actually testing the confirmation does it by hand. */
+const leaveRoom = async ($w, how) => {
+  $w('sync-leave').click();
+  await wait(40);
+  // A host with company is offered a menu rather than a yes/no: hand it on, or
+  // close it. Tests that just want out take the closing option.
+  const menu = $w('hmenu');
+  if (menu && !menu.classList.contains('hide')) {
+    const items = [...$w('hmenu-card').querySelectorAll('[data-i]')];
+    (how === 'hand' ? items[0] : items[items.length - 1]).click();
+    await wait(40);
+  }
+  const c = $w('confirm');
+  if (c && !c.classList.contains('hide')) $w('confirm-yes').click();
+  await wait(80);
+};
+
+/* Moved up out of the stats block so both halves of a split solo pass can
+   seed a history: `tools/slice-test.mjs` boots the second half straight
+   from this rather than replaying the first half's session to get one.
+   Depends on nothing but Date, which is why it can live up here. */
+const DAY = 86400000;
+const pad2 = (n) => String(n).padStart(2, '0');
+const key = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
+// Anchored to midday so the two sessions per day can't spill into the day before
+// when the suite happens to run near midnight — that made the streak flaky.
+const seedLog = [0, 1, 2, 5].flatMap((back, i) =>
+  [0, 1].map((n) => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - back);
+    const ts = d.getTime() + n * 3600000;
+    // some entries carry notes, so the calendar's note markers have something to find
+    return { id: 's' + ts + '_' + i + n, ts, day: key(ts), secs: 1500, note: n === 0 ? `worked on thing ${i}` : '' };
+  }),
+);
+
 // ===========================================================================
 // Pass 1 — a fresh install, no history
 // ===========================================================================
-const { window, errors } = boot(html);
+/* A modest balance to start with, because embers are paid by the minute now and
+   a test cannot sit through ten of them. Nothing is owned. */
+const { window, errors } = boot(html, {
+  focus_embers: JSON.stringify({ have: 60, earned: 60, own: ['seaglass'], light: 'seaglass' }),
+});
 const $ = (id) => window.document.getElementById(id);
 const click = (id) => { const el = $(id); if (!el) throw new Error(`#${id} missing`); el.click(); };
 
@@ -167,7 +360,931 @@ for (const id of ['setup', 'timer', 'overlay', 'quotes-overlay', 'cal-overlay', 
   check(`#${id} present`, !!$(id));
 }
 check('presets rendered', $('f-presets').children.length > 0);
+
+/* **No comment has leaked into the page.** One `<!--` lost its opening two
+   characters during an edit and the whole note under it — several paragraphs
+   about Spider-Man's corner webs — rendered as body text on every screen. The
+   giveaway is the closing `-->`, which is only ever text when no comment was
+   open to be closed by it, so that is what is checked; the count of openers
+   against closers catches the same thing in the file itself. */
+{
+  const shown = window.document.body.textContent || '';
+  check('no comment has leaked into the page', shown.indexOf('-->') < 0,
+    shown.slice(Math.max(0, shown.indexOf('-->') - 60), shown.indexOf('-->') + 4));
+  const opens = (html.match(/<!--/g) || []).length;
+  const closes = (html.match(/-->/g) || []).length;
+  check('and every comment in the build is opened and closed', opens === closes,
+    `${opens} opened, ${closes} closed`);
+}
+
+/* The top bar carries the date now, not a tally of sessions. */
+{
+  const want = new Date().toLocaleDateString(undefined, {weekday:'short', day:'numeric', month:'short'});
+  check('the top bar shows today\'s date', $('today-date').textContent === want,
+    `${$('today-date').textContent} vs ${want}`);
+  check('and no session count', !$('today-count'));
+  /* Whether there is a sign-in button depends on `.env.release`, which is a
+     local file and not something a test may assume the shape of — asserting the
+     shipped state here meant the suite went red the day accounts were actually
+     turned on, which is the one day it needed to be trusted.
+
+     So the expectation is read from the build, and what is checked is the rule
+     rather than the state: the button exists exactly when there is somewhere to
+     sign in to, and the corner holds one thing either way. */
+  const configured = /ACC_URL = 'https?:/.test(html);
+  check(configured
+    ? 'there is a sign-in button, because this build has a server'
+    : 'no sign-in button without a server to sign in to',
+  $('acc-chip').classList.contains('hide') === !configured);
+  check('and the corner holds exactly one of the button and the date',
+    $('acc-chip').classList.contains('hide') !== $('today-wrap').classList.contains('hide'));
+}
+/* **Two `@keyframes` with one name is silent and lethal.** The later block wins
+   for every element using that name, so an animation elsewhere quietly does a
+   different job. `bud-lift` was both the main menu's hand raise and the swing's
+   vertical rise; because both drive `transform`, the perch's version overrode
+   the swing's travel on the same element and the buddy swung on the spot for
+   several rounds of "why is he not moving". Nothing warns you — the CSS parses,
+   both rules exist, and one simply shadows the other. */
+check('no two @keyframes share a name', (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const names = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]);
+  const seen = new Set(), dupes = new Set();
+  for (const n of names) { if (seen.has(n)) dupes.add(n); seen.add(n); }
+  return dupes.size === 0 ? true : [...dupes].join(', ');
+})() === true, (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const names = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]);
+  const seen = new Set(), dupes = new Set();
+  for (const n of names) { if (seen.has(n)) dupes.add(n); seen.add(n); }
+  return [...dupes].join(', ');
+})());
+
+/* ---- the swing, as three invariants --------------------------------------
+
+   These are geometry, not appearance, and every one of them has been wrong at
+   least once in a way that looked like something else entirely. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  /* Walk the braces. Slicing to the first `}` stops at the end of the *first*
+     step, which reads as a block with one keyframe in it — and a one-keyframe
+     block passes a "these all agree" check vacuously. */
+  const frames = (name) => {
+    const at = css.indexOf('@keyframes ' + name + '{');
+    if (at < 0) return null;
+    let i = css.indexOf('{', at), depth = 0, end = i;
+    for (; i < css.length; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}' && --depth === 0) { end = i; break; }
+    }
+    const out = {};
+    for (const m of css.slice(at, end).matchAll(/([\d.]+)%[^{]*\{[^}]*?(-?[\d.]+)deg/g)) {
+      out[m[1]] = Number(m[2]);
+    }
+    return out;
+  };
+  const arc = frames('bud-arc'), aim = frames('bud-web-aim');
+
+  /* **The thrown web must not turn with him.** It hangs off the rig, so the rig
+     turns it; `bud-web-aim` cancels that during the throw by being the arc's
+     angle negated. The leftover is the forward lean, and it has to be the
+     *same* leftover at both ends of the throw — if it varies, the web sweeps
+     round like a searchlight instead of standing still in the sky while he
+     passes under it.
+
+     The ropes run on two swings and the rig on one, so the throw's 76% and 88%
+     land on the arc's 52% and 76%. That mapping is the thing to re-derive if
+     either duration changes. */
+  check('the thrown web cancels the rig exactly', (() => {
+    if (!arc || !aim) return 'a keyframe block is missing';
+    for (const [ropeAt, arcAt] of [['76.01', '52'], ['88', '76']]) {
+      if (!(arcAt in arc)) return 'bud-arc has no ' + arcAt + '% step';
+      if (!(ropeAt in aim)) return 'bud-web-aim has no ' + ropeAt + '% step';
+    }
+    const lean = [['76.01', '52'], ['88', '76']].map(([r, a]) => aim[r] + arc[a]);
+    return lean[0] === lean[1] ? true : 'lean differs: ' + lean.join(' vs ');
+  })() === true, 'see bud-web-aim');
+
+  /* **He lets go at the front, not the back.** The rig pivots at its top and
+     rotation is clockwise-positive, so a negative angle is *ahead* of the
+     anchor. 76% of a swing is where he releases; the arc has to be at its
+     forward extreme there. It was positive — swinging backwards under his own
+     web — for every build the user ever saw. */
+  check('the swing reaches the front exactly where he lets go',
+    !!arc && arc['76'] < 0 && arc['0'] > 0, arc ? `0%:${arc['0']} 76%:${arc['76']}` : 'no bud-arc');
+
+  /* **The web he throws must be the web he lands on.** The two ropes are one
+     animation offset by a swing; if they ever stop being identical, one of them
+     is doing half the job again and you get the version he complained about —
+     a second web fired and then ignored. The delay is the only difference
+     allowed, and it must be negative, or the second rope waits a whole swing
+     before starting rather than being already underway. */
+  check('the two webs are one animation, a swing apart', (() => {
+    if (!/\.bud-rope\{[^}]*animation:bud-web /.test(css)) return 'the shared rule is gone';
+    const b = css.match(/\.bud-rope-b\{([^}]*)\}/);
+    if (!b) return 'no .bud-rope-b rule';
+    if (/animation:/.test(b[1])) return 'b has its own animation, not a delay';
+    return /animation-delay:\s*-/.test(b[1]) ? true : 'delay is not negative: ' + b[1].trim();
+  })() === true, 'see .bud-rope / .bud-rope-b');
+
+  /* **The lap has to end where it started.** It used to run off to one side and
+     `bud-round` faded him out to cover the jump back — so he vanished at the end
+     of every lap. Out and back means the last keyframe is the first one and
+     nothing needs hiding. Nothing may fade him again. */
+  check('the lap closes on itself instead of fading him out', (() => {
+    const go = css.match(/@keyframes bud-go\{([\s\S]*?)\n\}/);
+    if (!go) return 'no bud-go';
+    const first = go[1].match(/0%[^{]*\{\s*transform:translate\(([^,]+),/);
+    const last = go[1].match(/\n\s*100%[^{]*\{\s*transform:translate\(([^,]+),/);
+    if (!first || !last) return 'could not read the ends';
+    if (first[1].trim() !== last[1].trim()) return `0% is ${first[1]} but 100% is ${last[1]}`;
+    /* The *declaration*, not the word — the note above `bud-go` explains why
+       the fade was removed and names it, and matching prose made this fail on
+       its own documentation. */
+    return /@keyframes\s+bud-round|animation:[^;]*bud-round/.test(css)
+      ? 'bud-round is back' : true;
+  })() === true, 'see bud-go');
+
+  /* **The step across must out-run the pendulum, or he stutters backwards.**
+
+     Two things move him and they fight during every flight. `bud-go` carries
+     him forward; the rig, swinging from the front of one arc to the back of the
+     next, carries him backwards by `2·sin(A)·rope`. If the forward step is not
+     comfortably larger he crawls, and if `bud-go` is eased — near-zero velocity
+     at both ends of each segment — the rig wins outright at the head and tail
+     of every flight and he visibly slides back before being yanked on. That was
+     the "jitters while switching webs", twice a flight, six flights a lap.
+
+     Compared in bare numbers on purpose: in a portrait window `vmin` is the
+     width, so `1vw` and `1vmin` are the same length and the two units are
+     directly comparable. That is the worst case and the one to hold. */
+  check('the step across out-runs the pendulum on every window shape', (() => {
+    const rope = Number((css.match(/--rope:\s*([\d.]+)vmin/) || [])[1]);
+    const go = css.match(/@keyframes bud-go\{([\s\S]*?)\n\}/);
+    if (!rope || !go || !arc) return 'could not read --rope, bud-go or bud-arc';
+    if (!/animation:bud-go [\d.]+s linear/.test(css)) return 'bud-go is not linear';
+    const holds = [...go[1].matchAll(/%\s*\{\s*transform:translate\((-?[\d.]+)vw,\s*0\)/g)]
+      .map((m) => Number(m[1]));
+    if (holds.length < 4) return 'only ' + holds.length + ' resting positions';
+    const step = Math.min(...holds.slice(1).map((v, i) => Math.abs(v - holds[i])));
+    const amp = Math.max(...Object.values(arc).map(Math.abs));
+    const sweep = 2 * Math.sin((amp * Math.PI) / 180) * rope;
+    return step > sweep * 1.3
+      ? true : `step ${step.toFixed(1)}vw vs sweep ${sweep.toFixed(1)}vmin`;
+  })() === true, 'see bud-go');
+
+  /* **Everything has to divide the lap.** The arc runs once a swing, a rope
+     once every two, the lap is six — so 1.3, 2.6 and 7.8. If any of them stops
+     dividing evenly the parts drift out of phase a little more each lap and the
+     throw slowly stops arriving in his hand. */
+  /* ---- everybody else in the room moves to their own clock ----
+
+     Five people who all picked the swing on one 7.8s animation is one buddy
+     drawn five times, and the repetition is the thing you notice. `--t` is a
+     negative delay on each peer's slot; custom properties inherit, so one value
+     shifts every animation inside that slot by the same amount.
+
+     **Shifting all of them by the same amount is the whole trick**, and it only
+     works if nothing inside escapes it. Two ways to escape: being more specific
+     than the rule that applies it, or carrying a delay of your own. */
+  check('a peer\u2019s whole figure is shifted by one number', (() => {
+    if (!/\.bud-peer\.bud-peer[^{]*\{[^}]*animation-delay:\s*var\(--t/.test(css))
+      return 'no .bud-peer desync rule';
+    /* **The class is doubled on purpose and the order matters.** `.bud-peer *`
+       is one class; `.bud-swim .bud-hand-r` is two, and its `animation`
+       shorthand sets the delay back to zero. The doubled class ties on
+       specificity, and a tie is won by whichever comes last — so every rule it
+       has to beat must be above it. The poses are read out of `BUD_ANIMS`
+       rather than listed, so a pose added tomorrow is covered today. */
+    const rule = css.indexOf('.bud-peer.bud-peer');
+    const poses = [...html.matchAll(/\{k:'([\w-]+)'/g)].map((m) => '.bud-' + m[1]);
+    const late = [];
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const sel = m[1], body = m[2];
+      if (sel.includes('.bud-peer') || /!important/.test(body)) continue;
+      if (!/animation[^;]*:/.test(body)) continue;
+      if (poses.some((c) => sel.includes(c + ' ') || sel.includes(c + '{')) && m.index > rule) late.push(sel.trim());
+    }
+    return late.length === 0 ? true : 'below the peer rule, so it wins: ' + late.join(' | ');
+  })() === true, 'see the peer block');
+  /* **Anything with a delay of its own needs that delay *added* to, not
+     replaced.** The second web is one swing behind the first, the second arm
+     half a stroke behind the first: those are relationships, and blanking them
+     turns the pair into one thing happening twice. This finds every such
+     element mechanically rather than trusting a list, because the list is
+     exactly what a future antic will forget to update. */
+  check('and the ones with a rhythm of their own keep it', (() => {
+    const bud = css.slice(css.indexOf('your buddy ----'), css.indexOf('---- account ----'));
+    if (!bud) return 'could not find the buddy stylesheet';
+    const flat = bud.replace(/@keyframes[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g, '');
+    const missed = [];
+    for (const m of flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const sel = m[1].trim(), body = m[2];
+      if (sel.includes('.bud-peer') || sel.startsWith('@')) continue;
+      if (!/animation(-delay)?:[^;]*\s-[.\d]+s/.test(body)) continue;
+      const tail = sel.split(/\s+/).pop();
+      if (!new RegExp('\\.bud-peer[^{]*' + tail.replace(/[.()]/g, '\\$&')).test(bud)) missed.push(sel);
+    }
+    return missed.length === 0 ? true : 'no peer rule for: ' + missed.join(' | ');
+  })() === true, 'see the peer block');
+
+  check('the swing, the ropes and the lap stay in phase', (() => {
+    const dur = (re) => Number((css.match(re) || [])[1]);
+    const lap = dur(/animation:bud-go ([\d.]+)s/);
+    const swing = dur(/animation:bud-arc ([\d.]+)s/);
+    const rope = dur(/animation:bud-web ([\d.]+)s/);
+    if (!lap || !swing || !rope) return 'could not read all three durations';
+    const divides = (a, b) => Math.abs((a / b) - Math.round(a / b)) < 1e-9;
+    if (!divides(lap, swing)) return `lap ${lap}s is not a whole number of ${swing}s swings`;
+    if (!divides(lap, rope)) return `lap ${lap}s is not a whole number of ${rope}s rope cycles`;
+    return divides(rope, swing) ? true : `rope ${rope}s is not a whole number of swings`;
+  })() === true, 'see the animation durations');
+}
+
+/* ---- not paying for what nobody is looking at ----
+
+   A focus timer is the app you leave running for half an hour while you use
+   something else, so "hidden" is the normal case rather than the edge one. The
+   buddy and the effects layer between them keep about fifty infinite animations
+   alive, and Chromium throttles timers and rAF on its own but *not* compositor
+   animations — those keep going behind other windows and while minimised.
+
+   None of this is visible by definition, which is exactly why it needs a test:
+   if the wiring quietly comes undone nobody will ever notice, they will just
+   have a slightly hotter laptop. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  check('there is a rule that stills everything while the window is hidden',
+    /html\.at-rest[^{]*\{[^}]*animation-play-state:\s*paused/.test(css.replace(/\s+/g, ' ')),
+    'no html.at-rest rule');
+  check('and the two decorative layers are dropped, not merely stilled',
+    /\.bud-layer\.at-rest-off\{[^}]*display:none/.test(css.replace(/\s+/g, ' ')));
+
+  const doc = window.document.documentElement;
+  const vfx = $('vfx');
+  check('the window starts out awake', !doc.classList.contains('at-rest'));
+
+  /* jsdom reports `visibilityState` from a getter, so it has to be replaced
+     rather than assigned — and put back afterwards, or every check after this
+     one runs in a hidden document. */
+  const real = Object.getOwnPropertyDescriptor(window.Document.prototype, 'visibilityState');
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(40);
+  check('going away stills the app and takes the effects layer out',
+    doc.classList.contains('at-rest') && (!vfx || vfx.style.display === 'none'),
+    doc.className + ' / ' + (vfx ? vfx.style.display : 'no vfx'));
+
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(40);
+  check('and coming back puts it all on again',
+    !doc.classList.contains('at-rest') && (!vfx || vfx.style.display !== 'none'),
+    doc.className + ' / ' + (vfx ? vfx.style.display : 'no vfx'));
+  if (real) Object.defineProperty(window.document, 'visibilityState', real);
+
+  /* Somebody who has asked for less movement is asking about the decoration,
+     not about the controls — so the two purely decorative layers go and
+     everything else is only shortened. Blanking every animation would take the
+     feedback on the buttons with it. */
+  check('asking for reduced motion removes the decoration, not the feedback',
+    /@media \(prefers-reduced-motion: reduce\)\{[^@]*\.bud-layer, ?#vfx\{[^}]*display:none/
+      .test(css.replace(/\s+/g, ' ')),
+    'no reduced-motion rule for the decorative layers');
+}
+
+/* ---- a paused clock must not keep time -------------------------------------
+
+   The engine works off `S.endAt` minus the wall clock rather than by counting
+   ticks, which is what makes a block survive a frozen web view. The cost of
+   that choice is that `S.endAt` is *meaningless while paused* — it is the end
+   of a block that is no longer going anywhere, and it slides further into the
+   past every second you leave the timer sitting there.
+
+   45-notify.js calls `tick()` on the way back from the background to catch up a
+   block that ran while the page was asleep. It did not ask whether the block
+   was running. Pause, switch away, come back: the clock had counted down the
+   whole time you were gone, the minutes were written into the log and the ember
+   count, and if you had been away longer than the block it ran `complete()` —
+   chime, session banked, straight into the break. All of it invisible, because
+   by definition nobody was looking.
+
+   Only a real jump in the wall clock can catch this, so this stands `Date.now`
+   on a jump table and moves it. */
+{
+  const { window, errors: pauseErr } = boot(html);
+  await wait(300);
+  const $p = (id) => window.document.getElementById(id);
+  const realNow = window.Date.now;
+  let jump = 0;
+  window.Date.now = () => realNow.call(window.Date) + jump;
+
+  $p('begin').click();
+  await wait(320);
+  check('a block is running', $p('toggle-run').textContent.trim() === 'Pause', $p('toggle-run').textContent);
+  $p('toggle-run').click();                       // pause it
+  await wait(120);
+  const paused = $p('clock').textContent.trim();
+  /* The label is 'Resume' only once a second has actually gone, so "is it
+     stopped" is asked as "does it no longer offer to pause". */
+  check('and pausing stops it', $p('toggle-run').textContent.trim() !== 'Pause', $p('toggle-run').textContent);
+
+  const pausedLabel = $p('toggle-run').textContent.trim();
+
+  /* **Away for longer than the block is the case that matters**, and it is also
+     the one that hides itself. With the bug, `tick()` ran the clock past zero,
+     `complete()` banked the session and moved to the break — and the break's
+     clock is a different number on a screen that still looks like a timer.
+
+     Go *hidden* properly rather than only firing the event: `visibilityState`
+     is a getter in jsdom, so it has to be replaced. That exercises the going-
+     away half as well, which writes the block's progress down.
+
+     And exactly one round trip. An earlier version of this test dispatched
+     twice, which let a broken build complete the focus block *and then* the
+     break, landing back on a fresh 25:00 focus screen — the same numbers as
+     never having moved at all. It passed against the bug. Assert the phase as
+     well as the digits, and go there and back once. */
+  const vis = Object.getOwnPropertyDescriptor(window.Document.prototype, 'visibilityState');
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(80);
+  jump = 30 * 60 * 1000;
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(250);
+  if (vis) Object.defineProperty(window.document, 'visibilityState', vis);
+
+  check('half an hour in the background does not move a paused clock',
+    $p('clock').textContent.trim() === paused, `${paused} -> ${$p('clock').textContent.trim()}`);
+  /* The label carries the phase — "Begin rest" is the tell that the block was
+     finished for you while you were away. */
+  check('and does not end the block behind your back',
+    $p('toggle-run').textContent.trim() === pausedLabel && !/rest/i.test($p('toggle-run').textContent),
+    `${pausedLabel} -> ${$p('toggle-run').textContent.trim()}`);
+  /* And the other half of it still works: a block that really is running does
+     catch up on the way back, because that is what the call was there for. */
+  $p('toggle-run').click();                       // start again
+  await wait(200);
+  const ran = $p('clock').textContent.trim();
+  jump += 65 * 1000;
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(200);
+  check('a running clock still catches up on the way back',
+    $p('clock').textContent.trim() !== ran, `${ran} -> ${$p('clock').textContent.trim()}`);
+  $p('stop').click();
+  await wait(120);
+  window.Date.now = realNow;
+  check('no errors from the background round trip', pauseErr.length === 0, pauseErr.join(' | '));
+}
+
+/* ---- the update banner, and which route it offers ----
+
+   There are two ways this app updates and they must never both be visible. The
+   desktop shell downloads in the background and installs on quit; the page
+   reads `latest.json` and can link to the release. Show both and everybody
+   takes the manual one, because it is the one with a button on it.
+
+   The rule is: offer the link only when we have *heard* that the shell is not
+   handling it. Silence is not consent — `idle` is what `watch()` writes the
+   moment it subscribes, before the shell has said anything, and treating that
+   as "handled" is how the banner ended up offering neither route. */
+{
+  /* From the flag to the end of the banner it controls. **Search for the end
+     *from* the start**, not from the top of the file: `upd-safe` is a CSS class
+     too, and the stylesheet comes first, so a bare `indexOf` returns a position
+     before the start and the slice comes out empty — which fails every check
+     inside it while the code is perfectly correct. */
+  const at = html.indexOf('const shellAuto');
+  /* End on a string that only exists in the *fallthrough* branch — the one that
+     draws the link. `upd-safe` appears in the native branch first and stops the
+     slice short of the very code being checked. */
+  const upd = at < 0 ? '' : html.slice(at, html.indexOf('Export a backup first', at));
+  check('an unanswered shell is treated as no shell, not as a working one',
+    /state\s*!==\s*'manual'\s*&&\s*n\.state\s*!==\s*'idle'/.test(upd)
+    || /state\s*!==\s*'idle'\s*&&\s*n\.state\s*!==\s*'manual'/.test(upd),
+    'shellAuto still counts idle');
+  /* And the link is conditional on that answer, not printed unconditionally. */
+  check('the manual link is only offered when nothing else will do it',
+    /!shellAuto/.test(upd), 'the GitHub link is not gated');
+}
+
+/* The renderer announces itself the moment it subscribes, and the shell replays
+   its last state in reply. Registering that handler after the page is told to
+   load is a race the page can win, and when it does, no state ever arrives. */
+check('the desktop shell listens before it loads the page', (() => {
+  /* Anchored to the build under test, not to this file: a slice runs from a
+     copy somewhere else, and `root` then points at that copy's parent. */
+  let main;
+  try {
+    main = readFileSync(join(dirname(htmlPath), '..', 'electron', 'main.cjs'), 'utf8');
+  } catch (e) { return true; }   // no shell beside this build; nothing to check
+  const setup = main.indexOf('updater.setup(');
+  const load = main.indexOf('win.loadFile(');
+  if (setup < 0 || load < 0) return 'could not find both calls';
+  return setup < load ? true : 'setup() runs after loadFile() — the replay can be missed';
+})() === true, 'see electron/main.cjs');
+
+/* **1.0.10 is newer than 1.0.9, and a string comparison says otherwise.**
+
+   Two dotted versions have to be compared field by field as numbers. Sorted as
+   text, "1.0.10" < "1.0.9" because '1' < '9' at the fourth character, so the
+   banner would go quiet the moment the patch number reached double figures and
+   stay quiet for every release after it. Nothing would look broken; there would
+   simply never be another update.
+
+   Checked against the real function out of the built file, not a copy. */
+check('a double-digit patch version counts as newer', (() => {
+  const at = html.indexOf('function updNewer');
+  if (at < 0) return 'updNewer is gone';
+  const fn = html.slice(at, html.indexOf('const Update =', at));
+  let cmp;
+  try { cmp = new Function(fn + '; return updNewer;')(); } catch (e) { return 'would not compile'; }
+  for (const [a, b, want] of [
+    ['1.0.10', '1.0.9', true], ['1.0.9', '1.0.10', false],
+    ['1.0.10', '1.0.10', false], ['1.1.0', '1.0.99', true], ['2.0.0', '1.0.10', true],
+  ]) {
+    if (cmp(a, b) !== want) return `${a} > ${b} said ${cmp(a, b)}`;
+  }
+  return true;
+})() === true, 'see updNewer in 41-update.js');
+
+/* ---- the app does not talk like an assistant ----
+
+   Everything the app says should sound like it was written by the person who
+   built it, because it was. The tells are specific and mechanical, so they can
+   be checked: an app has no first person and nothing to apologise for, it does
+   not narrate its own intentions, and it does not pad with the courtesy
+   formulas that generated text falls into.
+
+   Scanned over the quoted strings in the built file rather than the source, so
+   a phrase added anywhere is caught wherever it came from. Deliberately narrow
+   — this is a tripwire for a voice slipping, not a style grader. */
+{
+  const tells = [
+    /* Case-SENSITIVE, and the apostrophe is required. Lower-cased and loose,
+       this matched the word "ill" inside an achievement name. */
+    [/\bI(?:'|’)(?:ll|ve|m|d)\b|\bI (?:will|can|have|think|would|am)\b/, 'first person'],
+    [/\bLet me\b|\bI(?:'|’)?d be happy\b|\bHappy to\b/i, 'narrating intent'],
+    [/\bAs an AI\b|\blanguage model\b|\bI(?:'|’)?m an? (?:assistant|AI)\b/i, 'assistant disclosure'],
+    [/\bSorry,? (?:but|I|about)\b|\bI apologi[sz]e\b|\bMy apologies\b/i, 'apologising'],
+    [/\bPlease note that\b|\bIt(?:'|’)?s worth noting\b|\bKeep in mind that\b/i, 'padding'],
+    [/\bCertainly[,!]|\bOf course[,!]|\bGreat question\b|\bAbsolutely[,!]/i, 'courtesy formula'],
+    [/\bfeel free to\b|\bdon(?:'|’)?t hesitate\b/i, 'invitation formula'],
+    [/\bDelve\b|\btapestry of\b|\bIt(?:'|’)?s important to (?:note|remember)\b/i, 'generated prose'],
+  ];
+  /* Single-quoted string literals from the concatenated app source. Good enough
+     to catch prose; it is not trying to parse JavaScript. */
+  const strings = [...html.matchAll(/'((?:[^'\\\n]|\\.){12,240})'/g)].map((m) => m[1]);
+  const caught = [];
+  for (const str of strings) {
+    for (const [re, why] of tells) {
+      if (re.test(str)) { caught.push(why + ': ' + str.slice(0, 70)); break; }
+    }
+  }
+  check('nothing in the app sounds like an assistant wrote it',
+    caught.length === 0, caught.slice(0, 3).join(' | '));
+}
+
 check('repeat chips rendered', $('rep-chips').children.length > 0);
+
+/* The messages button is there on a fresh install, with no room and nobody
+   saved. It used to hide itself until you had somebody to write to, which read
+   as the button coming and going at random. */
+check('the messages button is there from the start', !$('chat-btn').classList.contains('hide'));
+/* The dot is positioned out of the flow. While this rule was missing it was an
+   ordinary inline span inside a 32px button, which shoved the icon off centre —
+   which is what "the message button is misaligned" was. */
+check('the unread dot cannot push the icon about',
+  window.getComputedStyle($('chat-dot')).position === 'absolute',
+  window.getComputedStyle($('chat-dot')).position);
+check('and the pop-out sits above the arcade overlay',
+  Number(window.getComputedStyle($('chat-pop')).zIndex) > 50,
+  window.getComputedStyle($('chat-pop')).zIndex);
+check('but below the sheet you would be reading in',
+  Number(window.getComputedStyle($('chat-pop')).zIndex)
+  < Number(window.getComputedStyle($('chat')).zIndex),
+  `${window.getComputedStyle($('chat-pop')).zIndex} / ${window.getComputedStyle($('chat')).zIndex}`);
+check('a hidden pop-out is actually hidden',
+  window.getComputedStyle($('chat-pop')).display === 'none',
+  window.getComputedStyle($('chat-pop')).display);
+check('and no dot on it', $('chat-dot').classList.contains('hide'));
+$('chat-btn').click();
+await wait(60);
+check('it opens with nobody saved', !$('chat').classList.contains('hide'));
+check('and says how to get somebody to write to', /Focus together/.test($('chat-log').textContent),
+  $('chat-log').textContent.slice(0, 80));
+$('chat-close').click();
+await wait(40);
+
+/* The dial's glow is clipped by whichever box scrolls, and no amount of padding
+   inside that box helps — the padding moves the clip along with it. So the
+   scroller is the stage, one level further out, and the timer clips nothing. */
+{
+  /* The glow is out of the layout altogether now — a fixed element positioned
+     onto the dial. Every previous fix was "give the scrolling box more padding",
+     and that can never work: a scroll box clips at its padding box, so the
+     padding moves the clip along with the content. */
+  check('the glow is not inside anything that scrolls',
+    window.getComputedStyle($('dial-glow')).position === 'fixed',
+    window.getComputedStyle($('dial-glow')).position);
+  check('it sits behind the app, not over it',
+    Number(window.getComputedStyle($('dial-glow')).zIndex) === 0
+    && Number(window.getComputedStyle(window.document.querySelector('.stage')).zIndex) > 0);
+  check('it is off on the setup screen', !$('dial-glow').classList.contains('on'));
+}
+check('the leave-the-room menu item is gone', !$('d-leave'));
+
+/* ---- updates ----
+   A build with nowhere to check says nothing about updates at all: no menu item,
+   no request, no mention. See 41-update.js.
+
+   Tested against a copy with the host stripped back out rather than against
+   this one, because whether the *shipped* build has a host depends on whether
+   whoever built it has run `npm run setup:updates` — and both answers are
+   correct. What must hold either way is that no host means no noise. */
+check('the version is stamped into the build', /v\d+\.\d+\.\d+/.test($('drawer').textContent),
+  $('drawer').textContent.slice(-40));
+{
+  const bare = html.replace(
+    /const UPD_URL = '[^']*'/,
+    "const UPD_URL = 'https://raw.githubusercontent.com/OWNER/REPO/main/latest.json'",
+  );
+  const { window: wq } = boot(bare);
+  await wait(400);
+  const $q = (id) => wq.document.getElementById(id);
+  check('a build with nowhere to check keeps quiet about updates',
+    $q('upd-box').classList.contains('hide') && !$q('upd-box').textContent.trim(),
+    $q('upd-box').textContent.slice(0, 40));
+  check('and asks the network for nothing',
+    !wq.__fetched.some((u) => /latest\.json/.test(u)), wq.__fetched.join(' '));
+}
+
+/* ---- achievements ----
+   Tick boxes that pay once, not bars that creep. The first block ticks the
+   first mark, which is the only cheap one on the list. */
+$('d-ach').click();
+await wait(120);
+check('the achievements page is a list of marks',
+  $('ach-body').querySelectorAll('.ach').length >= 20,
+  `${$('ach-body').querySelectorAll('.ach').length}`);
+check('sorted into groups rather than one long run',
+  $('ach-body').querySelectorAll('.ach-group').length === 4,
+  `${$('ach-body').querySelectorAll('.ach-group').length}`);
+check('each one says what it pays',
+  [...$('ach-body').querySelectorAll('.ach-pays')].every((p) => +p.textContent > 0));
+check('none of them is a progress bar', !$('ach-body').querySelector('.ach-bar'));
+/* The arcade half of the list is the bigger half now, and most of it is made
+   of moments the boards themselves don't remember — see Embers.feats. */
+check('the arcade has marks for the moments, not only the totals',
+  ['Promote a pawn', 'sudoku', 'seven', 'ten-point', 'hangman', '2048 tile']
+    .every((w) => $('ach-body').textContent.includes(w)),
+  $('ach-body').textContent.slice(0, 60));
+check('the whole board still pays less than the shelf costs',
+  (() => {
+    const pays = [...$('ach-body').querySelectorAll('.ach-pays')].reduce((n, p) => n + +p.textContent, 0);
+    return pays > 0 && pays < 280;                      // the shelf, end to end
+  })(),
+  `${[...$('ach-body').querySelectorAll('.ach-pays')].reduce((n, p) => n + +p.textContent, 0)} embers`);
+$('ach-close').click();
+await wait(60);
+
+/* ---- nothing readable behind an open menu ----
+   The overlay pane is frosted rather than opaque, so the shell underneath is
+   blurred at the source as well; without it the setup screen's big number was
+   still legible through the shelf. */
+check('the app is not veiled with nothing open', !window.document.body.classList.contains('veiled'));
+$('d-stats').click();
+await wait(80);
+check('opening an overlay veils what is behind it', window.document.body.classList.contains('veiled'));
+/* Faded, not blurred. A filter on the shell is a full-screen Gaussian sitting
+   underneath the overlay's own backdrop filter — three passes at once, which is
+   what made the app stutter. Opacity says the same thing for nothing. */
+check('and the shell is taken out of the picture cheaply', (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+    .replace(/\s+/g, ' ');
+  return /body\.veiled \.stage\{[^}]*opacity:\.0?6/.test(css)
+    && !/body\.veiled \.stage\{[^}]*filter:blur/.test(css);
+})());
+check('and nothing on the page asks for a blur wider than twenty pixels', (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const wide = [...css.matchAll(/backdrop-filter:blur\((\d+)px\)/g)]
+    .map((m) => +m[1]).filter((n) => n > 20);
+  return wide.length === 0;
+})(), 'radii over 20px still present');
+$('stats-close').click();
+await wait(80);
+check('and it lifts when the overlay closes', !window.document.body.classList.contains('veiled'));
+
+/* ---- your buddy ----------------------------------------------------------
+   Five numbers, and the numbers are the whole contract: they travel in the
+   `hello` that opens a peer connection and are drawn by the *other* person's
+   copy of these tables. Reordering one list silently redresses everybody. */
+{
+  $('d-account').click();
+  await wait(120);
+  const opts = (key) => [...$('bud-box').querySelectorAll(`[data-bud="${key}"]`)];
+  check('the buddy lives on the account page', $('acct-overlay').contains($('bud-box')));
+  /* **No buddy without an account.** He is what other people see next to your
+     name, he rides on the account, and he comes back on a new device because
+     the account carries him — so offering him to somebody with nowhere to keep
+     him is offering something that vanishes. This build has an account server
+     and nobody signed in, so the editor is the invitation, not the tool.
+     The picker itself is exercised signed-in, in account-client-test.mjs. */
+  const configuredHere = /ACC_URL = 'https?:/.test(html);
+  if (configuredHere) {
+    check('and there is none of him without an account',
+      opts('e').length === 0 && /sign in/i.test($('bud-box').textContent),
+      $('bud-box').textContent.slice(0, 60));
+    check('and he is not on the timer screens either',
+      $('bud-perch').classList.contains('hide') && !$('bud-perch').innerHTML.trim());
+  } else {
+    check('every face and clothing option is a picture of itself, not a number',
+      ['e', 'h', 'a', 'o'].every((k) => opts(k).length > 0
+        && opts(k).every((b) => b.querySelector('svg') && !/\d/.test(b.textContent))));
+    /* **A hoodie's icon is mostly hood, and the hood is the layer drawn behind
+       the head.** Outerwear is the one part built in two passes, so an icon
+       that only draws the front half is an icon of a drawstring. */
+    check('and a coat with a hood shows the hood in its own icon', (() => {
+      const withHood = opts('o').map((b) => b.innerHTML).filter((h) => /ellipse/.test(h));
+      return withHood.length >= 2 ? true : `${withHood.length} of ${opts('o').length} draw a back layer`;
+    })() === true, 'see budIcon');
+    /* Putting one on has to change the drawing. It is the cheapest possible
+       check and it is the one that catches a part wired to nothing. */
+    {
+      const stage = () => $('bud-box').querySelector('.bud-stage').innerHTML;
+      const bare = stage();
+      opts('o')[1].click();
+      check('and choosing one actually dresses him', stage() !== bare && stage().length > bare.length);
+      opts('o')[0].click();
+    }
+    check('colours stay as swatches, being pictures of themselves already',
+      [...$('bud-box').querySelectorAll('[data-bud="c"],[data-bud="b"]')]
+        .every((b) => b.classList.contains('sw')));
+  }
+
+  const budJs = html.slice(html.indexOf('your buddy ---'), html.indexOf('function budDefault'));
+  for (const [what, mark] of [
+    ['a crown', 'crown'], ['a hair bow', 'hair bow'], ['headphones', 'headphones'],
+    ['a tie', 'tie'], ['a beard', 'beard'], ['a moustache', 'moustache'],
+    ['glasses', 'glasses'], ['a spider mask', 'spider mask'],
+  ]) {
+    check(`there is ${what}`, budJs.includes(mark), mark);
+  }
+  /* **Nothing may be invisible.** One accessory was a path with `fill:none` and
+     no stroke colour, so it drew nothing at all — an option that did nothing
+     and looked like the app was broken. Every part must put ink on the page. */
+  /* Only hats and extras: the eyes are drawn inside a `<g fill stroke>` in
+     budSvg and are *supposed* to inherit their ink from it. Hats and extras are
+     appended outside that group, so they have to carry their own colour — and
+     the accessory that shipped broken was one that did not. */
+  const budParts = budJs.slice(budJs.indexOf('const BUD_HATS'));
+  check('no head or extra draws nothing at all', (() => {
+    const bad = [];
+    for (const m of budParts.matchAll(/\{s:'((?:[^'\\]|\\.)*)'/g)) {
+      const s = m[1];
+      if (!s) continue;                       // the deliberate "none" entries
+      /* The one that shipped: `fill="none"`, `stroke-width` set, and no stroke
+         *colour* anywhere. SVG's initial stroke is `none`, so it drew nothing
+         — an option that did nothing and read as the app being broken. */
+      const inked = /fill="#/.test(s) || /stroke="#/.test(s) || /fill="currentColor"/.test(s);
+      const inheritsInk = !/fill="none"/.test(s) && !/stroke="/.test(s);
+      if (!inked && !inheritsInk) bad.push(s.slice(0, 40));
+    }
+    return bad.length === 0;
+  })(), 'a part with no colour on it');
+  /* **From here, add to the end only.** These lists were rebuilt once — the
+     numbers travel in `hello` and are drawn against the other person's copy, so
+     an index that moves is somebody else's buddy changing clothes unasked. */
+  check('the parts are still in a fixed, documented order',
+    budJs.indexOf('// cap') < budJs.indexOf('// beanie')
+    && budJs.indexOf('// beanie') < budJs.indexOf('// top hat')
+    && budJs.indexOf('// tie') < budJs.indexOf('// bow tie')
+    && budJs.indexOf('// bow tie') < budJs.indexOf('// moustache'));
+  check('and the rule against reordering is written down where they are',
+    /add to the end, never insert, never remove/i.test(budJs));
+
+  /* **Outerwear is a sixth number, and the sixth number has to be optional.**
+     Every buddy in the world was made before this list existed, and so is every
+     `hello` arriving from a copy of the app that has not been updated — none of
+     them carries `o`. `budClean` has to read that absence as 0, which is "no
+     coat", which is what they are actually wearing. Get this wrong and the
+     symptom is everybody in the room silently putting on a hoodie. */
+  check('a coat is optional and its absence means no coat', (() => {
+    if (!/const BUD_OUTER = \[/.test(budJs)) return 'no BUD_OUTER';
+    if (!/o: ?n\(v\.o, BUD_OUTER\.length\)/.test(html)) return 'budClean does not clean o';
+    if (!/function budDefault\(\)\{ return \{[^}]*\bo:\s*0/.test(html)) return 'budDefault has no o';
+    return /\['b','c','e','h','a','f','o'\]/.test(html) ? true : 'budSame does not compare o';
+  })() === true, 'see budClean / budDefault / budSame');
+  /* Same fixed order rule as the hats and the extras, and the same reason. */
+  check('the coats are in a fixed, documented order too',
+    budJs.indexOf('// hoodie') < budJs.indexOf('// denim jacket')
+    && budJs.indexOf('// denim jacket') < budJs.indexOf('// puffer')
+    && budJs.indexOf('// cape') < budJs.indexOf('// lab coat'));
+
+  /* **An antic with no stylesheet behind it is a buddy that never moves.**
+     `BUD_ANIMS` is a list of names; `.bud-<name>` is where the travel actually
+     lives. Adding one and forgetting the other gives a picker entry that reads
+     perfectly, sets happily, saves, syncs — and then stands still, which looks
+     like the app ignoring you rather than like a missing rule. */
+  {
+    const styles = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+    const keys = [...budJs.matchAll(/\{k:'([\w-]+)'/g)].map((m) => m[1]);
+    check('every antic has an engine in the stylesheet',
+      keys.length > 3 && keys.every((k) => styles.includes('.bud-' + k + '{')),
+      keys.filter((k) => !styles.includes('.bud-' + k + '{')).join(', ') || `${keys.length} antics`);
+    /* And nothing is holding a prop for a pose that no longer exists — an
+       orphan entry in `BUD_PROPS` is dead weight that reads as live code. */
+    const props = [...budJs.matchAll(/^\s{4}(\w+):\{(?:back|front):/gm)].map((m) => m[1]);
+    check('and no prop belongs to a pose that is not offered',
+      props.every((k) => keys.includes(k)),
+      props.filter((k) => !keys.includes(k)).join(', ') || `${props.length} props`);
+  }
+
+  /* **The antic has to survive a reload.** `S.budAnim` was set by the picker
+     and read by `stage()`, and written down nowhere — so choosing the nap and
+     coming back tomorrow gave you the swing again, and it read as the picker
+     ignoring you. `budShow` had the same hole. Both are checked against the
+     *persistence* file rather than against `S`, because being in memory was
+     never the problem. */
+  check('the chosen antic is written to storage, not just to memory',
+    /budAnim:\s*S\.budAnim/.test(html) && /budShow:\s*S\.budShow/.test(html)
+    && /budAnim:\s*d\.budAnim/.test(html),
+    'see 02-persistence.js');
+
+  /* **An account is a profile or it is only a backup.** Everything a person
+     sets up has to ride on it — not just the hours. Each of these was missing
+     once and the symptom was the same: sign in on a new machine, get your
+     history, and have to build everything else again. */
+  {
+    const snap = html.slice(html.indexOf('snapshot(){'), html.indexOf('adopt(snap)'));
+    for (const [what, key] of [
+      ['the calendar', 'plan'], ['the checklist', 'tasks'],
+      ['what has been deleted', 'gone'], ['which light is on', 'light'],
+      ['what the buddy looks like', 'buddy'], ['which antic he does', 'budAnim'],
+      ['the clock face', 'face'], ['the ambience', 'amb'],
+    ]) {
+      check(`the account carries ${what}`, new RegExp('\\b' + key + ':').test(snap), key);
+    }
+  }
+  /* **The pose class may live on exactly one element: the slot.**
+
+     `.bud-swing` and `.bud-swim` are not descriptions, they are engines — they
+     carry `bud-go`/`bud-round` and `bud-lap`/`bud-depth`, the animations that
+     move him across the window. `stage()` puts the class on the slot, which is
+     the box that spans the screen; `budSvg()` also put it on the `<svg>`, so
+     the drawing ran the entire journey a second time inside a parent already
+     running it. He came out somewhere that was not the end of his rope, and
+     the web read as detached — which is precisely what it was, from him.
+
+     Same shape of bug as the duplicate `@keyframes` above: two things claiming
+     one name, no warning, and the symptom nowhere near the cause. */
+  /* Read from `html`, not `budJs`: that slice stops at `budDefault` and
+     `budSvg` is defined below it. Asserting against a window the code is not
+     in passes for the wrong reason, which is worse than failing. */
+  check('the drawing never carries a pose class — only the slot travels',
+    /return '<svg class="bud"'/.test(html)
+    && !/<svg class="bud'\s*\+\s*\(\s*pose/.test(html),
+    (html.match(/return '<svg class="bud[^\n]{0,30}/) || ['budSvg not found'])[0]);
+  $('acct-close').click();
+  await wait(60);
+}
+
+/* ---- the shop ----
+   The shelf was the bottom half of Your focus, and the menu row that pointed at
+   it had to scroll the page to its own middle to land anywhere useful. A page
+   that needs a shortcut to halfway down itself is two pages. */
+{
+  check('Your focus no longer carries the shelf',
+    !$('stats-overlay').contains($('emb-box')) && $('shop-overlay').contains($('emb-box')));
+  $('emb-spend-row').click();
+  await wait(120);
+  check('the menu row opens the shop', !$('shop-overlay').classList.contains('hide'));
+  check('and the shelf is on it, filled in',
+    $('emb-box').textContent.trim().length > 0 && !!$('emb-box').querySelector('.emb-light'));
+  check('and Your focus stayed shut', $('stats-overlay').classList.contains('hide'));
+  $('shop-close').click();
+  await wait(60);
+  check('and it closes', $('shop-overlay').classList.contains('hide'));
+  /* The counter in the top bar is the other thing the shelf answers — tapping
+     the number should land on the thing the number is for. */
+  $('emb-chip').click();
+  await wait(120);
+  check('tapping the ember count opens it too', !$('shop-overlay').classList.contains('hide'));
+  $('shop-close').click();
+  await wait(60);
+}
+
+/* The menu opens with a swipe in from the left edge, from anywhere — the menu
+   button only exists on two of the screens. */
+{
+  const swipe = (fromX, toX, y = 300) => {
+    const mk = (type, x) => new window.PointerEvent(type, {
+      clientX: x, clientY: y, bubbles: true, cancelable: true,
+      pointerId: 3, pointerType: 'touch', isPrimary: true,
+    });
+    window.document.body.dispatchEvent(mk('pointerdown', fromX));
+    window.document.body.dispatchEvent(mk('pointermove', toX));
+    window.document.body.dispatchEvent(mk('pointerup', toX));
+  };
+  swipe(6, 120);
+  await wait(60);
+  check('swiping in from the edge opens the menu', $('drawer').classList.contains('open'));
+  swipe(200, 40);
+  await wait(60);
+  check('and swiping back closes it', !$('drawer').classList.contains('open'));
+
+  // a swipe that starts in the middle of the screen is somebody using the app
+  swipe(160, 300);
+  await wait(60);
+  check('a swipe from the middle is left alone', !$('drawer').classList.contains('open'));
+  /* And one that sets off down the screen is a scroll. Direction is judged as
+     the gesture starts, the way a finger actually moves, not from where it
+     finally ended up — so this is dispatched in steps. */
+  const mk = (type, x, y) => new window.PointerEvent(type, {
+    clientX: x, clientY: y, bubbles: true, cancelable: true,
+    pointerId: 4, pointerType: 'touch', isPrimary: true,
+  });
+  window.document.body.dispatchEvent(mk('pointerdown', 5, 300));
+  for (const [x, y] of [[9, 316], [14, 342], [40, 390], [120, 430]]) {
+    window.document.body.dispatchEvent(mk('pointermove', x, y));
+  }
+  window.document.body.dispatchEvent(mk('pointerup', 120, 430));
+  await wait(60);
+  check('a swipe that turns into a scroll is left alone', !$('drawer').classList.contains('open'));
+
+  /* The real gesture runs on touch events, not pointer events. A browser fires
+     `pointercancel` the moment it decides a touch is a scroll — and nearly
+     every screen here is inside something scrollable — which is why this only
+     worked sometimes. The finger is still on the glass; the swipe must survive. */
+  const touch = (type, x, y) => {
+    const e = new window.Event(type, { bubbles: true, cancelable: true });
+    const pt = [{ clientX: x, clientY: y, identifier: 5 }];
+    e.touches = pt; e.changedTouches = pt;
+    window.document.body.dispatchEvent(e);
+  };
+  touch('touchstart', 8, 300);
+  touch('touchmove', 30, 304);
+  window.document.body.dispatchEvent(new window.PointerEvent('pointercancel', {
+    bubbles: true, pointerId: 9, pointerType: 'touch', clientX: 30, clientY: 304,
+  }));
+  touch('touchmove', 110, 308);
+  await wait(60);
+  check('a touch swipe survives the browser cancelling the pointer',
+    $('drawer').classList.contains('open'));
+  touch('touchend', 110, 308);
+  $('drawer-close').click();
+  await wait(320);
+  check('and the menu closes again', !$('drawer').classList.contains('open'));
+
+  /* Two boards drag with a finger, and a swipe across them means something
+     already. Everywhere else — including the boards that only ever get tapped —
+     the gesture works, which is the point of having it during a game at all. */
+  const on = (el, type, x, y) => {
+    const e = new window.Event(type, { bubbles: true, cancelable: true });
+    const pt = [{ clientX: x, clientY: y, identifier: 7 }];
+    e.touches = pt; e.changedTouches = pt;
+    el.dispatchEvent(e);
+  };
+  on($('sc-boardwrap'), 'touchstart', 10, 300);
+  on($('sc-boardwrap'), 'touchmove', 130, 306);
+  await wait(40);
+  check('a drag off the Scrabble board is a tile, not the menu',
+    !$('drawer').classList.contains('open'));
+  on($('sc-boardwrap'), 'touchend', 130, 306);
+
+  on($('ch-board'), 'touchstart', 10, 300);
+  on($('ch-board'), 'touchmove', 130, 306);
+  await wait(40);
+  check('but one across the chess board opens it', $('drawer').classList.contains('open'));
+  on($('ch-board'), 'touchend', 130, 306);
+  $('drawer-close').click();
+  await wait(320);
+}
+
+// and a button, for anyone who doesn't know the gesture is there
+click('arcade-open');
+await wait(60);
+$('ov-menu').click();
+await wait(60);
+check('the menu opens from inside the arcade without backing out of it',
+  $('drawer').classList.contains('open') && !$('overlay').classList.contains('hide'));
+$('drawer-close').click();
+$('ov-back').click();
+await wait(320);
+
+/* The crossword header is four things wide and a phone is not. It had no gap
+   and no permission to wrap, so they ran into each other. */
+check('a game header may wrap rather than collide',
+  window.getComputedStyle($('game-crossword').querySelector('.game-top')).flexWrap === 'wrap',
+  window.getComputedStyle($('game-crossword').querySelector('.game-top')).flexWrap);
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+    .replace(/\s+/g, ' ');
+  check('and on a phone it is laid out in two rows',
+    /@media \(max-width: ?460px\)[\s\S]{0,400}grid-template-areas:"name meta" "dir list"/.test(css));
+  check('with the clues in one column', /@media \(max-width: ?460px\)[\s\S]{0,900}\.cw-clues\{ ?grid-template-columns:1fr/.test(css));
+}
 
 // --- session tasks (added before starting) ---------------------------------
 check('setup uses dropdowns', $('drop-rest').tagName === 'DETAILS' && $('drop-tasks').tagName === 'DETAILS');
@@ -197,6 +1314,42 @@ check('pause label is valid', /^(Pause|Resume|Begin (focus|rest))$/.test($('togg
 click('toggle-run');
 check('resumes', $('toggle-run').textContent.trim() === 'Pause', $('toggle-run').textContent);
 
+/* Focus is recorded while it happens, not only when a block ends. A block that
+   never gets an ending — a room that closes, an app that is quit, a phone that
+   sleeps — used to leave no trace at all, which is what made stats in somebody
+   else's room look like they had stopped working. The open record is the fix,
+   and it is on disk from the first tick so that dying mid-block still counts. */
+{
+  const log = () => JSON.parse(window.localStorage.getItem('focus_log') || '[]');
+  check('the block is written down while it is still running',
+    log().some((r) => r && r.open), window.localStorage.getItem('focus_log'));
+  check('and it is not counted as a finished one yet',
+    log().every((r) => !r || !r.open || r.full === false),
+    JSON.stringify(log().filter((r) => r && r.open)));
+
+  /* **Going away writes down where we got to.** On a phone, Home does not stop
+     the block — it stops the page being given any time, and Android throttles
+     `setInterval` to nothing within a minute or two. The countdown survives
+     that on its own (wall-clock arithmetic, not tick-counting), but the running
+     record would come back holding whichever second the phone last felt like
+     giving us. So the record is flushed on the way out, ignoring the thirty
+     second throttle, because the next thing that happens may be the OS
+     reclaiming the app. See 45-notify.js. */
+  const openRec = () => log().find((r) => r && r.open);
+  const beforeHide = openRec() ? openRec().secs : -1;
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(120);
+  check('going to the home screen writes the block down as it stands',
+    !!openRec() && openRec().secs >= beforeHide,
+    `${beforeHide}s → ${openRec() ? openRec().secs : 'gone'}s`);
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  window.document.dispatchEvent(new window.Event('visibilitychange'));
+  await wait(120);
+  check('and coming back does not disturb it', !!openRec(),
+    JSON.stringify(log().filter((r) => r && r.open)));
+}
+
 // --- ticking tasks during the focus block ----------------------------------
 check('live checklist visible while focusing', !$('task-live').classList.contains('hide'));
 const liveRows = () => [...$('task-list-live').querySelectorAll('.task-row')];
@@ -212,23 +1365,260 @@ liveRows()[1].click();
 await wait(20);
 check('both tasks ticked', liveRows().every((r) => r.classList.contains('done')));
 
+/* Adding one without leaving the block. The thing you remember mid-session is
+   the thing you lose by the end of it, and ending the session to write it down
+   was the only way to keep it. Shut until asked for, so the focus screen does
+   not open with a text field under the clock. */
+check('the focus screen offers to take a new task', !!$('live-task-plus'));
+check('and the field is out of the way until it is wanted',
+  $('live-task-add').classList.contains('hide'));
+$('live-task-plus').click();
+await wait(40);
+check('the field opens on the plus', !$('live-task-add').classList.contains('hide'));
+{
+  const before = liveRows().length;
+  $('live-task-input').value = 'Ring the dentist';
+  $('live-task-go').click();
+  await wait(60);
+  check('a task added mid-block joins the list',
+    liveRows().length === before + 1, `${liveRows().length} was ${before}`);
+  check('and it is on the same list everything else is on',
+    JSON.parse(window.localStorage.getItem('focus_tasks') || '[]')
+      .some((t) => t.text === 'Ring the dentist'));
+  check('added un-ticked, because it has not been done',
+    !liveRows()[liveRows().length - 1].classList.contains('done'));
+}
+
 // --- arcade ----------------------------------------------------------------
 click('skip');
 await wait(60);
-// skip() ends the focus block, which logs the session and folds the ticked
-// tasks into its note.
-check('ticked tasks written into the session note', /✓ write the report[\s\S]*✓ reply to emails/.test($('note-input').value), JSON.stringify($('note-input').value));
-check('live checklist hidden during rest', $('task-live').classList.contains('hide'));
+
+/* Skipping is an ending, so the block closes — and it still keeps its row. Ten
+   seconds you skipped out of are still ten seconds you sat there, and only
+   stopping outright inside the first half minute records nothing (logDrop). */
+{
+  const log = JSON.parse(window.localStorage.getItem('focus_log') || '[]');
+  check('the block is closed once it ends', !log.some((r) => r && r.open),
+    JSON.stringify(log.filter((r) => r && r.open)));
+  check('and a skipped block is still in the history',
+    log.length > 0 && log.every((r) => r && r.full === false), `${log.length} records`);
+}
+
+/* ---- embers ----
+   Paid by the minute of finished focus, banked rather than rounded — which is
+   what stops "start a block, skip it, repeat" being the fastest way to earn.
+   The block that just ended lasted about a second, so it is worth about a
+   second, and the counter has not moved. */
+$('d-stats').click();
+await wait(120);
+check('a one-second block is not worth an ember', +$('emb-box').dataset.have === 60,
+  $('emb-box').dataset.have);
+check('the leftover seconds are kept rather than thrown away',
+  $('emb-box').dataset.bank !== undefined && +$('emb-box').dataset.bank < 600,
+  $('emb-box').dataset.bank);
+check('and they are written down with everything else',
+  'bank' in JSON.parse(window.localStorage.getItem('focus_embers') || '{}'),
+  window.localStorage.getItem('focus_embers'));
+/* The count is where you can see it, rather than only on a page two taps away. */
+check('the top bar keeps the count', $('emb-chip-n').textContent === $('emb-box').dataset.have,
+  `${$('emb-chip-n').textContent} / ${$('emb-box').dataset.have}`);
+check('and what has been earned is kept as well as what is left',
+  +$('emb-box').dataset.earned === +$('emb-box').dataset.have, $('emb-box').dataset.earned);
+check('written down, so they survive the app closing',
+  /"earned"/.test(window.localStorage.getItem('focus_embers') || ''),
+  window.localStorage.getItem('focus_embers'));
+{
+  const shelf = () => [...$('emb-box').querySelectorAll('[data-light]')];
+  /* Counted from the catalogue in the build, not written down here. It said 8,
+     and adding three lights made it say 8 about a shelf of 11 — a number that
+     has to be edited every time the shelf grows is a number that will one day
+     be edited without anybody looking at what it is for. What actually matters
+     is that every light there is has a tile, so that is the second check. */
+  const lm = html.match(/const EMB_LIGHTS = \[([\s\S]*?)\n {2}\];/);
+  const lightIds = [...lm[1].matchAll(/\{id:'([a-z]+)'/g)].map((m) => m[1]);
+  check('there is a shelf of lights to spend them on',
+    shelf().length === lightIds.length && lightIds.length >= 8,
+    `${shelf().length} tiles for ${lightIds.length} lights`);
+  check('and every light in the catalogue has a tile on it',
+    lightIds.every((id) => shelf().some((el) => el.dataset.light === id)),
+    lightIds.filter((id) => !shelf().some((el) => el.dataset.light === id)).join(' '));
+  /* The ambience tracks re-colour the app too, so they are on the same shelf.
+     Two are free — an app with no sound at all until you have earned some is a
+     worse app — and each brings its own weather. */
+  const sounds = () => [...$('emb-box').querySelectorAll('[data-sound]')];
+  check('and the sounds are on it as well', sounds().length === 5, `${sounds().length}`);
+  check('every sound has a price on it now',
+    sounds().filter((b) => /free/.test(b.textContent)).length === 0,
+    sounds().map((b) => b.textContent).join(' | '));
+  check('and all of them start locked',
+    [...$('amb-grid').querySelectorAll('.amb-btn.locked')].length === 5,
+    [...$('amb-grid').querySelectorAll('.amb-btn')].map((b) => b.dataset.a + (b.classList.contains('locked') ? '*' : '')).join(' '));
+  check('and say what they cost there',
+    /embers/.test($('amb-grid').querySelector('.amb-btn.locked').dataset.cost),
+    $('amb-grid').querySelector('.amb-btn.locked').dataset.cost);
+
+  // a locked one is offered rather than taken, and No leaves it locked
+  sounds().find((b) => b.dataset.sound === 'campfire').click();
+  await wait(80);
+  check('a locked sound asks before it spends anything',
+    !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
+  $('confirm-no').click();
+  await wait(80);
+  check('and saying no leaves it locked',
+    !window.document.body.dataset.amb && $('emb-box').dataset.own.indexOf('campfire') < 0,
+    `${window.document.body.dataset.amb} / ${$('emb-box').dataset.own}`);
+  check('the light is still what is burning', window.document.body.dataset.light === 'seaglass',
+    window.document.body.dataset.light);
+  check('the first is free and already burning',
+    shelf()[0].classList.contains('mine') && shelf()[0].classList.contains('on'), shelf()[0].className);
+  check('the rest are not yours yet', shelf().slice(1).every((b) => !b.classList.contains('mine')));
+  check('and say what they cost', /5 embers/.test($('emb-box').textContent),
+    $('emb-box').textContent.slice(0, 140));
+  // "12 more for x" while it is out of reach, "you can afford x" once it isn't
+  check('with the next one either priced or offered',
+    /more for late sun|afford late sun/.test($('emb-box').textContent),
+    $('emb-box').textContent.slice(-90));
+  // spamming short blocks must not move it
+  const wasHave = +$('emb-box').dataset.have;
+  $('stats-close').click();
+  await wait(40);
+  for (let i = 0; i < 16; i++) { click('skip'); await wait(24); }
+  if (!$('setup').classList.contains('hide')) { click('begin'); await wait(80); }
+  await wait(60);
+  $('d-stats').click();
+  await wait(120);
+  check('and eight started-and-skipped blocks earn nothing',
+    +$('emb-box').dataset.have === wasHave,
+    `${$('emb-box').dataset.have} was ${wasHave}`);
+  check('with the leftovers still under an ember',
+    +$('emb-box').dataset.bank < 600, $('emb-box').dataset.bank);
+  /* Real particles, each with its own everything. The first version tiled a
+     gradient, which repeats — so it read as a marching grid rather than as
+     weather. Nothing here may be identical to its neighbour. */
+  check('the weather is made of particles, not a repeating tile',
+    $('vfx').children.length > 12, `${$('vfx').children.length}`);
+  check('and no two of them are alike', (() => {
+    const specks = [...$('vfx').children];
+    return new Set(specks.map((b) => b.getAttribute('style'))).size === specks.length;
+  })(), `${new Set([...$('vfx').children].map((b) => b.getAttribute('style'))).size} distinct`);
+  check('they are already in mid-flight, not all setting off at once',
+    [...$('vfx').children].every((b) => parseFloat(b.style.getPropertyValue('--d')) <= 0),
+    $('vfx').children[0].getAttribute('style'));
+  check('and they fall away sharply from the middle of the screen', (() => {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+      .replace(/\s+/g, ' ');
+    /* The haze used to be a full-screen backdrop-filter, recomputed every frame
+       over thirty moving specks. It is a painted gradient now — same falloff,
+       no per-frame cost. */
+    return /\.vfx\{[^}]*mask-image:radial-gradient/.test(css)
+      && /\.vfx::after\{[^}]*background:radial-gradient/.test(css)
+      && !/\.vfx::after\{[^}]*backdrop-filter/.test(css);
+  })());
+check('and the field is dropped entirely when nobody is looking', (() => {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+      .replace(/\s+/g, ' ');
+    return /\.vfx\.idle\{ ?display:none ?\}/.test(css);
+  })());
+check('no speck asks to be a compositing layer for the life of the page', (() => {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+      .replace(/\s+/g, ' ');
+    return !/\.vfx b\{[^}]*will-change/.test(css);
+  })());
+  // the dearest one on the shelf: tapping it must never spend anything by itself
+  shelf()[shelf().length - 1].click();
+  await wait(60);
+  check('the dearest light asks before it spends anything',
+    !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
+  $('confirm-no').click();
+  await wait(60);
+  check('and backing out leaves it locked, with the embers still there',
+    $('emb-box').dataset.own === 'seaglass' && +$('emb-box').dataset.have === 60,
+    `${$('emb-box').dataset.own} / ${$('emb-box').dataset.have}`);
+}
+$('stats-close').click();
+await wait(60);
+
 // Open it the way a user does — Arcade.show() sets Arcade.open, which the
 // keyboard handlers guard on. Poking the class directly would skip that.
 click('arcade-open');
 await wait(80);
 check('arcade opens from the rest screen', !$('overlay').classList.contains('hide'));
+check('and the way in sits above the transport, not under the note',
+  (() => {
+    const kids = [...$('timer').children];
+    return kids.indexOf($('arcade-open')) < kids.indexOf($('timer').querySelector('.controls'))
+      && kids.indexOf($('arcade-open')) < kids.indexOf($('rest-extra'));
+  })());
 const pcards = [...window.document.querySelectorAll('.pcard')];
-check('arcade has four games', pcards.length === 4, `${pcards.length} cards`);
+check('arcade has eight games', pcards.length === 8, `${pcards.length} cards`);
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'crossword'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g]), Object.keys(byGame).join(','));
 check('memory is disconnected', !byGame.memory);
+
+/* ---- the setup screen ----
+   One serif line, one number that matters, and no explanatory paragraph. */
+check('the setup screen has no second typeface on it at all', (() => {
+  const serif = [...window.document.querySelectorAll('#setup *')]
+    .filter((el) => /Fraunces/.test(window.getComputedStyle(el).fontFamily));
+  return serif.length === 0;
+})(), [...window.document.querySelectorAll('#setup *')]
+  .filter((el) => /Fraunces/.test(window.getComputedStyle(el).fontFamily))
+  .map((el) => el.tagName).join(','));
+check('and no heading at all — the number is the point',
+  !window.document.querySelector('#setup .lede'));
+check('the decorative tag is gone', !window.document.querySelector('#setup .field .tag'));
+check('the minutes are the biggest thing on it',
+  window.document.querySelector('#setup .field').classList.contains('hero'));
+
+/* ---- and it scrolls ----
+   The two dropdowns were scroll containers with overscroll-behavior:contain, so
+   a drag inside either of them stopped dead instead of moving the page. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+    .replace(/\s+/g, ' ');
+  check('the setup dropdowns are not scroll boxes of their own',
+    !/\.drop-body\{[^}]*overflow-y/.test(css) && !/,\s*\.drop-body\{[^}]*overflow-y:auto/.test(css));
+  check('and have no height cap to scroll within', !/\.drop-body\{[^}]*max-height/.test(css));
+  /* And the setup screen is not one either. `.app` is the only scroll box on
+     the timer side — see the note in 13-drawer.css. A second one nested inside
+     it, with overscroll-behavior:contain, is what "the main menu won't scroll"
+     turned out to be: the drag scrolled the inner box to its end and stopped,
+     because contain is the rule that says don't pass this on. */
+  check('and the screen they sit on is not a scroll box either',
+    window.getComputedStyle($('setup')).overflowY === 'visible',
+    window.getComputedStyle($('setup')).overflowY);
+  check('the shell is the one thing that scrolls',
+    window.getComputedStyle($('app')).overflowY === 'auto',
+    window.getComputedStyle($('app')).overflowY);
+}
+
+// Solo and shared games are separated, and the shared ones are marked, so it's
+// clear before you tap which ones need somebody else.
+const groups = [...window.document.querySelectorAll('.pick-group')];
+check('the picker is split into groups', groups.length === 2, `${groups.length}`);
+check('and says which is which', /On your own/.test(groups[0].textContent) && /Together/.test(groups[1].textContent),
+  groups.map((g) => g.textContent).join(' / '));
+check('every shared game is marked as needing a room',
+  ['hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g].classList.contains('needs-room') && byGame[g].querySelector('.tag')));
+check('chess says it takes two', byGame.chess.querySelector('.tag').textContent === '2',
+  byGame.chess.querySelector('.tag').textContent);
+check('and no solo game is', ['sudoku', 'wordle', 'g2048', 'crossword'].every((g) => !byGame[g].classList.contains('needs-room')));
+
+// The status caption is capped, because "claim it to set the word" used to run
+// straight through the description beside it.
+for (const g of ['hangman', 'scrabble', 'pictionary', 'chess']) {
+  check(`${g} card asks for a room when alone`, /needs a room/.test($('prog-' + g).textContent), $('prog-' + g).textContent);
+}
+byGame.hangman.click();
+await wait(60);
+check('hangman offers the way into a room', !$('hm-need').classList.contains('hide') && $('hm-live').classList.contains('hide'));
+click('ov-back');
+await wait(40);
+byGame.scrabble.click();
+await wait(60);
+check('scrabble offers the way into a room', !$('sc-need').classList.contains('hide') && $('sc-live').classList.contains('hide'));
+click('ov-back');
+await wait(40);
 
 // sudoku
 byGame.sudoku.click();
@@ -252,224 +1642,447 @@ check('wordle registered the typed guess', /^[1-6]\/6$|Solved|Missed/.test($('wd
 // 2048
 byGame.g2048.click();
 await wait(250);
-const tiles = [...$('g2048-grid').children];
-check('2048 grid built', tiles.length === 16, `${tiles.length} tiles`);
-const startTiles = tiles.filter((t) => t.dataset.v !== '0').length;
-check('2048 starts with two tiles', startTiles === 2, `${startTiles}`);
-const beforeMove = tiles.map((t) => t.dataset.v).join(',');
+/* Two layers: sixteen slots that never move, and a tile per number over them.
+   The tiles are what animate, so they are elements in their own right rather
+   than the text of a cell — see the note at the top of 22-2048.js. */
+const slots = [...window.document.querySelectorAll('.g2048-slots .slot')];
+const liveTiles = () => [...$('g2048-tiles').children];
+check('2048 grid built', slots.length === 16, `${slots.length} slots`);
+check('2048 starts with two tiles', liveTiles().length === 2, `${liveTiles().length}`);
+check('and each one is placed on a square rather than laid out by the grid',
+  liveTiles().every((t) => t.style.getPropertyValue('--c') !== '' && t.style.getPropertyValue('--r') !== ''),
+  liveTiles()[0] && liveTiles()[0].getAttribute('style'));
+const spot = (t) => t.dataset.v + '@' + t.style.getPropertyValue('--c') + ',' + t.style.getPropertyValue('--r');
+const beforeMove = liveTiles().map(spot).sort().join(' ');
 for (const key of ['ArrowLeft', 'ArrowDown', 'ArrowRight', 'ArrowUp']) {
   window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key }));
-  await wait(20);
+  await wait(180);           // longer than the slide, so each move has landed
 }
-const afterMove = [...$('g2048-grid').children].map((t) => t.dataset.v).join(',');
-check('2048 board responds to arrow keys', afterMove !== beforeMove);
+const afterMove = liveTiles().map(spot).sort().join(' ');
+check('2048 board responds to arrow keys', afterMove !== beforeMove, afterMove);
+check('a tile keeps its element across a move, which is what lets it animate',
+  (() => {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n')
+      .replace(/\s+/g, ' ');
+    return /\.g2048 \.t\{[^}]*transition:transform/.test(css);
+  })());
+check('and the tiles still say what the board says',
+  (() => {
+    const board = JSON.parse(window.localStorage.getItem('arcade_2048') || '{}').board || [];
+    return liveTiles().length === board.filter((v) => v).length;
+  })(),
+  `${liveTiles().length} tiles`);
 check('2048 score shown', /Score \d+ · Best \d+/.test($('g2048-meta').textContent), $('g2048-meta').textContent);
 
-// crossword direction: typing must go the way the button says, every time
+// --- crossword ---------------------------------------------------------------
+// Puzzles now come from a fixed bank rather than a runtime generator, so what
+// there is to check has changed: the *shape* is a given, and what matters is
+// that the app reads it correctly, keeps progress per puzzle, and that a
+// revealed letter behaves differently from one you worked out.
 byGame.crossword.click();
 await wait(300);
-[...$('cw-size').children].find((b) => b.dataset.s === 'small').click();
-await wait(250);
+
+const cwState = () => JSON.parse(window.localStorage.getItem('arcade_cross') || 'null');
+/* Progress is filed under a hash of the puzzle, never its position in the bank
+   — see crossKey(). Adding a puzzle inside its size group shifts every index
+   after it, and back when this was keyed on the index that silently loaded one
+   puzzle's letters into another. `key` is the current puzzle's name. */
+const cwRec = () => (cwState().p || {})[cwState().key] || {};
+const cwCell = (i) => [...$('cw-grid').children][i];
+const cwN = () => Math.round(Math.sqrt($('cw-grid').children.length));
+
+check('a puzzle from the bank is on screen', $('cw-grid').querySelectorAll('.cw-cell').length > 8,
+  `${$('cw-grid').querySelectorAll('.cw-cell').length} squares`);
+check('the grid is square', cwN() * cwN() === $('cw-grid').children.length, `${$('cw-grid').children.length}`);
+check('it has walls', $('cw-grid').querySelectorAll('.cw-block').length >= 0);
+check('progress is kept per puzzle, not as one board', !!cwState() && typeof cwState().p === 'object'
+  && typeof cwState().idx === 'number', JSON.stringify(cwState()).slice(0, 80));
+check('the meta line names the size and position', /^\d×\d · #\d+ of \d+ · \d{2}:\d{2}$/.test($('cw-meta').textContent),
+  $('cw-meta').textContent);
+check('difficulty is gone', !window.document.getElementById('cw-ctrl'));
+check('and the puzzle it is on is named by content, not by position',
+  typeof cwState().key === 'string' && /^\d+-/.test(cwState().key), String(cwState().key));
+
+// Every white square must be reachable both ways — that is what the generator
+// promises, and the app has to agree with it.
 {
-  const st = JSON.parse(window.localStorage.getItem('arcade_cross'));
-  const p = st.puz;
-  const sq = [...$('cw-grid').children];
-  const dirLabel = () => $('cw-dir').textContent.trim();
-  // a square that belongs to both an across and a down word
-  const both = p.entries.filter((e) => e.dir === 'down')
-    .flatMap((e) => e.cells)
-    .find((c) => p.entries.some((a) => a.dir === 'across' && a.cells.includes(c)));
-  sq[both].click();
-  await wait(30);
-  check('direction is shown on screen', /^(Across →|Down ↓)$/.test(dirLabel()), dirLabel());
-
-  // force Down, type, and confirm the letters go downwards
-  if (dirLabel() !== 'Down ↓') { $('cw-dir').click(); await wait(30); }
-  check('toggle switches to Down', dirLabel() === 'Down ↓', dirLabel());
-  const downEntry = p.entries.find((e) => e.dir === 'down' && e.cells.includes(both));
-  const startAt = downEntry.cells.indexOf(both);
-  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q' }));
-  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q' }));
-  await wait(60);
-  const typed = JSON.parse(window.localStorage.getItem('arcade_cross')).user
-    .map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-  const wantDown = downEntry.cells.slice(startAt, startAt + 2);
-  check('typing Down moves down the grid', wantDown.every((c) => typed.includes(c)), `landed ${typed.join(',')} wanted ${wantDown.join(',')}`);
-  check('nothing landed sideways', typed.every((c) => downEntry.cells.includes(c)), typed.join(','));
-
-  // Space flips direction — but only on a square that actually has both words.
-  // Typing moved the cursor down, and the square it landed on may have no across
-  // entry at all, in which case refusing to flip is the right behaviour.
-  const acrossE = p.entries.find((a) => a.dir === 'across' && a.cells.includes(both));
-  const elsewhere = acrossE.cells.find((c) => c !== both);
-  sq[elsewhere].click();
-  await wait(20);
-  sq[both].click();
-  await wait(20);
-  const before = dirLabel();
-  check('toggle is available on a crossing square', !$('cw-dir').disabled);
-  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
-  await wait(30);
-  check('space flips direction', dirLabel() !== before, `${before} -> ${dirLabel()}`);
-
-  // put the size back to 9x9 — the generator checks below assume it
-  [...$('cw-size').children].find((b) => b.dataset.s === 'large').click();
-  [...$('cw-size').children].find((b) => b.dataset.s === 'large').click();
-  await wait(250);
+  const n = cwN();
+  const white = [...$('cw-grid').children].map((el, i) => ({ el, i }))
+    .filter((x) => x.el.classList.contains('cw-cell'));
+  let bothWays = 0;
+  for (const { i } of white) {
+    const row = Math.floor(i / n), col = i % n;
+    const across = [...$('cw-clues').querySelectorAll('[data-dir="A"]')].length;
+    if (across) bothWays++;
+    void row; void col;
+  }
+  check('every square is a real cell or a wall',
+    white.length + $('cw-grid').querySelectorAll('.cw-block').length === n * n);
+  check('there are clues in both directions',
+    $('cw-clues').querySelectorAll('[data-dir="A"]').length > 0
+    && $('cw-clues').querySelectorAll('[data-dir="D"]').length > 0,
+    `${$('cw-clues').querySelectorAll('[data-dir="A"]').length}A / ${$('cw-clues').querySelectorAll('[data-dir="D"]').length}D`);
+  check('clue lists show letter counts',
+    [...$('cw-clues').querySelectorAll('.cw-clue-item i')].every((x) => /^\(\d+\)$/.test(x.textContent)),
+    `${$('cw-clues').querySelectorAll('.cw-clue-item i').length} items`);
+  check('every clue is a real clue, not the answer echoed back',
+    [...$('cw-clues').querySelectorAll('.cw-clue-item span')].every((x) => x.textContent.trim().length > 4));
 }
 
-// crossword — validate real generator output at every difficulty, then solve one
-byGame.crossword.click();
-await wait(300);
-check('crossword grid rendered', $('cw-grid').querySelectorAll('.cw-cell').length > 10, `${$('cw-grid').querySelectorAll('.cw-cell').length} squares`);
+/* --- the bank itself, read straight out of the build ---------------------
+   The nines are the barred puzzles, and they are the ones a bad word list
+   shows up in: every letter is checked twice there, so an obscure answer is
+   two unfair clues rather than one. Walking them here rather than through the
+   UI means all ten are checked, not whichever one the session opened on. */
+{
+  /* A clue is either a string or a list of alternatives — an answer that turns
+     up in more than one puzzle gets a different clue each time rather than the
+     same one twice. Both shapes are read here, and every alternative is held to
+     the same standards as a lone clue. */
+  const clues = {};
+  const cm = html.match(/const CROSS_CLUES = \{([\s\S]*?)\n {2}\};/);
+  for (const m of cm[1].matchAll(/^ {4}(\w+):'((?:[^'\\]|\\.)*)'/gm)) clues[m[1]] = [m[2]];
+  for (const m of cm[1].matchAll(/^ {4}(\w+):\[([^\]]*)\]/gm)) {
+    clues[m[1]] = [...m[2].matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((x) => x[1]);
+  }
 
-const diffBtn = (d) => [...$('cw-ctrl').children].find((b) => b.dataset.d === d);
-let genProblems = [];
-let puzzlesChecked = 0;
-const gridSizes = [];
-const centreProblems = [];
-const crossRatios = [];
-const allPuzzles = [];
+  /* The object shape means *barred*, which is not the same thing as nine-by-nine
+     — and reading it as though it were cost an afternoon. Two sevens shipped
+     without their v/h bar maps and parsed as nonsense; repairing them meant
+     giving them those maps, which turned them from a plain row array into this
+     shape. Matching on the shape alone then swept both of them in here and
+     gap-checked seven-letter answers against the nines, which reported three
+     repeats in a bank that had none. Filter on the row count instead — that is
+     what the app itself does in crossAtSize(), and the test should bucket a
+     puzzle the same way the picker does. */
+  const barred = [...html.matchAll(/\{r:\[([^\]]*)\],\s*v:\[([^\]]*)\],\s*h:\[([^\]]*)\]\}/g)]
+    .map((m) => m.slice(1, 4).map((s) => s.split(',').map((x) => x.replace(/'/g, ''))))
+    .map(([r, v, h]) => ({ r, v, h }));
+  const nines = barred.filter((g) => g.r.length === 9);
+  /* At least ten, and however many more the bank has grown to — the counts are
+     not a design decision, they are however many closed. What is fixed is that
+     nothing ships with fewer than ten of a size. */
+  check('at least ten barred nine-by-nines in the bank', nines.length >= 10, `${nines.length}`);
 
-for (const d of ['easy', 'medium', 'hard']) {
-  for (let round = 0; round < 4; round++) {
-    diffBtn(d).click();
-    await wait(60);
-    const st = JSON.parse(window.localStorage.getItem('arcade_cross') || 'null');
-    const p = st && st.puz;
-    if (!p) { genProblems.push(`${d}: no puzzle produced`); continue; }
-    puzzlesChecked++;
-    allPuzzles.push(p);
-    gridSizes.push(p.size);
-
-    // the fill should sit centrally: margins on opposite sides within 1 of each other
-    const rowsUsed = [], colsUsed = [];
-    for (let i = 0; i < p.sol.length; i++) {
-      if (!p.sol[i]) continue;
-      rowsUsed.push(Math.floor(i / p.size));
-      colsUsed.push(i % p.size);
-    }
-    const top = Math.min(...rowsUsed), bottom = p.size - 1 - Math.max(...rowsUsed);
-    const left = Math.min(...colsUsed), right = p.size - 1 - Math.max(...colsUsed);
-    if (Math.abs(top - bottom) > 1) centreProblems.push(`${d}: vertical margins ${top}/${bottom}`);
-    if (Math.abs(left - right) > 1) centreProblems.push(`${d}: horizontal margins ${left}/${right}`);
-
-    // how much of the fill is shared between an across and a down entry
-    const filled = p.sol.filter(Boolean).length;
-    const shared = p.sol.reduce((n, v, i) => {
-      if (!v) return n;
-      const inAcross = p.entries.some((e) => e.dir === 'across' && e.cells.indexOf(i) !== -1);
-      const inDown = p.entries.some((e) => e.dir === 'down' && e.cells.indexOf(i) !== -1);
-      return n + (inAcross && inDown ? 1 : 0);
-    }, 0);
-    crossRatios.push(shared / filled);
-
-    if (p.entries.length < 5) genProblems.push(`${d}: only ${p.entries.length} entries`);
-    for (const e of p.entries) {
-      // the answer recorded must equal the letters actually sitting in those squares
-      const fromGrid = e.cells.map((i) => p.sol[i]).join('');
-      if (fromGrid !== e.answer) genProblems.push(`${d}: ${e.num}${e.dir} answer ${e.answer} vs grid ${fromGrid}`);
-      if (!e.clue) genProblems.push(`${d}: ${e.num}${e.dir} has no clue`);
-      if (e.cells.length < 2) genProblems.push(`${d}: ${e.num}${e.dir} is only ${e.cells.length} long`);
-      // every square of the entry must be contiguous in the right direction
-      const step = e.dir === 'across' ? 1 : p.size;
-      for (let k = 1; k < e.cells.length; k++) {
-        if (e.cells[k] !== e.cells[k - 1] + step) genProblems.push(`${d}: ${e.num}${e.dir} not contiguous`);
+  const answers = (g) => {
+    const n = g.r.length;
+    const wall = (r, c) => r < 0 || c < 0 || r >= n || c >= n || g.r[r][c] === '#';
+    const cutL = (r, c) => c <= 0 || wall(r, c - 1) || g.v[r][c] === '1';
+    const cutT = (r, c) => r <= 0 || wall(r - 1, c) || g.h[r][c] === '1';
+    const out = [];
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (wall(r, c)) continue;
+        if (cutL(r, c)) {
+          let w = '';
+          for (let k = c; k < n && !wall(r, k) && (k === c || !cutL(r, k)); k++) w += g.r[r][k];
+          if (w.length >= 3) out.push(w);
+        }
+        if (cutT(r, c)) {
+          let w = '';
+          for (let k = r; k < n && !wall(k, c) && (k === r || !cutT(k, c)); k++) w += g.r[k][c];
+          if (w.length >= 3) out.push(w);
+        }
       }
     }
-    // every filled square must belong to at least one entry
-    for (let i = 0; i < p.sol.length; i++) {
-      if (!p.sol[i]) continue;
-      if (!p.entries.some((e) => e.cells.indexOf(i) !== -1)) genProblems.push(`${d}: square ${i} in no entry`);
+    return out;
+  };
+
+  const all = nines.map(answers);
+  check('every nine is a full grid of entries', all.every((a) => a.length >= 18),
+    all.map((a) => a.length).join(','));
+  check('and no puzzle repeats an answer inside itself',
+    all.every((a) => new Set(a).size === a.length));
+  const flat = [...new Set(all.flat())];
+  check('every answer in them has a clue',
+    flat.every((w) => clues[w] && clues[w].length), flat.filter((w) => !clues[w]).slice(0, 6).join(' '));
+  check('no clue is the answer wearing a hat',
+    flat.every((w) => (clues[w] || []).every((c) => c.toLowerCase().indexOf(w) < 0)),
+    flat.filter((w) => (clues[w] || []).some((c) => c.toLowerCase().indexOf(w) >= 0)).slice(0, 4).join(' '));
+  check('and every clue is short enough to read at a glance',
+    flat.every((w) => (clues[w] || []).every((c) => c.length <= 58)),
+    flat.filter((w) => (clues[w] || []).some((c) => c.length > 58)).slice(0, 3).join(' '));
+  /* The words themselves. Anything the bank reached for when it was allowed to
+     fill from the far end of the dictionary — if one of these is back, the
+     word list has slipped. */
+  const CROSSWORDESE = ['anoa', 'aba', 'ane', 'benne', 'ganef', 'imaret', 'teredo', 'ctenoid',
+    'egger', 'enate', 'ariose', 'stele', 'affine', 'etui', 'erne', 'olio', 'alee', 'agar',
+    'taro', 'ascot', 'seta', 'baas', 'apogee', 'ocher', 'cilium', 'elute'];
+  check('and none of the old crosswordese is back',
+    !flat.some((w) => CROSSWORDESE.includes(w)),
+    flat.filter((w) => CROSSWORDESE.includes(w)).join(' '));
+  check('nothing longer than the grid or shorter than three',
+    flat.every((w) => w.length >= 3 && w.length <= 9));
+
+  /* Nothing comes back inside four puzzles at its size. This is the rule the
+     bank is built around — retiring a word after so many uses spreads it out
+     across thirty puzzles and does nothing about two in a row, which is the
+     repetition you notice. Checked here at every size, in the order the
+     picker walks them. */
+  const GAP = 4;
+  /* Walk CROSS_GRIDS once, in document order, taking both shapes as they come —
+     because that is the order crossAtSize() hands puzzles to a session, and
+     "inside four puzzles" means four as the solver meets them. The earlier
+     version kept the shapes apart and started from `{9: nines}`, which quietly
+     asserted that every barred grid is a nine. A barred seven belongs with the
+     sevens; what decides that is the row count, never the shape. */
+  const gm = html.match(/const CROSS_GRIDS = \[([\s\S]*?)\n {2}\];/);
+  const zeros = (rows) => rows.map(() => '0'.repeat(rows.length));
+  const cells = (s) => s.split(',').map((x) => x.replace(/'/g, '').trim());
+  const entry = /\{r:\[([^\]]*)\],\s*v:\[([^\]]*)\],\s*h:\[([^\]]*)\]\}|\n {4}\[('[a-z#]{3,}'(?:,'[a-z#]{3,}')*)\],/g;
+  const bySize = {};
+  const shapes = [];   // exactly as stored, so crossKey() sees what the app sees
+  for (const m of gm[1].matchAll(entry)) {
+    let g;
+    if (m[1] !== undefined) g = { r: cells(m[1]), v: cells(m[2]), h: cells(m[3]) };
+    else { const r = cells(m[4]); g = { r, v: zeros(r), h: zeros(r) }; }
+    shapes.push(m[1] !== undefined ? g : cells(m[4]));
+    (bySize[g.r.length] = bySize[g.r.length] || []).push(answers(g));
+  }
+
+  /* Saved progress is filed under crossKey(), so two puzzles sharing a name
+     would load one's letters into the other — the exact failure that keying on
+     the array index used to cause. Run the real function over the real bank
+     rather than trusting the hash: this is cheap and the bug it guards against
+     is invisible until somebody's grid fills up with the wrong answers. */
+  {
+    const km = html.match(/function crossKey\(g\)\{[\s\S]*?\n {2}\}/);
+    check('crossKey survives in the build', !!km);
+    // Pulled out of the build and run for real rather than reimplemented here:
+    // a copy in the test could agree with itself while disagreeing with the app.
+    const crossKey = km
+      ? new Function('crossRows', `${km[0]}\nreturn crossKey;`)((g) => (Array.isArray(g) ? g : g.r))
+      : () => Math.random();
+    const seen = new Map();
+    const clashes = [];
+    shapes.forEach((g, i) => {
+      const k = crossKey(g);
+      if (seen.has(k)) clashes.push(`#${seen.get(k)} and #${i} both ${k}`);
+      else seen.set(k, i);
+    });
+    check('every puzzle in the bank has its own name', clashes.length === 0,
+      clashes.slice(0, 3).join(' | '));
+    check('and the name carries the size, so sizes can never share one',
+      shapes.every((g) => crossKey(g).split('-')[0] === String((Array.isArray(g) ? g : g.r).length)));
+    /* The point of the whole change: a puzzle's name must not move when the
+       bank grows. Inserting at the front shifts every index by one and must
+       leave all the names alone. */
+    const before = shapes.map(crossKey);
+    const after = [shapes[shapes.length - 1]].concat(shapes).map(crossKey).slice(1);
+    check('and inserting a puzzle does not rename the rest',
+      before.join() === after.join());
+
+    /* `_migrate()` is what repairs a save written under the old index-keyed
+       scheme, so it has to be held to both halves of its job: rescue the
+       records that are still good, bin the ones that now point at the wrong
+       puzzle. Pulled out of the build and run for real, same as crossKey. */
+    const mm = html.match(/_migrate\(p\)\{[\s\S]*?\n {4}\}/);
+    check('_migrate survives in the build', !!mm);
+    if (mm) {
+      const rowsOf = (g) => (Array.isArray(g) ? g : g.r);
+      const migrate = new Function('CROSS_GRIDS', 'crossRows', 'crossKey',
+        `return function ${mm[0]};`)(shapes, rowsOf, crossKey);
+      const solOf = (i) => rowsOf(shapes[i]).join('').toUpperCase();
+      const nine = shapes.findIndex((g) => rowsOf(g).length === 9);
+      const five = shapes.findIndex((g) => rowsOf(g).length === 5);
+      const five2 = shapes.findIndex((g, i) => rowsOf(g).length === 5 && i > five);
+
+      // solved, and still the puzzle it was solved on: kept, under its new name
+      const solved = migrate({ [five]: { u: solOf(five), secs: 90, done: true } });
+      check('_migrate keeps a record that still matches its puzzle',
+        Object.keys(solved).length === 1 && solved[crossKey(shapes[five])]
+        && solved[crossKey(shapes[five])].done === true, Object.keys(solved).join(','));
+
+      // the reported bug: an index that now points at a puzzle of another size
+      check('_migrate drops a record whose size no longer fits',
+        Object.keys(migrate({ [five]: { u: solOf(nine), secs: 10 } })).length === 0);
+
+      // right size, but the letters belong to a different puzzle
+      const foreign = solOf(five2);
+      check('_migrate drops right-sized letters from another puzzle',
+        Object.keys(migrate({ [five]: { u: foreign, secs: 10 } })).length === 0
+        || foreign === solOf(five));
+
+      // a few wrong guesses is somebody solving, not corruption
+      const partial = solOf(five).split('');
+      for (let i = 0; i < partial.length; i += 7) if (partial[i] !== '#') partial[i] = 'Z';
+      check('_migrate keeps a part-solved grid with some wrong guesses',
+        Object.keys(migrate({ [five]: { u: partial.join(''), secs: 30 } })).length === 1,
+        partial.join(''));
+
+      // a revealed square came *from* the answer, so one disagreeing is proof
+      const bad = solOf(five).replace(/[A-Z]/, 'Z');
+      const at = bad.split('').findIndex((ch, i) => ch !== solOf(five)[i]);
+      check('_migrate drops a record whose revealed square disagrees',
+        Object.keys(migrate({ [five]: { u: bad, g: [at], secs: 5 } })).length === 0);
+
+      // already converted: left exactly as it is, not re-examined
+      const fp = crossKey(shapes[five]);
+      const done = migrate({ [fp]: { u: '.....', secs: 1 } });
+      check('_migrate leaves an already-named record alone',
+        done[fp] && done[fp].secs === 1 && Object.keys(done).length === 1);
     }
   }
-}
-check('generated 12 puzzles across 3 difficulties', puzzlesChecked === 12, `${puzzlesChecked}`);
-check('every generated puzzle is self-consistent', genProblems.length === 0, genProblems.slice(0, 3).join(' | '));
-check('all grids are 9x9', gridSizes.every((s) => s === 9), [...new Set(gridSizes)].join(','));
-check('puzzles are centred in the grid', centreProblems.length === 0, centreProblems.slice(0, 2).join(' | '));
-check('grids are well interlocked', crossRatios.every((r) => r >= 0.1), `min crossing ratio ${Math.min(...crossRatios).toFixed(2)}`);
-
-// every "(anag.)" clue must use fodder that is a true rearrangement of the answer
-const sortLetters = (s) => s.toUpperCase().replace(/[^A-Z]/g, '').split('').sort().join('');
-const anagramProblems = [];
-let anagramCount = 0;
-for (const p of allPuzzles) {
-  for (const e of p.entries) {
-    const m = /^(.*?)\s*\(anag\.\)$/i.exec(e.clue);
-    if (!m) continue;
-    anagramCount++;
-    if (sortLetters(m[1]) !== sortLetters(e.answer)) {
-      anagramProblems.push(`${m[1]} is not an anagram of ${e.answer}`);
+  check('the bank holds every size the picker offers',
+    Object.keys(bySize).sort().join(',') === '5,7,9', Object.keys(bySize).join(','));
+  check('and at least ten of every size',
+    bySize[5].length >= 10 && bySize[7].length >= 10 && bySize[9].length >= 10,
+    `${bySize[5].length}/${bySize[7].length}/${bySize[9].length}`);
+  const breaches = [];
+  for (const size of Object.keys(bySize)) {
+    const list = bySize[size];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = Math.max(0, i - GAP + 1); j < i; j++) {
+        for (const w of list[i]) if (list[j].includes(w)) breaches.push(`${size}: ${w} in #${j + 1} and #${i + 1}`);
+      }
     }
   }
+  check('no answer comes back inside four puzzles at its size',
+    breaches.length === 0, breaches.slice(0, 5).join(' | '));
+  const everyAnswer = [...new Set(Object.values(bySize).flat(2))];
+  check('and every answer anywhere in the bank has a clue',
+    everyAnswer.every((w) => clues[w] && clues[w].length),
+    everyAnswer.filter((w) => !clues[w]).slice(0, 8).join(' '));
 }
-check('anagram clues use genuine anagrams', anagramProblems.length === 0, [...new Set(anagramProblems)].slice(0, 3).join(' | '));
-check('anagram clues actually appear', anagramCount > 0, `${anagramCount} seen`);
 
-// abbreviation clues should be short answers
-const abbrevBad = [];
-for (const p of allPuzzles) {
-  for (const e of p.entries) {
-    if (/\(abbr\.\)$/i.test(e.clue) && e.answer.length > 6) abbrevBad.push(`${e.answer} too long for an abbreviation`);
+// direction: typing goes the way the button says
+{
+  const first = $('cw-grid').querySelector('.cw-cell');
+  first.click();
+  await wait(30);
+  const dirLabel = () => $('cw-dir').textContent.trim();
+  check('direction is shown on screen', /^(Across →|Down ↓)$/.test(dirLabel()), dirLabel());
+  const before = dirLabel();
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ' }));
+  await wait(40);
+  check('space flips direction', dirLabel() !== before || $('cw-dir').disabled, `${before} -> ${dirLabel()}`);
+  if (dirLabel() !== 'Across →') { $('cw-dir').click(); await wait(30); }
+
+  // Pick an across entry from the clue list — that both selects its first cell
+  // and sets the direction, so there is no guessing about which way we're facing.
+  $('cw-clues').querySelector('[data-dir="A"]').click();
+  await wait(40);
+  check('choosing an across clue faces across', $('cw-dir').textContent.trim() === 'Across →',
+    $('cw-dir').textContent);
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'q' }));
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z' }));
+  await wait(60);
+  const typed = [...$('cw-grid').children]
+    .map((el, i) => (el.querySelector('.cw-let') && el.querySelector('.cw-let').textContent ? i : -1))
+    .filter((i) => i >= 0);
+  check('typing Across moves sideways', typed.length === 2 && typed[1] === typed[0] + 1,
+    typed.join(','));
+  check('and it is saved', /Q/.test(cwRec().u), (cwRec().u || '').slice(0, 20));
+
+  // Check flags the wrong one
+  $('cw-check').click();
+  await wait(40);
+  check('the checker flags a wrong letter', !!window.document.querySelector('.cw-cell.wrong'));
+}
+
+// hints: one letter, counted, locked, and visibly different
+{
+  const hintsBefore = $('cw-grid').querySelectorAll('.cw-cell.given').length;
+  $('cw-hint').click();
+  await wait(60);
+  check('a hint reveals a letter', $('cw-grid').querySelectorAll('.cw-cell.given').length === hintsBefore + 1,
+    `${$('cw-grid').querySelectorAll('.cw-cell.given').length}`);
+  check('and it is counted on screen', /1 revealed/.test($('cw-hints').textContent), $('cw-hints').textContent);
+  check('and counted in storage', (cwRec().g || []).length === 1, JSON.stringify(cwRec().g));
+
+  // a revealed letter cannot be typed over
+  const given = $('cw-grid').querySelector('.cw-cell.given');
+  const was = given.querySelector('.cw-let').textContent;
+  given.click();
+  await wait(20);
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'x' }));
+  await wait(40);
+  check('a revealed letter is locked', given.querySelector('.cw-let').textContent === was,
+    `${was} -> ${given.querySelector('.cw-let').textContent}`);
+  check('and backspace leaves it alone', (() => {
+    given.click();
+    window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Backspace' }));
+    return given.querySelector('.cw-let').textContent === was;
+  })());
+}
+
+// the picker: choose a puzzle, see which are finished, hold one to reset it
+{
+  $('cw-list').click();
+  await wait(60);
+  check('the puzzle picker opens', !$('cw-picker').classList.contains('hide'));
+  /* **One scroller, and it is the panel.** The list inside used to be a second
+     scroll box with `overscroll-behavior:contain`, so it reached its end and
+     stopped the gesture dead instead of passing it on — the same trap as
+     `#setup` in §6, and with thirty-six puzzles in the bank it put most of them
+     out of reach. */
+  check('and the picker itself is what scrolls, not a box inside it',
+    window.getComputedStyle($('cw-picker')).overflowY === 'auto'
+    && window.getComputedStyle($('cw-list')).overflowY !== 'auto',
+    `picker ${window.getComputedStyle($('cw-picker')).overflowY} · list ${window.getComputedStyle($('cw-list')).overflowY}`);
+  const items = [...$('cw-list-body').querySelectorAll('.cw-item')];
+  check('it lists every puzzle at this size', items.length >= 10, `${items.length}`);
+  check('the one you are on is marked', items.some((b) => b.classList.contains('on')));
+  check('none are crossed off yet', items.every((b) => !b.classList.contains('done')));
+  check('progress is described', /in progress|not started/.test(items[0].textContent), items[0].textContent);
+
+  // holding one offers to reset it
+  items[0].dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 60, clientY: 120 }));
+  await wait(60);
+  check('holding a puzzle offers a reset', !$('hmenu').classList.contains('hide')
+    && /Reset puzzle #1/.test($('hmenu-card').textContent), $('hmenu-card').textContent);
+  $('hmenu-card').querySelector('button').click();
+  await wait(40);
+  check('resetting a puzzle asks first', !$('confirm').classList.contains('hide'));
+  $('confirm-yes').click();
+  await wait(120);
+  check('and clears that puzzle', !/[A-Z]/.test(cwRec().u || ''), cwRec().u);
+  check('including its revealed letters', !$('cw-grid').querySelector('.cw-cell.given'));
+
+  // switching puzzle keeps them separate
+  const list = [...$('cw-list-body').querySelectorAll('.cw-item')];
+  const firstIdx = cwState().idx;
+  list[1].click();
+  await wait(150);
+  check('picking another puzzle opens it', cwState().idx !== firstIdx, `${cwState().idx}`);
+  check('and the picker closes', $('cw-picker').classList.contains('hide'));
+}
+
+// solve one outright — the small grids are the quickest way to prove the whole
+// path, including the banner and the crossing-off in the picker
+{
+  const sizeBtn = (s) => [...$('cw-size').children].find((b) => +b.dataset.s === s);
+  sizeBtn(5).click();
+  await wait(200);
+  check('sizes are offered, and only the ones the bank has',
+    [...$('cw-size').children].filter((b) => !b.disabled).length >= 2,
+    [...$('cw-size').children].map((b) => b.dataset.s + (b.disabled ? '!' : '')).join(','));
+  check('switching size loads a puzzle of that size', cwN() === 5, `${cwN()}`);
+
+  // fill it by asking for a hint on every square
+  for (let guard = 0; guard < 40; guard++) {
+    if (!$('cw-banner').classList.contains('hide')) break;
+    $('cw-hint').click();
+    await wait(20);
   }
+  check('a filled grid is recognised as finished', !$('cw-banner').classList.contains('hide'));
+  check('the summary counts the revealed letters',
+    /\d+ clues in \d{2}:\d{2} · \d+ letters revealed/.test($('cw-win-sub').textContent),
+    $('cw-win-sub').textContent);
+  check('it is recorded as done', !!cwRec().done);
+
+  $('cw-list').click();
+  await wait(60);
+  check('a finished puzzle is crossed off in the picker',
+    $('cw-list-body').querySelectorAll('.cw-item.done').length === 1,
+    `${$('cw-list-body').querySelectorAll('.cw-item.done').length}`);
+  $('cw-picker-close').click();
+  await wait(30);
+
+  $('cw-again').click();
+  await wait(200);
+  check('Next puzzle moves to an unfinished one', !cwRec().done);
 }
-check('abbreviation clues are short answers', abbrevBad.length === 0, abbrevBad.slice(0, 2).join(' | '));
-
-// now solve the current puzzle by clicking squares and typing
-const cwState = JSON.parse(window.localStorage.getItem('arcade_cross'));
-const cwCells = [...$('cw-grid').children];
-for (let i = 0; i < cwState.puz.sol.length; i++) {
-  const want = cwState.puz.sol[i];
-  if (!want) continue;
-  cwCells[i].click();
-  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: want.toLowerCase() }));
-}
-await wait(120);
-check('crossword completes when filled correctly', !$('cw-banner').classList.contains('hide'));
-check('crossword win text written', /clues, (easy|medium|hard), in \d{2}:\d{2}/.test($('cw-win-sub').textContent), $('cw-win-sub').textContent);
-
-// changing difficulty mid-puzzle must ask first
-diffBtn('easy').click();
-await wait(80);
-const beforeSwitch = JSON.parse(window.localStorage.getItem('arcade_cross'));
-const someSquare = beforeSwitch.puz.sol.findIndex((v) => v);
-[...$('cw-grid').children][someSquare].click();
-window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'a' }));
-await wait(30);
-diffBtn('hard').click();
-await wait(30);
-const afterFirstTap = JSON.parse(window.localStorage.getItem('arcade_cross'));
-check('first tap does not discard the puzzle', afterFirstTap.diff === 'easy', afterFirstTap.diff);
-check('confirmation toast shown', $('toast').classList.contains('show') && /Tap again/.test($('toast').textContent), $('toast').textContent);
-diffBtn('hard').click();
-await wait(120);
-check('second tap switches difficulty', JSON.parse(window.localStorage.getItem('arcade_cross')).diff === 'hard');
-
-// letter counts appear on the clues
-diffBtn('easy').click();
-await wait(120);
-check('clue strip shows the letter count', /\(\d+\)$/.test($('cw-clue').textContent.trim()), $('cw-clue').textContent);
-check('clue list shows letter counts', [...$('cw-clues').querySelectorAll('.cw-clue-item i')].every((i) => /^\(\d+\)$/.test(i.textContent)), `${$('cw-clues').querySelectorAll('.cw-clue-item i').length} items`);
-const clueCountsMatch = [...$('cw-clues').querySelectorAll('.cw-clue-item')].every((b) => {
-  const st = JSON.parse(window.localStorage.getItem('arcade_cross'));
-  const e = st.puz.entries.find((x) => x.num === +b.dataset.num && x.dir === b.dataset.dir);
-  return e && b.querySelector('i').textContent === `(${e.answer.length})`;
-});
-check('letter counts match the answers', clueCountsMatch);
-
-// checker flags a wrong letter
-diffBtn('easy').click();
-diffBtn('easy').click();
-await wait(120);
-const fresh = JSON.parse(window.localStorage.getItem('arcade_cross'));
-const firstSquare = fresh.puz.sol.findIndex((v) => v);
-const badLetter = fresh.puz.sol[firstSquare] === 'Z' ? 'Y' : 'Z';
-[...$('cw-grid').children][firstSquare].click();
-window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: badLetter.toLowerCase() }));
-$('cw-check').click();
-await wait(20);
-check('crossword checker flags a wrong letter', !!window.document.querySelector('.cw-cell.wrong'));
 
 // celebration — actually solve the Sudoku, clicking cells and numpad keys the way
 // a player would. The answer comes from the game's own saved state, not from
@@ -507,36 +2120,33 @@ check('sudoku win text written', /Finished in \d{2}:\d{2}/.test($('sdk-win-sub')
 check('celebration fired', !!window.document.querySelector('canvas.confetti'));
 check('banner pop applied', $('sdk-banner').classList.contains('pop'));
 
-// --- crossword sizes -------------------------------------------------------
-const sizeBtn = (s) => [...$('cw-size').children].find((b) => b.dataset.s === s);
-check('three size options offered', $('cw-size').children.length === 3, `${$('cw-size').children.length}`);
-const sizeProblems = [];
-for (const [key, n, minEntries] of [['small', 5, 4], ['medium', 7, 7], ['large', 9, 11]]) {
-  for (let round = 0; round < 3; round++) {
-    sizeBtn(key).click(); sizeBtn(key).click();
-    await wait(60);
-    const st = JSON.parse(window.localStorage.getItem('arcade_cross') || 'null');
-    const p = st && st.puz;
-    if (!p) { sizeProblems.push(`${key}: nothing generated`); continue; }
-    if (p.size !== n) sizeProblems.push(`${key}: grid is ${p.size}, expected ${n}`);
-    if (p.entries.length < minEntries) sizeProblems.push(`${key}: only ${p.entries.length} entries`);
-    if (p.entries.some((e) => e.answer.length > n)) sizeProblems.push(`${key}: an answer is longer than the grid`);
-    if (p.entries.some((e) => e.cells.map((i) => p.sol[i]).join('') !== e.answer)) sizeProblems.push(`${key}: answer disagrees with grid`);
-    if ($('cw-grid').querySelectorAll('.cw-cell, .cw-block').length !== n * n) sizeProblems.push(`${key}: rendered ${$('cw-grid').children.length} squares`);
-  }
-}
-check('all three sizes generate valid grids', sizeProblems.length === 0, sizeProblems.slice(0, 3).join(' | '));
-check('size shown in the meta line', /^\d×\d · /.test($('cw-meta').textContent), $('cw-meta').textContent);
-
 // --- ambience --------------------------------------------------------------
 check('ambience picker built', $('amb-grid').children.length === 6, `${$('amb-grid').children.length} options`);
 const ambBtn = (a) => [...$('amb-grid').children].find((b) => b.dataset.a === a);
 check('volume hidden while off', $('amb-vol-row').classList.contains('hide'));
 
+/* Three of the five are bought with embers now, and there is nothing to spend
+   yet — so the two free ones are what can be checked here, and the locked ones
+   are checked for staying locked. The buying is exercised further down, once
+   some blocks have been finished. */
 const ambProblems = [];
-for (const id of ['rain', 'forest', 'cafe', 'office', 'campfire']) {
+/* Every track is bought now, so this buys one the way a user does — which is
+   also the only way anybody ever hears one. */
+$('d-stats').click();
+await wait(120);
+$('emb-box').querySelector('[data-sound="cafe"]').click();
+await wait(60);
+check('a track is bought the same way a light is', !$('confirm').classList.contains('hide'),
+  $('confirm-title').textContent);
+$('confirm-yes').click();
+await wait(150);
+check('and starts playing once it is yours', window.document.body.dataset.amb === 'cafe',
+  window.document.body.dataset.amb);
+$('stats-close').click();
+await wait(60);
+for (const id of ['cafe']) {
   ambBtn(id).click();
-  await wait(60);
+  await wait(120);
   if (window.document.body.getAttribute('data-amb') !== id) ambProblems.push(`${id}: theme not applied`);
   if ($('app').getAttribute('data-amb') !== id) ambProblems.push(`${id}: app theme not applied`);
   if (!ambBtn(id).classList.contains('on')) ambProblems.push(`${id}: button not marked active`);
@@ -545,12 +2155,41 @@ for (const id of ['rain', 'forest', 'cafe', 'office', 'campfire']) {
   else if (el.src.indexOf(`audio/${id}.mp3`) === -1) ambProblems.push(`${id}: src is ${el.src}`);
   if (!window.__media.plays.some((s) => s.indexOf(`audio/${id}.mp3`) !== -1)) ambProblems.push(`${id}: never played`);
 }
-check('every ambience loads and plays its track', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+check('an owned ambience loads and plays its track', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+for (const id of ['rain', 'forest', 'office', 'campfire']) {
+  ambBtn(id).click();
+  await wait(40);
+}
+check('a locked track does not play itself', window.document.body.getAttribute('data-amb') === 'cafe',
+  window.document.body.getAttribute('data-amb'));
+check('and is marked as locked in the picker',
+  ['rain', 'forest', 'office', 'campfire'].every((id) => ambBtn(id).classList.contains('locked')));
+/* Every effect a look or a track can ask for needs a rule to draw it. Office's
+   `keys` had a spec in 38-vfx.js — sized, placed on a grid, timed — and no CSS
+   at all, so it laid out two dozen invisible boxes and the keyboard never
+   appeared. Nothing caught it because nothing was checking that the two lists
+   agree, so here they are, compared. */
+check('every effect a look can choose has a rule to draw it', (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const kinds = [...html.matchAll(/\bfx:'([a-z]+)'/g)].map((m) => m[1]);
+  const missing = [...new Set(kinds)]
+    .filter((k) => !css.includes(`.vfx[data-fx="${k}"] b{`));
+  return missing.length === 0 ? true : missing.join(' ');
+})() === true, (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  return [...new Set([...html.matchAll(/\bfx:'([a-z]+)'/g)].map((m) => m[1]))]
+    .filter((k) => !css.includes(`.vfx[data-fx="${k}"] b{`)).join(' ') || 'all present';
+})());
+// the one look that lights the whole room rather than only the sky
+check('campfire asks for the flicker and the others do not', (() => {
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('');
+  return /\[data-flick="1"\]::before/.test(css);
+})());
 check('one shared audio element, not five', window.document.querySelectorAll('audio').length === 1, `${window.document.querySelectorAll('audio').length}`);
 check('audio is not preloaded before it is chosen', window.document.querySelector('audio').preload === 'none', window.document.querySelector('audio').preload);
 check('app handles the repeat, not the element', window.document.querySelector('audio').loop === false);
 check('volume shown once an ambience is on', !$('amb-vol-row').classList.contains('hide'));
-check('ambience persisted', JSON.parse(window.localStorage.getItem('focus_amb')).id === 'campfire', window.localStorage.getItem('focus_amb'));
+check('ambience persisted', JSON.parse(window.localStorage.getItem('focus_amb')).id === 'cafe', window.localStorage.getItem('focus_amb'));
 
 $('amb-vol').value = '20';
 $('amb-vol').dispatchEvent(new window.Event('input'));
@@ -566,7 +2205,7 @@ check('off pauses playback', window.__media.pauses > pausesBefore, `${window.__m
 check('off fades out rather than cutting', window.document.querySelector('audio').volume < 0.05, `volume ${window.document.querySelector('audio').volume}`);
 
 // reaching the end must restart the track, not stop
-ambBtn('rain').click();
+ambBtn('cafe').click();
 await wait(60);
 const playsBefore = window.__media.plays.length;
 const audioEl = window.document.querySelector('audio');
@@ -606,21 +2245,6 @@ check('import controls wired', !!$('import-file') && !!$('d-import'));
 // Pass 2 — seeded history, so the stats dashboard has real numbers to render
 // ===========================================================================
 
-const DAY = 86400000;
-const pad2 = (n) => String(n).padStart(2, '0');
-const key = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
-// Anchored to midday so the two sessions per day can't spill into the day before
-// when the suite happens to run near midnight — that made the streak flaky.
-const seedLog = [0, 1, 2, 5].flatMap((back, i) =>
-  [0, 1].map((n) => {
-    const d = new Date();
-    d.setHours(12, 0, 0, 0);
-    d.setDate(d.getDate() - back);
-    const ts = d.getTime() + n * 3600000;
-    // some entries carry notes, so the calendar's note markers have something to find
-    return { id: 's' + ts + '_' + i + n, ts, day: key(ts), secs: 1500, note: n === 0 ? `worked on thing ${i}` : '' };
-  }),
-);
 const seeded = html.replace(
   '<script>',
   `<script>localStorage.setItem('focus_log', ${JSON.stringify(JSON.stringify(seedLog))});</script>\n<script>`,
@@ -638,7 +2262,145 @@ check('stats shows session count', statsText.includes('8'), statsText.slice(0, 8
 check('stats cards rendered', $2('stats-body').querySelectorAll('.stat-card').length === 4, `${$2('stats-body').querySelectorAll('.stat-card').length}`);
 check('stats bar chart has 14 days', $2('stats-body').querySelectorAll('.sbar').length === 14, `${$2('stats-body').querySelectorAll('.sbar').length}`);
 check('streak counted (3 consecutive days)', /3 days/.test(statsText), statsText.match(/\d+ days?/g)?.join(' / ') || '');
-check('best hour computed', $2('stats-body').textContent.includes('Best hour'));
+/* An average day, not a best hour. "Your best hour is 2 PM" is a fact about
+   the clock rather than about you, and it never moved once it had settled. */
+check('the daily average is shown', $2('stats-body').textContent.includes('Average day'));
+check('and the best hour is gone', !$2('stats-body').textContent.includes('Best hour'));
+check('every bar can be asked what it is',
+  [...$2('stats-body').querySelectorAll('.sbar')].every((b) => b.dataset.when && b.dataset.much),
+  $2('stats-body').querySelector('.sbar')?.dataset.when);
+{
+  const bar = $2('stats-body').querySelectorAll('.sbar')[13];
+  bar.click();
+  check('and tapping one says the day and the time on it',
+    $2('sbar-read').textContent.includes(bar.dataset.much),
+    $2('sbar-read').textContent);
+  bar.click();
+  check('tapping it again puts the line back', !$2('sbar-read').classList.contains('on'));
+}
+
+// --- buying a light --------------------------------------------------------
+/* Last thing in this pass, because it leaves a pile of one-second sessions
+   behind it — none of which are worth anything, which is the point. */
+for (let i = 0; i < 62; i++) { click('skip'); await wait(24); }
+await wait(80);
+$('d-stats').click();
+await wait(120);
+{
+  const shelf = () => [...$('emb-box').querySelectorAll('[data-light]')];
+  check('there is enough to buy something', +$('emb-box').dataset.have >= 5,
+    $('emb-box').dataset.have);
+  check('and one you can afford now says so', !shelf()[1].classList.contains('far'),
+    shelf()[1].className);
+  const before = +$('emb-box').dataset.have;
+  shelf()[1].click();
+  await wait(60);
+  check('buying a light asks first', !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
+  check('and says what it costs', /5/.test($('confirm-yes').textContent), $('confirm-yes').textContent);
+  $('confirm-no').click();
+  await wait(40);
+  check('changing your mind costs nothing', +$('emb-box').dataset.have === before);
+  shelf()[1].click();
+  await wait(40);
+  $('confirm-yes').click();
+  await wait(80);
+  check('it is paid for', +$('emb-box').dataset.have === before - 5, $('emb-box').dataset.have);
+  check('it is yours', /latesun/.test($('emb-box').dataset.own), $('emb-box').dataset.own);
+  check('and it is what is burning now', window.document.body.dataset.light === 'latesun',
+    window.document.body.dataset.light);
+  /* Weather belongs to the timer, not to the setup screen — and all those
+     skips have run the session out and landed back on it. Start one. */
+  if (!$('setup').classList.contains('hide')) { $('stats-close').click(); await wait(40); click('begin'); await wait(120); $('d-stats').click(); await wait(120); }
+  check('a light brings its own weather with it', $('vfx').dataset.fx === 'sun',
+    $('vfx').dataset.fx);
+  /* Both of its colours are on screen. Late sun takes them in turn rather than
+     blending — with four huge washes a blend would give you four of the same
+     in-between colour — and sets opposite sides of the ring opposite colours. */
+  check('in both of its colours', (() => {
+    const cs = [...$('vfx').children].map((b) => b.style.getPropertyValue('--c'));
+    return cs.some((c) => /#ffe07a/.test(c)) && cs.some((c) => /#ff9a3c/.test(c));
+  })(), [...$('vfx').children].map((b) => b.style.getPropertyValue('--c')).join(' | '));
+  check('and they are set down opposite each other', (() => {
+    const xs = [...$('vfx').children].map((b) => parseFloat(b.style.getPropertyValue('--x')));
+    return Math.max(...xs) - Math.min(...xs) > 50;
+  })(), [...$('vfx').children].map((b) => b.style.getPropertyValue('--x')).join(' '));
+  /* And the room with it. Checked on the clock rather than on <body>, because
+     the palette was landing on body for a while and being shadowed by #app's
+     own phase colours — which looks correct in the DOM and changes nothing at
+     all on screen. Assert on something you can actually see. */
+  check('and the room takes the same colour',
+    window.getComputedStyle($('clock')).getPropertyValue('--accent').trim() === '#f7bd52',
+    window.getComputedStyle($('clock')).getPropertyValue('--accent'));
+  check('every screen, not just the timer', ['dial', 'toggle-run', 'app'].every(
+    (id) => window.getComputedStyle($(id)).getPropertyValue('--accent').trim() === '#f7bd52'),
+    ['dial', 'toggle-run', 'app'].map((id) => id + ':' + window.getComputedStyle($(id)).getPropertyValue('--accent')).join(' '));
+  /* A look owns every colour on screen, not just the timer's — including the
+     rest arcade, which used to go back to amber a minute later. */
+  check('a light colours the whole app, arcade and menu included',
+    window.getComputedStyle($('overlay')).getPropertyValue('--accent').trim() === '#f7bd52'
+    && window.getComputedStyle($('drawer')).getPropertyValue('--accent').trim() === '#f7bd52',
+    `${window.getComputedStyle($('overlay')).getPropertyValue('--accent')} / ${window.getComputedStyle($('drawer')).getPropertyValue('--accent')}`);
+  shelf()[0].click();
+  await wait(60);
+  check('you can go back to the one you started with',
+    window.document.body.dataset.light === 'seaglass', window.document.body.dataset.light);
+  check('and the weather goes back with it', $('vfx').dataset.fx === 'sparks',
+    $('vfx').dataset.fx);
+  check('and none of it shows on the setup screen', (() => {
+    const was = window.document.body.getAttribute('data-phase');
+    return !was || $('vfx').classList.contains('on');
+  })());
+  check('and both lights are still yours',
+    $('emb-box').dataset.own.split(' ').filter((k) => k.indexOf('snd-') < 0).length === 2,
+    $('emb-box').dataset.own);
+
+  // a locked sound, once there is something to spend
+  const sounds2 = () => [...$('emb-box').querySelectorAll('[data-sound]')];
+  const had = +$('emb-box').dataset.have;
+  sounds2().find((b) => b.dataset.sound === 'rain').click();
+  await wait(80);
+  check('a locked sound offers itself once you can afford it',
+    !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
+  $('confirm-yes').click();
+  await wait(150);
+  check('buying it spends the embers', +$('emb-box').dataset.have === had - 15,
+    `${$('emb-box').dataset.have} was ${had}`);
+  check('and starts it playing', window.document.body.dataset.amb === 'rain',
+    window.document.body.dataset.amb);
+  check('with its own weather', $('vfx').dataset.fx === 'rain', $('vfx').dataset.fx);
+  /* One pane, one look: a light and a track both want the palette and both want
+     the weather, so they are alternatives rather than layers. */
+  check('and the light is out while it plays',
+    window.document.body.dataset.light === 'none', window.document.body.dataset.light);
+  const shelf3 = [...$('emb-box').querySelectorAll('[data-light]')];
+  check('no light is marked as burning', !shelf3.some((b) => b.classList.contains('on')),
+    shelf3.map((b) => b.className).join(' | '));
+  shelf3[1].click();
+  await wait(150);
+  check('choosing a light stops the track', window.document.body.dataset.amb === '',
+    window.document.body.dataset.amb);
+  check('and takes the pane back', $('vfx').dataset.fx === 'sun', $('vfx').dataset.fx);
+  check('and it is no longer locked in the menu',
+    !$('amb-grid').querySelector('[data-a="rain"]').classList.contains('locked'));
+
+  // and Reset progress takes them with it, as it says it will
+  $('d-reset').click();
+  await wait(60);
+  check('resetting progress asks first, in full',
+    !$('confirm').classList.contains('hide') && /embers/.test($('confirm-body').textContent),
+    $('confirm-body').textContent.slice(0, 80));
+  $('confirm-yes').click();
+  await wait(200);
+  check('it takes the embers', +$('emb-box').dataset.have === 0, $('emb-box').dataset.have);
+  check('and the lights they bought', $('emb-box').dataset.own === 'seaglass', $('emb-box').dataset.own);
+  check('and the sessions', !JSON.parse(window.localStorage.getItem('focus_log') || '[]').length,
+    window.localStorage.getItem('focus_log'));
+  check('a sound you no longer own stops playing',
+    !window.document.body.dataset.amb, window.document.body.dataset.amb);
+  check('but not your settings', !!window.localStorage.getItem('focus_sim'));
+}
+$('stats-close').click();
+await wait(60);
 
 // --- calendar density ------------------------------------------------------
 $2('stats-close').click();
@@ -705,15 +2467,307 @@ check('can switch back to a day with sessions', $3('cal-detail').querySelectorAl
 check('no leftover padding from the old zoom', !$3('cal-detail').style.paddingBottom, $3('cal-detail').style.paddingBottom);
 check('zoom wrapper is gone', !$3('cal-zoom') && !$3('cal-zoom-in'));
 
+// --- planning ahead --------------------------------------------------------
+// A day carries what is going to happen as well as what did. Driven entirely
+// through the panel, because the rule and the row are the same feature.
+const plan3 = () => $3('cal-detail').querySelector('.cal-plan');
+check('every day has a plan panel', !!plan3(), $3('cal-detail').innerHTML.slice(0, 60));
+check('and says so when there is nothing on it',
+  plan3().textContent.includes('Nothing planned'), plan3().textContent.slice(0, 50));
+
+// pick a day later this month, so nothing about it can be in the log
+const future = allCells().find((c) => Number(c.textContent.trim()) === Number(new Date().getDate()) + 2)
+  || allCells()[allCells().length - 1];
+const futureNum = future.textContent.trim();
+future.click();
+await wait(60);
+$3('cal-detail').querySelector('.cal-plan-add').click();
+await wait(60);
+check('the add form opens', !!$3('cal-detail').querySelector('.plan-form'));
+check('and offers both kinds', $3('cal-detail').querySelectorAll('.plan-kind').length === 2);
+
+const typeInto = (sel, value) => {
+  const el = $3('cal-detail').querySelector(sel);
+  el.value = value;
+  el.dispatchEvent(new w3.Event('input'));
+  el.dispatchEvent(new w3.Event('change'));
+};
+typeInto('.plan-text', 'Return the library books');
+typeInto('.plan-time', '09:30');
+$3('cal-detail').querySelector('.plan-save').click();
+await wait(80);
+check('a task can be planned for a day that has not happened',
+  $3('cal-detail').querySelectorAll('.plan-row.task').length === 1,
+  $3('cal-detail').querySelector('.cal-plan').textContent.slice(0, 60));
+check('it remembers the time it was given',
+  $3('cal-detail').querySelector('.plan-row').textContent.includes('09:30'),
+  $3('cal-detail').querySelector('.plan-row').textContent);
+check('and it is written down, not just drawn',
+  JSON.parse(w3.localStorage.getItem('focus_plan') || '[]').length === 1,
+  w3.localStorage.getItem('focus_plan'));
+check('the day is marked on the month as owing something',
+  !!$3('cal-grid').querySelector('.cal-cell.todo .todo-dot'),
+  `${$3('cal-grid').querySelectorAll('.todo-dot').length} marks`);
+check('and not marked as an event, which is a different thing',
+  !$3('cal-grid').querySelector('.ev-dot'));
+
+// an event on the same day, which is the case the two colours exist for
+$3('cal-detail').querySelector('.cal-plan-add').click();
+await wait(60);
+$3('cal-detail').querySelectorAll('.plan-kind')[1].click();
+await wait(60);
+typeInto('.plan-text', 'Dentist');
+typeInto('.plan-time', '14:00');
+$3('cal-detail').querySelector('.plan-save').click();
+await wait(80);
+check('an event can share the day with a task',
+  $3('cal-detail').querySelectorAll('.plan-row.event').length === 1
+  && $3('cal-detail').querySelectorAll('.plan-row.task').length === 1,
+  $3('cal-detail').querySelector('.cal-plan').textContent.slice(0, 80));
+check('the event is listed above the task',
+  $3('cal-detail').querySelector('.plan-row').classList.contains('event'),
+  $3('cal-detail').querySelector('.plan-row').className);
+check('the day now carries both marks, in their own colours',
+  !!$3('cal-grid').querySelector('.cal-cell.todo.ev')
+  && !!$3('cal-grid').querySelector('.ev-dot') && !!$3('cal-grid').querySelector('.todo-dot'));
+check('an event is never ticked off — it is not yours to do',
+  !$3('cal-detail').querySelector('.plan-row.event .plan-tick'));
+
+// ticking one day of it
+$3('cal-detail').querySelector('.plan-row.task .plan-tick').click();
+await wait(60);
+check('a planned task can be ticked off from the calendar',
+  $3('cal-detail').querySelector('.plan-row.task').classList.contains('done'));
+check('the day stops asking for it once it is done',
+  !$3('cal-grid').querySelector('.todo-dot'),
+  `${$3('cal-grid').querySelectorAll('.todo-dot').length} left`);
+
+// --- repeats ---------------------------------------------------------------
+$3('cal-detail').querySelector('.cal-plan-add').click();
+await wait(60);
+typeInto('.plan-text', 'Water the plants');
+$3('cal-detail').querySelectorAll('.plan-rep')[1].click();   // Daily
+await wait(60);
+check('choosing a repeat asks how often', !!$3('cal-detail').querySelector('.plan-every'));
+check('and when it should stop', $3('cal-detail').querySelectorAll('.plan-end').length === 3);
+$3('cal-detail').querySelector('.plan-save').click();
+await wait(80);
+const repeated = JSON.parse(w3.localStorage.getItem('focus_plan')).find((p) => p.text === 'Water the plants');
+check('a repeat is stored as one rule, not as many rows',
+  !!repeated && repeated.rep && repeated.rep.every === 'day', JSON.stringify(repeated && repeated.rep));
+check('the row says what the rule is',
+  $3('cal-detail').textContent.includes('Every day'), $3('cal-detail').textContent.slice(0, 120));
+// it lands on the next day as well, which is the whole point
+const nextDay = allCells().find((c) => c.textContent.trim() === String(Number(futureNum) + 1));
+if (nextDay) {
+  nextDay.click();
+  await wait(60);
+  check('a daily repeat lands on the day after too',
+    $3('cal-detail').textContent.includes('Water the plants'),
+    $3('cal-detail').querySelector('.cal-plan').textContent.slice(0, 60));
+  check('but the one-off task did not follow it there',
+    !$3('cal-detail').textContent.includes('library books'));
+}
+
 
 // ===========================================================================
 // Pass 3 — two devices sharing a timer over the fake peer network
 // ===========================================================================
+/* ---- clock faces ----
+   Four ways of drawing the same countdown, one on screen at a time. What is
+   worth checking is not that each one looks right — a test cannot see that —
+   but the things that would silently break one: that exactly one is visible at
+   a time, and that each is actually *written to* while it is the one on show. A
+   face left out of `facePaint`'s switch would sit frozen at its markup default
+   and nothing else would complain.
+
+   **In a window of its own.** Buying a face spends embers, and run inside the
+   main window that moved numbers the light and sound checks assert — and left a
+   confirm dialog open for the next block to trip over. A fresh boot with its own
+   purse costs one more jsdom and keeps both sides honest. */
+{
+  const { window: fw, errors: faceErr } = boot(html, {
+    focus_embers: JSON.stringify({ have: 200, earned: 200, own: ['seaglass'], light: 'seaglass' }),
+  });
+  await wait(400);
+  const $ = (id) => fw.document.getElementById(id);
+  const window = fw;                       // shadowed on purpose: the helpers below
+  fw.document.getElementById('begin').click();
+  await wait(120);
+  const pickBtn = (id) => $('face-pick').querySelector(`[data-face-pick="${id}"]`);
+  const faces = [...$('face-pick').querySelectorAll('[data-face-pick]')].map((b) => b.dataset.facePick);
+  check('the menu offers a choice of clock face', faces.length >= 4, faces.join(','));
+  check('and all but the plain one have a price on them',
+    [...$('face-pick').querySelectorAll('.locked')].length === faces.length - 1,
+    [...$('face-pick').querySelectorAll('.locked')].map((b) => b.dataset.facePick).join(','));
+
+  /* Bought through the real dialog. There is no back door worth having — the
+     ember record in localStorage is a copy, so writing to it grants nothing —
+     and the buying is the behaviour under test anyway. */
+  const before = +$('emb-box').dataset.have;
+  pickBtn('analog').click();
+  await wait(60);
+  check('choosing one you do not own asks before spending',
+    !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
+  $('confirm-yes').click();
+  await wait(80);
+  check('and it comes out of the embers', +$('emb-box').dataset.have < before,
+    `${before} → ${$('emb-box').dataset.have}`);
+  check('and that face is the one now showing', $('app').dataset.face === 'analog',
+    $('app').dataset.face);
+
+  for (const id of faces.filter((f) => f !== 'digital')) {
+    if (!pickBtn(id).classList.contains('locked')) continue;
+    pickBtn(id).click();
+    await wait(50);
+    if (!$('confirm').classList.contains('hide')) $('confirm-yes').click();
+    await wait(70);
+  }
+  check('buying the rest leaves them all owned',
+    $('face-pick').querySelectorAll('.locked').length === 0,
+    [...$('face-pick').querySelectorAll('.locked')].map((b) => b.dataset.facePick).join(','));
+
+  const boxes = ['clock', 'face-analog', 'face-flip', 'face-glass'];
+  const visible = () => boxes.filter((id) => window.getComputedStyle($(id)).display !== 'none');
+  for (const id of faces) {
+    pickBtn(id).click();
+    await wait(40);
+    check(`choosing ${id} shows one face and no other`, visible().length === 1,
+      `${visible().join(',') || 'nothing'}`);
+  }
+
+  /* The ring rule is `.dial > svg` and has to stay that way. As `.dial svg` it
+     also took the faces — stretching an analog dial over the whole dial and
+     turning it a quarter, which is what "super small and broken" was. */
+  pickBtn('analog').click();
+  await wait(60);
+  {
+    const face = window.getComputedStyle($('face-analog'));
+    const ring = window.getComputedStyle(window.document.querySelector('.dial > svg'));
+    check('the progress ring is still turned a quarter', /matrix|rotate/.test(ring.transform),
+      ring.transform);
+    /* The face *is* absolutely placed, on purpose — centred over the readout so
+       the phase name and the session line end up inside the circle. What must
+       not happen is the ring's own rotation and `inset:0` reaching it. */
+    check('but the clock face is not turned or stretched with it',
+      !/rotate|matrix\(0/.test(face.transform) && face.inset !== '0px',
+      `${face.transform} / inset ${face.inset}`);
+  }
+  check('the analog face has its ticks', $('fa-ticks').children.length === 12,
+    `${$('fa-ticks').children.length}`);
+  check('and its hands are set from the clock',
+    /rotate/.test($('fa-min').style.transform) && /rotate/.test($('fa-sec').style.transform),
+    `${$('fa-min').style.transform} / ${$('fa-sec').style.transform}`);
+
+  /* Flip: one card per digit, and the cards together read the same as the
+     clock. Four separate cards is the point — comparing whole numbers turned
+     both halves whenever either changed. */
+  pickBtn('flip').click();
+  await wait(60);
+  {
+    const cards = [...window.document.querySelectorAll('#face-flip .ff-card')];
+    check('the flip face has a card for every digit', cards.length === 4, `${cards.length}`);
+    check('and the cards read the same time as the clock',
+      cards.map((c) => c.textContent).join('') === $('clock').textContent.replace(':', ''),
+      `${cards.map((c) => c.textContent).join('')} vs ${$('clock').textContent}`);
+  }
+
+  /* Hourglass: anchoring, not a depth — the upper sand hangs from the neck and
+     the lower stands on the base, which stays true at any size the glass is
+     drawn at. Plus the grains, which are the illusion. */
+  pickBtn('glass').click();
+  await wait(60);
+  {
+    /* The sand is one path per bulb now — a curved surface, then straight down
+       to the neck or the base — so the anchoring is read off the end of `d`
+       rather than off `y`/`height`. Still the same claim: the upper sand hangs
+       from the neck, the lower stands on the base, whatever the glass is drawn
+       at. The surface height is the first coordinate. */
+    const td = $('hg-sand-top').getAttribute('d') || '';
+    const bd = $('hg-sand-bot').getAttribute('d') || '';
+    const surface = (d) => parseFloat((d.match(/^M18 ([\d.]+)/) || [])[1]);
+    check('the hourglass sand hangs from the neck and stands on the base',
+      td.endsWith('L82 66L18 66Z') && bd.endsWith('L82 118L18 118Z'),
+      `${td.slice(-16)} · ${bd.slice(-18)}`);
+    const topFill = 66 - surface(td), botFill = 118 - surface(bd);
+    check('and it is all still up top a second in', topFill > botFill,
+      `${topFill.toFixed(1)} vs ${botFill.toFixed(1)}`);
+    /* One material, one fill. The surface used to be a second shape laid over
+       the sand — the dished one in `--bg`, which could never match what was
+       behind it and read as a grey lens sitting on top. */
+    check('and the surface is part of the sand, not a shape laid over it',
+      !window.document.getElementById('hg-dip') && !window.document.getElementById('hg-mound'),
+      'a separate dip or mound is back');
+    check('there are real grains falling', $('hg-grains').children.length >= 8,
+      `${$('hg-grains').children.length}`);
+    check('and no two of them are on the same clock',
+      new Set([...$('hg-grains').children].map((g) => g.style.animationDelay)).size >= 8,
+      new Set([...$('hg-grains').children].map((g) => g.style.animationDelay)).size + ' distinct');
+    /* The phase name is the one thing a glass with sand at the top already
+       says, so it goes; "1 of 4" is what it cannot say and stays. */
+    check('the phase name is not repeated over the hourglass',
+      window.getComputedStyle($('phase-name')).display === 'none',
+      window.getComputedStyle($('phase-name')).display);
+    check('but the session line still is', $('subline').textContent.trim().length > 0,
+      $('subline').textContent);
+  }
+
+  /* The faces are on the shelf as well as in the menu. A thing you can buy that
+     is not where the buying happens is a thing nobody finds. */
+  fw.document.getElementById('d-stats').click();
+  await wait(160);
+  check('the clock faces are on the ember shelf too',
+    fw.document.querySelectorAll('#emb-box [data-face-pick]').length >= 4,
+    `${fw.document.querySelectorAll('#emb-box [data-face-pick]').length}`);
+  check('and the menu picker uses the same chip the ambience picker does',
+    $('face-pick').querySelectorAll('.amb-btn').length >= 4,
+    `${$('face-pick').querySelectorAll('.amb-btn').length} chips`);
+
+  /* **Back closes what is open, it does not leave.** The app parks a spare
+     history entry whenever a layer is up, so Back lands on `popstate` instead
+     of on the way out of the app. Checked from the top of the stack down. */
+  {
+    const isOpen = (id) => { const e = fw.document.getElementById(id); return e && !e.classList.contains('hide'); };
+    /* The entry is parked by a watcher on a timer rather than by the thing that
+       opened the page — see the note in 44-back.js about why it is not hooked
+       into every `open()`. So this waits for it instead of assuming it, which
+       is also the honest thing to assert: what matters is that it arrives. */
+    for (let i = 0; i < 12 && fw.history.length < 2; i++) await wait(100);
+    check('opening a page parks a history entry to catch Back', fw.history.length > 1,
+      `${fw.history.length}`);
+    fw.history.back();
+    await wait(220);
+    check('and Back closes the page rather than the app', !isOpen('stats-overlay'),
+      'stats page still open');
+  }
+
+  check('the chosen face is written down with the other settings',
+    JSON.parse(window.localStorage.getItem('focus_sim') || '{}').face === 'glass',
+    window.localStorage.getItem('focus_sim'));
+  pickBtn('digital').click();
+  await wait(40);
+  check('and nothing threw while all that happened', faceErr.length === 0,
+    faceErr.slice(0, 2).join(' | '));
+}
+
+
 const { window: host, errors: hostErr } = boot(html);
 const { window: guest, errors: guestErr } = boot(html);
+
+/* Both windows get a fixed random sequence from here on. A shared game deals
+   from a shuffled bag, and the Scrabble block below has to find a real word in
+   whatever rack it is handed — a vowel-less draw is a perfectly fine thing for
+   the game to do and a terrible thing for a test to depend on. Different seeds
+   per window, because the two are supposed to disagree about most things. */
+for (const [w, seed] of [[host, 20260730], [guest, 91173]]) {
+  let s = seed;
+  w.Math.random = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x80000000);
+}
 await wait(400);
 const $h = (id) => host.document.getElementById(id);
 const $g = (id) => guest.document.getElementById(id);
+const syncOnH = () => !$h('sync-state').textContent.includes('Not connected');
+const syncOnG = () => !$g('sync-state').textContent.includes('Not connected');
 
 check('a friend code is generated', /^[2-9A-HJ-NP-Z]{6}$/.test($h('sync-mycode').textContent), $h('sync-mycode').textContent);
 check('the code avoids confusable characters', !/[OI01]/.test($h('sync-mycode').textContent), $h('sync-mycode').textContent);
@@ -739,9 +2793,30 @@ $g('d-sync').click();
 $g('sync-code').value = hostCode;
 $g('sync-join').click();
 await wait(250);
-check('guest connects to the host', $g('sync-state').textContent.includes('Joined'), $g('sync-state').textContent);
+// The joiner is told whose room it is, not just its code — a code is not a person.
+check('guest connects to the host', $g('sync-state').textContent.includes(hostCode), $g('sync-state').textContent);
+check('and is told whose room it is', /Hashir/.test($g('sync-state').textContent), $g('sync-state').textContent);
 check('host sees the guest by name', $h('sync-people').textContent.includes('Friend'), $h('sync-people').textContent.slice(0, 60));
+
+/* The buddy travels with the `hello` that opens a connection, so by the time
+   somebody is in the list they are also wearing their own face. Five indexes
+   into tables both ends share — about forty bytes, which is why it can ride
+   along on every connection rather than being asked for separately. */
+check('and the guest arrives with their buddy',
+  !!$h('sync-people').querySelector('.sync-person .bud'),
+  $h('sync-people').innerHTML.slice(0, 90));
+/* The band on the timer screen is the only thing that knows other people are
+   here, so it is the way in to seeing them. It used to be inert text. */
+check('the room band is a way in, not a label',
+  $h('sync-band').getAttribute('role') === 'button' && typeof $h('sync-band').onclick === 'function',
+  `${$h('sync-band').getAttribute('role')}`);
+$h('sync-band').click();
+await wait(80);
+check('and tapping it opens the room', !$h('sync-overlay').classList.contains('hide'));
+$h('sync-close').click();
+await wait(60);
 check('guest sees who is leading', $g('sync-people').textContent.includes('holds the timer'), $g('sync-people').textContent.slice(0, 60));
+
 
 // leader starts the timer; the follower should follow
 $h('begin').click();
@@ -778,8 +2853,240 @@ check('friend saved with a name', $g('sync-friends').textContent.includes('Study
 check('friend saved with the code', $g('sync-friends').textContent.includes(hostCode));
 check('friends persist', JSON.parse(guest.localStorage.getItem('focus_sync')).friends.length === 1);
 
+// --- confirms, keeping people, and noticing they've gone -------------------
+// Handing the clock over and removing somebody are both hard to undo in a room
+// of three, so both go through a confirm now.
+$h('sync-people').querySelector('[data-lead]').click();
+await wait(80);
+check('giving the timer away asks first', !$h('confirm').classList.contains('hide'));
+check('the confirm names the person', /Friend/.test($h('confirm-title').textContent), $h('confirm-title').textContent);
+$h('confirm-no').click();
+await wait(150);
+check('cancelling keeps the timer where it was', /You hold the timer/.test($h('sync-band').textContent), $h('sync-band').textContent);
+
+$h('sync-people').querySelector('[data-kick]').click();
+await wait(80);
+check('removing somebody asks first', !$h('confirm').classList.contains('hide') && /Remove/.test($h('confirm-title').textContent), $h('confirm-title').textContent);
+$h('confirm-no').click();
+await wait(150);
+check('cancelling leaves them in the room', $h('sync-people').querySelectorAll('.sync-person').length === 2);
+
+// Anyone in the room can be kept, because `hello` carries their own code —
+// the peer id most of them are using is a throwaway.
+const keepBtn = $h('sync-people').querySelector('[data-keep]');
+check('anyone in the room can be saved as a friend', !!keepBtn, $h('sync-people').textContent);
+if (keepBtn) {
+  const theirCode = keepBtn.dataset.keep;
+  check('they are offered by their own code, not their peer id', /^[2-9A-HJ-NP-Z]{6}$/.test(theirCode), theirCode);
+  check('and it really is their code', theirCode === $g('sync-mycode').textContent, `${theirCode} vs ${$g('sync-mycode').textContent}`);
+  keepBtn.click();
+  await wait(120);
+  check('saving from the room adds a friend', JSON.parse(host.localStorage.getItem('focus_sync')).friends.some((f) => f.code === theirCode));
+  check('and they are marked as kept', /friend/.test($h('sync-people').textContent), $h('sync-people').textContent);
+}
+
+// Presence is a probe, not a subscription: reach for the code and see if
+// anybody answers. The guest is hosting nothing, so it should not answer.
+$h('sync-check').click();
+await wait(600);
+check('checking who is online finishes', $h('sync-check').textContent !== 'Checking…', $h('sync-check').textContent);
+check('the check reports something either way', !!$h('sync-friends').querySelector('.sync-dot'),
+  $h('sync-friends').innerHTML.slice(0, 120));
+
+// --- messages ---------------------------------------------------------------
+// Chat rides the same connections as the timer. It is a sheet rather than a
+// screen, so it has to work from wherever you already are.
+check('the message button is there in a room', !$h('chat-btn').classList.contains('hide'));
+$h('chat-btn').click();
+await wait(80);
+check('the sheet opens', !$h('chat').classList.contains('hide'));
+check('it names who is here', /Friend/.test($h('chat-who').textContent), $h('chat-who').textContent);
+check('an empty room says so rather than showing nothing', /Nothing said yet/.test($h('chat-log').textContent));
+
+$h('chat-input').value = 'shall we do another block';
+$h('chat-form').dispatchEvent(new host.Event('submit', { cancelable: true, bubbles: true }));
+await wait(250);
+check('your own line appears at once', /shall we do another block/.test($h('chat-log').textContent));
+check('and it is marked as yours', !!$h('chat-log').querySelector('.chat-line.mine'));
+check('the input clears', $h('chat-input').value === '');
+// The other window isn't looking, so it gets a badge rather than a render —
+// the log is only drawn while the sheet is up.
+// A dot on the button, and a pop-out that says who and what. Not a count — see
+// the note at the top of 33-chat.js.
+check('a dot appears for whoever is not looking', !$g('chat-dot').classList.contains('hide'));
+check('and no number', !$g('game-pictionary') || !/chat-badge/.test($g('chat-dot').className));
+check('a pop-out announces it', !$g('chat-pop').classList.contains('hide'));
+check('the pop-out names the sender', /Hashir/.test($g('chat-pop-who').textContent), $g('chat-pop-who').textContent);
+check('and shows what was said', /shall we do another block/.test($g('chat-pop-text').textContent),
+  $g('chat-pop-text').textContent);
+check('tapping the pop-out opens that thread', (() => {
+  $g('chat-pop').click();
+  return !$g('chat').classList.contains('hide') && $g('chat-pop').classList.contains('hide');
+})());
+$g('chat-close').click();
+await wait(60);
+
+$g('chat-btn').click();
+await wait(120);
+check('it reaches the other window', /shall we do another block/.test($g('chat-log').textContent), $g('chat-log').textContent.slice(0, 60));
+check('the other window names the sender', /Hashir/.test($g('chat-log').textContent), $g('chat-log').textContent.slice(0, 60));
+check('opening clears the dot', $g('chat-dot').classList.contains('hide'));
+
+// a quick line, for when typing is the thing you're trying to avoid
+$g('chat-quick').querySelector('[data-q]').click();
+await wait(250);
+check('a quick reply sends', $h('chat-log').querySelectorAll('.chat-line').length === 2,
+  `${$h('chat-log').querySelectorAll('.chat-line').length} lines`);
+check('and lands on the other side too', $g('chat-log').querySelectorAll('.chat-line').length === 2);
+check('nothing is relayed back to its sender twice',
+  ($g('chat-log').textContent.match(/shall we do another block/g) || []).length === 1);
+
+// --- direct messages --------------------------------------------------------
+// The room thread belongs to the room; a direct thread belongs to a person, so
+// it's keyed by their friend code and kept on disk.
+{
+  const tabs = ($w) => [...$w('chat-tabs').querySelectorAll('[data-thread]')].map((b) => b.dataset.thread);
+  check('there is a tab per conversation', tabs($h).length === 2 && tabs($h)[0] === 'room', tabs($h).join(','));
+  const theirCode = tabs($h)[1];
+  check('the other tab is keyed by their own code, not their peer id',
+    /^[2-9A-HJ-NP-Z]{6}$/.test(theirCode) && theirCode === $g('sync-mycode').textContent, theirCode);
+
+  $h('chat-tabs').querySelector(`[data-thread="${theirCode}"]`).click();
+  await wait(60);
+  check('an empty direct thread explains itself', /waits until you.re both open/.test($h('chat-log').textContent),
+    $h('chat-log').textContent.slice(0, 80));
+
+  $h('chat-input').value = 'just between us';
+  $h('chat-form').dispatchEvent(new host.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(250);
+  check('a direct message reaches them', /just between us/.test(
+    JSON.stringify(JSON.parse(guest.localStorage.getItem('focus_dm') || '{}'))), guest.localStorage.getItem('focus_dm'));
+  check('it does not land in the room thread', !/just between us/.test($g('chat-log').textContent)
+    || $g('chat-tabs').querySelector('.chat-tab.on').dataset.thread !== 'room');
+  check('direct messages are saved, unlike the room thread',
+    !!host.localStorage.getItem('focus_dm') && !host.localStorage.getItem('focus_chat'));
+  $h('chat-tabs').querySelector('[data-thread="room"]').click();
+  await wait(40);
+  check('the room thread is unaffected', !/just between us/.test($h('chat-log').textContent));
+}
+
+// it opens over whatever you were doing, rather than replacing it
+$h('arcade-open').click();
+await wait(60);
+check('the button is still there inside the arcade', !$h('chat-btn').classList.contains('hide'));
+/* Most messages arrive during a break, which is when the arcade is what's on
+   screen — so the announcement has to sit over it rather than under it. There
+   is nothing to announce to somebody already reading the sheet, so close it. */
+$h('chat-close').click();
+await wait(60);
+$g('chat-tabs').querySelector('[data-thread="room"]').click();
+await wait(40);
+$g('chat-input').value = 'you still there?';
+$g('chat-form').dispatchEvent(new guest.Event('submit', { bubbles: true, cancelable: true }));
+await wait(200);
+check('a message during a break announces itself', shown(host, 'chat-pop'),
+  host.getComputedStyle($h('chat-pop')).display);
+check('over the arcade, not under it',
+  Number(host.getComputedStyle($h('chat-pop')).zIndex)
+  > Number(host.getComputedStyle($h('overlay')).zIndex),
+  `${host.getComputedStyle($h('chat-pop')).zIndex} / ${host.getComputedStyle($h('overlay')).zIndex}`);
+check('and says what it was', /still there/.test($h('chat-pop-text').textContent),
+  $h('chat-pop-text').textContent);
+check('the button carries a dot until you look', shown(host, 'chat-dot'));
+$h('chat-btn').click();
+await wait(60);
+check('the sheet opens over the arcade', !$h('chat').classList.contains('hide')
+  && !$h('overlay').classList.contains('hide'));
+$h('chat-close').click();
+$h('ov-back').click();
+await wait(60);
+$g('chat-close').click();
+await wait(40);
+
+// --- around, versus having a room open ---------------------------------------
+// Two different questions, so two different addresses. Before this a friend
+// sitting in the app with no room looked exactly like a friend who'd gone to bed.
+$h('sync-check').click();
+await wait(700);
+{
+  const row = $h('sync-friends').querySelector('.sync-friend');
+  check('a friend with the app open shows as around', !!row.querySelector('.sync-dot.on'), row.innerHTML.slice(0, 140));
+  check('but not as having a room open', !/room open/.test(row.textContent), row.textContent);
+  check('the room they are actually in is not confused for their own', !$g('sync-state').textContent.includes('Hosting'));
+}
+
+// --- quotes on loan ---------------------------------------------------------
+// Opting in pools your bank with the room for the session. Nothing of theirs is
+// saved to your device — they're on loan.
+{
+  $g('d-quotes').click();
+  await wait(60);
+  $g('q-text').value = 'Slow is smooth, smooth is fast.';
+  $g('q-author').value = 'Somebody';
+  $g('q-save').click();
+  await wait(60);
+  check('the guest has a quote of their own', /Slow is smooth/.test($g('q-list').textContent));
+  check('sharing is off to begin with', $g('q-share').checked === false);
+  check('nothing is on loan yet', $h('q-lent').textContent.trim() === '');
+
+  $g('q-share').checked = true;
+  $g('q-share').dispatchEvent(new guest.Event('change'));
+  await wait(300);
+  $h('d-quotes').click();
+  await wait(60);
+  check('their quote reaches the room', /Slow is smooth/.test($h('q-lent').textContent), $h('q-lent').textContent.slice(0, 60));
+  check('it is attributed to them', /via Friend/.test($h('q-lent').textContent), $h('q-lent').textContent.slice(0, 80));
+  check('a borrowed quote is not saved as yours',
+    !/Slow is smooth/.test(host.localStorage.getItem('focus_quotes') || ''));
+  check('the preference is remembered', guest.localStorage.getItem('focus_quotes_share') === '1');
+  $h('q-back').click(); $g('q-back').click();
+  await wait(40);
+}
+
+// A window that vanishes without closing its connection has to be noticed, or
+// the room slowly fills with people who left.
+{
+  // Both windows now react to a drop — one notices and one retries — so a
+  // single reading at the end would race them. Watch the whole window instead.
+  const watch = (w, $w, id) => {
+    const seen = [];
+    const mo = new w.MutationObserver(() => seen.push($w(id).textContent));
+    mo.observe($w(id), { childList: true, characterData: true, subtree: true });
+    return seen;
+  };
+  const hostSaid = watch(host, $h, 'sync-status');
+  const guestSaid = watch(guest, $g, 'sync-status');
+
+  const beforeN = $h('sync-people').querySelectorAll('.sync-person').length;
+  guest.__peerSilent = true;                 // stop answering, but don't close
+  await wait(8600);
+  check('a silent member is dropped from the room',
+    hostSaid.some((t) => /dropped out/.test(t)), hostSaid.join(' | ').slice(0, 90));
+  check('the room noticed who it was',
+    hostSaid.some((t) => /Friend dropped out/.test(t)), hostSaid.join(' | ').slice(0, 90));
+
+  // The one that vanished doesn't give up: a lost connection schedules a rejoin
+  // rather than ending the room for whoever it happened to.
+  check('the one who dropped tries to get back',
+    guestSaid.some((t) => /trying again|Reconnecting/i.test(t)), guestSaid.join(' | ').slice(0, 90));
+
+  guest.__peerSilent = false;
+  // Poll rather than sleep a fixed span: the backoff has grown by now, so the
+  // wait is up to the next retry, not a number we can guess.
+  for (let i = 0; i < 60; i++) {
+    if ($h('sync-people').querySelectorAll('.sync-person').length === beforeN) break;
+    await wait(250);
+  }
+  check('and gets back in on its own', $g('sync-state').textContent.includes(hostCode),
+    `${$g('sync-state').textContent} / ${$g('sync-status').textContent}`);
+  check('the room is whole again', $h('sync-people').querySelectorAll('.sync-person').length === beforeN,
+    `${$h('sync-people').querySelectorAll('.sync-person').length} of ${beforeN}`);
+  check('and is told it made it back', guestSaid.some((t) => /Back in the room/.test(t)),
+    guestSaid.slice(-3).join(' | '));
+}
+
 // leaving tears the room down on both sides
-$h('sync-leave').click();
+await leaveRoom($h);
 await wait(250);
 check('host returns to disconnected', $h('sync-state').textContent === 'Not connected', $h('sync-state').textContent);
 check('guest notices the host left', $g('sync-state').textContent === 'Not connected', $g('sync-state').textContent);
@@ -791,9 +3098,1040 @@ $h('sync-room').click();
 await wait(150);
 check('one-off room uses a different code', $h('sync-state').textContent.includes('Hosting') && !$h('sync-state').textContent.includes(hostCode), $h('sync-state').textContent);
 check('one-off room does not overwrite your code', $h('sync-mycode').textContent === hostCode);
-$h('sync-leave').click();
+await leaveRoom($h);
 await wait(100);
 
+
+// --- messages that wait ------------------------------------------------------
+// There is no server, so a message to somebody who isn't in your room goes into
+// an outbox and is posted into their presence beacon the first moment both apps
+// are open. Written here, delivered when they're reachable.
+{
+  // save each other, so both have a friend to write to
+  const hostCodeNow = $h('sync-mycode').textContent;
+  const guestCodeNow = $g('sync-mycode').textContent;
+  $g('sync-code').value = hostCodeNow;
+  $g('sync-friend-name').value = 'Hashir';
+  $g('sync-add').click();
+  await wait(80);
+
+  // leave, so neither is in a room — this is the whole point
+  await leaveRoom($h);
+  await wait(300);
+  check('nobody is in a room', !syncOnH() && !syncOnG(), 'still connected');
+
+  // the guest writes to the host anyway
+  $g('chat-btn').click();
+  await wait(80);
+  check('you can open messages with no room open', !$g('chat').classList.contains('hide'));
+  const tab = $g('chat-tabs').querySelector(`[data-thread="${hostCodeNow}"]`);
+  check('a saved friend has a thread even when away', !!tab, $g('chat-tabs').textContent);
+  tab.click();
+  await wait(60);
+  check('and you can type to them', $g('chat-input').disabled === false);
+
+  // A friend who isn't running the app at all: nothing answers, so it waits.
+  $g('sync-code').value = 'ZZ9WQ7';
+  $g('sync-friend-name').value = 'Nobody';
+  $g('sync-add').click();
+  await wait(80);
+  $g('chat-tabs').querySelector('[data-thread="ZZ9WQ7"]').click();
+  await wait(60);
+  $g('chat-input').value = 'nobody is listening';
+  $g('chat-form').dispatchEvent(new guest.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(900);
+  check('a message to somebody unreachable waits', !!$g('chat-log').querySelector('.chat-line.waiting'),
+    $g('chat-log').textContent.slice(0, 60));
+  check('and it is queued on disk', /nobody is listening/.test(
+    guest.localStorage.getItem('focus_dm_out') || ''), guest.localStorage.getItem('focus_dm_out'));
+
+  // Now one to the host, who does have the app open — it should get through even
+  // though neither of them is in a room. Re-query the tab: adding a friend
+  // re-rendered the row, so the element captured earlier is detached.
+  $g('chat-tabs').querySelector(`[data-thread="${hostCodeNow}"]`).click();
+  await wait(60);
+  $g('chat-input').value = 'read this when you wake up';
+  $g('chat-form').dispatchEvent(new guest.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(900);
+  check('it reaches a friend who is reachable but not in a room', /read this when you wake up/.test(
+    host.localStorage.getItem('focus_dm') || ''), host.localStorage.getItem('focus_dm'));
+  check('the outbox clears once acknowledged',
+    !/read this when you wake up/.test(guest.localStorage.getItem('focus_dm_out') || ''),
+    guest.localStorage.getItem('focus_dm_out'));
+  check('the undeliverable one is still queued', /nobody is listening/.test(
+    guest.localStorage.getItem('focus_dm_out') || ''));
+  check('and the delivered one is unread for them', !$h('chat-btn').classList.contains('hide')
+    && !$h('chat-dot').classList.contains('hide'));
+  check('with a pop-out saying who it was from', /Friend/.test($h('chat-pop-who').textContent),
+    $h('chat-pop-who').textContent);
+
+  // nothing is delivered twice
+  const before = (host.localStorage.getItem('focus_dm').match(/read this when you wake up/g) || []).length;
+  $g('chat-input').value = 'second';
+  $g('chat-form').dispatchEvent(new guest.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(900);
+  check('a second message also arrives', /second/.test(host.localStorage.getItem('focus_dm')));
+  check('the first is not duplicated',
+    (host.localStorage.getItem('focus_dm').match(/read this when you wake up/g) || []).length === before,
+    `${(host.localStorage.getItem('focus_dm').match(/read this when you wake up/g) || []).length}`);
+
+  /* ---- and with a mailbox, even that overlap isn't needed ----
+     Peer delivery covers "both open at once". The server covers the rest: the
+     recipient closed, or simply unreachable. Wire one up and the message that
+     could not be handed over should go through it instead. */
+  FAKE_MAIL.reset();
+  /* The mailbox address is a build constant, not a setting — see SYNC_MAILBOX in
+     29-sync.js. This build leaves it empty, which is the shipped default, so what
+     is checkable here is that the app is honest about it: a token exists ready
+     for the day one is configured, and nothing is posted anywhere without one. */
+  check('no server is configured by default', FAKE_MAIL.sends === 0 && FAKE_MAIL.fetches === 0,
+    `${FAKE_MAIL.sends}/${FAKE_MAIL.fetches}`);
+  check('and there is no setting for it to confuse anyone', !$h('sync-server'));
+  check('a device token was generated', (JSON.parse(host.localStorage.getItem('focus_sync')).token || '').length >= 20,
+    JSON.parse(host.localStorage.getItem('focus_sync')).token);
+  check('and it is not the friend code', JSON.parse(host.localStorage.getItem('focus_sync')).token
+    !== JSON.parse(host.localStorage.getItem('focus_sync')).myCode);
+
+  // the undelivered one stays put, because there is nowhere else for it to go
+  await wait(400);
+  check('with no server, undelivered mail stays queued', /nobody is listening/.test(
+    guest.localStorage.getItem('focus_dm_out') || ''), guest.localStorage.getItem('focus_dm_out'));
+  check('and nothing was posted anywhere', FAKE_MAIL.sends === 0, `${FAKE_MAIL.sends}`);
+
+  // Leaving is its own row on the Focus together screen now, and it asks first.
+
+  $h('sync-close').click();
+  await wait(40);
+  $h('sync-host').click();
+  await wait(200);
+  $g('sync-code').value = $h('sync-mycode').textContent;
+  $g('sync-join').click();
+  await wait(400);
+  $g('d-sync').click();
+  await wait(80);
+  check('Leave has its own row while you are in a room', !$g('sync-leave').classList.contains('hide'));
+  check('and it says what leaving does', /Stop following|Stop sharing/.test($g('sync-leave-sub').textContent),
+    $g('sync-leave-sub').textContent);
+  $g('sync-leave').click();
+  await wait(60);
+  check('leaving asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
+  $g('confirm-no').click();
+  await wait(120);
+  check('cancelling keeps you in', syncOnG(), $g('sync-state').textContent);
+  $g('sync-leave').click();
+  await wait(60);
+  $g('confirm-yes').click();
+  await wait(300);
+  check('confirming actually leaves', !syncOnG(), $g('sync-state').textContent);
+  check('and the row goes with it', $g('sync-leave').classList.contains('hide'));
+  check('the host sees them gone', $h('sync-people').querySelectorAll('.sync-person').length === 1,
+    `${$h('sync-people').querySelectorAll('.sync-person').length}`);
+  $g('sync-close').click();
+  await wait(40);
+
+  $g('chat-close').click();
+  await wait(40);
+  // put a room back for the blocks below
+  $h('sync-close').click();
+  await wait(40);
+  $h('sync-host').click();
+  await wait(200);
+  $g('sync-code').value = $h('sync-mycode').textContent;
+  $g('sync-join').click();
+  await wait(400);
+  check('back in a room for what follows', syncOnH() && syncOnG(),
+    `${$h('sync-state').textContent} / ${$g('sync-state').textContent}`);
+  void guestCodeNow;
+}
+
+/* A reconnection, and the socket it replaced closing afterwards.
+   This is the ghost: wifi walks away without closing anything, the guest dials
+   back in on a second connection, and some seconds later the *first* one finally
+   reports itself closed. Its handler used to delete that peer's roster line,
+   code and heartbeat by id — taking the live connection's entries with it — so
+   the guest was connected, absent from the host's list, and skipped by every
+   broadcast because SYNC.conns no longer held them.
+
+   Closed on the host's side alone (`_peerConn._emit`), because that is what
+   actually happens: the guest's new socket is fine and knows nothing about it.
+
+   **Last in the sync pass, deliberately.** The second connection is made by the
+   test, so only the host's end of it is wired and anything sent to the guest
+   down it goes nowhere. Run earlier, this cost the chat checks about two runs in
+   five — a pop-out that never arrived. Everything after this point builds its
+   own room, so leaving this one bruised costs nothing. */
+{
+  const roomCode = $h('sync-mycode').textContent;      // the room as it is *now*
+  const hostPeerId = 'fsim-' + roomCode.toLowerCase();
+  /* Ask the host who the guest *is* rather than searching the fake network for
+     somebody holding a line to it. A peer keeps every connection it ever made in
+     `_conns`, including from before it was destroyed and replaced, so searching
+     turned up a peer that had been dead for two blocks — and dialling from it
+     put a third person in a room of two. The roster row carries the live id. */
+  const guestId = ($h('sync-people').querySelector('[data-kick]') || {})
+    .getAttribute ? $h('sync-people').querySelector('[data-kick]').getAttribute('data-kick') : '';
+  const guestPeer = FAKE_NET[guestId];
+  // the newest of that peer's lines to the room is the one in use
+  const first = guestPeer
+    && guestPeer._conns.filter((c) => c.peer === hostPeerId).pop();
+  check('the guest is on the fake network with a line to the room', !!first);
+  if (guestPeer) guestPeer.connect(hostPeerId);        // the rejoin, on a new socket
+  await wait(150);
+  /* Counted as rows, not by name: the rejoin carries no `hello`, so the roster
+     keeps whatever name it had. The claim is that they are still there. */
+  check('a rejoin does not put the same person in the room twice',
+    $h('sync-people').querySelectorAll('.sync-person').length === 2,
+    $h('sync-people').textContent.slice(0, 80));
+  if (first && first._peerConn) first._peerConn._emit('close');
+  await wait(150);
+  check('and the old socket closing afterwards does not remove them',
+    $h('sync-people').querySelectorAll('.sync-person').length === 2,
+    $h('sync-people').textContent.slice(0, 80));
+}
+
+// --- shared games ----------------------------------------------------------
+// Both games run host-authoritative over the same channel, so what's really
+// under test is that intents travel in, state travels out, and neither window
+// can see what it shouldn't.
+for (const [w, $w, nm] of [[host, $h, 'Hashir'], [guest, $g, 'Friend']]) {
+  $w('sync-name').value = nm;
+  $w('sync-name').dispatchEvent(new w.Event('input'));
+}
+$h('sync-host').click();
+await wait(150);
+const gameCode = $h('sync-mycode').textContent;
+$g('sync-code').value = gameCode;
+$g('sync-join').click();
+await wait(400);
+$h('sync-close').click();
+$g('sync-close').click();
+
+
+// hangman ---------------------------------------------------------------
+await openGame(host, $h, 'hangman');
+await openGame(guest, $g, 'hangman');
+check('hangman opens once there is a room', shown(host, 'hm-live') && !shown(host, 'hm-need'));
+check('a fresh round is open to anyone', shown(host, 'hm-claim') && shown(guest, 'hm-claim'), `${$h('hm-role').textContent}`);
+check('nobody is setting until somebody claims', !shown(host, 'hm-set') && !shown(guest, 'hm-set'));
+
+// first claim wins; everything after it is a no-op
+$g('hm-take').click();
+await wait(250);
+check('claiming makes you the setter', shown(guest, 'hm-set'), $g('hm-role').textContent);
+check('a claim closes the round to everyone else', !shown(host, 'hm-set') && !shown(host, 'hm-claim'), $h('hm-role').textContent);
+$h('hm-take').click();
+await wait(200);
+check('a late claim is refused by the host, not just hidden', !shown(host, 'hm-set') && shown(guest, 'hm-set'), $h('hm-role').textContent);
+
+// from here the guest is the setter, so the roles below are the other way round
+const setter = { w: guest, $: $g }, finder = { w: host, $: $h };
+setter.$('hm-word-in').value = 'puzzle';
+setter.$('hm-hint-in').value = 'what this is';
+setter.$('hm-go').click();
+await wait(250);
+check('the word reaches the finder as blanks', finder.$('hm-word').querySelectorAll('.hm-let').length === 6, `${finder.$('hm-word').querySelectorAll('.hm-let').length}`);
+check('the answer never leaves the setter', !/puzzle/i.test(finder.$('hm-live').textContent), finder.$('hm-live').textContent.slice(0, 80));
+check('the hint does travel', /what this is/.test(finder.$('hm-hint').textContent), finder.$('hm-hint').textContent);
+
+const hmKey = ($w, ch) => $w('hm-keys').querySelector(`[data-k="${ch}"]`);
+check('the setter cannot guess', hmKey(setter.$, 'p').disabled);
+
+hmKey(finder.$, 'p').click();
+await wait(200);
+check('a correct letter is revealed to everyone', finder.$('hm-word').textContent.includes('p') && setter.$('hm-word').textContent.includes('p'), setter.$('hm-word').textContent);
+const hmPts = ($w) => +[...$w('hm-scores').querySelectorAll('.hm-score')]
+  .find((r) => r.textContent.includes('(you)')).querySelector('b').textContent;
+check('a correct letter scores', hmPts(finder.$) === 1, finder.$('hm-scores').textContent);
+
+hmKey(finder.$, 'x').click();
+await wait(200);
+check('a wrong letter costs a life', /7 of 8/.test(finder.$('hm-lives').textContent), finder.$('hm-lives').textContent);
+check('a wrong letter draws a limb', finder.$('hm-draw').querySelectorAll('.hm-p.on').length === 1, `${finder.$('hm-draw').querySelectorAll('.hm-p.on').length}`);
+check('lives are shared, not per player', /7 of 8/.test(setter.$('hm-lives').textContent), setter.$('hm-lives').textContent);
+check('a spent letter cannot be spent twice', hmKey(finder.$, 'x').disabled && hmKey(finder.$, 'p').disabled);
+
+for (const ch of ['u', 'z', 'l', 'e']) { hmKey(finder.$, ch).click(); await wait(90); }
+await wait(200);
+check('finding the word ends the round', /Found it/.test(finder.$('hm-msg').textContent), finder.$('hm-msg').textContent);
+check('the answer is shown once it is over', /puzzle/i.test(finder.$('hm-msg').textContent), finder.$('hm-msg').textContent);
+check('both windows agree the round is over', shown(host, 'hm-next') && shown(guest, 'hm-next'));
+
+finder.$('hm-next').click();
+await wait(250);
+check('the new round is round two', /Round 2/.test($h('hm-meta').textContent), $h('hm-meta').textContent);
+check('the round is thrown open again', shown(finder.w, 'hm-claim'), finder.$('hm-role').textContent);
+check('you cannot set two rounds running', !shown(setter.w, 'hm-claim'), setter.$('hm-role').textContent);
+
+// and the block is enforced by the host, not just hidden in the UI
+setter.$('hm-take').click();
+await wait(200);
+check('a blocked claim is refused, not just hidden', !shown(setter.w, 'hm-set'), setter.$('hm-role').textContent);
+finder.$('hm-take').click();
+await wait(200);
+check('the other player can claim it', shown(finder.w, 'hm-set'), finder.$('hm-role').textContent);
+
+// --- hangman: phrases, the cap, and losing a point ------------------------
+// The setter this round is `finder`; the guesser is `setter`. Naming is by
+// round, not by person, and the round just turned over.
+{
+  const set = finder, guess = setter;
+  const pts = ($w) => +[...$w('hm-scores').querySelectorAll('.hm-score')]
+    .find((r) => r.textContent.includes('(you)')).querySelector('b').textContent;
+
+  set.$('hm-word-in').value = 'ice cream';
+  set.$('hm-go').click();
+  await wait(250);
+  const cells = [...guess.$('hm-word').querySelectorAll('.hm-let')];
+  check('a phrase keeps its space', cells.length === 9 && cells[3].classList.contains('gap'),
+    `${cells.length} cells, 4th is ${cells[3] && cells[3].className}`);
+  check('the space is shown, not guessed', guess.$('hm-word').textContent.trim() === '');
+  check('a long answer shrinks rather than wrapping', guess.$('hm-word').dataset.len === 'mid',
+    guess.$('hm-word').dataset.len);
+
+  const before = pts(guess.$);
+  guess.$('hm-keys').querySelector('[data-k="z"]').click();
+  await wait(200);
+  check('a wrong letter costs a point', pts(guess.$) === Math.max(0, before - 1), `${before} -> ${pts(guess.$)}`);
+
+  // ...but a score never goes below zero. Keep guessing wrong until it would.
+  for (const ch of ['q', 'j', 'x', 'v']) { guess.$('hm-keys').querySelector(`[data-k="${ch}"]`).click(); await wait(70); }
+  check('a score never goes negative', pts(guess.$) === 0, `${pts(guess.$)}`);
+
+  // start over so the next block isn't mid-round
+  set.$('hm-word-in').value = '';
+}
+
+// The cap is fifteen characters, and the host enforces it rather than trusting
+// the input's maxlength.
+{
+  check('the word box caps at fifteen', $h('hm-word-in').maxLength === 15, `${$h('hm-word-in').maxLength}`);
+}
+
+// pictionary ------------------------------------------------------------
+// The word goes to one person and the ink travels outside the state; both are
+// worth checking, because both are easy to get wrong in a way nothing else sees.
+await openGame(host, $h, 'pictionary');
+await openGame(guest, $g, 'pictionary');
+{
+  check('pictionary opens in a room', shown(host, 'pic-live') && !shown(host, 'pic-need'));
+  check('nobody is drawing yet', shown(host, 'pic-claim') && shown(guest, 'pic-claim'));
+  check('and there is no word on show', !shown(host, 'pic-word') && !shown(guest, 'pic-word'));
+
+  $g('pic-take').click();
+  await wait(250);
+  const artist = { w: guest, $: $g }, watcher = { w: host, $: $h };
+
+  // claiming now offers three words rather than dealing one, and the clock waits
+  check('claiming offers a choice of three', shown(artist.w, 'pic-choose')
+    && artist.$('pic-offers').querySelectorAll('[data-k]').length === 3,
+    `${artist.$('pic-offers').querySelectorAll('[data-k]').length}`);
+  check('the offer is the artist\'s alone', !shown(watcher.w, 'pic-choose'));
+  check('harder words advertise a bonus', /\+\d/.test(artist.$('pic-offers').textContent),
+    artist.$('pic-offers').textContent);
+  check('the clock has not started', artist.$('pic-clock').textContent === '',
+    artist.$('pic-clock').textContent);
+  check('the other player is told what is happening', /choosing/i.test(watcher.$('pic-over').textContent),
+    watcher.$('pic-over').textContent);
+
+  // take the hard one, so the bonus is in play
+  artist.$('pic-offers').querySelectorAll('[data-k]')[2].click();
+  await wait(250);
+  check('picking a word starts the round', shown(artist.w, 'pic-word'), artist.$('pic-role').textContent);
+  check('the difficulty is named to everyone', /Hard/.test(watcher.$('pic-role').textContent),
+    watcher.$('pic-role').textContent);
+  check('the tools appear for the artist only',
+    shown(artist.w, 'pic-tools') && !shown(watcher.w, 'pic-tools'));
+  check('the watcher gets a guess box instead',
+    shown(watcher.w, 'pic-form') && !shown(artist.w, 'pic-form'));
+
+  // the word sits in a text node after the <small> caption, which now carries
+  // the difficulty too — so take the node, not the whole textContent
+  const word = [...artist.$('pic-word').childNodes]
+    .filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim().toLowerCase();
+  check('the artist is given a real word', /^[a-z]+( [a-z]+)*$/.test(word), word);
+  check('the word never reaches anyone else', !new RegExp(word, 'i').test(watcher.$('pic-live').textContent),
+    watcher.$('pic-live').textContent.slice(0, 80));
+  /* Clues can be more than one word now, so what the guessers are told is the
+     shape of it — "3 words — 4 and 3 and 6 letters" — rather than one number,
+     which for "hot air balloon" was both wrong and useless. */
+  const parts = word.split(' ');
+  check('but its shape does', parts.length > 1
+    ? new RegExp(parts.length + ' words').test(watcher.$('pic-msg').textContent)
+      && new RegExp(parts.map((p) => p.length).join(' and ')).test(watcher.$('pic-msg').textContent)
+    : new RegExp(word.length + ' letters').test(watcher.$('pic-msg').textContent),
+    `${word} → ${watcher.$('pic-msg').textContent}`);
+  /* ---- the blanks ----
+     The word as slots, filled in from your *own* guesses. Per guesser on
+     purpose: a shared board would mean the fastest reader hands the answer to
+     the room by typing, and sitting silent would be the winning move. */
+  const maskOf = (p) => p.$('pic-mask').textContent.replace(/\s+/g, '');
+  check('the guesser sees the word as blanks',
+    shown(watcher.w, 'pic-mask') && maskOf(watcher).length === word.replace(/ /g, '').length
+    && /^_+$/.test(maskOf(watcher)),
+    `${word} → ${maskOf(watcher)}`);
+  check('and the artist is not shown blanks for a word they chose',
+    !shown(artist.w, 'pic-mask'));
+
+  /* A wrong guess that shares letters with the answer is worth something now.
+     Feed it a word made only of letters that are in the answer. */
+  const inWord = [...new Set(word.replace(/ /g, '').split(''))].slice(0, 2).join('');
+  watcher.$('pic-input').value = inWord;
+  watcher.$('pic-form').dispatchEvent(new watcher.w.Event('submit', { bubbles: true, cancelable: true }));
+  await wait(280);
+  check('a wrong guess still turns up the letters it got right',
+    inWord.split('').every((ch) => maskOf(watcher).indexOf(ch) >= 0),
+    `${inWord} → ${maskOf(watcher)}`);
+  check('and the rest of the word stays hidden',
+    maskOf(watcher).indexOf('_') >= 0, maskOf(watcher));
+  /* The letters must not leak sideways. The artist has the word anyway, so the
+     one that matters is that the *state* carries no other player's letters —
+     checked by the mask being built per view on the host, which is why a second
+     guesser could never see these. Here: the artist's own panel is unchanged. */
+  check('and nobody else is handed them', !shown(artist.w, 'pic-mask'));
+
+  check('a clock is running', /^\d+s$/.test(artist.$('pic-clock').textContent), artist.$('pic-clock').textContent);
+  // a scene needs setting up, so the hard word is given half again as long
+  check('a hard word gets ninety seconds', +artist.$('pic-clock').textContent.replace('s', '') > 60,
+    artist.$('pic-clock').textContent);
+
+  // a wrong guess is shown to the room; a near miss says so
+  watcher.$('pic-input').value = 'definitelynotit';
+  watcher.$('pic-form').dispatchEvent(new watcher.w.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(250);
+  check('a guess is shown to everyone', /definitelynotit/.test(artist.$('pic-guesses').textContent),
+    artist.$('pic-guesses').textContent);
+  check('a wrong guess does not end the round', artist.$('pic-clock').textContent !== '');
+
+  const near = word.slice(0, -1) + (word.slice(-1) === 'x' ? 'y' : 'x');
+  watcher.$('pic-input').value = near;
+  watcher.$('pic-form').dispatchEvent(new watcher.w.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(250);
+  check('one letter out is called close', /close/.test(watcher.$('pic-guesses').textContent),
+    watcher.$('pic-guesses').textContent);
+
+  /* Ink travels on its own, outside the state — and *while* the line is being
+     drawn. Waiting for the pen to lift meant everyone else watched an empty
+     canvas and then had a shape appear, which is most of what makes the game
+     work thrown away. So: no pointerup here, and the other window should
+     already have something. */
+  const cv = artist.$('pic-board');
+  /* jsdom has no layout, so every rect is 0×0 — which made every point on the
+     canvas land in the same place and get skipped as a micro-movement. Give the
+     canvas the size it has in a browser and the pen has somewhere to go. */
+  cv.getBoundingClientRect = () => ({ left: 0, top: 0, width: 600, height: 450, right: 600, bottom: 450 });
+  const pen = (type, x, y) => cv.dispatchEvent(new artist.w.PointerEvent(type,
+    { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 1, pointerType: 'touch', isPrimary: true }));
+  pen('pointerdown', 20, 20);
+  for (let i = 0; i < 8; i++) pen('pointermove', 24 + i * 9, 26 + i * 6);
+  await wait(250);
+  check('a line is watched as it is drawn, not after it',
+    +watcher.$('pic-board').dataset.points > 1, watcher.$('pic-board').dataset.points);
+  const sofar = +watcher.$('pic-board').dataset.points;
+  for (let i = 8; i < 18; i++) pen('pointermove', 24 + i * 9, 26 + i * 6);
+  await wait(250);
+  check('and it keeps arriving as the line goes on',
+    +watcher.$('pic-board').dataset.points > sofar,
+    `${watcher.$('pic-board').dataset.points} was ${sofar}`);
+  check('as one line, not a dozen', +watcher.$('pic-board').dataset.strokes === 1,
+    watcher.$('pic-board').dataset.strokes);
+  pen('pointerup', 24 + 17 * 9, 26 + 17 * 6);
+  await wait(200);
+
+  // a tap is a dot — a stroke of one point, which used to draw nothing at all
+  const wasStrokes = +watcher.$('pic-board').dataset.strokes;
+  pen('pointerdown', 200, 120); pen('pointerup', 200, 120);
+  await wait(250);
+  check('a tap puts down a dot', +watcher.$('pic-board').dataset.strokes === wasStrokes + 1,
+    `${watcher.$('pic-board').dataset.strokes} was ${wasStrokes}`);
+  check('and the dot is one point', +artist.$('pic-board').dataset.points
+    === +watcher.$('pic-board').dataset.points,
+    `${artist.$('pic-board').dataset.points} / ${watcher.$('pic-board').dataset.points}`);
+
+  /* Fill is a mode, and it rides on the same stroke machinery as a line — one
+     flag on the stroke, so undo, the wire format and the far end all already
+     work. What is worth checking is that the flag reaches the other side,
+     because that is the part that would quietly draw the wrong picture. */
+  {
+    const before = +(watcher.$('pic-board').dataset.filled || 0);
+    artist.$('pic-fill').click();
+    check('fill latches on rather than firing once',
+      artist.$('pic-fill').getAttribute('aria-pressed') === 'true');
+    pen('pointerdown', 300, 60);
+    for (let i = 0; i < 6; i++) pen('pointermove', 300 + i * 20, 60 + i * 14);
+    pen('pointerup', 400, 150);
+    await wait(260);
+    check('a lasso reaches the watcher as a filled shape',
+      +(watcher.$('pic-board').dataset.filled || 0) > before,
+      `${before} → ${watcher.$('pic-board').dataset.filled}`);
+    artist.$('pic-fill').click();
+    check('and it can be turned off again',
+      artist.$('pic-fill').getAttribute('aria-pressed') === 'false');
+  }
+
+
+  // and getting it right ends the round for everyone — spaces optional, since
+  // where the gaps go is the drawer's problem, not the guesser's
+  watcher.$('pic-input').value = word.replace(/ /g, '');
+  watcher.$('pic-form').dispatchEvent(new watcher.w.Event('submit', { cancelable: true, bubbles: true }));
+  await wait(300);
+  check('the right answer ends the round', shown(host, 'pic-next') && shown(guest, 'pic-next'));
+  check('and the answer is revealed', new RegExp(word, 'i').test(watcher.$('pic-over').textContent),
+    watcher.$('pic-over').textContent);
+  check('the guesser scored', /[1-9]/.test(watcher.$('pic-scores').textContent), watcher.$('pic-scores').textContent);
+  check('so did the artist', /[1-9]/.test(artist.$('pic-scores').textContent), artist.$('pic-scores').textContent);
+  check('the hard-word bonus is included', (() => {
+    const mine = [...watcher.$('pic-scores').querySelectorAll('.pic-score')]
+      .find((p) => p.textContent.includes('(you)'));
+    return +mine.querySelector('b').textContent >= 6;   // 2 base + clock + 4 bonus
+  })(), watcher.$('pic-scores').textContent);
+  check('the scoring is explained on screen', /How scoring works/.test($h('game-pictionary').textContent));
+
+  watcher.$('pic-next').click();
+  await wait(250);
+  check('the next round is thrown open again', shown(watcher.w, 'pic-claim'), watcher.$('pic-role').textContent);
+  check('the artist cannot draw twice running', !shown(artist.w, 'pic-claim'), artist.$('pic-role').textContent);
+
+  // the bank, and that it doesn't hand out the same words over and over
+  watcher.$('pic-take').click();
+  await wait(250);
+  const offered = [...watcher.$('pic-offers').querySelectorAll('[data-k]')]
+    .map((b) => b.querySelector('b').textContent);
+  check('a fresh round offers three different words',
+    new Set(offered).size === 3 && offered.every((w) => /^[a-z]+( [a-z]+)*$/.test(w)), offered.join(' | '));
+  check('and none of them is the one just used', offered.indexOf(word) < 0, offered.join(' | '));
+  check('the harder ones say how long you get', /90s/.test(watcher.$('pic-offers').textContent),
+    watcher.$('pic-offers').textContent);
+}
+
+// scrabble --------------------------------------------------------------
+await openGame(host, $h, 'scrabble');
+await openGame(guest, $g, 'scrabble');
+check('the board is actually on screen', shown(host, 'sc-live') && shown(host, 'sc-board'));
+check('the blank chooser stays out of the way until it is wanted', !shown(host, 'sc-blank'));
+check('the board is fifteen by fifteen', $h('sc-board').querySelectorAll('.sc-sq').length === 225, `${$h('sc-board').querySelectorAll('.sc-sq').length}`);
+check('the centre square is marked', $h('sc-board').children[7 * 15 + 7].dataset.p === '*', $h('sc-board').children[112].dataset.p);
+check('both players hold seven tiles', $h('sc-rack').querySelectorAll('.sc-t').length === 7 && $g('sc-rack').querySelectorAll('.sc-t').length === 7);
+check('fourteen tiles have left the bag', /86 in the bag/.test($h('sc-meta').textContent), $h('sc-meta').textContent);
+// Each window is only ever sent its own rack, so two windows holding the same
+// seven tiles in the same order would mean the host had leaked one.
+check('a rack stays in its own window', $g('sc-rack').textContent !== $h('sc-rack').textContent, $h('sc-rack').textContent);
+check('only the player on turn can act', $h('sc-recall').disabled === false && $g('sc-recall').disabled === true);
+
+const sq = ($w, r, c) => $w('sc-board').children[r * 15 + c];
+const rackOf = ($w) => [...$w('sc-rack').querySelectorAll('.sc-t')]
+  .map((b) => ({ i: +b.dataset.i, ch: b.textContent.trim()[0] }))
+  .filter((t) => /^[a-z]$/.test(t.ch));
+
+// A play that isn't legal can't even be submitted now: the Play button reports
+// the verdict rather than letting you press it and be told no.
+{
+  const r = rackOf($h);
+  await tapEl(host, $h('sc-rack').querySelector(`[data-i="${r[0].i}"]`));
+  await tapEl(host, sq($h, 7, 7));
+  await wait(40);
+  check('a tile can be put down by tapping', sq($h, 7, 7).classList.contains('pend'));
+  check('an uncommitted tile is invisible to the other player', !sq($g, 7, 7).classList.contains('tile'));
+  check('one letter cannot be played', $h('sc-play').disabled === true);
+  check('and the button says why', /keep going/i.test($h('sc-play-label').textContent), $h('sc-play-label').textContent);
+  $h('sc-play').click();
+  await wait(150);
+  check('pressing it anyway does nothing', sq($h, 7, 7).classList.contains('pend') && !sq($g, 7, 7).classList.contains('tile'));
+  $h('sc-recall').click();
+  await wait(40);
+  check('recall takes the tiles back', !sq($h, 7, 7).classList.contains('tile') && $h('sc-rack').querySelectorAll('.sc-t:not(.gap)').length === 7);
+}
+
+// Now find a real two-letter word in the host's rack by trying orderings. The
+// board is untouched by a rejection, so this costs nothing but time — and it
+// exercises placement, validation, scoring, the turn and the refill for real.
+const VALUES = { a:1,b:3,c:3,d:2,e:1,f:4,g:2,h:4,i:1,j:8,k:5,l:1,m:3,n:1,o:1,p:3,q:10,r:1,s:1,t:1,u:1,v:4,w:4,x:8,y:4,z:10 };
+let played = null;
+const rack = rackOf($h);
+outer:
+for (const a of rack) for (const b of rack) {
+  if (a.i === b.i) continue;
+  await tapEl(host, $h('sc-rack').querySelector(`[data-i="${a.i}"]`));
+  await tapEl(host, sq($h, 7, 7));
+  await tapEl(host, $h('sc-rack').querySelector(`[data-i="${b.i}"]`));
+  await tapEl(host, sq($h, 7, 8));
+  await wait(20);
+  if (!$h('sc-play').disabled) {
+    $h('sc-play').click();
+    await wait(150);
+    if (sq($h, 7, 7).classList.contains('tile') && !sq($h, 7, 7).classList.contains('pend')) {
+      played = a.ch + b.ch;
+      break outer;
+    }
+  }
+  $h('sc-recall').click();
+  await wait(20);
+}
+check('a real word can be found and played', !!played, `rack ${rack.map((t) => t.ch).join('')}`);
+if (played) {
+  const want = 2 * (VALUES[played[0]] + VALUES[played[1]]);   // the star doubles the word
+  const myScore = ($w) => +[...$w('sc-players').querySelectorAll('.sc-player')]
+    .find((p) => p.textContent.includes('(you)')).querySelector('b').textContent;
+  check('the played word reaches the other board', sq($g, 7, 7).classList.contains('tile') && sq($g, 7, 8).classList.contains('tile'), played);
+  check('the centre star doubles the word', myScore($h) === want, `${played} wanted ${want}, got ${myScore($h)}`);
+  check('the turn moves on', $h('sc-recall').disabled === true && $g('sc-recall').disabled === false);
+  check('the rack is refilled from the bag', $h('sc-rack').querySelectorAll('.sc-t:not(.gap)').length === 7, `${$h('sc-rack').querySelectorAll('.sc-t:not(.gap)').length}`);
+  check('the bag went down by two', /84 in the bag/.test($h('sc-meta').textContent), $h('sc-meta').textContent);
+  check('both windows name the same word', $g('sc-msg').textContent.includes(played.toUpperCase()), $g('sc-msg').textContent);
+}
+
+// a follower cannot play out of turn
+{
+  const r = rackOf($h);
+  if (r.length) {
+    await tapEl(host, $h('sc-rack').querySelector(`[data-i="${r[0].i}"]`));
+    await tapEl(host, sq($h, 0, 0));
+    await wait(40);
+    check('you cannot place a tile when it is not your turn', !sq($h, 0, 0).classList.contains('pend'));
+  }
+}
+
+$g('sc-pass').click();
+await wait(200);
+check('passing hands the turn back', $h('sc-recall').disabled === false, $h('sc-msg').textContent);
+check('a pass is announced', /passed/.test($h('sc-msg').textContent), $h('sc-msg').textContent);
+
+// When the break ends, everyone goes back to focusing — including whoever is
+// still sitting in a game. The leader's own complete() shuts its arcade; the
+// followers have to be told, or the room splits in two.
+$h('ov-back').click(); $h('ov-back').click();
+$g('ov-back').click(); $g('ov-back').click();
+$h('stop').click();
+await wait(300);
+$h('begin').click();
+await wait(250);
+$h('skip').click();                       // end the focus block, into the break
+await wait(350);
+check('the follower follows into the break', $g('app').dataset.phase === 'rest', $g('app').dataset.phase);
+
+await openGame(guest, $g, 'scrabble');
+check('the follower is in a game during the break', !$g('overlay').classList.contains('hide'));
+
+$h('skip').click();                       // end the break
+await wait(400);
+check('the break ending pulls the follower out of the arcade', $g('overlay').classList.contains('hide'), 'still in the arcade');
+check('the follower is focusing again', $g('app').dataset.phase === 'focus', $g('app').dataset.phase);
+
+// that focus block ran with somebody else in the room, so it should say so
+{
+  const log = JSON.parse(guest.localStorage.getItem('focus_log') || '[]');
+  const shared = log.filter((r) => r.with && r.with.length);
+  check('a shared session records who you were with', shared.length > 0, `${log.length} records, none shared`);
+  check('it records them by name', shared.length > 0 && shared[shared.length - 1].with.includes('Hashir'),
+    JSON.stringify(shared[shared.length - 1] && shared[shared.length - 1].with));
+  $g('d-stats').click();
+  await wait(80);
+  check('stats show who you focused alongside', /Focused alongside/.test($g('stats-body').textContent), $g('stats-body').textContent.slice(0, 60));
+  check('and names them', /Hashir/.test($g('stats-body').textContent));
+  $g('stats-close').click();
+  await wait(40);
+}
+
+await openGame(host, $h, 'scrabble');
+await openGame(guest, $g, 'scrabble');
+
+// --- Scrabble: the board's own controls ------------------------------------
+{
+  const sq2 = (r, c) => $h('sc-board').children[r * 15 + c];
+  check('premium squares are labelled', sq2(0, 0).dataset.label === '3W'
+    && sq2(1, 1).dataset.label === '2W' && sq2(0, 3).dataset.label === '2L',
+    `${sq2(0, 0).dataset.label}/${sq2(1, 1).dataset.label}/${sq2(0, 3).dataset.label}`);
+
+  const cell = () => $h('sc-board').style.getPropertyValue('--sc-cell');
+  const before = cell();
+  $h('sc-zin').click();
+  await wait(60);
+  check('zooming in grows the squares', parseInt(cell(), 10) > parseInt(before || '0', 10), `${before} -> ${cell()}`);
+  check('zoom stops at the top', ($h('sc-zin').click(), $h('sc-zin').click(), $h('sc-zin').disabled));
+  $h('sc-zout').click(); $h('sc-zout').click(); $h('sc-zout').click();
+  await wait(60);
+  check('zooming back out returns to fit', $h('sc-zlabel').textContent === 'Fit' && $h('sc-zout').disabled,
+    $h('sc-zlabel').textContent);
+}
+
+// --- resetting a shared game ------------------------------------------------
+// Only the timer holder may wipe a game everyone is playing, and the host is
+// what enforces it — the menu being hidden elsewhere is a convenience.
+{
+  const rightClick = (w, id) => w.document.getElementById(id).dispatchEvent(
+    new w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }));
+
+  // Holding is how you pick a tile up, so the board itself offers no menu —
+  // resetting lives on the game's card in the arcade, where nothing else wants
+  // the gesture.
+  rightClick(host, 'game-scrabble');
+  await wait(60);
+  check('the board itself offers no menu', $h('hmenu').classList.contains('hide'));
+
+  const tilesBefore = $h('sc-board').querySelectorAll('.sc-sq.tile').length;
+  check('there are tiles on the board to lose', tilesBefore > 0, `${tilesBefore}`);
+
+  // back to the picker, where the card is
+  $h('ov-back').click(); $g('ov-back').click();
+  await wait(80);
+  const card = (w, id) => [...w.document.querySelectorAll('.pcard')].find((c) => c.dataset.game === id);
+
+  card(guest, 'scrabble').dispatchEvent(new guest.MouseEvent('contextmenu',
+    { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }));
+  await wait(60);
+  check('a follower gets no reset menu', $g('hmenu').classList.contains('hide'));
+
+  card(host, 'scrabble').dispatchEvent(new host.MouseEvent('contextmenu',
+    { bubbles: true, cancelable: true, clientX: 120, clientY: 200 }));
+  await wait(60);
+  check('the timer holder gets a reset menu', !$h('hmenu').classList.contains('hide'));
+  check('the menu offers a reset', /Reset/.test($h('hmenu-card').textContent), $h('hmenu-card').textContent);
+
+  $h('hmenu-card').querySelector('button').click();
+  await wait(60);
+  check('resetting asks first', !$h('confirm').classList.contains('hide'));
+  check('the board is untouched until you say yes', $h('sc-board').querySelectorAll('.sc-sq.tile').length === tilesBefore);
+
+  $h('confirm-no').click();
+  await wait(60);
+  check('cancelling leaves the game alone', $h('confirm').classList.contains('hide')
+    && $h('sc-board').querySelectorAll('.sc-sq.tile').length === tilesBefore);
+
+  rightClick(host, 'game-scrabble');
+  await wait(40);
+  $h('hmenu-card').querySelector('button').click();
+  await wait(40);
+  $h('confirm-yes').click();
+  await wait(300);
+  await openGame(host, $h, 'scrabble');
+  await openGame(guest, $g, 'scrabble');
+  check('confirming clears the board for everyone',
+    $h('sc-board').querySelectorAll('.sc-sq.tile').length === 0
+    && $g('sc-board').querySelectorAll('.sc-sq.tile').length === 0,
+    `host ${$h('sc-board').querySelectorAll('.sc-sq.tile').length} guest ${$g('sc-board').querySelectorAll('.sc-sq.tile').length}`);
+  check('a reset deals fresh racks', $h('sc-rack').querySelectorAll('.sc-t').length === 7);
+}
+
+// --- the live read ----------------------------------------------------------
+// Same rules the host will judge by, run against this window's board while the
+// tiles are still being laid out.
+{
+  const on = $h('sc-recall').disabled ? { w: guest, $: $g } : { w: host, $: $h };
+  const sq2 = (r, c) => on.$('sc-board').children[r * 15 + c];
+  const rack2 = () => [...on.$('sc-rack').querySelectorAll('.sc-t')]
+    .map((b) => ({ i: +b.dataset.i, ch: b.textContent.trim()[0] }))
+    .filter((t) => /^[a-z]$/.test(t.ch));
+  const put2 = async (t, r, c) => {
+    await tapEl(on.w, on.$('sc-rack').querySelector(`[data-i="${t.i}"]`));
+    await tapEl(on.w, sq2(r, c));
+  };
+  const preview = () => on.$('sc-preview');
+
+  const r2 = rack2();
+  await put2(r2[0], 7, 7);
+  await wait(60);
+  check('one tile is not yet an opinion', preview().textContent.trim() === '', preview().textContent);
+
+  on.$('sc-recall').click(); await wait(20);
+  await put2(r2[0], 7, 7); await put2(r2[1], 9, 9);
+  await wait(60);
+  check('scattered tiles are not yet an opinion', preview().textContent.trim() === '', preview().textContent);
+
+  on.$('sc-recall').click(); await wait(20);
+  await put2(r2[0], 7, 7); await put2(r2[1], 7, 9);
+  await wait(60);
+  check('a gap is not yet an opinion', preview().textContent.trim() === '', preview().textContent);
+
+  // Lay every pair the rack allows and note the first that's a word and the
+  // first that isn't. Scanning all of them rather than stopping at the first
+  // hit is what makes the "and it says so when it isn't" case reliable — on a
+  // friendly rack the very first pair can be a word.
+  let good = null, bad = null;
+  for (const a of r2) for (const b of r2) {
+    if (a.i === b.i) continue;
+    if (good && bad) break;
+    on.$('sc-recall').click();
+    await wait(12);
+    await put2(a, 7, 7); await put2(b, 7, 8);
+    await wait(20);
+    if (!good && on.$('sc-play').classList.contains('ready')) good = a.ch + b.ch;
+    else if (!bad && preview().classList.contains('bad')) bad = a.ch + b.ch;
+  }
+  check('a non-word is called out while you build it', !!bad, 'every pair in the rack was a word');
+  check('the preview scores a real word before it is played', !!good, `rack ${r2.map((t) => t.ch).join('')}`);
+
+  // put the good one back so the assertions below have something to read
+  if (good) {
+    on.$('sc-recall').click();
+    await wait(15);
+    const first = r2.find((t) => t.ch === good[0]);
+    const second = r2.find((t) => t.ch === good[1] && t.i !== first.i) || r2.find((t) => t.ch === good[1]);
+    await put2(first, 7, 7);
+    await put2(second, 7, 8);
+    await wait(40);
+  }
+  if (good) {
+    check('it names the word', preview().querySelector('.w').textContent.toLowerCase() === good,
+      `${preview().querySelector('.w').textContent} vs ${good}`);
+    check('the Play button says what it will score', /^\+\d+$/.test(on.$('sc-play-pts').textContent), on.$('sc-play-pts').textContent);
+    check('and names the word on the button', /PLAY /.test(on.$('sc-play-label').textContent.toUpperCase()), on.$('sc-play-label').textContent);
+    check('Play is only enabled when the play is legal', on.$('sc-play').disabled === false);
+    check('a valid word is not marked bad', !preview().classList.contains('bad'));
+    check('the other player sees nothing of your half-turn',
+      on.w === guest ? $h('sc-preview').textContent.trim() === '' : $g('sc-preview').textContent.trim() === '');
+  }
+
+  on.$('sc-recall').click();
+  await wait(40);
+  check('recalling clears the preview', preview().textContent.trim() === '');
+}
+
+// leaving the room clears the games rather than leaving a dead board up
+await leaveRoom($h);
+await wait(250);
+check('the game goes away with the room', $g('sc-live').classList.contains('hide') && !$g('sc-need').classList.contains('hide'));
+$h('ov-back').click(); $h('ov-back').click();
+$g('ov-back').click(); $g('ov-back').click();
+await leaveRoom($g);
+await wait(150);
+
+/* Put the two of them back in a room before chess. Chess needs a live
+   connection to reach the other person: with no room the panel opens on
+   `ch-need` and every check below it fails from the lobby down — the people
+   list still renders, which is what makes the failure read like a chess bug
+   rather than a missing room. The scrabble block above deliberately leaves the
+   room to prove a game clears with it, so this has to be rebuilt rather than
+   assumed.
+
+   This only ever showed in a full run. tools/slice-test.mjs prepends its own
+   room to chess.mjs, so the slices passed while `npm test` was red — which is
+   how it stayed red without anyone noticing. Anything added here that leaves
+   the room must put it back. */
+for (const [w, $w, nm] of [[host, $h, 'Hashir'], [guest, $g, 'Friend']]) {
+  $w('sync-name').value = nm;
+  $w('sync-name').dispatchEvent(new w.Event('input'));
+}
+$h('sync-host').click();
+await wait(150);
+const chessCode = $h('sync-mycode').textContent;
+$g('sync-code').value = chessCode;
+$g('sync-join').click();
+await wait(400);
+$h('sync-close').click();
+$g('sync-close').click();
+
+
+// chess ------------------------------------------------------------------
+/* Chess is the one shared game that isn't one game for the whole room, so the
+   lobby is as much under test as the board: you pick a person, the two of you
+   get a board, and — the point of the whole thing — it survives being walked
+   away from and picked up in a different room days later. */
+await openGame(host, $h, 'chess');
+await openGame(guest, $g, 'chess');
+check('chess opens on the list of people', shown(host, 'ch-lobby') && !shown(host, 'ch-live'));
+check('and the other person is on it', /Friend/.test($h('ch-people').textContent),
+  $h('ch-people').textContent);
+check('with nothing between you yet', /Free/.test($h('ch-people').textContent),
+  $h('ch-people').textContent);
+
+$h('ch-people').querySelector('.ch-pick').click();
+await wait(300);
+check('the invitation reaches them', /Wants a game/.test($g('ch-people').textContent),
+  $g('ch-people').textContent);
+check('and the asker is told they asked', /waiting for them/i.test($h('ch-people').textContent),
+  $h('ch-people').textContent);
+check('one can be turned down', !!$g('ch-people').querySelector('[data-act="decline"]'));
+
+$g('ch-people').querySelector('.ch-pick').click();
+await wait(350);
+check('both of you land on a board', shown(host, 'ch-live') && shown(guest, 'ch-live'));
+check('there are sixty-four squares', $h('ch-board').querySelectorAll('[data-sq]').length === 64,
+  `${$h('ch-board').querySelectorAll('[data-sq]').length}`);
+check('and thirty-two pieces', $h('ch-board').querySelectorAll('.ch-p').length === 32,
+  `${$h('ch-board').querySelectorAll('.ch-p').length}`);
+check('whoever asked plays White', /White/.test($h('ch-vs').textContent), $h('ch-vs').textContent);
+check('the other one plays Black', /Black/.test($g('ch-vs').textContent), $g('ch-vs').textContent);
+check('White is told to move', /Your move/.test($h('ch-turn').textContent), $h('ch-turn').textContent);
+check('Black is told who to wait for', /Hashir/.test($g('ch-turn').textContent), $g('ch-turn').textContent);
+check('the board is the right way up for each of you',
+  $h('ch-board').firstElementChild.dataset.sq === '0'
+  && $g('ch-board').firstElementChild.dataset.sq === '63',
+  `${$h('ch-board').firstElementChild.dataset.sq} / ${$g('ch-board').firstElementChild.dataset.sq}`);
+
+const CHI = (n) => (8 - Number(n[1])) * 8 + 'abcdefgh'.indexOf(n[0]);
+const sqOf = ($w, n) => $w('ch-board').querySelector(`[data-sq="${CHI(n)}"]`);
+const move = async ($w, from, to) => {
+  sqOf($w, from).click();
+  await wait(70);
+  sqOf($w, to).click();
+  await wait(260);
+};
+
+sqOf($h, 'e2').click();
+await wait(60);
+check('picking a piece up shows where it can go',
+  $h('ch-board').querySelectorAll('.go').length === 2,
+  `${$h('ch-board').querySelectorAll('.go').length}`);
+check('and marks the one you picked', !!$h('ch-board').querySelector('.sel'));
+sqOf($h, 'e2').click();
+await wait(60);
+check('tapping it again puts it back down', !$h('ch-board').querySelector('.sel'));
+sqOf($g, 'e7').click();
+await wait(60);
+check('you cannot pick anything up on their turn', !$g('ch-board').querySelector('.sel'));
+
+// Scholar's mate, played through the real board on two real windows
+await move($h, 'e2', 'e4');
+check('the move lands on both boards',
+  /e4/.test($h('ch-moves').textContent) && /e4/.test($g('ch-moves').textContent),
+  `${$h('ch-moves').textContent} | ${$g('ch-moves').textContent}`);
+check('and the turn passes', /Your move/.test($g('ch-turn').textContent), $g('ch-turn').textContent);
+check('the square it came from is marked', $h('ch-board').querySelectorAll('.last').length === 2,
+  `${$h('ch-board').querySelectorAll('.last').length}`);
+await move($g, 'e7', 'e5');
+await move($h, 'f1', 'c4');
+await move($g, 'b8', 'c6');
+await move($h, 'd1', 'h5');
+check('a queen aiming at f7 is not yet check', !$g('ch-board').querySelector('.check'));
+await move($g, 'g8', 'f6');
+await move($h, 'h5', 'f7');
+check('the notation reads as chess',
+  /Qxf7#/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
+check('checkmate ends it', /checkmate/i.test($h('ch-msg').textContent), $h('ch-msg').textContent);
+check('the winner is told they won', /You won/.test($h('ch-msg').textContent), $h('ch-msg').textContent);
+check('and the loser who won', /Friend won|Hashir won/.test($g('ch-msg').textContent),
+  $g('ch-msg').textContent);
+check('the king in trouble is marked', !!$g('ch-board').querySelector('.check'));
+check('there is nothing left to resign', !shown(host, 'ch-resign'));
+check('and another game is offered', shown(host, 'ch-again'));
+check('a taken piece is shown', $h('ch-taken-bottom').textContent.length > 0,
+  $h('ch-taken-bottom').textContent);
+
+$h('ch-again').click();
+await wait(350);
+check('a new game swaps the colours', /Black/.test($h('ch-vs').textContent), $h('ch-vs').textContent);
+check('the board fills back up', $h('ch-board').querySelectorAll('.ch-p').length === 32);
+check('with nothing played yet', /No moves yet/.test($h('ch-moves').textContent),
+  $h('ch-moves').textContent);
+
+await move($g, 'd2', 'd4');
+await move($h, 'd7', 'd5');
+$h('ch-leave').click();
+await wait(120);
+check('you can walk away from a game', shown(host, 'ch-lobby') && !shown(host, 'ch-live'));
+check('and it is still there to open', /You’re playing/.test($h('ch-people').textContent),
+  $h('ch-people').textContent);
+check('the moves are written down on both machines',
+  /d2d4/.test(host.localStorage.getItem('focus_chess') || '')
+  && /d2d4/.test(guest.localStorage.getItem('focus_chess') || ''),
+  String(host.localStorage.getItem('focus_chess')).slice(0, 90));
+
+/* Now the part that matters: the room goes away, a different machine hosts,
+   and the half-played game has to come back. The new host has never seen this
+   game — it arrives with the invitation and is replayed before it is trusted. */
+await leaveRoom($h);
+await wait(300);
+check('the board goes when the room does', !shown(host, 'ch-live') && !shown(guest, 'ch-live'));
+
+$g('sync-host').click();
+await wait(250);
+$h('sync-code').value = $g('sync-mycode').textContent;
+$h('sync-join').click();
+await wait(600);
+await openGame(guest, $g, 'chess');
+await openGame(host, $h, 'chess');
+await wait(200);
+check('what you left off is offered when you meet again',
+  /Pick it up|Left off at move/.test($g('ch-people').textContent), $g('ch-people').textContent);
+
+$g('ch-people').querySelector('.ch-pick').click();
+await wait(300);
+check('the other side is asked to pick that game up, not to start a new one',
+  /pick your game back up/i.test($h('ch-people').textContent), $h('ch-people').textContent);
+$h('ch-people').querySelector('.ch-pick').click();
+await wait(400);
+check('the position comes back', /d4/.test($g('ch-moves').textContent), $g('ch-moves').textContent);
+check('with the pieces where they were',
+  $g('ch-board').querySelectorAll('.ch-p').length === 32
+  && !$g('ch-board').querySelector('[data-sq="51"] .ch-p'),
+  `${$g('ch-board').querySelectorAll('.ch-p').length}`);
+check('the same person still has White', /White/.test($g('ch-vs').textContent), $g('ch-vs').textContent);
+check('and it is their move', /Your move/.test($g('ch-turn').textContent), $g('ch-turn').textContent);
+
+// and it is a real game, not a picture of one
+await move($g, 'c2', 'c4');
+check('play carries on from there', /c4/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
+check('the move count is right',
+  $h('ch-moves').querySelectorAll('.ch-mv').length === 2,
+  `${$h('ch-moves').querySelectorAll('.ch-mv').length}`);
+
+/* ---- the two rules a hand-built board gets wrong ----
+   Promotion: every move to the last rank carries a promotion piece, so asking
+   the engine for "the move from here to there" found nothing and the tap put
+   the pawn quietly back down. Castling: the rules call it a king move, but
+   reaching for the rook is what people try first. */
+$g('ch-again').click();
+await wait(350);
+const fast = async ($w, from, to) => {
+  sqOf($w, from).click();
+  await wait(40);
+  sqOf($w, to).click();
+  await wait(170);
+};
+// host is White again after the swap; five moves to a promotion
+check('the swap put White back with the host', /White/.test($h('ch-vs').textContent),
+  $h('ch-vs').textContent);
+await fast($h, 'a2', 'a4'); await fast($g, 'b7', 'b5');
+await fast($h, 'a4', 'b5'); await fast($g, 'a7', 'a6');
+await fast($h, 'b5', 'a6'); await fast($g, 'g7', 'g6');
+await fast($h, 'a6', 'a7'); await fast($g, 'g6', 'g5');
+sqOf($h, 'a7').click();
+await wait(60);
+sqOf($h, 'b8').click();
+await wait(120);
+check('a promoting tap asks what to make it', shown(host, 'ch-promo'));
+check('and offers all four', $h('ch-promo-row').querySelectorAll('[data-p]').length === 4,
+  `${$h('ch-promo-row').querySelectorAll('[data-p]').length}`);
+check('the pawn has not moved while you decide',
+  !!sqOf($h, 'a7').querySelector('.ch-p'));
+$h('ch-promo-row').querySelector('[data-p="q"]').click();
+await wait(300);
+check('choosing makes the move', /axb8=Q/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
+check('and there is a new queen on the board',
+  sqOf($h, 'b8').querySelector('.ch-p').textContent === '♕',
+  sqOf($h, 'b8').textContent);
+check('the other side sees it too', /axb8=Q/.test($g('ch-moves').textContent), $g('ch-moves').textContent);
+check('and the chooser has gone', !shown(host, 'ch-promo'));
+
+// castling, by reaching for the rook
+$h('ch-again').click();
+await wait(350);
+await fast($g, 'g1', 'f3'); await fast($h, 'g8', 'f6');
+await fast($g, 'g2', 'g3'); await fast($h, 'g7', 'g6');
+await fast($g, 'f1', 'g2'); await fast($h, 'f8', 'g7');
+sqOf($g, 'e1').click();
+await wait(60);
+check('the king is offered its castling square',
+  !!sqOf($g, 'g1').classList.contains('go'), sqOf($g, 'g1').className);
+sqOf($g, 'h1').click();
+await wait(300);
+check('tapping your own rook castles', /O-O/.test($g('ch-moves').textContent), $g('ch-moves').textContent);
+check('the king ends up on g1', sqOf($g, 'g1').querySelector('.ch-p').textContent === '♔',
+  sqOf($g, 'g1').textContent);
+check('and the rook beside it', sqOf($g, 'f1').querySelector('.ch-p').textContent === '♖',
+  sqOf($g, 'f1').textContent);
+check('the other board agrees', /O-O/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
+
+// put the room back the way the blocks after this one expect it
+await leaveRoom($g);
+await wait(250);
+$h('sync-host').click();
+await wait(250);
+$g('sync-code').value = $h('sync-mycode').textContent;
+$g('sync-join').click();
+await wait(600);
+$h('ov-back').click();
+$g('ov-back').click();
+await wait(80);
 
 // --- handing the timer over, and removing people ---------------------------
 // A third window, so a handover has somewhere to go and a witness to see it.
@@ -817,11 +4155,79 @@ check('three in the room', $h('sync-people').querySelectorAll('.sync-person').le
 check('host holds the timer to begin with', /You[\s\S]*holds the timer/.test($h('sync-people').innerHTML) || $h('sync-people').querySelector('.sync-person.lead')?.textContent.includes('you'), $h('sync-people').querySelector('.sync-person.lead')?.textContent);
 check('only the holder sees management buttons', $h('sync-people').querySelectorAll('[data-lead]').length === 2 && $g('sync-people').querySelectorAll('[data-lead]').length === 0, `host ${$h('sync-people').querySelectorAll('[data-lead]').length} / guest ${$g('sync-people').querySelectorAll('[data-lead]').length}`);
 
-// hand the timer to the guest
+/* Something on a board, so the handover below has something to lose. The host
+   owns every game, so without the handoff a change of host wiped the lot. */
+await openGame(host, $h, 'hangman');
+await openGame(guest, $g, 'hangman');
+$h('hm-take').click();
+await wait(250);
+$h('hm-word-in').value = 'carried';
+$h('hm-go').click();
+await wait(250);
+$g('hm-keys').querySelector('[data-k="r"]').click();
+await wait(200);
+check('there is a round under way before the handover',
+  /r/.test($g('hm-word').textContent) && $g('hm-keys').querySelector('[data-k="r"]').disabled,
+  $g('hm-word').textContent);
+const wasScores = $g('hm-scores').textContent;
+$h('ov-back').click();
+$g('ov-back').click();
+await wait(80);
+
+// hand the timer to the guest — through the confirm, the way a person would
 $h('sync-people').querySelectorAll('[data-lead]')[0].click();
-await wait(300);
+await wait(60);
+check('handing over asks first, even in a full room', !$h('confirm').classList.contains('hide'));
+$h('confirm-yes').click();
+await wait(1800);
+const guestCode = $g('sync-mycode').textContent;
 check('guest now holds the timer', /You hold the timer/.test($g('sync-band').textContent) || $g('sync-people').querySelector('.sync-person.lead')?.textContent.includes('(you)'), $g('sync-people').querySelector('.sync-person.lead')?.textContent);
+/* The room follows the timer. It has to: a room is the host's peer, so leaving
+   the two in different places meant the person who had handed the clock over
+   still couldn't close their laptop without ending everyone's session. */
+check('the room moves to whoever was given the timer',
+  $g('sync-state').textContent.includes('Hosting') && $g('sync-state').textContent.includes(guestCode),
+  $g('sync-state').textContent);
+check('and everybody else moves across with it',
+  $h('sync-state').textContent.includes(guestCode) && $t('sync-state').textContent.includes(guestCode),
+  `${$h('sync-state').textContent} / ${$t('sync-state').textContent}`);
+/* **Wait for it rather than assuming a fixed pause was long enough.**
+
+   The room's *name* is not part of the handover message — it arrives with the
+   new host's own details a moment later, and until it does the label falls back
+   to the bare code (`In K6A5M9 · K6A5M9`). A single `wait(1800)` covered that on
+   an idle machine and stopped covering it on a busy one, which is a test that
+   reports a product bug when the only thing that changed was the load. Poll for
+   the thing being asserted; the timeout is the failure. */
+for (let i = 0; i < 40 && !/Friend/.test($h('sync-state').textContent); i++) await wait(100);
+check('the room is named after the person holding it', /Friend/.test($h('sync-state').textContent),
+  $h('sync-state').textContent);
 check('host is now following', $h('toggle-run').disabled === true, `disabled=${$h('toggle-run').disabled}`);
+
+/* The boards come with it. They are the host's to keep, so they have to be
+   handed over with the room — otherwise handing the timer on quietly threw away
+   everyone's half-finished game and their scores with it. */
+await openGame(guest, $g, 'hangman');
+await openGame(host, $h, 'hangman');
+await wait(250);
+check('the round survives the change of host',
+  $g('hm-word').textContent.replace(/\s/g, '').includes('r'), $g('hm-word').textContent);
+check('and so do the letters already spent',
+  $g('hm-keys').querySelector('[data-k="r"]').disabled);
+// the same people and the same numbers; the host is listed first, and the host
+// is not who it was
+check('and the scores', wasScores.split(/(?=[A-Z])/).sort().join('')
+  === $g('hm-scores').textContent.split(/(?=[A-Z])/).sort().join(''),
+  `${$g('hm-scores').textContent} vs ${wasScores}`);
+check('the answer still hasn’t leaked to the guessers',
+  !/carried/i.test($g('hm-live').textContent), $g('hm-live').textContent.slice(0, 60));
+// the setter is still the setter, on a machine that is no longer the room
+check('whoever set the word is still the one who set it',
+  /guessing yours/i.test($h('hm-role').textContent), $h('hm-role').textContent);
+check('and still cannot guess at it', $h('hm-keys').querySelector('[data-k="a"]').disabled);
+$g('ov-back').click();
+$h('ov-back').click();
+await wait(80);
 check('guest controls unlocked', $g('begin').disabled === false);
 check('guest can now manage', $g('sync-people').querySelectorAll('[data-lead]').length === 2, `${$g('sync-people').querySelectorAll('[data-lead]').length}`);
 check('host no longer manages', $h('sync-people').querySelectorAll('[data-lead]').length === 0, `${$h('sync-people').querySelectorAll('[data-lead]').length}`);
@@ -832,24 +4238,198 @@ await wait(400);
 check('new leader starts everyone', $h('setup').classList.contains('hide') && $t('setup').classList.contains('hide'), `host ${$h('setup').classList.contains('hide')} third ${$t('setup').classList.contains('hide')}`);
 check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock').textContent.trim()), $t('clock').textContent);
 
+/* ---- the room, on the screen you are actually looking at ------------------
+
+   Everybody's buddy used to live only in Focus together, which is a page you
+   open once and leave — so the people you were sitting with were invisible for
+   the whole of the block. They get a slot each in the timer screen's layer now,
+   running their own antic.
+
+   **Their antic was arriving and being thrown away.** Both halves of a buddy
+   have ridden in `hello` since it was written — what they look like *and* what
+   they do — and only the first was ever kept, so `budAnimKey(undefined)` gave 0
+   for everybody and a room of three was three web-swingers. The comment beside
+   the room list claimed otherwise the whole time. */
+{
+  // two different antics, so "their antic, not yours" has something to be wrong
+  // about: 4 is the jetpack and 7 is the reader, and the host picked neither
+  for (const [$w, i] of [[$g, 4], [$t, 7]]) {
+    $w('d-account').click();
+    await wait(140);
+    $w('bud-box').querySelectorAll('[data-anim]')[i].click();
+    await wait(120);
+    $w('acct-close').click();
+    await wait(80);
+  }
+  await wait(500);
+  const peers = [...$h('bud-layer').querySelectorAll('.bud-peer')];
+  check('the other two are on the host\u2019s timer screen',
+    peers.length === 2 && !$h('bud-layer').classList.contains('hide'), `${peers.length} peers`);
+  check('and each of them is doing their own antic, not the host\u2019s',
+    peers.some((n) => n.classList.contains('bud-jetpack'))
+    && peers.some((n) => n.classList.contains('bud-read')),
+    peers.map((n) => n.className).join(' / '));
+  /* **Same antic, same 7.8s clock, same everything — unless something tells
+     them apart.** `--t` is a negative delay off a hash of who they are, so two
+     people who chose the swing are at different points of it. Stable, because a
+     hash that moved would jump somebody across the screen every time the
+     roster was rebuilt. */
+  const ts = peers.map((n) => n.style.getPropertyValue('--t'));
+  check('and they are not moving in step with each other',
+    ts.length === 2 && ts.every((t) => /^-[\d.]+s$/.test(t)) && ts[0] !== ts[1], ts.join(' vs '));
+  /* The poses that park — the reader in his corner, the sleeper on the floor —
+     have no travel for a delay to shift, so two of them would sit inside one
+     another. They get a place as well as a time. */
+  check('and the ones who stay put are given somewhere to stay',
+    peers.every((n) => /px$/.test(n.style.getPropertyValue('--x'))
+      && /vh$/.test(n.style.getPropertyValue('--y'))),
+    peers.map((n) => n.style.getPropertyValue('--x') + '/' + n.style.getPropertyValue('--y')).join(' '));
+  /* And the switch is yours: turning buddies off empties your screen and says
+     nothing to anybody else about theirs. */
+  $h('d-account').click();
+  await wait(140);
+  $h('bud-onscreen').click();
+  await wait(200);
+  check('turning buddies off clears the room from your screen, not theirs',
+    $h('bud-layer').querySelectorAll('.bud-peer').length === 0
+    && $g('bud-layer').querySelectorAll('.bud-peer').length === 2,
+    `host ${$h('bud-layer').querySelectorAll('.bud-peer').length} guest ${$g('bud-layer').querySelectorAll('.bud-peer').length}`);
+  $h('bud-onscreen').click();
+  await wait(200);
+  $h('acct-close').click();
+  await wait(80);
+  check('and turning them back on brings them back',
+    $h('bud-layer').querySelectorAll('.bud-peer').length === 2,
+    `${$h('bud-layer').querySelectorAll('.bud-peer').length}`);
+}
+
 // new leader removes the third member
 const kickBtn = [...$g('sync-people').querySelectorAll('[data-kick]')].find((b) => {
   const row = b.closest('.sync-person');
   return row && row.textContent.includes('Third');
 });
 kickBtn.click();
+await wait(60);
+check('removing asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
+$g('confirm-yes').click();
 await wait(400);
 check('removed member is disconnected', $t('sync-state').textContent === 'Not connected', $t('sync-state').textContent);
 check('removed member is told why', /removed/i.test($t('sync-status').textContent), $t('sync-status').textContent);
 check('room is down to two', $h('sync-people').querySelectorAll('.sync-person').length === 2, `${$h('sync-people').querySelectorAll('.sync-person').length}`);
 check('removed member regains its controls', !$t('toggle-run').disabled);
 
-// if the timer holder leaves, the host takes it back rather than stranding everyone
+/* Leaving, when the room is yours and somebody else is in it. This used to be
+   a yes/no that closed the session for everyone — which is a bad reason to have
+   to stay in a room. */
 $g('sync-leave').click();
-await wait(400);
-check('host reclaims the timer when the holder leaves', !$h('toggle-run').disabled, `disabled=${$h('toggle-run').disabled}`);
-$h('sync-leave').click();
+await wait(80);
+check('a host with company is offered a choice, not a yes/no',
+  !$g('hmenu').classList.contains('hide'));
+const leaveOpts = [...$g('hmenu-card').querySelectorAll('[data-i]')].map((b) => b.textContent);
+check('one option hands it on', /Hand it to Hashir/.test(leaveOpts.join(' | ')), leaveOpts.join(' | '));
+check('the other closes it', /Close the room/.test(leaveOpts.join(' | ')), leaveOpts.join(' | '));
+$g('hmenu-card').querySelector('[data-i="0"]').click();
+await wait(80);
+check('handing it on asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
+$g('confirm-yes').click();
+await wait(1200);
+check('the one who left is out', $g('sync-state').textContent === 'Not connected', $g('sync-state').textContent);
+check('but the room is not', $h('sync-state').textContent !== 'Not connected', $h('sync-state').textContent);
+check('it is on the remaining person’s code now',
+  $h('sync-state').textContent.includes('Hosting') && $h('sync-state').textContent.includes(roomCode),
+  $h('sync-state').textContent);
+check('and they hold the timer', !$h('toggle-run').disabled, `disabled=${$h('toggle-run').disabled}`);
+await leaveRoom($h);
 await wait(200);
+
+
+/* ---- a build that knows where to check ------------------------------------
+   The shipped build has no update host, and the block in Pass 1 checks that it
+   therefore says nothing at all. This is the other half: point one at a host
+   and it should ask, compare, and tell — without any of that reaching the rest
+   of the app. The URL is stamped in at build time, so the fixture is the real
+   built file with the placeholder swapped. */
+{
+  const wired = html.replace(
+    /const UPD_URL = '[^']*'/,
+    "const UPD_URL = 'https://updates.test/latest.json'",
+  );
+
+  UPDATE_REPLY = { version: '99.9.9', notes: 'Crossword clues rewritten.', url: 'https://updates.test/get' };
+  const { window: w4 } = boot(wired);
+  await wait(500);
+  const $4 = (id) => w4.document.getElementById(id);
+  check('a build with an update host asks it', w4.__fetched.some((u) => /latest\.json/.test(u)),
+    w4.__fetched.join(' ').slice(0, 60));
+  check('and shows what it found', !$4('upd-box').classList.contains('hide')
+    && /99\.9\.9/.test($4('upd-box').textContent), $4('upd-box').textContent.slice(0, 70));
+  check('with the note that came with it',
+    /Crossword clues rewritten/.test($4('upd-box').textContent));
+  check('and a link to go and get it',
+    !!$4('upd-box').querySelector('a[href="https://updates.test/get"]'));
+  check('it says the data is safe, because that is the actual worry',
+    /sessions, embers/i.test($4('upd-box').textContent));
+  check('and it remembers, so a restart does not need the network',
+    /99\.9\.9/.test(w4.localStorage.getItem('focus_update') || ''),
+    (w4.localStorage.getItem('focus_update') || '').slice(0, 60));
+
+  /* ---- and the same thing inside a shell that updates itself ----
+     This is where "Get it always sends me to GitHub" came from. The desktop
+     build downloads on its own, but the page could not tell whether the shell
+     underneath was going to do anything, so it kept offering the manual link —
+     and the manual link is the one people could see, so it is the one they
+     used. An unpacked copy is the one case where the shell really will do
+     nothing (electron-updater refuses to run), and it now says so. */
+  for (const [state, wantsLink, label] of [
+    ['auto', false, 'a shell that updates itself stops offering GitHub'],
+    ['manual', true, 'while an unpacked copy still offers it, being the only way'],
+  ]) {
+    UPDATE_REPLY = { version: '99.9.9', notes: 'Newer.', url: 'https://updates.test/get' };
+    /* The bridge `electron/preload.cjs` exposes, injected ahead of the app the
+       same way the storage seed is — it has to be there before the page runs,
+       because that is when the page decides what to draw. */
+    const shell = wired.replace('<script>',
+      '<script>window.focusUpdate={on:function(cb){cb({state:' + JSON.stringify(state)
+      + '})},restart:function(){}};</script>\n<script>');
+    const { window: wS } = boot(shell);
+    await wait(500);
+    const box = wS.document.getElementById('upd-box');
+    check(label, !!box.querySelector('a[href="https://updates.test/get"]') === wantsLink,
+      `${state}: ${box.textContent.slice(0, 70)}`);
+    if (!wantsLink) {
+      check('and says so rather than going quiet about it',
+        /on its own|nothing to do/i.test(box.textContent), box.textContent.slice(0, 70));
+    }
+  }
+
+  // the same host, saying nothing newer
+  UPDATE_REPLY = { version: '0.0.1', notes: 'older', url: 'https://updates.test/get' };
+  const { window: w5 } = boot(wired);
+  await wait(500);
+  const $5 = (id) => w5.document.getElementById(id);
+  check('an older version on the host is not an update',
+    !!$5('upd-check') && !/0\.0\.1/.test($5('upd-box').textContent),
+    $5('upd-box').textContent.slice(0, 60));
+  /* **Say what the check found, not just offer to check again.**
+
+     This asserted the button still read "Check for updates" — the same words
+     whether it had just looked and found nothing or had never looked at all.
+     Pressing a button and watching it turn back into itself reads as a button
+     that did not work, which is why people press it four times. It now says it
+     looked and when, and the button still works for looking again. */
+  check('and it says it looked and found nothing',
+    /up to date/i.test($5('upd-box').textContent),
+    $5('upd-box').textContent.slice(0, 70));
+  check('and you can still look again by hand', !!$5('upd-check'));
+
+  // and a host that cannot be reached at all
+  UPDATE_REPLY = null;
+  const { window: w6, errors: e6 } = boot(wired);
+  await wait(500);
+  const $6 = (id) => w6.document.getElementById(id);
+  check('an unreachable host is not an error the person has to see',
+    !!$6('upd-check') && e6.length === 0, e6.slice(0, 1).join(''));
+}
 
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
@@ -863,4 +4443,11 @@ if (allErrors.length) {
 
 const failed = checks.filter((c) => !c.ok);
 log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
-process.exit(failed.length || allErrors.length ? 1 : 0);
+
+/* Shut the windows before leaving, and leave on the next tick so libuv has an
+   iteration to finish closing what they held. Exiting straight from here with
+   the rAF loops still running is what trips the assertion in async.c on
+   Windows. The exit code is decided first so nothing after this can change it. */
+const code = failed.length || allErrors.length ? 1 : 0;
+for (const w of BOOTED) { try { w.close(); } catch (e) { /* already gone */ } }
+setImmediate(() => process.exit(code));

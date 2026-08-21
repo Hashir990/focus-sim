@@ -10,6 +10,13 @@
   cursor:pointer; transition:.18s ease;
 }
 .amb-btn:hover{ color:var(--text) }
+/* Locked, with what it costs where the name's second line would be. Dashed,
+   like an unbought light — the shelf and the picker say the same thing. */
+.amb-btn.locked{ border-style:dashed; opacity:.7 }
+.amb-btn.locked::after{
+  content:attr(data-cost); display:block; margin-top:2px;
+  font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent);
+}
 .amb-btn.on{
   background:var(--accent); border-color:var(--accent);
   color:#08111a; font-weight:600;
@@ -37,34 +44,8 @@
   background:var(--accent); box-shadow:0 0 0 4px var(--glow); cursor:pointer;
 }
 
-/* ---- a palette to match each sound ----
-   These sit after the [data-phase] rules in 00-tokens-base.css, so when an
-   ambience is chosen it takes over the timer's focus/rest colours. Choose "Off"
-   and the original phase palettes come straight back. */
-[data-amb="rain"]{
-  --bg:#0a121a; --bg2:#16293c;
-  --accent:#7fb2d9; --glow:rgba(127,178,217,.28);
-  --text:#e6eef6; --muted:#7d94a8;
-}
-[data-amb="forest"]{
-  --bg:#08150f; --bg2:#123021;
-  --accent:#7fc98a; --glow:rgba(127,201,138,.28);
-  --text:#e8f4e9; --muted:#7c9c84;
-}
-[data-amb="cafe"]{
-  --bg:#17100a; --bg2:#301f13;
-  --accent:#d9a774; --glow:rgba(217,167,116,.28);
-  --text:#f5ece1; --muted:#a68e77;
-}
-[data-amb="office"]{
-  --bg:#0d1116; --bg2:#1e2732;
-  --accent:#9fb4cc; --glow:rgba(159,180,204,.26);
-  --text:#e8edf3; --muted:#8593a3;
-}
-[data-amb="campfire"]{
-  --bg:#170d08; --bg2:#35190d;
-  --accent:#f0a05a; --glow:rgba(240,160,90,.30);
-  --text:#f8ebe0; --muted:#a8846b;
-}
+/* The palettes that go with each track live in 30-embers.css now, alongside the
+   lights' — they are the same kind of thing, they cover the same screens, and
+   two files setting the same variables is how they drift apart. */
 
 /* the overlays keep their own identity — see 18-menu-colors.css */

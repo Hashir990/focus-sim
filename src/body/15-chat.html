@@ -1,0 +1,38 @@
+<!-- An ember arriving says so, once, near the counter it lands in. -->
+<div class="emb-gain hide" id="emb-gain"></div>
+
+<!-- A message arriving announces itself once and gets out of the way. -->
+<button class="chat-pop hide" id="chat-pop">
+  <span class="cp-who" id="chat-pop-who"></span>
+  <span class="cp-text" id="chat-pop-text"></span>
+</button>
+
+<!-- ============ CHAT ============
+     A sheet rather than a screen: it slides over whatever you were doing —
+     timer, arcade, either game — so talking never costs you your place. -->
+
+<div class="chat hide" id="chat">
+  <div class="chat-sheet">
+    <div class="chat-head">
+      <div>
+        <h3>Messages</h3>
+        <p id="chat-who">—</p>
+      </div>
+      <button class="chat-x" id="chat-close" aria-label="Close messages">×</button>
+    </div>
+
+    <div class="chat-tabs" id="chat-tabs"></div>
+
+    <div class="chat-log" id="chat-log"></div>
+
+    <div class="chat-quick" id="chat-quick"></div>
+
+    <form class="chat-bar" id="chat-form">
+      <input id="chat-input" type="text" maxlength="300" autocomplete="off"
+             placeholder="Say something…" />
+      <button class="chat-send" id="chat-send" aria-label="Send">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"></path></svg>
+      </button>
+    </form>
+  </div>
+</div>

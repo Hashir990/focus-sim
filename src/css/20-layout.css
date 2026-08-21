@@ -5,11 +5,25 @@
    Sizes use vh as well as vw, because a desktop window is usually wide but short —
    that's what made this feel wrong on other machines. */
 
-/* ---- smooth, unobtrusive scrolling ---- */
-   Note: scrolling is scoped to #setup, NOT .view. Putting overflow on .view made
-   #timer a scroll container, which clipped the dial's drop-shadow glow. */
+/* ---- smooth, unobtrusive scrolling ----
+   The timer screen has to scroll — on the rest screen a note box and the arcade
+   button appear below the dial, and on a short window that button went off the
+   bottom with no way to reach it.
+
+   **The scroll container is `.app`** — the full-screen shell — and that is the
+   end of the dial-glow problem. A scroll box clips at its own padding box, so
+   whichever box scrolls is the one that crops the glow; moving it from `#timer`
+   to `.stage` just moved the crop from one rectangle to a slightly larger one.
+   `.app` is the size of the window, so the only edge left to clip against is the
+   edge of the screen — which is not a crop, it is the end of the display.
+
+   `.stage` therefore stops being a fixed-height box and becomes a minimum: it
+   grows with its content, and `.app` scrolls when the content is taller than
+   the window. */
 html{ scroll-behavior:smooth }
-#setup, .ov-body, .drawer, .task-live, .q-list, .cal-detail, .drop-body{
+/* `#setup` is not in this list: it is not a scroll container at all. See the
+   note beside it in 13-drawer.css. */
+.app, .ov-body, .drawer, .task-live, .q-list, .cal-detail{
   overflow-y:auto;
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
@@ -17,35 +31,38 @@ html{ scroll-behavior:smooth }
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb, var(--muted) 45%, transparent) transparent;
 }
-#setup::-webkit-scrollbar, .ov-body::-webkit-scrollbar, .drawer::-webkit-scrollbar,
-.task-live::-webkit-scrollbar, .q-list::-webkit-scrollbar, .drop-body::-webkit-scrollbar{
+.app::-webkit-scrollbar, .ov-body::-webkit-scrollbar, .drawer::-webkit-scrollbar,
+.task-live::-webkit-scrollbar, .q-list::-webkit-scrollbar{
   width:9px;
 }
-#setup::-webkit-scrollbar-track, .ov-body::-webkit-scrollbar-track,
+.app::-webkit-scrollbar-track, .ov-body::-webkit-scrollbar-track,
 .drawer::-webkit-scrollbar-track, .task-live::-webkit-scrollbar-track,
-.q-list::-webkit-scrollbar-track, .drop-body::-webkit-scrollbar-track{ background:transparent }
-#setup::-webkit-scrollbar-thumb, .ov-body::-webkit-scrollbar-thumb,
+.q-list::-webkit-scrollbar-track{ background:transparent }
+.app::-webkit-scrollbar-thumb, .ov-body::-webkit-scrollbar-thumb,
 .drawer::-webkit-scrollbar-thumb, .task-live::-webkit-scrollbar-thumb,
-.q-list::-webkit-scrollbar-thumb, .drop-body::-webkit-scrollbar-thumb{
+.q-list::-webkit-scrollbar-thumb{
   background:color-mix(in srgb, var(--muted) 40%, transparent);
   border-radius:99px;
   border:2px solid transparent;
   background-clip:content-box;
 }
-#setup:hover::-webkit-scrollbar-thumb, .ov-body:hover::-webkit-scrollbar-thumb{
+.ov-body:hover::-webkit-scrollbar-thumb{
   background:color-mix(in srgb, var(--muted) 70%, transparent);
   background-clip:content-box;
 }
 @media (prefers-reduced-motion: reduce){
-  html, #setup, .ov-body, .drawer{ scroll-behavior:auto }
+  html, .ov-body, .drawer{ scroll-behavior:auto }
 }
 
 /* ---- the shell: don't stretch on big monitors ---- */
 .stage{
+  --stage-pad:clamp(14px, 4vw, 24px);
   max-width:min(96vw, 440px);
-  height:min(100%, 940px);
-  padding-left:clamp(14px, 4vw, 24px);
-  padding-right:clamp(14px, 4vw, 24px);
+  /* a minimum rather than a height, so it can grow and let .app scroll */
+  min-height:min(100%, 940px);
+  height:auto;
+  padding-left:var(--stage-pad);
+  padding-right:var(--stage-pad);
   padding-top:calc(clamp(10px, 2vh, 20px) + env(safe-area-inset-top));
   padding-bottom:calc(clamp(12px, 2.2vh, 26px) + env(safe-area-inset-bottom));
 }
@@ -89,16 +106,22 @@ html{ scroll-behavior:smooth }
   transition:transform .22s ease;
 }
 .drop[open]>summary::after{ transform:rotate(-135deg) translate(-1px,-1px) }
+/* The same typeface as the label beside it. In italic serif these two values —
+   "5 min · ×4", "None yet" — read as pull quotes rather than as settings. */
 .drop-val{
-  margin-left:auto; font-family:'Fraunces',serif; font-style:italic;
-  text-transform:none; letter-spacing:0; font-size:15px; color:var(--accent);
-  transition:color 1.1s ease;
+  margin-left:auto; font-size:13px; letter-spacing:.01em; color:var(--accent);
+  font-variant-numeric:tabular-nums; transition:color 1.1s ease;
 }
 .drop[open]>summary{ border-bottom:1px solid var(--line) }
+/* Deliberately *not* a scroll container. It was one, with a 46vh cap and
+   overscroll-behavior:contain — so a drag anywhere inside the rest or task
+   panel scrolled that box (usually to its end immediately) and then stopped
+   dead, because contain is the rule that says "don't pass this on". From the
+   outside that reads as the setup screen refusing to scroll wherever the panel
+   happens to be. The panel grows to fit its content now and the screen scrolls. */
 .drop-body{
   padding:clamp(11px, 1.6vh, 15px) clamp(13px, 3.4vw, 18px) clamp(13px, 1.9vh, 17px);
   display:flex; flex-direction:column; gap:clamp(9px, 1.4vh, 13px);
-  max-height:46vh;
 }
 .drop-body .stepper{ margin-top:0 }
 .drop-body .presets{ margin-top:0 }
@@ -113,6 +136,20 @@ html{ scroll-behavior:smooth }
    the dial and the buttons, but it also threw the rest screen's layout out when
    .rest-extra appeared. Only sizes are tuned here, never the flex distribution. */
 .cycle{ flex:0 0 auto; margin-top:clamp(4px, 1.2vh, 12px) }
+
+/* The shell scrolls, so nothing inside it may be squashed to fit. */
+.view{ min-height:0 }
+#timer > *{ flex-shrink:0 }
+.stage > *{ flex-shrink:0 }
+/* Not scroll boxes, either of them: everything between the dial and the window
+   has to be free of a clip for the glow to survive. */
+#timer, .stage{ overflow:visible }
+
+/* And a little room around the dial itself, for the breathing animation on top
+   of the drop-shadow. */
+.dial-wrap{ padding:clamp(10px, 1.8vh, 18px) 0; overflow:visible }
+.dial{ overflow:visible }
+.controls{ overflow:visible }
 
 /* dial follows the shorter axis so short desktop windows still fit it */
 .dial{ width:min(78vw, 300px, 44vh) }
@@ -129,7 +166,11 @@ html{ scroll-behavior:smooth }
   width:clamp(46px, 6.8vh, 60px); height:clamp(46px, 6.8vh, 60px);
   border-radius:clamp(13px, 2vh, 18px);
 }
-.rest-extra{ flex:0 0 auto; gap:clamp(8px, 1.4vh, 12px) }
+.rest-extra{ flex:0 0 auto; gap:clamp(8px, 1.4vh, 12px); margin-top:clamp(8px, 1.4vh, 12px) }
+/* the arcade row sits between the checklist and the transport, with air on
+   both sides so it belongs to neither */
+.arcade-btn{ flex:0 0 auto; margin:clamp(8px, 1.6vh, 14px) auto 0; max-width:360px }
+.controls{ margin-top:clamp(10px, 1.8vh, 16px) }
 
 /* ---- short windows: shed the decorative bits rather than scroll ---- */
 @media (max-height: 700px){
@@ -146,3 +187,43 @@ html{ scroll-behavior:smooth }
 @media (min-width: 900px) and (min-height: 900px){
   .stage{ height:min(100%, 880px) }
 }
+
+/* ---- the arcade overlay has to actually scroll ----
+   `.ov-body` is a column flex child of a column flex parent. Without
+   `min-height:0` a flex item refuses to shrink below its content, so on a short
+   window the body grew past the viewport instead of scrolling and the last
+   picker cards sat off-screen with no way to reach them. The `flex:0 0 auto` on
+   the children is the other half: without it they squash to fit rather than
+   letting the parent scroll. */
+.overlay{ min-height:0 }
+.ov-body{ flex:1 1 auto; min-height:0 }
+.picker, .game, .pcard, .pick-lede{ flex:0 0 auto }
+.ov-head, .ov-focus-wrap{ flex:0 0 auto }
+
+/* ---- the app behind an overlay ----
+   See the note in 39-dial-glow.js. `.stage` holds everything you can read —
+   the top bar, the setup screen, the timer — and is a sibling of the weather
+   and of the dial's glow, so taking it out of the picture leaves the light
+   alone. Overlays live outside `.app` entirely, so this cannot touch the thing
+   that caused it.
+
+   Faded out rather than blurred.
+   Blur was the obvious way to make it unreadable and the wrong one: a filter on
+   `.stage` is a full-screen Gaussian, and it sat *underneath* the overlay's own
+   backdrop filter — so opening the shelf put three full-screen blur passes on
+   the compositor at once and the whole app stuttered.
+
+   Fading does the same job better. Nothing shows through an overlay except a
+   wash of what is behind it, and at 6% there is nothing there to read. It costs
+   one opacity value, which is the cheapest thing a compositor does. */
+body.veiled .stage{
+  opacity:.06;
+  pointer-events:none;
+}
+.stage{ transition:opacity .22s ease }
+@media (prefers-reduced-motion: reduce){
+  body.veiled .stage, .stage{ transition:none }
+}
+/* the dial's glow lives outside `.stage` so nothing can crop it, which also
+   means it would stay lit over a faded menu. It goes with the rest. */
+body.veiled .dial-glow{ opacity:.12 }

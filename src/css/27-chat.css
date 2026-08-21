@@ -1,0 +1,228 @@
+/* ---------------- messages ----------------
+   A sheet, not a screen. Every other overlay in this app is a place you go;
+   chat is a thing you do while you're somewhere else, so it sits above all of
+   them (z-index over .overlay's 50) and the button follows you around. */
+
+/* The button lives in the header rows now, not floating over the screen.
+
+   It used to be a fixed corner button, and it was wrong in both directions: it
+   sat on top of whatever full-width action was along the bottom — Begin focus,
+   Back to focusing, Play — and it vanished on screens whose bottom edge it had
+   been nudged away from. A header has a fixed, known place for small controls
+   and nothing else wants it. There are two instances, one per header, because
+   the app has two: `#chat-btn` in the top bar and `#chat-btn-ov` in the overlay.
+*/
+.chat-btn{
+  position:relative; flex:0 0 auto;
+  width:32px; height:32px; border-radius:10px; cursor:pointer;
+  display:grid; place-items:center;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  transition:background .2s ease, border-color .2s ease, color .2s ease;
+}
+.chat-btn.hide{ display:none }
+.chat-btn:hover{ background:rgba(255,255,255,.08) }
+.chat-btn:active{ transform:scale(.94) }
+.chat-btn svg{
+  width:17px; height:17px; fill:none; stroke:currentColor;
+  stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;
+}
+.chat-btn.lit{ border-color:var(--accent); color:var(--accent) }
+/* during a focus block it fades back and says nothing at all */
+.chat-btn.quiet{ opacity:.45 }
+
+/* The date and the button are different heights and different kinds of thing,
+   so they are centred against each other rather than left to sit on a baseline. */
+.topbar-right{ display:flex; align-items:center; gap:10px; min-height:38px }
+
+.chat{
+  position:fixed; inset:0; z-index:56;
+  display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(6,10,18,.55);
+  animation:chatin .2s ease both;
+}
+.chat.hide{ display:none }
+@keyframes chatin{ from{ opacity:0 } to{ opacity:1 } }
+
+.chat-sheet{
+  width:100%; max-width:460px;
+  height:min(76vh, 620px);
+  display:flex; flex-direction:column; min-height:0;
+  border-radius:22px 22px 0 0;
+  border:1px solid var(--line); border-bottom:none;
+  background:radial-gradient(120% 60% at 50% 0%,
+    color-mix(in srgb, var(--bg2) 97%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 98%, transparent) 70%);
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  box-shadow:0 -12px 40px rgba(0,0,0,.5);
+  animation:chatup .24s cubic-bezier(.2,.8,.3,1) both;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+@keyframes chatup{ from{ transform:translateY(18px) } to{ transform:none } }
+@media (prefers-reduced-motion: reduce){
+  .chat, .chat-sheet{ animation:none }
+}
+
+.chat-head{
+  flex:0 0 auto; display:flex; align-items:flex-start; gap:12px;
+  padding:16px 18px 10px; border-bottom:1px solid var(--line);
+}
+.chat-head h3{ font-family:'Fraunces',serif; font-style:italic; font-size:17px; font-weight:400 }
+.chat-head p{
+  font-size:11.5px; color:var(--muted); margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;
+}
+.chat-head div{ flex:1; min-width:0 }
+.chat-x{
+  flex:0 0 auto; width:32px; height:32px; border-radius:10px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font-size:19px; line-height:1;
+}
+
+.chat-log{
+  flex:1 1 auto; min-height:0; overflow-y:auto;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  padding:14px 18px 6px;
+  display:flex; flex-direction:column; gap:9px;
+}
+.chat-empty{
+  margin:auto; max-width:250px; text-align:center;
+  font-size:12.5px; line-height:1.6; color:var(--muted);
+}
+
+.chat-line{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; max-width:82% }
+.chat-line.mine{ align-self:flex-end; align-items:flex-end }
+.chat-name{ font-size:11px; color:var(--muted); padding:0 4px }
+.chat-bubble{
+  padding:9px 13px; border-radius:15px 15px 15px 5px;
+  background:var(--card); border:1px solid var(--line);
+  font-size:14px; line-height:1.45; word-break:break-word;
+}
+.chat-line.mine .chat-bubble{
+  border-radius:15px 15px 5px 15px;
+  background:var(--accent); border-color:var(--accent); color:var(--bg);
+}
+.chat-time{ font-size:10px; color:var(--muted); opacity:.6; padding:0 4px }
+
+/* Canned lines, because typing during a focus block is the thing you're trying
+   not to do. One tap and back to work. */
+.chat-quick{
+  flex:0 0 auto; display:flex; gap:6px; overflow-x:auto;
+  padding:8px 18px 4px; scrollbar-width:none;
+}
+.chat-quick::-webkit-scrollbar{ display:none }
+.chat-q{
+  flex:0 0 auto; padding:6px 12px; border-radius:20px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  font:inherit; font-size:12.5px; white-space:nowrap;
+}
+.chat-q:hover{ background:rgba(255,255,255,.08); color:var(--text) }
+
+.chat-bar{
+  flex:0 0 auto; display:flex; gap:8px; align-items:center;
+  padding:10px 18px 16px;
+}
+.chat-bar input{
+  flex:1; min-width:0; padding:12px 15px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:14.5px;
+}
+.chat-bar input:focus{ outline:none; border-color:var(--accent) }
+.chat-send{
+  flex:0 0 auto; width:44px; height:44px; border-radius:14px; cursor:pointer;
+  display:grid; place-items:center;
+  border:none; background:var(--accent); color:var(--bg);
+}
+.chat-send svg{
+  width:20px; height:20px; fill:none; stroke:currentColor;
+  stroke-width:2; stroke-linecap:round; stroke-linejoin:round;
+}
+.chat-send:disabled{ opacity:.4; cursor:default }
+
+/* On a wide window it's a panel on the right rather than a sheet from the
+   bottom — there's room, and the timer stays visible beside it. */
+@media (min-width:900px){
+  .chat{ align-items:stretch; justify-content:flex-end; background:rgba(6,10,18,.35) }
+  .chat-sheet{
+    width:380px; height:100%; max-width:none;
+    border-radius:0; border-bottom:1px solid var(--line);
+    animation:chatside .24s cubic-bezier(.2,.8,.3,1) both;
+  }
+  @keyframes chatside{ from{ transform:translateX(24px) } to{ transform:none } }
+}
+
+/* One tab per conversation: the room, then a person each. A tab sticks around
+   after somebody leaves if you have history with them — the thread is theirs,
+   not the room's. */
+.chat-tabs{
+  flex:0 0 auto; display:flex; gap:6px; overflow-x:auto;
+  padding:10px 18px 0; scrollbar-width:none;
+}
+.chat-tabs::-webkit-scrollbar{ display:none }
+.chat-tab{
+  flex:0 0 auto; display:flex; align-items:center; gap:6px;
+  padding:6px 12px; border-radius:20px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  font:inherit; font-size:12.5px; white-space:nowrap;
+}
+.chat-tab.on{ border-color:var(--accent); color:var(--text); background:var(--glow) }
+.chat-tab.gone{ opacity:.55; font-style:italic }
+.chat-tab i{
+  font-style:normal; font-size:10.5px; font-weight:700; line-height:1;
+  padding:2px 5px; border-radius:20px;
+  background:var(--accent); color:var(--bg);
+}
+
+/* still in the outbox: written, not yet handed over */
+.chat-line.waiting .chat-bubble{ opacity:.62; border-style:dashed }
+.chat-line.waiting .chat-time{ color:var(--muted) }
+
+/* ---- the dot ----
+   Not a count. A number on a 32px button in a header row is fiddly to read and
+   looks like a defect at that size; what you want to know is whether there is
+   anything, and the pop-out below tells you what it was. It is positioned
+   absolutely so it can't push the icon off centre — which is exactly what it
+   did while this rule was missing. */
+.chat-dot{
+  position:absolute; top:-3px; right:-3px;
+  width:9px; height:9px; border-radius:50%;
+  background:var(--accent); border:2px solid var(--bg);
+  pointer-events:none;
+}
+.chat-dot.hide{ display:none }
+
+/* ---- the pop-out ----
+   A message announces itself once, under the button it came from, and gets out
+   of the way. It sits above the arcade overlay (z-index 50) because most
+   messages arrive during a break, when the arcade is what's on screen — below
+   it, the whole thing was invisible exactly when it was needed. Below the chat
+   sheet (56), because if the sheet is open you are already reading. */
+.chat-pop{
+  position:fixed; z-index:55;
+  top:calc(52px + env(safe-area-inset-top));
+  right:max(14px, calc(50vw - 200px));
+  width:min(280px, calc(100vw - 28px));
+  display:flex; flex-direction:column; gap:3px; text-align:left;
+  padding:10px 13px; border-radius:14px; cursor:pointer;
+  border:1px solid var(--accent); color:var(--text);
+  background:radial-gradient(140% 120% at 100% 0%, var(--bg2) 0%, var(--card) 70%);
+  box-shadow:0 10px 28px rgba(0,0,0,.42);
+  font-family:inherit;
+  animation:cpin .26s cubic-bezier(.2,.8,.3,1) both;
+}
+.chat-pop.hide{ display:none }
+.chat-pop.out{ animation:cpout .2s ease both }
+@keyframes cpin{ from{ opacity:0; transform:translateY(-10px) } to{ opacity:1; transform:none } }
+@keyframes cpout{ from{ opacity:1 } to{ opacity:0; transform:translateY(-6px) } }
+@media (prefers-reduced-motion: reduce){
+  .chat-pop{ animation:none }
+  .chat-pop.out{ animation:none }
+}
+.cp-who{
+  font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cp-text{
+  font-size:13.5px; line-height:1.45;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}

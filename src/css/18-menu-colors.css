@@ -28,6 +28,12 @@
   --bg:#07160f; --bg2:#0f2c1e; --muted:#7d9c8a;
 }
 
+/* achievements — deep gold */
+#ach-overlay{
+  --accent:#e8c25c; --glow:rgba(232,194,92,.28);
+  --bg:#140f04; --bg2:#2b2110; --muted:#a2937a;
+}
+
 /* the side menu keeps the calm default indigo */
 #drawer{
   --accent:#8aa2f0; --glow:rgba(138,162,240,.28);

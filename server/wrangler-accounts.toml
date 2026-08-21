@@ -1,0 +1,29 @@
+# Deploy: see the comment block at the top of accounts.js.
+#
+# `database_id` is blank on purpose — it is created by you, not committed:
+#   npm run accounts:make          (wrangler d1 create focus-accounts --location apac)
+# then paste the id it prints below. The `--location` is not cosmetic: D1 has
+# one primary region and every read and write goes to it, wherever the reader
+# is. Asia-Pacific was chosen deliberately; moving it later means making a new
+# database and copying the rows across, so it is not a default to drift past.
+# See ACCOUNTS.md.
+
+name = "focus-accounts"
+main = "accounts.js"
+compatibility_date = "2026-01-01"
+
+# Who password-reset mail comes from. Plain text, not a secret — it is on every
+# message that goes out. The address has to be at a domain verified in Resend;
+# the API key that authorises it is a *secret* and is set separately:
+#
+#   wrangler secret put RESEND_KEY --config server/wrangler-accounts.toml
+#
+# With either of these missing, /account/forgot refuses with a 501 and changes
+# nothing. It never resets a password it cannot deliver — see accounts.js.
+[vars]
+# MAIL_FROM = "Focus Simulator <hello@mail.yourdomain.com>"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "focus-accounts"
+database_id = "59e7f138-d4a3-40f3-90b6-4f1b2c7c786d"

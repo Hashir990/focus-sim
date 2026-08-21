@@ -1,0 +1,54 @@
+    <!-- chess (shared — needs a room) -->
+    <div class="game hide" id="game-chess">
+      <div class="game-top">
+        <span class="gname">Chess</span>
+        <span class="meta" id="ch-meta"></span>
+        <button class="mini-btn hide" id="ch-back">All games</button>
+      </div>
+
+      <p class="sg-need hide" id="ch-need">
+        This one needs someone to play against.
+        <button class="mini-btn" id="ch-need-go">Open Focus together</button>
+      </p>
+
+      <!-- who you're playing, and anything you left half-finished -->
+      <div id="ch-lobby" class="hide">
+        <p class="ch-lede">Pick who to play. A game keeps its place — leave it
+          mid-move, come back next break and carry on.</p>
+        <div class="ch-sec">In the room</div>
+        <div class="ch-people" id="ch-people"></div>
+        <div class="ch-sec hide" id="ch-saved-head">Left off</div>
+        <div class="ch-people" id="ch-saved"></div>
+        <p class="ch-note" id="ch-note"></p>
+      </div>
+
+      <!-- the game -->
+      <div id="ch-live" class="hide">
+        <div class="ch-bar">
+          <div class="ch-vs" id="ch-vs"></div>
+          <div class="ch-turn" id="ch-turn"></div>
+        </div>
+
+        <div class="ch-taken" id="ch-taken-top"></div>
+        <div class="ch-boardwrap">
+          <div class="ch-board" id="ch-board"></div>
+          <div class="ch-promo hide" id="ch-promo">
+            <p>Make it a…</p>
+            <div class="ch-promo-row" id="ch-promo-row"></div>
+          </div>
+        </div>
+        <div class="ch-taken" id="ch-taken-bottom"></div>
+
+        <p class="ch-msg" id="ch-msg"></p>
+
+        <div class="ch-moves" id="ch-moves"></div>
+
+        <div class="ch-actions">
+          <button class="mini-btn" id="ch-leave">Leave it here</button>
+          <button class="mini-btn danger" id="ch-resign">Resign</button>
+          <button class="mini-btn hide" id="ch-again">Play again</button>
+        </div>
+      </div>
+
+      <div class="banner hide" id="ch-banner"><h3></h3><p id="ch-win-sub"></p></div>
+    </div>

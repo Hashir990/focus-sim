@@ -1,6 +1,6 @@
 {
   "name": "focus-simulator",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "description": "A focus timer with a rest arcade, fading quotes, and a progress calendar.",
   "private": true,
   "main": "electron/main.cjs",
@@ -10,40 +10,83 @@
     "dev": "node tools/build.mjs --serve",
     "watch": "node tools/build.mjs --watch",
     "verify": "node tools/build.mjs --verify",
-    "test": "node tools/build.mjs && node tools/smoke-test.mjs",
-
+    "test": "node tools/build.mjs && node tools/merge-test.mjs && node tools/scrabble-rules-test.mjs && node server/mailbox-test.mjs && node server/accounts-test.mjs && node tools/account-client-test.mjs && node tools/smoke-test.mjs",
     "cap:add:android": "npm run build && npx cap add android",
     "cap:add:ios": "npm run build && npx cap add ios",
     "cap:sync": "npm run build && npx cap sync",
     "android": "npm run cap:sync && npx cap open android",
     "ios": "npm run cap:sync && npx cap open ios",
-
+    "server:deploy": "cd server && wrangler deploy",
+    "accounts:make": "wrangler d1 create focus-accounts --location apac",
+    "accounts:schema": "wrangler d1 execute focus-accounts --remote --file server/accounts-schema.sql",
+    "accounts:deploy": "wrangler deploy --config server/wrangler-accounts.toml",
     "electron": "npm run build && electron .",
     "electron:pack": "npm run build && electron-builder",
-    "ship": "npm run build && node tools/smoke-test.mjs && electron-builder",
-
+    "ship": "npm run build && node tools/merge-test.mjs && node tools/scrabble-rules-test.mjs && node server/mailbox-test.mjs && node server/accounts-test.mjs && node tools/account-client-test.mjs && node tools/smoke-test.mjs && electron-builder",
+    "release": "node tools/make-release.mjs",
+    "publish:win": "npm run publish:check && npm run build && electron-builder --win --publish always && node tools/publish-extra.mjs",
+    "publish:assets": "powershell -ExecutionPolicy Bypass -File tools/publish-assets.ps1",
+    "publish:mac": "npm run publish:check && npm run build && electron-builder --mac --publish always && node tools/publish-extra.mjs",
+    "publish:linux": "npm run publish:check && npm run build && electron-builder --linux --publish always && node tools/publish-extra.mjs",
     "tauri": "npm run build && tauri dev",
-    "tauri:build": "npm run build && tauri build"
+    "tauri:build": "npm run build && tauri build",
+    "setup:updates": "node tools/setup-updates.mjs",
+    "publish:check": "node tools/publish-check.mjs",
+    "ship:release": "powershell -ExecutionPolicy Bypass -File tools/ship-release.ps1"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
-    "jsdom": "^25.0.1"
+    "jsdom": "^30.0.1",
+    "wordnet-db": "^3.1.14"
   },
   "dependencies": {
-    "@capacitor/android": "^6.2.0",
+    "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0"
+    "@capacitor/ios": "^6.2.0",
+    "electron-updater": "^6.3.9"
   },
   "build": {
     "appId": "app.focussimulator.desktop",
     "productName": "Focus Simulator",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "electron/**/*", "package.json"],
-    "asarUnpack": ["dist/audio/**"],
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"], "category": "public.app-category.productivity" },
-    "linux": { "target": ["AppImage"], "category": "Utility" }
+    "artifactName": "Focus-Simulator-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "dist/audio/**"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Hashir990",
+        "repo": "focus-sim",
+        "releaseType": "release"
+      }
+    ]
   }
 }

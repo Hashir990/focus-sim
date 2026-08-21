@@ -1,0 +1,150 @@
+/* ---------------- pictionary ---------------- */
+
+#game-pictionary{ position:relative }
+#game-pictionary .hide{ display:none !important }
+
+.pic-head{
+  display:flex; align-items:baseline; justify-content:space-between;
+  gap:12px; margin:2px 0 8px;
+}
+.pic-role{ font-size:13.5px; font-weight:600 }
+.pic-clock{
+  font-size:15px; font-weight:700; font-variant-numeric:tabular-nums;
+  color:var(--accent); letter-spacing:.03em;
+}
+.pic-clock.low{ color:#f0907a }
+
+/* The word, shown to exactly one person. It never travels to anyone else —
+   see the note in 34-pictionary.js. */
+.pic-word{
+  text-align:center; margin:0 0 8px; padding:8px 12px;
+  border:1px dashed var(--line); border-radius:12px;
+  font-size:17px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+}
+.pic-word small{
+  display:block; font-size:10.5px; font-weight:400; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:3px;
+}
+
+.pic-boardwrap{ position:relative; width:100%; max-width:400px; margin:0 auto }
+.pic-board{
+  display:block; width:100%; height:auto; aspect-ratio:4/3;
+  border-radius:14px; border:1px solid var(--line);
+  background:var(--bg2);
+  touch-action:none;              /* the whole surface is a pen */
+  cursor:crosshair;
+}
+.pic-board.watching{ cursor:default }
+.pic-over{
+  position:absolute; inset:0; border-radius:14px;
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  padding:20px; font-size:13px; line-height:1.5; color:var(--muted);
+  background:rgba(8,12,20,.72); backdrop-filter:blur(2px);
+}
+
+.pic-tools{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  justify-content:center; margin:10px 0 4px;
+}
+.pic-inks, .pic-sizes{ display:flex; gap:6px; align-items:center }
+.pic-ink{
+  width:24px; height:24px; border-radius:50%; cursor:pointer;
+  border:2px solid transparent; padding:0;
+}
+.pic-ink.on{ border-color:var(--text) }
+.pic-size{
+  width:26px; height:26px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card);
+  display:grid; place-items:center;
+}
+.pic-size i{ display:block; border-radius:50%; background:var(--text) }
+.pic-size.on{ border-color:var(--accent); background:var(--glow) }
+.pic-tools .mini-btn{ padding:6px 10px; font-size:11.5px }
+
+.pic-claim{ display:flex; justify-content:center; margin:12px 0 4px }
+
+/* Guesses scroll past like a commentary — near misses included, because
+   "close" is most of the fun of watching someone else guess. */
+.pic-guesses{
+  display:flex; flex-direction:column; gap:4px;
+  max-height:104px; overflow-y:auto; overscroll-behavior:contain;
+  margin:10px auto 6px; max-width:400px; padding:0 2px;
+}
+.pic-guess{ font-size:12.5px; color:var(--muted); line-height:1.4 }
+.pic-guess b{ color:var(--text); font-weight:600 }
+.pic-guess.close{ color:#f0c07a }
+.pic-guess.got{ color:var(--accent); font-weight:600 }
+
+.pic-bar{ display:flex; gap:8px; max-width:400px; margin:0 auto 8px }
+.pic-bar input{
+  flex:1; min-width:0; padding:11px 14px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:14.5px;
+}
+.pic-bar input:focus{ outline:none; border-color:var(--accent) }
+
+.pic-scores{
+  display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0 0;
+}
+.pic-score{
+  display:flex; align-items:baseline; gap:6px;
+  padding:4px 9px; border-radius:9px;
+  border:1px solid var(--line); background:var(--card);
+  font-size:12px; color:var(--muted); white-space:nowrap;
+}
+.pic-score.turn{ border-color:var(--accent); color:var(--text) }
+.pic-score.done{ background:var(--glow) }
+.pic-score b{ font-weight:600; color:var(--text) }
+
+/* The blanks. Monospaced so the underscores line up into a row of equal slots
+   rather than a ragged one — a proportional font makes `_ i _` look like the
+   middle letter is missing too. */
+.pic-mask{
+  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size:17px; font-weight:600; letter-spacing:.06em;
+  color:var(--accent); text-align:center; margin:4px 0 0;
+  white-space:pre-wrap; word-break:break-word;
+}
+.pic-mask.hide{ display:none }
+.pic-msg{
+  text-align:center; font-size:12.5px; color:var(--muted);
+  margin:10px 0 0; min-height:17px;
+}
+
+/* Three words to choose from. The clock has not started yet — reading them
+   shouldn't cost you the round. */
+.pic-choose{ margin:0 0 10px }
+.pic-choose > p{ font-size:12px; color:var(--muted); text-align:center; margin:0 0 8px }
+.pic-offers{ display:flex; flex-direction:column; gap:6px; max-width:340px; margin:0 auto }
+.pic-offer{
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  padding:10px 13px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; text-align:left;
+}
+.pic-offer:hover{ background:rgba(255,255,255,.07) }
+.pic-offer b{
+  flex:1; font-size:16px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+}
+.pic-offer span{ flex:0 0 auto; font-size:11px; color:var(--muted) }
+.pic-offer em{
+  flex:0 0 auto; font-style:normal; font-size:11px; font-weight:700;
+  padding:2px 7px; border-radius:20px; background:var(--glow); color:var(--text);
+}
+
+.pic-rules{ margin:12px auto 0; max-width:360px; font-size:12px; color:var(--muted) }
+.pic-rules summary{
+  cursor:pointer; list-style:none; text-align:center;
+  padding:6px 10px; border-radius:20px; border:1px solid var(--line);
+  background:var(--card); display:inline-block; margin:0 auto; width:100%;
+}
+.pic-rules summary::-webkit-details-marker{ display:none }
+.pic-rules ul{ margin:10px 2px 0; padding-left:16px; display:flex; flex-direction:column; gap:6px }
+.pic-rules li{ line-height:1.5 }
+.pic-rules b{ color:var(--text); font-weight:600 }
+
+/* Fill is a mode you are in, not a button you press once, so it latches — the
+   same grammar as the colour swatches beside it rather than as Undo. */
+.pic-tool[aria-pressed="true"], .pic-tool.on{
+  background:var(--accent); border-color:var(--accent); color:#07121a; font-weight:600;
+}

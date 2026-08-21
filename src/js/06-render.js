@@ -1,15 +1,32 @@
   /* ---------- render ---------- */
+  let RING = null;
   function swapView(){
     const setup = S.mode==='setup';
     $('setup').classList.toggle('hide', !setup);
     $('timer').classList.toggle('hide', setup);
+    // the dial has just appeared or gone; its glow follows on the next frame
+    try{ glowLater(); }catch(e){}
   }
   function paint(){ // light: just the changing digits + ring
+    /* No glowFit() here. This runs once a second for the whole of a session, and
+       measuring the dial costs a layout flush; the dial does not move between
+       ticks, and everything that can move it — a resize, a scroll, a change of
+       view — asks for the glow to be refitted itself. */
     const m=Math.floor(S.remaining/60), s=S.remaining%60;
-    $('clock').textContent = pad(m)+':'+pad(s);
+    const clock = pad(m)+':'+pad(s);
+    const el = $('clock');
+    // the same string as last second means the same pixels; skip the write
+    if(el.textContent !== clock) el.textContent = clock;
     const frac = S.total ? S.remaining/S.total : 0;
-    document.querySelector('.ring-prog').setAttribute('stroke-dasharray', C);
-    document.querySelector('.ring-prog').setAttribute('stroke-dashoffset', (C*(1-frac)).toFixed(2));
+    /* The ring is one element, looked up once. `stroke-dasharray` is set at
+       init and never changes, so writing it every second was a wasted attribute
+       change on an SVG — which invalidates the path and re-rasterises the
+       drop-shadow on it. */
+    RING = RING || document.querySelector('.ring-prog');
+    RING.setAttribute('stroke-dashoffset', (C*(1-frac)).toFixed(2));
+    /* Whichever face is on. It returns immediately for the digital one, which
+       is the digits written just above. See 43-faces.js. */
+    try{ facePaint(m, s, frac); }catch(e){}
     if(Arcade.open){
       const t=$('ov-timer');
       t.textContent = S.remaining>0 ? pad(m)+':'+pad(s) : 'Break over';
@@ -20,7 +37,13 @@
     document.getElementById('app').setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     document.body.setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     tasksRefresh();
-    $('today-count').textContent = S.sessionsToday;
+    paintDate();
+    try{ Embers.paint(); }catch(e){}
+    try{ glowFit(); }catch(e){}
+    /* Cheap on purpose: `stage()` compares a signature and returns without
+       touching the DOM unless the pose or the buddy actually changed. This runs
+       once a second for the whole of a block. */
+    try{ Buddy.stage(); }catch(e){}
 
     if(S.mode==='setup'){
       $('f-num').textContent=S.focusMin; $('r-num').textContent=S.breakMin;
@@ -36,11 +59,23 @@
 
     // timer view
     $('phase-name').textContent = S.mode==='focus' ? 'Focus' : (S.restIsLong ? 'Long rest' : 'Rest');
-    $('subline').textContent = S.mode==='focus'
-      ? (S.repeat>0 ? ('Session '+(S.runCount+1)+' of '+S.repeat) : 'Session '+(S.runCount+1))
-      : 'Recover';
+    /* An endless run stops itself every so often and says why, otherwise the
+       one time the timer doesn't roll on by itself reads as a bug. */
+    $('subline').textContent = S.autoHold
+      ? 'Paused after '+S.runCount+' — tap play to carry on'
+      : S.mode==='focus'
+        /* Just the count. "Session 1 of 4" spends two thirds of the line saying
+           what the line is, under a clock, on a screen with nothing else it
+           could be counting. */
+        ? (S.repeat>0 ? ((S.runCount+1)+' of '+S.repeat) : 'No '+(S.runCount+1))
+        : 'Recover';
     $('toggle-run').textContent = S.running ? 'Pause' : (S.remaining<S.total ? 'Resume' : 'Begin '+(S.mode==='focus'?'focus':'rest').toLowerCase());
+    /* Keep the phone's notification in step with the timer. Keyed inside, so
+       this costs a string comparison on the renders where nothing changed. */
+    try{ Notify.sync(); }catch(e){}
     $('rest-extra').classList.toggle('hide', S.mode!=='rest');
+    // the arcade lives above the transport now, so it is shown on its own
+    $('arcade-open').classList.toggle('hide', S.mode!=='rest');
     if(S.mode==='rest') refreshNote();
     if(S.mode==='focus' && S.running) Quote.ensure(); else Quote.stop();
     renderCycle();

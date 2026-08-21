@@ -96,6 +96,8 @@
 
   registerGame('wordle', {
     el:'game-wordle', title:'Word guess', progEl:'prog-wordle', game:()=>Wordle,
+    reset(){ Wordle.newGame(); },
+    resetNote:'A new word. This one\u2019s guesses are lost.',
     async progress(){
       const w = await readGame(Wordle.skey);
       if(!w) return 'New<span>tap to start</span>';

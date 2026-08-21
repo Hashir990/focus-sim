@@ -1,44 +1,97 @@
 <div class="app" id="app">
-  <div class="drawer-backdrop hide" id="drawer-backdrop"></div>
-  <aside class="drawer" id="drawer">
-    <div class="drawer-head">
-      <span class="drawer-title">Menu</span>
-      <button class="drawer-x" id="drawer-close" aria-label="Close menu">×</button>
-    </div>
-    <button class="drawer-item" id="d-quotes">
-      <svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
-      <span><b>Quote bank</b><small>Lines that fade in while you focus</small></span>
-    </button>
-    <button class="drawer-item" id="d-history">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-      <span><b>History</b><small>Your sessions &amp; notes calendar</small></span>
-    </button>
-    <button class="drawer-item" id="d-stats">
-      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-      <span><b>Your focus</b><small>Totals, streaks and your best hours</small></span>
-    </button>
-    <button class="drawer-item" id="d-sync">
-      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <span><b>Focus together</b><small>Share a timer with someone else</small></span>
-    </button>
-    <div class="drawer-sec">Ambience</div>
-    <div class="amb-grid" id="amb-grid"></div>
-    <div class="amb-vol-row hide" id="amb-vol-row">
-      <span>Volume</span>
-      <input type="range" id="amb-vol" min="0" max="100" value="55" aria-label="Ambience volume" />
-    </div>
+  <!-- The weather, behind everything and touchable by nothing. One pane: a
+       light and a track are alternatives, not layers. See 31-vfx.css. -->
+  <div class="vfx" id="vfx" aria-hidden="true"></div>
+  <!-- The dial's outer glow, kept out of the layout so nothing can clip it.
+       Positioned onto the dial by glowFit() in 39-dial-glow.js. -->
+  <div class="dial-glow" id="dial-glow" aria-hidden="true"></div>
 
-    <div class="drawer-sec">Settings</div>
-    <div class="drawer-toggles">
-      <button class="toggle on" id="t-auto"><span class="dot"></span>Auto‑continue</button>
-      <button class="toggle on" id="t-sound"><span class="dot"></span>Chime</button>
-    </div>
-    <div class="drawer-sec">Your data</div>
-    <div class="drawer-toggles">
-      <button class="toggle" id="d-export"><span class="dot"></span>Export backup</button>
-      <button class="toggle" id="d-import"><span class="dot"></span>Import backup</button>
-    </div>
-    <input type="file" id="import-file" accept="application/json,.json" hidden />
-    <div class="drawer-foot">Focus Simulator · your data stays on this device<br><span class="build-stamp">build __BUILD__</span></div>
-  </aside>
+  <!-- Beach's sea. Two layers of crests that slide, inside a frame that does
+       not — which is the whole reason this is real markup rather than the two
+       pseudo-elements it used to be.
 
+       A `mask-image` belongs to the element it is written on, so it is carried
+       along by that element's `transform`. With the crests and the mask on the
+       same box, the horizon drifted upward with the water all cycle and then
+       snapped back to the top: the loop was seamless in the waves and violently
+       not in the fade over them, which reads as a video looping. Splitting them
+       fixes it outright — the frame holds the mask and never moves, the children
+       hold the crests and never carry a mask. -->
+  <div class="beach-sea" aria-hidden="true">
+    <i class="beach-wave beach-wave-far"></i>
+    <i class="beach-wave beach-wave-near"></i>
+  </div>
+
+  <!-- Beach's palms. App-level for the same reason as the webs below: they are
+       the room, not any one screen.
+
+       **One element per tree.** They were a single wide SVG with
+       `preserveAspectRatio="slice"`, and on a wide screen slice scales to cover
+       the width — so a 1900px-wide, 100px-tall band showed about a tenth of its
+       own viewBox and the trees were cropped to stumps. That is what "broken on
+       larger screens" was, and no amount of moving the band fixes it. Each tree
+       now carries its own tightly-fitted viewBox and its own place, so nothing
+       is ever cropped at any size and there is no cap on how many there are.
+
+       Placed by hand rather than by a loop: sparse means uneven, and a loop
+       makes a rhythm however much jitter you pour into it. Four, between 66%
+       and 83% up the screen, sized by how far back they stand. Fewer and
+       higher than they were — at seven they had stopped being scenery and
+       become a hedge along the middle of the window.
+
+       Blurred cheaply — a static `filter: blur()` is rasterised once, unlike
+       `backdrop-filter`, which recomputes every frame over whatever moves
+       beneath it (§6). -->
+  <div class="beach-palms" aria-hidden="true">
+    <svg class="palm" viewBox="23 14 46 86" style="left:7%;bottom:66%;width:44px" focusable="false">
+      <path class="palm-trunk" d="M52.1 95.5L50.7 89.4L49.3 83.3L48.1 77.2L47 71.1L46 65L45.2 58.9L44.5 52.8L44 46.6L41.6 46.8L41.9 53L42.3 59.2L42.9 65.4L43.6 71.6L44.5 77.8L45.5 84L46.6 90.3L47.9 96.5Z"/>
+      <path class="palm-seg" d="M49.3 83.3L45.5 84M47 71.1L43.6 71.6M45.2 58.9L42.3 59.2"/>
+      <path class="palm-leaf" d="M42.8 46.7L40.3 46L38.4 46L36.8 46L35.5 45.9L34.5 45.7L33.4 45.3L32.3 44.7L30.9 43.7L29.5 42.1L28 40.2L26 38L26 38L26.1 41L26.7 43.6L27.7 45.9L29 47.9L30.7 49.6L32.7 50.7L35 51.1L37.3 50.9L39.4 50.2L41.3 49L42.8 46.7ZM42.8 46.7L40.3 45.2L38.2 44.5L36.4 43.9L35 43.3L33.8 42.6L32.8 41.8L31.7 40.6L30.7 38.9L29.7 36.6L28.8 33.9L27.6 30.7L27.6 30.7L26.6 34L26.4 37.1L26.7 40L27.3 42.7L28.6 45.1L30.4 47L32.7 48.3L35.2 49L37.7 49L40.3 48.5L42.8 46.7ZM42.8 46.7L40.7 44L38.6 42L36.8 40.1L35.5 38.4L34.5 36.6L33.9 34.7L33.6 32.4L33.8 29.6L34.5 26.5L35.7 22.9L36.9 18.8L36.9 18.8L34.1 22.1L32 25.4L30.5 28.7L29.6 32L29.5 35.2L30.2 38.2L31.6 40.9L33.8 43.2L36.3 45L39.3 46.3L42.8 46.7ZM42.8 46.7L41.7 43.2L40.3 40.4L39.2 37.8L38.6 35.5L38.3 33.3L38.4 31L39.1 28.6L40.5 25.9L42.5 23L45.1 19.9L48.1 16.4L48.1 16.4L44 18.6L40.6 21.1L37.8 23.9L35.7 26.8L34.3 29.9L33.8 33.1L34.2 36.4L35.4 39.5L37.2 42.3L39.6 44.8L42.8 46.7ZM42.8 46.7L43.6 43.3L43.8 40.4L44 37.8L44.4 35.7L45 33.9L46 32.2L47.4 30.5L49.6 28.7L52.3 27.1L55.7 25.4L59.6 23.5L59.6 23.5L55.2 23.4L51.3 24.1L47.8 25.1L44.7 26.7L42.1 28.8L40.3 31.4L39.2 34.4L38.9 37.6L39.4 40.8L40.5 43.9L42.8 46.7ZM42.8 46.7L44.6 44.4L45.9 42.3L47 40.4L48.2 39L49.4 37.8L50.8 36.9L52.7 36.2L54.9 35.8L57.7 35.6L60.9 35.8L64.5 36L64.5 36L61.3 34.3L58.1 33.3L55 32.7L52.1 32.7L49.4 33.2L47.1 34.4L45.1 36.2L43.7 38.5L42.8 41L42.3 43.7L42.8 46.7ZM42.8 46.7L45.6 45.7L47.6 44.5L49.4 43.5L51 42.8L52.5 42.4L54.1 42.2L55.9 42.4L58.1 42.9L60.5 44L63.2 45.5L66.4 47.1L66.4 47.1L64.4 44.1L62.1 41.7L59.8 39.8L57.3 38.4L54.6 37.7L51.9 37.6L49.4 38.3L47.1 39.7L45.1 41.5L43.6 43.8L42.8 46.7Z"/>
+    </svg>
+    <svg class="palm far" viewBox="34 24 43 76" style="left:37%;bottom:78%;width:30px" focusable="false">
+      <path class="palm-trunk" d="M52.2 96.4L53.1 90.6L53.8 84.8L54.5 79.1L55.1 73.3L55.6 67.5L56 61.8L56.3 56L56.5 50.3L54.1 50.2L53.7 55.8L53.1 61.5L52.5 67.2L51.7 72.9L50.9 78.6L50 84.3L49 89.9L47.8 95.6Z"/>
+      <path class="palm-seg" d="M53.8 84.8L50 84.3M55.1 73.3L51.7 72.9M56 61.8L53.1 61.5"/>
+      <path class="palm-leaf" d="M55.3 50.2L52.5 49.5L50.3 49.6L48.5 49.6L47 49.4L45.7 49.2L44.5 48.8L43.2 48L41.6 46.8L40 45L38.3 42.7L36.2 40.2L36.2 40.2L36.3 43.6L37.1 46.5L38.2 49.2L39.7 51.4L41.6 53.2L43.9 54.5L46.4 55L49 54.8L51.4 54L53.6 52.6L55.3 50.2ZM55.3 50.2L53.2 48.4L51.2 47.5L49.6 46.6L48.4 45.9L47.4 45.1L46.5 44.2L45.6 42.9L44.9 41.1L44.3 38.8L43.8 36.1L43.1 32.9L43.1 32.9L41.7 35.9L41.1 38.8L40.9 41.6L41.2 44.2L42 46.7L43.5 48.7L45.5 50.3L47.7 51.3L50.2 51.7L52.7 51.5L55.3 50.2ZM55.3 50.2L54.2 47.6L52.9 45.7L51.8 44.1L51.1 42.6L50.6 41.2L50.3 39.8L50.3 38L50.7 36L51.6 33.6L52.8 30.9L54.1 27.8L54.1 27.8L51.4 29.8L49.3 32.1L47.6 34.5L46.4 37L45.9 39.6L46 42.1L46.9 44.5L48.3 46.6L50.2 48.3L52.4 49.7L55.3 50.2ZM55.3 50.2L55.6 46.9L55.4 44L55.3 41.5L55.5 39.4L56 37.5L56.7 35.7L58 33.9L60 32L62.5 30.1L65.7 28.3L69.3 26.1L69.3 26.1L65.1 26.6L61.4 27.6L58.1 29L55.3 30.8L53.1 33.1L51.6 35.7L50.9 38.7L51 41.7L51.7 44.7L53 47.6L55.3 50.2ZM55.3 50.2L57.3 48.2L58.4 46.2L59.4 44.6L60.3 43.4L61.1 42.4L62.2 41.6L63.6 40.8L65.5 40.2L67.9 39.8L70.8 39.5L74.1 39.1L74.1 39.1L71.1 37.5L68.1 36.6L65.3 36.2L62.6 36.3L60 37L57.8 38.3L56 40.2L54.9 42.4L54.3 44.9L54.2 47.5L55.3 50.2ZM55.3 50.2L57.8 49.5L59.5 48.5L60.9 47.7L62.1 47.1L63.1 46.8L64.3 46.5L65.6 46.5L67.4 46.8L69.4 47.4L71.8 48.4L74.6 49.3L74.6 49.3L73 46.8L71 44.8L69 43.3L66.8 42.2L64.5 41.6L62.2 41.7L60 42.5L58.1 43.8L56.6 45.5L55.5 47.5L55.3 50.2Z"/>
+    </svg>
+    <svg class="palm" viewBox="38 24 45 76" style="left:63%;bottom:71%;width:36px" focusable="false">
+      <path class="palm-trunk" d="M52.1 96.7L53.9 91.1L55.5 85.5L56.9 79.9L58.1 74.3L59.1 68.7L60 63.1L60.6 57.5L61.1 51.9L58.7 51.7L58 57.2L57.1 62.6L56 68.1L54.8 73.5L53.3 79L51.7 84.4L49.9 89.8L47.9 95.3Z"/>
+      <path class="palm-seg" d="M55.5 85.5L51.7 84.4M58.1 74.3L54.8 73.5M60 63.1L57.1 62.6"/>
+      <path class="palm-leaf" d="M59.9 51.8L57.1 51.4L55 51.7L53.2 51.8L51.8 51.8L50.5 51.7L49.2 51.4L47.8 50.8L46.3 49.7L44.5 48.1L42.7 46L40.4 43.7L40.4 43.7L40.9 47L41.9 49.8L43.2 52.2L44.8 54.3L46.8 55.9L49.2 56.9L51.7 57.2L54.1 56.7L56.4 55.8L58.4 54.3L59.9 51.8ZM59.9 51.8L57.4 50.5L55.2 49.9L53.3 49.3L51.8 48.6L50.5 47.9L49.4 46.9L48.3 45.6L47.3 43.8L46.4 41.4L45.6 38.5L44.6 35.3L44.6 35.3L43.8 38.6L43.6 41.8L43.9 44.7L44.5 47.4L45.8 49.7L47.5 51.6L49.7 52.9L52.2 53.6L54.8 53.7L57.4 53.3L59.9 51.8ZM59.9 51.8L58 49.4L56.1 47.8L54.5 46.5L53.3 45.3L52.4 44.1L51.6 42.7L51.1 41L50.8 38.8L50.8 36.1L51.1 32.9L51.4 29.3L51.4 29.3L49.1 32.2L47.6 35.3L46.7 38.3L46.3 41.2L46.5 44.1L47.5 46.7L49.2 49L51.4 50.7L54 51.8L56.7 52.4L59.9 51.8ZM59.9 51.8L58.5 49.1L57 47L55.7 45L54.8 43.2L54.3 41.4L54.1 39.6L54.3 37.5L55 35.1L56.2 32.4L57.9 29.5L59.8 26.1L59.8 26.1L56.8 28.5L54.3 31.1L52.4 33.7L51.1 36.4L50.4 39.2L50.5 42L51.3 44.6L52.7 47L54.6 49L57 50.8L59.9 51.8ZM59.9 51.8L60 48.9L59.7 46.5L59.5 44.3L59.6 42.5L59.8 40.8L60.4 39.2L61.4 37.6L62.9 35.9L65 34.1L67.6 32.3L70.6 30.2L70.6 30.2L67 30.8L63.8 31.9L61.1 33.3L58.8 35L57 37.1L55.8 39.5L55.4 42.1L55.6 44.8L56.4 47.3L57.7 49.8L59.9 51.8ZM59.9 51.8L60.9 48.9L61.3 46.4L61.7 44.2L62.2 42.4L62.9 40.8L63.9 39.4L65.3 38L67.3 36.7L69.9 35.5L73 34.4L76.5 33L76.5 33L72.7 32.6L69.2 32.9L66.1 33.5L63.3 34.6L60.9 36.2L59.1 38.3L57.9 40.8L57.4 43.6L57.5 46.4L58.2 49.2L59.9 51.8ZM59.9 51.8L61.9 50.3L63.2 48.7L64.3 47.4L65.4 46.4L66.4 45.6L67.5 45L69 44.6L70.8 44.3L73.1 44.4L75.7 44.7L78.7 45L78.7 45L76.3 43.1L73.8 41.9L71.3 41.1L68.9 40.7L66.5 40.9L64.3 41.7L62.5 43.1L61 44.9L60.1 46.9L59.5 49.2L59.9 51.8ZM59.9 51.8L62.5 51.2L64.4 50.2L66 49.5L67.4 48.9L68.6 48.6L69.9 48.5L71.4 48.6L73.3 49.1L75.4 50L77.8 51.3L80.7 52.7L80.7 52.7L79.1 49.8L77.2 47.6L75.1 45.8L72.9 44.5L70.6 43.7L68.1 43.6L65.7 44.2L63.6 45.4L61.9 47L60.5 49.1L59.9 51.8Z"/>
+    </svg>
+    <svg class="palm far" viewBox="26 27 43 73" style="left:91%;bottom:83%;width:24px" focusable="false">
+      <path class="palm-trunk" d="M52.2 95.6L51.1 90.1L50.2 84.6L49.4 79.1L48.6 73.6L47.9 68.1L47.3 62.6L46.8 57.1L46.4 51.6L44 51.7L44.2 57.3L44.4 62.8L44.8 68.4L45.2 74L45.7 79.6L46.3 85.2L47 90.8L47.8 96.4Z"/>
+      <path class="palm-seg" d="M50.2 84.6L46.3 85.2M48.6 73.6L45.2 74M47.3 62.6L44.4 62.8"/>
+      <path class="palm-leaf" d="M45.2 51.6L42.8 51.4L41 51.6L39.5 51.8L38.3 51.9L37.2 51.8L36.2 51.6L35 51.1L33.6 50.3L32 49L30.4 47.3L28.3 45.4L28.3 45.4L28.8 48.2L29.8 50.6L31 52.6L32.4 54.4L34.2 55.7L36.3 56.4L38.4 56.6L40.5 56.1L42.4 55.2L44.1 53.8L45.2 51.6ZM45.2 51.6L43 50L41.1 49.2L39.4 48.5L38.1 47.8L37.1 47L36.1 46.1L35.2 44.9L34.4 43.1L33.7 40.9L33.2 38.2L32.4 35.1L32.4 35.1L31.2 38.1L30.8 41.1L30.7 43.8L31.1 46.4L32.1 48.7L33.6 50.7L35.6 52.1L37.9 52.9L40.3 53.2L42.8 53L45.2 51.6ZM45.2 51.6L43.8 49.1L42.3 47.4L41 45.9L40.1 44.6L39.4 43.4L38.9 42.1L38.6 40.4L38.6 38.4L39 35.9L39.7 33L40.4 29.6L40.4 29.6L37.9 32.1L36.2 34.7L34.9 37.3L34.1 40L33.9 42.7L34.5 45.3L35.8 47.5L37.6 49.4L39.8 50.8L42.2 51.7L45.2 51.6ZM45.2 51.6L44.8 48.9L43.9 46.7L43.3 44.8L42.9 43.2L42.7 41.7L42.9 40.2L43.3 38.5L44.3 36.5L45.7 34.4L47.6 32.1L49.7 29.4L49.7 29.4L46.5 30.8L43.9 32.5L41.7 34.5L39.9 36.6L38.8 38.9L38.3 41.4L38.5 44L39.4 46.4L40.8 48.5L42.6 50.4L45.2 51.6ZM45.2 51.6L46.1 48.5L46.4 45.9L46.6 43.7L47.1 41.8L47.6 40.2L48.5 38.7L49.8 37.2L51.7 35.7L54.2 34.2L57.3 32.8L60.8 31.1L60.8 31.1L56.8 30.9L53.3 31.3L50.1 32.2L47.2 33.6L44.9 35.4L43.1 37.7L42.1 40.5L41.8 43.3L42.2 46.2L43.2 49.1L45.2 51.6ZM45.2 51.6L47.4 50.1L48.7 48.6L49.7 47.4L50.6 46.5L51.4 45.8L52.3 45.1L53.6 44.6L55.2 44.2L57.4 44L59.9 44L62.9 43.8L62.9 43.8L60.5 41.9L58 40.7L55.5 40L53 39.7L50.6 40L48.4 41L46.6 42.5L45.3 44.5L44.6 46.7L44.3 49L45.2 51.6ZM45.2 51.6L47.9 50.8L49.7 49.7L51.3 48.8L52.8 48.1L54.1 47.7L55.4 47.6L57 47.6L59 48.1L61.2 49L63.7 50.2L66.7 51.6L66.7 51.6L64.9 48.8L62.8 46.6L60.6 44.9L58.3 43.6L55.9 43L53.4 43L51 43.7L48.9 45L47.1 46.7L45.8 48.8L45.2 51.6Z"/>
+    </svg>
+  </div>
+
+  <!-- Spider-Man's corner webs. App-level rather than inside the timer, because
+       they are the corners of the room and not part of any one screen; hidden
+       outright under every other light.
+
+       **Two different webs, not one drawn twice.** They were the same path
+       mirrored, which is fine until you notice it — and a mirrored pair is
+       exactly the thing an eye does notice, because nothing in a room is its
+       own reflection. The right-hand one is a separate drawing from a separate
+       seed with six strands and three rings against the left's seven and four.
+       The CSS still flips it, but only to anchor it to its own corner.
+
+       Deliberately uneven. The first version was seven evenly spaced strands of
+       equal length with evenly sagging rings, which is a doily — real webs are
+       built by an animal working in the dark and every span in them is slightly
+       off. So the spoke angles and lengths are jittered, each ring's radius
+       wanders from vertex to vertex, the sag varies per span, and two of the
+       rings stop a strand short instead of closing. Generated from a seeded
+       jitter, not typed, so it is reproducible and not a doodle. -->
+  <svg class="corner-web corner-web-l" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+    <g>
+      <path class="corner-web-spokes" d="M0 0L123.9 0M0 0L105.5 28.1M0 0L104.1 61M0 0L80 79.7M0 0L65.2 99.8M0 0L22 107.3M0 0L0 124.1"/>
+      <path class="corner-web-rings" d="M23.1 0Q21 2.7 25.1 6.7Q19.9 8.3 21.8 12.8Q17.4 13.4 18.5 18.4Q13.5 16.6 13.3 20.3Q8.2 19.8 5.2 25.4Q2.4 23.2 0 25.7M46.4 0Q39.3 5.1 42.6 11.4Q38.9 16.2 42.2 24.8Q31.5 24.3 34.8 34.7Q26 31.9 25.7 39.4Q14.7 35.7 9.1 44.1M78.4 0Q68.1 8.9 70.4 18.8Q56.5 23.6 60 35.2Q48.7 37.6 48.8 48.6Q35.5 43.7 36.3 55.5Q22.5 54.5 14.7 71.7Q6.6 65.1 0 78M96.9 0Q84.6 11.1 96.8 25.8Q83.9 35 89.4 52.4Q73 56.3 70.8 70.6Q50.1 61.5 50.4 77.1Q30.2 73.2 18.9 92.2Q8.1 79.6 0 91.6"/>
+    </g>
+  </svg>
+  <svg class="corner-web corner-web-r" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+    <g>
+      <path class="corner-web-spokes" d="M0 0L121.6 0M0 0L108.8 26.3M0 0L92 77.2M0 0L65.2 95.9M0 0L31.4 107.1M0 0L0 107.4"/>
+      <path class="corner-web-rings" d="M33.1 0Q25.8 3.1 29 7Q22.9 11.6 25.3 21.2Q18 19.9 18.6 27.4Q10.9 23.1 9.4 32.1M59.2 0Q48.5 5.8 61.5 14.9Q43.6 22 42.3 35.5Q32.4 35.8 33.6 49.4Q20.6 43.5 17.1 58.3Q6.9 47.9 0 55.5M75.2 18.2Q63.3 32 64 53.7Q42.4 46.9 43.5 64Q29 61.4 25.5 86.9Q10 69.6 0 78"/>
+    </g>
+  </svg>

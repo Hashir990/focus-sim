@@ -1,0 +1,59 @@
+    <!-- scrabble (shared — needs a room) -->
+    <div class="game hide" id="game-scrabble">
+      <div class="game-top">
+        <span class="gname">Scrabble</span>
+        <span class="meta" id="sc-meta"></span>
+        <button class="mini-btn hide" id="sc-new">New game</button>
+      </div>
+
+      <p class="sg-need hide" id="sc-need">
+        This one needs someone to play against.
+        <button class="mini-btn" id="sc-need-go">Open Focus together</button>
+      </p>
+
+      <div id="sc-live" class="hide">
+        <div class="sc-players" id="sc-players"></div>
+
+        <div class="sc-boardwrap" id="sc-boardwrap">
+          <div class="sc-board" id="sc-board"></div>
+        </div>
+
+        <div class="sc-zoom">
+          <button class="sc-zbtn" id="sc-zout" aria-label="Zoom out">−</button>
+          <span id="sc-zlabel">Fit</span>
+          <button class="sc-zbtn" id="sc-zin" aria-label="Zoom in">+</button>
+        </div>
+
+        <!-- what the tiles currently on the board are worth, live -->
+        <div class="sc-preview" id="sc-preview"></div>
+
+        <p class="sc-msg" id="sc-msg"></p>
+
+        <div class="sc-rack" id="sc-rack"></div>
+
+        <button class="sc-playbtn" id="sc-play">
+          <span id="sc-play-label">Play</span>
+          <b id="sc-play-pts"></b>
+        </button>
+
+        <div class="sc-acts">
+          <button class="mini-btn" id="sc-recall">Recall</button>
+          <button class="mini-btn" id="sc-shuffle">Shuffle</button>
+          <button class="mini-btn" id="sc-swap">Swap</button>
+          <button class="mini-btn" id="sc-pass">Pass</button>
+        </div>
+      </div>
+
+      <!-- shown only while placing a blank -->
+      <div class="sc-blank hide" id="sc-blank">
+        <p>What is this blank?</p>
+        <div class="sc-blank-keys" id="sc-blank-keys"></div>
+        <button class="mini-btn" id="sc-blank-cancel">Never mind</button>
+      </div>
+
+      <div class="banner hide" id="sc-banner"><h3></h3><p id="sc-win-sub"></p></div>
+    </div>
+
+    <!-- the tile that follows your finger while dragging -->
+    <div class="sc-ghost hide" id="sc-ghost"></div>
+

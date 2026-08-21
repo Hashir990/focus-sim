@@ -130,32 +130,52 @@
   }
 
   function ambSet(id){
+    /* A track you haven't unlocked isn't chosen, it's offered — see
+       EMB_SOUNDS in 37-embers.js. Rain and Café cost nothing, so there is
+       always something to put on. */
+    if(id !== 'off' && !embHasSound(id)){ Embers.buySound(id, ()=>ambSet(id)); return; }
     const changed = id !== AMB.id;
     AMB.id = id;
     AMB.warned = false;
     ambTheme();
     ambRender();
     ambSave();
+    // rides in `sim`, which is settled by `S.at` — see Embers.use()
+    try{ save(); }catch(e){}
     if(id === 'off'){ ambStop(); return; }
     if(changed && AMB.el){ try{ AMB.el.pause(); }catch(e){} }
     ambStart();               // selecting is a user gesture, so it can start here
   }
 
-  /** Repaint the app in colours that suit the sound. */
+  /** Repaint the app in colours that suit the sound, and set its weather going. */
   function ambTheme(){
     const v = (AMB.id && AMB.id !== 'off') ? AMB.id : '';
     const app = document.getElementById('app');
     if(app) app.setAttribute('data-amb', v);
     document.body.setAttribute('data-amb', v);
+    ambVfx();
+  }
+
+  /** One pane, one look — see Embers.look() in 37-embers.js. */
+  function ambVfx(){
+    try{ Embers.paint(); }catch(e){}
   }
 
   function ambRender(){
     const grid = $('amb-grid');
     if(grid){
       grid.querySelectorAll('.amb-btn').forEach(b=>{
-        b.classList.toggle('on', b.dataset.a === AMB.id);
+        const id = b.dataset.a;
+        const locked = id !== 'off' && typeof embHasSound === 'function' && !embHasSound(id);
+        b.classList.toggle('on', id === AMB.id);
+        b.classList.toggle('locked', locked);
+        const sd = locked && typeof embSound === 'function' ? embSound(id) : null;
+        b.dataset.cost = sd ? sd.cost + ' embers' : '';
       });
     }
+    // the shelf shows which of the two is on, so it has to hear about this —
+    // the track can be changed from the menu without the shelf being touched
+    try{ Embers.render(); }catch(e){}
     const vol = $('amb-vol');
     if(vol && document.activeElement !== vol) vol.value = Math.round(AMB.vol*100);
     const row = $('amb-vol-row');
@@ -171,6 +191,9 @@
       if(r && r.value){
         const d = JSON.parse(r.value);
         if(d && typeof d.id === 'string' && (d.id === 'off' || AMB_TRACKS[d.id])) AMB.id = d.id;
+        // a save from before these were unlockable, or a reset since: don't
+        // silently play something that isn't owned
+        try{ if(AMB.id !== 'off' && !embHasSound(AMB.id)) AMB.id = 'off'; }catch(e){}
         if(d && typeof d.vol === 'number') AMB.vol = Math.max(0, Math.min(1, d.vol));
       }
     }catch(e){}

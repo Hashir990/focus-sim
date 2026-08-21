@@ -7,6 +7,33 @@
         </button>
         <div class="wordmark"><b>Focus</b> Simulator</div>
       </div>
-      <div class="today">Today <em id="today-count">0</em></div>
+      <div class="topbar-right">
+        <!-- What the hours are worth, where you can see it. Tapping it opens
+             the shelf, which is the only thing they are for. -->
+        <button class="emb-chip" id="emb-chip" aria-label="Embers">
+          <i></i><b id="emb-chip-n">0</b>
+        </button>
+        <button class="chat-btn hide" id="chat-btn" aria-label="Messages">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-5.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8z"></path>
+          </svg>
+          <span class="chat-dot hide" id="chat-dot"></span>
+        </button>
+        <!-- Signing in lives in the corner, because it is the one thing you
+             need before your history will follow you and the one thing that
+             was previously three taps into a menu. Filled and shown by
+             48-account.js.
+
+             **It only exists in a build with somewhere to sign in to.** With no
+             account URL stamped in there is nothing behind it, so it stays
+             hidden and the date below keeps the corner — rather than a button
+             that opens a panel explaining it does not work here. -->
+        <button class="acc-chip hide" id="acc-chip" aria-label="Account"></button>
+        <!-- The date, not a tally. A session count in the corner turns a break
+             into a number you're behind on; the date is the one thing a screen
+             you stare at for half an hour may as well tell you. The count is
+             still in Your focus, where you go when you want it. -->
+        <div class="today" id="today-wrap"><em id="today-date">—</em></div>
+      </div>
     </div>
 

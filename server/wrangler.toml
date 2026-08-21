@@ -1,0 +1,14 @@
+# Deploy: see the comment block at the top of mailbox.js.
+#
+# `database_id` is blank on purpose — it is created by you, not committed:
+#   wrangler d1 create focus-mailbox
+# then paste the id it prints below.
+
+name = "focus-mailbox"
+main = "mailbox.js"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "focus-mailbox"
+database_id = ""

@@ -1,0 +1,113 @@
+/* ---------------- hangman ---------------- */
+
+/* There is no global `.hide{display:none}` in this app — every component
+   declares its own (`.game.hide`, `.banner.hide`, `.task-live.hide`...). Miss
+   that and an element with `hide` on it stays on screen, which is exactly what
+   happened here: the blank-letter chooser sat over Scrabble from the moment it
+   opened. One rule per game, specific enough to beat the display values set
+   below. */
+#game-hangman .hide, #game-scrabble .hide{ display:none !important; }
+
+/* Shared by both room games: the card body when there's nobody to play with. */
+.sg-need{
+  margin:26px auto; max-width:340px; text-align:center;
+  font-size:14px; line-height:1.6; color:var(--muted);
+}
+.sg-need .mini-btn{ display:block; margin:14px auto 0; }
+
+.hm-top{
+  display:flex; align-items:flex-start; gap:18px;
+  justify-content:center; margin:6px 0 10px;
+}
+.hm-draw{
+  width:118px; height:140px; flex:0 0 auto;
+}
+.hm-draw path, .hm-draw circle{
+  fill:none; stroke:var(--accent); stroke-width:4;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+/* Each limb appears as a life goes. Drawn, not popped in, so it reads as a
+   slow loss rather than a jump scare. */
+.hm-draw .hm-p{ opacity:0; transition:opacity .35s ease; }
+.hm-draw .hm-p.on{ opacity:1; }
+
+.hm-side{ flex:1 1 auto; min-width:0; max-width:220px; padding-top:6px; }
+.hm-role{ font-size:14px; font-weight:600; margin:0 0 4px; }
+.hm-lives{ font-size:12.5px; color:var(--muted); margin:0 0 10px; letter-spacing:.04em; }
+.hm-scores{ display:flex; flex-direction:column; gap:3px; }
+.hm-score{
+  display:flex; justify-content:space-between; gap:10px;
+  font-size:12.5px; color:var(--muted);
+}
+.hm-score.turn{ color:var(--accent); font-weight:600; }
+.hm-score b{ font-weight:600; }
+
+.hm-word{
+  display:flex; flex-wrap:nowrap; justify-content:center; gap:7px;
+  margin:14px 0 6px; min-height:44px;
+}
+/* Fifteen characters is the cap, so the only question is how small they get. */
+.hm-word[data-len="mid"]{ gap:5px }
+.hm-word[data-len="mid"] .hm-let{ width:21px; height:31px; font-size:18px }
+.hm-word[data-len="long"]{ gap:3px }
+.hm-word[data-len="long"] .hm-let{ width:17px; height:27px; font-size:15px }
+.hm-word[data-len="long"] .hm-let.gap{ width:8px }
+.hm-let{
+  width:26px; height:36px; display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:600; letter-spacing:0;
+  border-bottom:3px solid rgba(255,255,255,.22);
+}
+.hm-let.got{ border-bottom-color:var(--accent); }
+.hm-let.miss{ color:#f07a7a; border-bottom-color:#f07a7a; }
+.hm-let.gap{ border-bottom:none; width:12px; }
+.hm-let.punct{ border-bottom-color:rgba(255,255,255,.1); color:var(--muted) }
+
+.hm-hint{
+  text-align:center; font-size:13px; color:var(--muted);
+  font-style:italic; margin:2px 0 12px; min-height:18px;
+}
+
+.hm-claim{ display:flex; justify-content:center; margin:14px 0 4px; }
+
+.hm-set{
+  display:flex; flex-direction:column; gap:9px;
+  max-width:320px; margin:8px auto 4px;
+}
+.hm-set input{
+  width:100%; padding:11px 13px; border-radius:11px;
+  border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05);
+  color:var(--text); font:inherit; font-size:15px;
+}
+.hm-set input:focus{ outline:none; border-color:var(--accent); }
+.hm-set .mini-btn{ align-self:center; }
+
+/* laid out as a keyboard, so the staggered rows are the point */
+.hm-keys{
+  display:flex; flex-direction:column; gap:5px;
+  max-width:360px; margin:8px auto 0;
+}
+.hm-row{ display:flex; gap:5px; justify-content:center }
+.hm-row .hm-key{ flex:1 1 0; min-width:0; max-width:36px }
+.hm-key{
+  padding:11px 0; border-radius:8px; border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.05); color:var(--text);
+  font:inherit; font-size:14px; font-weight:600; text-transform:uppercase;
+  cursor:pointer; transition:background .15s, opacity .2s;
+}
+.hm-key:hover:not(:disabled){ background:rgba(255,255,255,.12); }
+.hm-key:disabled{ cursor:default; }
+.hm-key.hit{ background:var(--accent); border-color:var(--accent); color:#0d1117; opacity:1; }
+.hm-key.miss{ opacity:.28; }
+
+.hm-msg{
+  text-align:center; font-size:13px; color:var(--muted);
+  margin:12px 0 0; min-height:18px;
+}
+
+@media (max-width:380px){
+  .hm-top{ gap:12px; }
+  .hm-draw{ width:96px; height:116px; }
+  .hm-let{ width:22px; height:32px; font-size:19px; }
+  .hm-keys, .hm-row{ gap:4px; }
+  .hm-key{ padding:9px 0; font-size:13px; }
+}

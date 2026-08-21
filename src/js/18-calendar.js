@@ -1,15 +1,25 @@
   /* --- calendar --- */
   const Cal={
     y:0, m:0, sel:null,
+    adding:null,        // the day whose add-form is open, if any
+    draft:null,         // what has been typed into it so far
     open(){
-      const d=new Date(); this.y=d.getFullYear(); this.m=d.getMonth(); this.sel=null;
+      const d=new Date(); this.y=d.getFullYear(); this.m=d.getMonth();
+      /* Opening on today rather than on nothing: the day you want is nearly
+         always this one, and an empty panel makes the calendar look like it
+         only remembers months. */
+      this.sel=dayKey(Date.now()); this.adding=null; this.draft=null;
       $('cal-overlay').classList.remove('hide');
       this.render();
       const body=this._body(); if(body) body.scrollTop=0;
     },
     _body(){ const ov=$('cal-overlay'); return ov ? ov.querySelector('.ov-body') : null; },
     close(){ $('cal-overlay').classList.add('hide'); },
-    step(n){ this.m+=n; if(this.m<0){this.m=11;this.y--;} if(this.m>11){this.m=0;this.y++;} this.sel=null; this.render(); },
+    step(n){
+      this.m+=n; if(this.m<0){this.m=11;this.y--;} if(this.m>11){this.m=0;this.y++;}
+      this.sel=null; this.adding=null; this.draft=null;
+      this.render();
+    },
     byDay(){
       const map={};
       for(const r of LOG){
@@ -37,7 +47,12 @@
         // Every day is selectable, whether or not it has sessions — otherwise you
         // can get stuck on one day with no way to move to a neighbouring one.
         if(key===this.sel) cell.classList.add('sel');
-        cell.onclick=()=>{ this.sel=(this.sel===key?null:key); this.render(); };
+        /* Picking a day never un-picks it. There is always something to show
+           for a day now — what is planned for it, even when nothing happened —
+           so an empty panel is never the more useful answer, and tapping the
+           day you are already on to make the page go blank is not a thing
+           anybody means to do. */
+        cell.onclick=()=>{ this.sel=key; this.adding=null; this.render(); };
         if(info){
           cell.classList.add('has');
           const mins=info.secs/60, lvl = mins>=120?4 : mins>=60?3 : mins>=25?2 : 1;
@@ -53,6 +68,16 @@
           }
           mSecs+=info.secs; mSessions+=info.recs.length;
         }
+        /* What is *going* to happen, as opposed to what did. Two marks, two
+           colours: an event is a fact about the day and a task is something
+           still waiting on you, and they are the two things you scan a month
+           for. A task that has been ticked off stops glowing — the mark is a
+           reminder, and a reminder you have dealt with is noise. */
+        try{
+          const c = planCounts(key);
+          if(c.events){ cell.classList.add('ev'); const e=document.createElement('span'); e.className='ev-dot'; cell.appendChild(e); }
+          if(c.left){ cell.classList.add('todo'); const t=document.createElement('span'); t.className='todo-dot'; cell.appendChild(t); }
+        }catch(e){}
         grid.appendChild(cell);
       }
       $('cal-sessions').textContent=mSessions;
@@ -69,17 +94,34 @@
       const ov=$('cal-overlay');
       box.style.paddingBottom='';
       if(!this.sel){ box.innerHTML=''; ov.dataset.dense='0'; return; }
-      const dayLabel=new Date(this.sel+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
-      if(!map[this.sel]){
-        ov.dataset.dense='0';
-        box.innerHTML='<h4>'+esc(dayLabel)+'</h4><p class="cal-empty">No sessions on this day.</p>';
-        return;
-      }
-      const recs=map[this.sel].recs.slice().sort((a,b)=>a.ts-b.ts);
-      // The more there is to read, the more the month grid gives way to it.
-      ov.dataset.dense = recs.length>=6 ? '2' : recs.length>=3 ? '1' : '0';
       const label=new Date(this.sel+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+      const recs=map[this.sel] ? map[this.sel].recs.slice().sort((a,b)=>a.ts-b.ts) : [];
+      /* The more there is to read, the more the month grid gives way to it.
+
+         Planned things count towards that as much as finished sessions do:
+         a day with six tasks on it is exactly as much to read as a day with
+         six blocks, and before this only the blocks moved the grid — so a
+         busy future day was a full-size calendar with its list off the bottom.
+
+         It is a threshold rather than a slider on purpose. A day with one
+         session and one task on it fits underneath a full month with room to
+         spare, and shrinking the calendar for that would be taking something
+         away for nothing. */
+      let load = recs.length;
+      try{ load += planOn(this.sel).length; }catch(e){}
+      ov.dataset.dense = load>=6 ? '2' : load>=3 ? '1' : '0';
       box.innerHTML='<h4>'+esc(label)+'</h4>';
+      /* What is planned comes first, whether or not anything was done. A day in
+         the future has nothing else on it, and a day in the past reads better
+         as "this is what it was for" before "this is what happened". */
+      this.plan(box);
+      if(!recs.length){
+        const p=document.createElement('p'); p.className='cal-empty';
+        p.textContent = this.sel > dayKey(Date.now())
+          ? 'No sessions on this day — it hasn’t happened yet.'
+          : 'No sessions on this day.';
+        box.appendChild(p);
+      }
       recs.forEach(r=>{
         const wrap=document.createElement('div'); wrap.className='cal-rec';
         const tm=new Date(r.ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
@@ -90,9 +132,260 @@
         head.appendChild(del);
         const ta=document.createElement('textarea'); ta.rows=1; ta.placeholder='What did you work on?'; ta.value=r.note||'';
         ta.oninput=()=>{ r.note=ta.value; saveLog(); this._grow(ta); };
-        wrap.appendChild(head); wrap.appendChild(ta); box.appendChild(wrap);
+        wrap.appendChild(head);
+        if(r.with && r.with.length){
+          const who=document.createElement('p'); who.className='recwith';
+          who.textContent='Studied with '+namesList(r.with);
+          wrap.appendChild(who);
+        }
+        wrap.appendChild(ta); box.appendChild(wrap);
         this._grow(ta);          // must happen after it's in the document
       });
-    }
+    },
+
+    /* ---- what is planned for the selected day ----
+       Built as elements rather than as a string of HTML, because every row here
+       has a handler on it and wiring by query afterwards is how you end up with
+       a delete button that quietly deletes the wrong entry. */
+    plan(box){
+      const key = this.sel;
+      const rows = planOn(key);
+      const wrap = document.createElement('div');
+      wrap.className = 'cal-plan';
+      wrap.dataset.count = String(rows.length);
+
+      const head = document.createElement('div');
+      head.className = 'cal-plan-head';
+      head.innerHTML = '<b>Planned</b>';
+      const add = document.createElement('button');
+      add.className = 'cal-plan-add';
+      add.textContent = this.adding === key ? 'Close' : 'Add';
+      add.onclick = ()=>{ this.adding = this.adding === key ? null : key; this.render(); };
+      head.appendChild(add);
+      wrap.appendChild(head);
+
+      rows.forEach(p=>{
+        const done = !!(p.done && p.done[key]);
+        const row = document.createElement('div');
+        row.className = 'plan-row ' + p.kind + (done ? ' done' : '');
+
+        if(p.kind === 'task'){
+          const tick = document.createElement('button');
+          tick.className = 'plan-tick' + (done ? ' on' : '');
+          tick.setAttribute('aria-label', done ? 'Not done' : 'Done');
+          tick.textContent = done ? '✓' : '';
+          tick.onclick = ()=>{
+            planTick(p.id, key, !done);
+            /* The same entry may be sitting in today's checklist. Keep the two
+               in step rather than letting one of them go stale. */
+            try{
+              const t = TASKS.find(x=>x.from === p.id && x.on === key);
+              if(t){ t.done = !done; saveTasks(); tasksRender(); tasksRefresh(); }
+            }catch(e){}
+            this.render();
+          };
+          row.appendChild(tick);
+        }else{
+          const dot = document.createElement('span');
+          dot.className = 'plan-bullet';
+          row.appendChild(dot);
+        }
+
+        const mid = document.createElement('div');
+        mid.className = 'plan-mid';
+        const t = document.createElement('b');
+        t.textContent = p.text;
+        mid.appendChild(t);
+        const bits = [];
+        if(p.time) bits.push(p.time);
+        if(p.rep) bits.push(planRepeatLabel(p));
+        if(bits.length){
+          const sub = document.createElement('em');
+          sub.textContent = bits.join(' · ');
+          mid.appendChild(sub);
+        }
+        row.appendChild(mid);
+
+        const del = document.createElement('button');
+        del.className = 'plan-x';
+        del.setAttribute('aria-label', 'Remove');
+        del.textContent = '×';
+        del.onclick = ()=>{
+          /* Deleting a repeat deletes every one of it, which is the only honest
+             thing a single × can do — asking "this one or all of them?" on a
+             tap that small is worse than saying so plainly, and saying so is
+             what the confirm is for. */
+          const go = ()=>{ planRemove(p.id); this.render(); };
+          if(p.rep) askConfirm('Remove “' + p.text + '”?', planRepeatLabel(p) + '. Removing it removes every one of them.', 'Remove', go);
+          else go();
+        };
+        row.appendChild(del);
+        wrap.appendChild(row);
+      });
+
+      if(!rows.length && this.adding !== key){
+        const none = document.createElement('p');
+        none.className = 'plan-none';
+        none.textContent = 'Nothing planned. Add a task and it turns up on your list that morning.';
+        wrap.appendChild(none);
+      }
+
+      if(this.adding === key) wrap.appendChild(this.form(key));
+      box.appendChild(wrap);
+      /* The form is the tallest thing in this overlay by some way, and it opens
+         below a month grid that is most of a screen on its own — so it opened
+         off the bottom, and scrolling to it left it wedged against the edge.
+         The month gives way instead: see [data-adding] in 12-calendar.css. */
+      $('cal-overlay').dataset.adding = this.adding === key ? '1' : '0';
+      if(this.adding === key){
+        const f = wrap.querySelector('.plan-form');
+        // jsdom has no scrollIntoView, and neither do some older engines
+        if(f && f.scrollIntoView) try{ f.scrollIntoView({block:'nearest'}); }catch(e){}
+      }
+    },
+
+    /* The one form for both kinds. Kind, words, time, repeat, in that order,
+       because that is the order they are decided in. */
+    form(key){
+      const f = document.createElement('div');
+      f.className = 'plan-form';
+      const st = this.draft = this.draft && this.draft.key === key ? this.draft : {
+        key, kind:'task', text:'', time:'', every:'', n:1, days:[], endMode:'never', endOn:'', endAfter:12,
+      };
+
+      const kinds = document.createElement('div');
+      kinds.className = 'plan-kinds';
+      [['task','Task','turns up on your list that day'],
+       ['event','Event','something that happens, at a time']].forEach(k=>{
+        const b = document.createElement('button');
+        b.className = 'plan-kind' + (st.kind === k[0] ? ' on' : '');
+        b.innerHTML = '<b>' + k[1] + '</b><em>' + k[2] + '</em>';
+        b.onclick = ()=>{ st.kind = k[0]; this.render(); };
+        kinds.appendChild(b);
+      });
+      f.appendChild(kinds);
+
+      const line = document.createElement('div');
+      line.className = 'plan-line';
+      const text = document.createElement('input');
+      text.type = 'text'; text.className = 'plan-text'; text.maxLength = 90;
+      text.placeholder = st.kind === 'event' ? 'What is happening?' : 'What needs doing?';
+      text.value = st.text;
+      text.oninput = ()=>{ st.text = text.value; };
+      const time = document.createElement('input');
+      time.type = 'time'; time.className = 'plan-time'; time.value = st.time;
+      time.onchange = ()=>{ st.time = time.value; };
+      line.appendChild(text); line.appendChild(time);
+      f.appendChild(line);
+
+      /* Repeats. Every option is a plain sentence about when it happens, which
+         is the way people actually hold the rule in their head. */
+      const rep = document.createElement('div');
+      rep.className = 'plan-reps';
+      [['', 'Once'], ['day', 'Daily'], ['wk', 'Weekly'], ['month', 'Monthly'], ['year', 'Yearly']]
+        .forEach(o=>{
+          const b = document.createElement('button');
+          b.className = 'plan-rep' + (st.every === o[0] ? ' on' : '');
+          b.textContent = o[1];
+          b.onclick = ()=>{
+            st.every = o[0];
+            if(o[0] === 'wk' && !st.days.length) st.days = [planDate(key).getDay()];
+            this.render();
+          };
+          rep.appendChild(b);
+        });
+      f.appendChild(rep);
+
+      if(st.every){
+        const every = document.createElement('div');
+        every.className = 'plan-every';
+        const unit = st.every === 'day' ? 'day' : st.every === 'wk' ? 'week' : st.every === 'month' ? 'month' : 'year';
+        every.innerHTML = '<span>Every</span>';
+        const n = document.createElement('input');
+        n.type = 'number'; n.min = '1'; n.max = '99'; n.value = String(st.n);
+        n.className = 'plan-n';
+        n.oninput = ()=>{ st.n = Math.max(1, Math.min(99, +n.value || 1)); };
+        every.appendChild(n);
+        const u = document.createElement('span');
+        u.textContent = unit + 's';
+        every.appendChild(u);
+        f.appendChild(every);
+
+        if(st.every === 'wk'){
+          const dows = document.createElement('div');
+          dows.className = 'plan-dows';
+          ['S','M','T','W','T','F','S'].forEach((d, i)=>{
+            const b = document.createElement('button');
+            b.className = 'plan-dow' + (st.days.indexOf(i) >= 0 ? ' on' : '');
+            b.textContent = d;
+            b.onclick = ()=>{
+              const at = st.days.indexOf(i);
+              if(at >= 0) st.days.splice(at, 1); else st.days.push(i);
+              this.render();
+            };
+            dows.appendChild(b);
+          });
+          f.appendChild(dows);
+        }
+
+        const ends = document.createElement('div');
+        ends.className = 'plan-ends';
+        [['never', 'No end'], ['on', 'Until'], ['after', 'For']].forEach(o=>{
+          const b = document.createElement('button');
+          b.className = 'plan-end' + (st.endMode === o[0] ? ' on' : '');
+          b.textContent = o[1];
+          b.onclick = ()=>{ st.endMode = o[0]; this.render(); };
+          ends.appendChild(b);
+        });
+        if(st.endMode === 'on'){
+          const d = document.createElement('input');
+          d.type = 'date'; d.className = 'plan-until'; d.value = st.endOn || '';
+          d.min = key;
+          d.onchange = ()=>{ st.endOn = d.value; };
+          ends.appendChild(d);
+        }
+        if(st.endMode === 'after'){
+          const a = document.createElement('input');
+          a.type = 'number'; a.min = '1'; a.max = '999'; a.className = 'plan-n';
+          a.value = String(st.endAfter);
+          a.oninput = ()=>{ st.endAfter = Math.max(1, Math.min(999, +a.value || 1)); };
+          ends.appendChild(a);
+          const s = document.createElement('span');
+          s.textContent = 'times';
+          ends.appendChild(s);
+        }
+        f.appendChild(ends);
+      }
+
+      const go = document.createElement('button');
+      go.className = 'plan-save';
+      go.textContent = st.kind === 'event' ? 'Add event' : 'Add task';
+      go.onclick = ()=>{
+        const words = (st.text || '').trim();
+        if(!words){ toast('Give it a name first'); return; }
+        const p = planItem(st.kind, key, words);
+        p.time = st.time || '';
+        if(st.every){
+          p.rep = planRepeat(
+            st.every === 'wk' ? 'week' : st.every,
+            st.n,
+            st.every === 'wk' ? st.days : [],
+            st.endMode === 'on' ? st.endOn : '',
+            st.endMode === 'after' ? st.endAfter : 0
+          );
+          if(st.every === 'wk' && !p.rep.days.length) p.rep.days = [planDate(key).getDay()];
+        }
+        PLAN.push(p);
+        savePlan();
+        this.draft = null;
+        this.adding = null;
+        // planned for today? then it belongs on today's list this second
+        try{ planSpawnDue(); }catch(e){}
+        this.render();
+        toast(st.kind === 'event' ? 'Event added' : 'Task planned');
+      };
+      f.appendChild(go);
+      return f;
+    },
   };
 

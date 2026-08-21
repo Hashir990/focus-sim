@@ -1,0 +1,207 @@
+/* ---------------- clock faces ----------------
+   Four ways of reading the same countdown. `#app[data-face]` chooses; the other
+   three are `display:none`, and 43-faces.js writes only to the one on screen —
+   so the cost of having four is the cost of one.
+
+   They all sit in `.readout`, which is centred in the dial, so each is sized to
+   leave the ring alone rather than to fill it. There is no `.hide` class here
+   on purpose: the face is a setting, not a state, and a setting reads better as
+   an attribute than as a class somebody has to remember to take off again. */
+/* **Each face is shown with the display it actually needs**, which is why these
+   are three rules and not one. The flip face is a row of cards and wants
+   `flex`; handing it the `block` the others use stacked the minutes on top of
+   the seconds, which is most of what "broken" meant. */
+.face{ display:none }
+#app[data-face="digital"] .clock{ display:block }
+#app[data-face="analog"] #face-analog{ display:block }
+#app[data-face="glass"] #face-glass{ display:block }
+#app[data-face="flip"] #face-flip{ display:grid }
+#app[data-face="analog"] .clock,
+#app[data-face="flip"] .clock,
+#app[data-face="glass"] .clock{ display:none }
+/* Room to breathe. The digital face is one line of type and sits happily
+   between the phase name and the subline; these are objects and were touching
+   both. */
+#app[data-face="analog"] .readout .face,
+#app[data-face="flip"] .readout .face,
+#app[data-face="glass"] .readout .face{ margin:14px auto 12px }
+
+/* ---- analog ----
+   Sized so it clears the progress ring rather than fighting it. The hands take
+   the accent; the rim and ticks are the track colour, which is what every other
+   quiet line in the app uses. */
+/* **Exactly the ring.** The dial is `min(78vw,300px)` and the progress ring is
+   drawn at r=108 in a 240 box, so it is 90% of that across — this face is given
+   the same number rather than a clamp that happened to look close. Centred over
+   the readout and taken out of the flow, so the phase name and the session line
+   keep their places and end up *inside* the clock instead of stacked under it. */
+.face-analog{
+  --dial:min(78vw, 300px);
+  position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
+  width:calc(var(--dial) * .9); height:calc(var(--dial) * .9);
+  overflow:visible; pointer-events:none;
+}
+/* The text sits over it. Positioned so it wins against an absolutely placed
+   sibling, which would otherwise paint on top of it whatever the DOM order.
+
+   Pushed well clear of the middle, too: at the centre of a working clock the
+   two of them sat under the pin and across the sweep of both hands, which is
+   the one part of the face that is never still. Above and below instead, in the
+   quiet bands the hands only cross. */
+#app[data-face="analog"] .phase-name,
+#app[data-face="analog"] .subline{ position:relative; z-index:1 }
+#app[data-face="analog"] .phase-name{ margin-bottom:clamp(46px, 15vw, 62px) }
+#app[data-face="analog"] .subline{ margin-top:clamp(46px, 15vw, 62px) }
+/* No margin for this one — it is not in the flow, so a margin would do nothing
+   but it would be a lie sitting in the file. */
+#app[data-face="analog"] .readout .face{ margin:0 }
+.fa-rim{ fill:none; stroke:var(--track); stroke-width:1.4 }
+.fa-ticks line{ stroke:var(--muted); stroke-width:1.6; stroke-linecap:round; opacity:.55 }
+.fa-ticks line.q{ stroke:var(--text); stroke-width:2.2; opacity:.8 }
+.fa-hand{ fill:var(--text) }
+.fa-hand-sec{ fill:var(--accent) }
+.fa-pin{ fill:var(--accent) }
+/* **`transform-box` has to be said out loud.** These rotate about the middle of
+   the *face*, and `transform-origin:50px 50px` only means that if the box being
+   measured is the viewBox. Left to the default it is resolved against each
+   hand's own bounding box instead, and the hands swing off into the corner —
+   which is what "broken" looked like. */
+#fa-min, #fa-sec{
+  transform-box:view-box; transform-origin:50px 50px;
+  transition:transform .18s ease;
+}
+/* The second hand crossing zero must not wind backwards through the whole dial,
+   so 43-faces.js drops the transition for that one tick. */
+#fa-sec.jump{ transition:none }
+
+/* ---- flip ----
+   Two cards. The seam across the middle is what makes a card read as a card
+   rather than as a box with a number in it. */
+/* **Two rows of two, not four across.** Four cards in a line is wider than the
+   dial they sit in — the circle is `min(78vw,300px)` and the corners of a
+   square inscribed in it are the widest thing that fits. Stacked, the minutes
+   sit over the seconds and the whole clock lives comfortably inside the ring.
+   The colon becomes redundant when they are on separate lines, so it goes. */
+.face-flip{ display:none; grid-template-columns:auto auto; gap:6px; justify-content:center }
+#app[data-face="flip"] .ff-sep{ display:none }
+.ff-card{
+  position:relative; display:block; min-width:1.55em; padding:5px 9px 6px;
+  border-radius:9px; border:1px solid var(--line);
+  background:color-mix(in srgb, var(--text) 7%, transparent);
+  color:var(--text); font-weight:600; font-size:clamp(26px, 6.4vw, 38px);
+  line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums;
+  text-align:center;
+}
+.ff-card::after{
+  content:''; position:absolute; left:6px; right:6px; top:50%;
+  border-top:1px solid color-mix(in srgb, var(--bg) 70%, transparent);
+}
+.ff-sep{
+  width:4px; height:4px; border-radius:50%; background:var(--accent);
+  box-shadow:0 9px 0 var(--accent); margin-bottom:9px; text-decoration:none;
+}
+/* **The card falls into place, it does not wobble.** The first version rocked
+   to -52° and back, which is the same card leaning about — nothing had turned
+   over. The digits are changed *before* the animation starts, so this is the
+   new page dropping: hinged at its top edge, starting laid back and almost
+   edge-on, swinging down and settling with a little overshoot. Darkened at the
+   start and brightened as it lands, which is what sells it as a face catching
+   the light on the way past. */
+.ff-card{ transform-origin:50% 0; will-change:auto }
+.ff-card.turn{
+  animation-name:ffTurn; animation-duration:.44s;
+  animation-timing-function:cubic-bezier(.24,1.16,.36,1);
+}
+@keyframes ffTurn{
+  0%{ transform:perspective(340px) rotateX(-86deg); filter:brightness(.55) }
+  55%{ filter:brightness(1.08) }
+  100%{ transform:perspective(340px) rotateX(0deg); filter:brightness(1) }
+}
+/* The seam catches a shadow as the page comes down over it. */
+.ff-card.turn::after{ animation-name:ffSeam; animation-duration:.44s; animation-timing-function:ease-out }
+@keyframes ffSeam{
+  0%{ box-shadow:0 7px 12px -4px rgba(0,0,0,.55) }
+  100%{ box-shadow:0 0 0 0 rgba(0,0,0,0) }
+}
+@media (prefers-reduced-motion: reduce){
+  .ff-card.turn, .ff-card.turn::after{ animation:none }
+}
+
+/* ---- hourglass ----
+   The sand is two plain rectangles inside clip paths shaped like the bulbs, so
+   a level change is one `y`/`height` attribute rather than a rebuilt path. */
+/* Taller than it is wide, like an hourglass. The viewBox is 100 × 128. */
+.face-glass{ width:clamp(112px, 36vw, 150px); height:clamp(143px, 46vw, 192px) }
+.hg-glass{ fill:none; stroke:var(--track); stroke-width:2.6 }
+.hg-frame{ fill:none; stroke:var(--muted); stroke-width:3.4; stroke-linecap:round; opacity:.75 }
+.hg-sand{ fill:var(--accent); opacity:.85 }
+
+/* The two surfaces: dished where the sand is funnelling out, heaped where it is
+   landing. `--bg` for the dip so it reads as sand missing rather than as a
+   second colour of sand. */
+/* One material, one fill. There is no second shape laid over the sand any
+   more — the surface curve is part of the same path. */
+
+/* **The grains.** Real ones — a dozen circles falling the length of the neck,
+   each on its own duration and each started part-way through, which is the
+   whole trick: identical grains on identical clocks are a dotted line, and the
+   same grains out of step are a stream. Built by faceGrains() in 43-faces.js so
+   the timings live next to the reasoning rather than in twelve inline styles.
+
+   `translateY` only, so a grain is a composited layer that never repaints, and
+   they are two pixels across — twelve of these cost less than the single
+   26px-blurred smoke speck they replaced. */
+.hg-grain{
+  fill:var(--accent); opacity:.9;
+  animation-name:hgGrain; animation-timing-function:linear;
+  animation-iteration-count:infinite;
+}
+@keyframes hgGrain{
+  0%{ transform:translateY(62px); opacity:0 }
+  12%{ opacity:.95 }
+  88%{ opacity:.95 }
+  100%{ transform:translateY(112px); opacity:0 }
+}
+/* **Turned over, the grains have to fall the other way in local space.** The
+   whole face is rotated 180° for a break, so a grain moving down the viewBox is
+   moving *up* the screen — which is what "the hourglass is broken on rest" was:
+   sand climbing out of the bottom bulb. Same fall, mirrored, so that once the
+   face is flipped it lands on the screen going down. */
+#app[data-phase="rest"][data-face="glass"] .hg-grain{ animation-name:hgGrainOver }
+@keyframes hgGrainOver{
+  0%{ transform:translateY(66px); opacity:0 }
+  12%{ opacity:.95 }
+  88%{ opacity:.95 }
+  100%{ transform:translateY(16px); opacity:0 }
+}
+/* Nothing runs through the neck when the clock is not running, and nothing
+   moves at all when the window is away or motion is unwelcome. */
+#app[data-run="0"] .hg-grains{ opacity:0 }
+#app[data-run="0"] .hg-grain,
+body.away .hg-grain{ animation-play-state:paused }
+.hg-grains{ transition:opacity .35s ease }
+@media (prefers-reduced-motion: reduce){ .hg-grain{ animation:none; opacity:0 } }
+
+/* **Turned over for the break.** A rest block is the glass flipped, so the
+   whole face is rotated and 43-faces.js swaps which bulb is filling — rotating
+   alone would have the sand climbing upwards, which is not what an hourglass
+   does whichever way up it is. */
+#app[data-phase="rest"][data-face="glass"] .face-glass{ transform:rotate(180deg) }
+.face-glass{ transition:transform .6s cubic-bezier(.4,0,.2,1) }
+
+/* **No phase name over the hourglass.** A glass with the sand at the top *is*
+   the statement that a block has started — the word above it was saying the
+   same thing twice, and it was the thing crowding the picture. The line below
+   stays, because "1 of 4" is the one thing the glass cannot tell you. */
+#app[data-face="glass"] .phase-name{ display:none }
+/* Pulled up under the glass. With the phase name gone the whole readout floats
+   low in the dial, and the line sat almost on the ring — this closes the gap to
+   the glass and opens one to the circle. */
+#app[data-face="glass"] .readout .face{ margin:2px auto 0 }
+#app[data-face="glass"] .subline{ margin-top:-2px }
+
+/* The picker borrows `.amb-btn` wholesale (22-ambience.css) — same chip, same
+   dashed lock, same price on the second line. Only the column count differs:
+   four faces sit better in two rows of two than squeezed into the ambience
+   picker's three. */
+#face-pick{ grid-template-columns:repeat(2, 1fr) }

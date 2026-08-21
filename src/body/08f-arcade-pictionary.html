@@ -1,0 +1,81 @@
+    <!-- pictionary (shared — needs a room) -->
+    <div class="game hide" id="game-pictionary">
+      <div class="game-top">
+        <span class="gname">Pictionary</span>
+        <span class="meta" id="pic-meta"></span>
+        <button class="mini-btn hide" id="pic-next">Next round</button>
+      </div>
+
+      <p class="sg-need hide" id="pic-need">
+        This one needs someone to play against.
+        <button class="mini-btn" id="pic-need-go">Open Focus together</button>
+      </p>
+
+      <div id="pic-live" class="hide">
+        <div class="pic-head">
+          <p class="pic-role" id="pic-role"></p>
+          <p class="pic-clock" id="pic-clock"></p>
+        </div>
+
+        <!-- the word, but only for whoever is drawing -->
+        <div class="pic-word hide" id="pic-word"></div>
+
+        <!-- three words, one per difficulty, drawer's eyes only -->
+        <div class="pic-choose hide" id="pic-choose">
+          <p>Pick one to draw. Harder words are worth more to everybody.</p>
+          <div class="pic-offers" id="pic-offers"></div>
+        </div>
+
+        <div class="pic-boardwrap">
+          <canvas class="pic-board" id="pic-board" width="600" height="450"></canvas>
+          <div class="pic-over hide" id="pic-over"></div>
+        </div>
+
+        <div class="pic-tools hide" id="pic-tools">
+          <div class="pic-inks" id="pic-inks"></div>
+          <div class="pic-sizes" id="pic-sizes"></div>
+          <button class="mini-btn pic-tool" id="pic-fill" aria-pressed="false"
+                  title="Fill: draw a lasso and what it encloses is filled">Fill</button>
+          <button class="mini-btn" id="pic-undo">Undo</button>
+          <button class="mini-btn" id="pic-clear">Clear</button>
+        </div>
+
+        <div class="pic-claim hide" id="pic-claim">
+          <button class="mini-btn" id="pic-take">I'll draw</button>
+        </div>
+
+        <div class="pic-guesses" id="pic-guesses"></div>
+
+        <form class="pic-bar hide" id="pic-form">
+          <input id="pic-input" type="text" maxlength="40" autocomplete="off"
+                 autocorrect="off" spellcheck="false" placeholder="What is it?" />
+          <button class="mini-btn" id="pic-send">Guess</button>
+        </form>
+
+        <div class="pic-scores" id="pic-scores"></div>
+        <!-- The word, with only what you have worked out filled in. Yours
+             alone: it is built per player on the host, so the letters you have
+             not earned never arrive here. See picMask(). -->
+        <p class="pic-mask hide" id="pic-mask" aria-live="polite"></p>
+        <p class="pic-msg" id="pic-msg"></p>
+
+        <details class="pic-rules">
+          <summary>How scoring works</summary>
+          <ul>
+            <li><b>Guessing</b> — 2 points, plus 1 for every 15 seconds still on
+              the clock. Getting there first is worth more than getting there.</li>
+            <li><b>Drawing</b> — 1 point for every person who got it. A drawing
+              nobody can read is worth nothing.</li>
+            <li><b>Difficulty</b> — the word you pick adds a bonus on top, for the
+              guessers <em>and</em> the artist: nothing for Easy, +2 for Trickier,
+              +4 for Hard. Harder words also get longer on the clock — 60, 75 and
+              90 seconds — because a scene takes setting up.</li>
+            <li>With 20 seconds left the first letter is revealed, so a drawing
+              nobody can read isn't just a wait for the clock.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="banner hide" id="pic-banner"><h3></h3><p id="pic-win-sub"></p></div>
+    </div>
+

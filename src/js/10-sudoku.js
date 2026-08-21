@@ -149,6 +149,9 @@
       if(this.grid.includes(0)) return;
       for(let i=0;i<81;i++) if(this.grid[i]!==this.sol[i]){ toast('Not quite — check the reds'); return; }
       this.done=true; this.stop(); this.persist();
+      // the board is about to be replaced by the next one, so the count of them
+      // has to be kept somewhere that outlives it
+      try{ featBump('sudoku', 10); }catch(e){}
       chime(false); buzz(120);
       showBanner('sdk-banner', 'Solved.', 'Finished in '+fmt(this.elapsed)+', across your breaks.');
     },
@@ -159,6 +162,8 @@
 
   registerGame('sudoku', {
     el:'game-sudoku', title:'Sudoku', progEl:'prog-sudoku', game:()=>Sudoku,
+    reset(){ Sudoku.newGame(Sudoku.diff); },
+    resetNote:'A fresh grid. Anything filled in now is lost.',
     async progress(){
       const s = await readGame(Sudoku.key);
       if(!s) return 'New<span>tap to start</span>';

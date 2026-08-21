@@ -15,6 +15,7 @@
 
     <div class="sync-state" id="sync-state">Not connected</div>
     <p class="sync-status" id="sync-status"></p>
+    <p class="sync-me" id="sync-me"></p>
 
     <div class="field">
       <div class="flabel"><span>Your code</span></div>
@@ -26,11 +27,15 @@
       <div class="sync-actions">
         <button class="primary" id="sync-host">Host with my code</button>
         <button class="mini-btn" id="sync-room">One-off room</button>
-        <button class="mini-btn hide" id="sync-leave">Leave</button>
       </div>
     </div>
 
     <div class="sync-people hide" id="sync-people"></div>
+
+    <button class="sync-leave hide" id="sync-leave">
+      <span>Leave the room</span>
+      <em id="sync-leave-sub">Stop sharing this timer</em>
+    </button>
 
     <div class="field">
       <div class="flabel"><span>Join someone</span></div>
@@ -44,7 +49,10 @@
       </div>
     </div>
 
-    <p class="q-sec">Friends</p>
+    <div class="sync-fhead">
+      <p class="q-sec">Friends</p>
+      <button class="mini-btn" id="sync-check">Who's online</button>
+    </div>
     <div id="sync-friends"></div>
   </div>
 </div>

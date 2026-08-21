@@ -1,12 +1,15 @@
     <!-- ============ SETUP ============ -->
     <section class="view" id="setup">
-      <div class="lede">
-        <h1>Set the rhythm<br>of your session.</h1>
-        <p>Pick how long to focus, then how long to recover. Every fourth focus earns a long rest.</p>
-      </div>
-
-      <div class="field">
-        <div class="flabel"><span>Focus for</span><span class="tag">deep work</span></div>
+      <!-- No heading at all. It opened with one, then a sentence explaining the
+           heading, then a decorative tag beside a label that already said Focus
+           for. The number is the point; the label above it is enough. -->
+      <div class="field hero">
+        <!-- Your buddy, perched on the top edge of this box with his knees
+             bent, waiting for you to start. Filled by Buddy.stage(); empty and
+             hidden when he is switched off or nobody is signed in, and nothing
+             here moves either way — he is positioned out of the flow. -->
+        <div class="bud-slot bud-perch hide" id="bud-perch" aria-hidden="true"></div>
+        <div class="flabel"><span>Focus for</span></div>
         <div class="stepper">
           <button class="step-btn" id="f-minus" aria-label="Less focus time">−</button>
           <div class="step-val"><span class="num" id="f-num">25</span><span class="unit">minutes</span></div>

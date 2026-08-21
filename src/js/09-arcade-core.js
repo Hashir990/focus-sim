@@ -27,6 +27,30 @@
   const GAMES = {};
   function registerGame(id, def){ GAMES[id] = Object.assign({id}, def); }
 
+  /* Holding a picker card offers to start that game over. It lives here rather
+     than in each game because the gesture should be the same everywhere — the
+     games differ only in what "start over" means, which is what `reset` says.
+
+     A game opts in by giving `registerGame` a `reset` — either a function, or
+     `false` to say it can't be reset from here (the shared ones refuse when you
+     don't hold the timer). Games that say nothing simply don't offer it. */
+  function arcadeResetItems(id){
+    const def = GAMES[id];
+    if(!def || !def.reset) return [];
+    const can = def.canReset ? def.canReset() : true;
+    if(!can) return [];
+    return [{
+      label:'Reset ' + (def.title || id).toLowerCase(),
+      danger:true,
+      run(){
+        askConfirm('Start ' + (def.title || id) + ' again?',
+          def.resetNote || 'Whatever is on the board now is lost.',
+          'Reset',
+          ()=>{ def.reset(); Arcade._refresh(); toast((def.title || id) + ' reset'); });
+      },
+    }];
+  }
+
   const Arcade = {
     open:false, active:null,
     show(){
@@ -37,6 +61,7 @@
     close(){
       this._leaveActive();
       this.open=false; $('overlay').classList.add('hide');
+      try{ glowFit(); }catch(e){}     // the dial is back; so is its glow
     },
     back(){
       if(this.active){ this._leaveActive(); this.active=null; this._picker(); }

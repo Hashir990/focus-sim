@@ -1,0 +1,60 @@
+/* ---------- resting when nobody is looking ----------
+
+   **Forty-eight infinite animations run for as long as this app is open.**
+
+   Thirty-one on the buddy and the shop's weather, seventeen in the effects
+   layer, five on the dial, one on the clock face. Each one keeps a compositor
+   layer alive and asks for a frame sixty times a second, and none of them
+   stops when the window goes behind something or gets minimised. A focus timer
+   is *specifically* the app you leave running for half an hour while you use
+   something else, so that is not an edge case, it is the normal case — the app
+   spends most of its life painting a buddy nobody can see.
+
+   Chromium throttles timers and `requestAnimationFrame` on its own, but not
+   CSS animations: those live on the compositor and keep going. So this says so
+   explicitly. `visibilitychange` is the only signal used — genuinely hidden,
+   minimised or on another desktop — and deliberately not blur. Half the point
+   of the thing is watching him swing about while you work in another window,
+   and losing focus is not the same as not being on screen.
+
+   `!important` because these sit on top of rules that are themselves specific,
+   and the intent here overrides all of them without exception. It is a paused
+   state and not `none`, so everything resumes mid-stroke rather than snapping
+   back to the start when you come back. */
+html.at-rest *,
+html.at-rest *::before,
+html.at-rest *::after{ animation-play-state:paused !important }
+
+/* ---------- when somebody has asked for less of it ----------
+
+   `prefers-reduced-motion` is set by people who get motion sickness or
+   headaches from moving interfaces, and a figure swinging across the whole
+   window on a loop is close to the worst case for it. The two purely
+   decorative layers go entirely — nothing is lost but decoration, and a
+   half-speed version of the same movement is still the same movement.
+
+   What stays is anything that carries meaning: the dial, the phase colours,
+   every transition you cause by pressing something. Those are slowed rather
+   than removed, because a control that gives no feedback at all reads as
+   broken. This is also why it is not simply `animation:none` on everything —
+   that is the blunt version of this rule and it takes the spinner with it. */
+@media (prefers-reduced-motion: reduce){
+  .bud-layer, #vfx{ display:none !important }
+  *, *::before, *::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+  /* The dial still breathes, just slowly enough not to be movement you notice
+     at the edge of your eye. It is the only thing on the screen telling you the
+     app is alive while a block runs. */
+  .dial-glow, .dial-ring{
+    animation-duration:6s !important;
+    animation-iteration-count:infinite !important;
+  }
+}
+
+/* Taken out of the tree while the window is not on screen, so the compositor
+   can drop the layer instead of keeping a stilled copy of it. Separate from
+   `.hide`, which means "switched off in settings" — the two must not fight. */
+.bud-layer.at-rest-off{ display:none }

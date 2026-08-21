@@ -5,14 +5,30 @@
 }
 .cw-bars .diffs{ display:flex; gap:6px }
 
+/* **A drag on the grid is a scroll, a tap on it is a tap.**
+
+   Without saying so, a finger landing on a square is ambiguous — the square
+   wants the tap, the panel wants the pan, and the browser has to guess from
+   what happens next. On the grid it guessed wrong often enough that the page
+   simply would not move if your thumb started on the puzzle, which is most of
+   the screen. `pan-y` gives the vertical to the scroller and keeps the tap;
+   `manipulation` on the cells drops the double-tap-zoom delay with it. */
 .cw{
   --n:9;
   display:grid; grid-template-columns:repeat(var(--n), 1fr);
   gap:2px; width:min(94vw, 380px); margin:10px auto 0;
   aspect-ratio:1;
+  touch-action:pan-y;
 }
+/* The fifteens need the whole column. At the 380px the small sizes use, a 15x15
+   square is 23px — under the touch target and too small to read a letter in.
+   The gap comes down to 1px as well, because fourteen 2px gaps eat 28px of a
+   grid that has none to spare. Set by JS, which knows n; see 27-crossword.js. */
+.cw.cw--wide{ width:min(96vw, 560px); gap:1px }
+
 .cw-block{ background:transparent; border-radius:2px }
 .cw-cell{
+  touch-action:pan-y manipulation;
   position:relative; background:rgba(255,255,255,.05);
   border:1px solid var(--line); border-radius:3px;
   display:grid; place-items:center; cursor:pointer;
@@ -48,9 +64,11 @@
 .cw-clues{
   display:grid; grid-template-columns:1fr 1fr; gap:12px;
   max-width:420px; margin:16px auto 0; text-align:left;
+  touch-action:pan-y;
 }
 .cw-clue-col{ min-width:0 }
 .cw-clue-item{
+  touch-action:pan-y manipulation;
   display:flex; gap:7px; width:100%; text-align:left;
   background:none; border:0; padding:5px 4px; border-radius:7px;
   color:var(--muted); font:inherit; font-size:12px; line-height:1.35; cursor:pointer;
@@ -65,3 +83,190 @@
    the thing people get caught out by */
 #cw-dir{ font-variant-numeric:tabular-nums; min-width:88px }
 #cw-dir:disabled{ opacity:.4; cursor:default }
+
+/* ---- walls, hints, and the puzzle picker ---- */
+
+/* An unused square is a plain filled panel — solid, slightly inset, and
+   nothing like a cell you could type in. The hatch across it was worse than
+   either: it read as a texture laid over the grid rather than as a hole in it. */
+.cw-block{
+  background:color-mix(in srgb, var(--text) 15%, transparent);
+  border:0;
+  border-radius:3px;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+             inset 0 2px 5px rgba(0,0,0,.28);
+}
+
+/* ---- barred grids ----
+   A barred puzzle has no black squares: every square is a letter and the
+   entries are divided by thick lines on the edges between them. That only reads
+   as a division if the squares actually touch, so the gap and the rounded
+   corners both go, and the grid gets one outer border instead of each square
+   getting its own.
+
+   These were invisible. Every rule below referred to `var(--fg)`, and there is
+   no `--fg` in this app — the variable was never defined anywhere. One bad
+   var() invalidates the whole declaration, so the bars, the outer border and
+   the grid's backing colour were all silently dropped, and a barred puzzle was
+   a plain block of squares with no way to tell where a word ended.
+
+   They are drawn in --text at full strength now, and thicker: a bar is the only
+   thing separating two words, so it has to be the most definite line on the
+   screen. */
+.cw.cw--barred{
+  gap:0;
+  border:2px solid var(--bar);
+  border-radius:4px;
+  overflow:hidden;
+  /* Transparent, not --text. The cells are translucent, so a white backing
+     showed straight through every one of them and the whole 9×9 came out as a
+     white block. The bars are drawn on the cells themselves; the grid behind
+     them has no job. */
+  background:transparent;
+}
+.cw{ --bar:color-mix(in srgb, var(--accent) 72%, var(--text)) }
+.cw--barred .cw-cell{
+  border:0; border-radius:0;
+  background:color-mix(in srgb, var(--text) 7%, transparent);
+  box-shadow:inset 0 0 0 .5px color-mix(in srgb, var(--text) 12%, transparent);
+}
+/* The bar is drawn inside the square rather than as a border so it cannot
+   change the square's size and push the grid out of its aspect ratio. */
+/* The bar is the whole point of a barred grid: it is the only thing telling you
+   that two touching squares are in different words.
+
+   Drawn as elements rather than as an inset shadow, for two reasons. A shadow
+   is a hard square band that runs corner to corner, so a thick one sat straight
+   on top of the clue number in the top-left of the cell; and a shadow cannot be
+   rounded or glow. These are three pixels, inset a little from both ends,
+   rounded, and lit — so they read as a lit rule on the board and leave the
+   numbers alone. */
+.cw--barred .cw-cell.bar-l::before,
+.cw--barred .cw-cell.bar-t::after{
+  content:''; position:absolute; border-radius:3px;
+  background:var(--bar);
+  box-shadow:0 0 6px color-mix(in srgb, var(--bar) 70%, transparent),
+             0 0 12px color-mix(in srgb, var(--bar) 35%, transparent);
+  pointer-events:none;
+}
+/* Centred on the join, not tucked inside one of the two squares. A bar belongs
+   to the line between them — half of it lies in each — which is where a printed
+   grid puts it and why it reads as a wall rather than as an edge on one cell.
+
+   And the full length of that side. They were inset at both ends to keep clear
+   of the clue numbers, which left a gap at every corner: two bars meeting at a
+   corner didn't meet, and a wall with daylight at both ends doesn't read as a
+   wall. Thin enough now that the numbers survive underneath, and the numbers
+   are drawn over the top of them anyway. */
+.cw--barred .cw-cell.bar-l::before{ left:-1px; top:0; bottom:0; width:2px }
+.cw--barred .cw-cell.bar-t::after{ top:-1px; left:0; right:0; height:2px }
+/* the number sits above whatever is drawn on the cell */
+.cw-num{ z-index:2 }
+/* selection has to stay readable under a bar */
+.cw--barred .cw-cell.sel{ background:color-mix(in srgb, var(--accent) 34%, transparent) }
+.cw--barred .cw-cell.peer{ background:color-mix(in srgb, var(--accent) 14%, transparent) }
+
+/* A revealed letter is not the same as one you worked out, and shouldn't look
+   like it: dimmer, italic, and it can't be typed over. */
+.cw-cell.given{ color:var(--muted); font-style:italic; cursor:default }
+
+/* ---- the mark on a revealed letter ----
+   A small lit dot in the corner. This was tried as a ring around the letter
+   instead — a circle rather than a square, on the theory that a square mark on
+   a square cell reads as a second cell — and it looked worse than the thing it
+   replaced: at grid size the ring is a smudge behind the letter, and nine of
+   them across a puzzle turn the board into a pattern of blobs. The dot says
+   the same thing without competing with the letter for the same space.
+
+   The letter itself carries the rest of the message: dimmer, italic, and
+   locked against typing. Drawn into the cell's own background rather than on a
+   pseudo-element, because both pseudo-elements on a cell are spoken for by the
+   bars above.
+
+   Flat, with no halo behind it. The soft ring around it was meant to make the
+   dot read as lit and instead made it read as smudged — at this size a glow is
+   two or three pixels of half-colour, which is indistinguishable from the dot
+   being slightly out of focus. */
+.cw .cw-cell.given{
+  background-image:
+    radial-gradient(circle 2.5px at calc(100% - 4.5px) calc(100% - 4.5px),
+      var(--accent) 0 100%, transparent 100%);
+  background-repeat:no-repeat;
+}
+
+.cw-aids{ display:flex; align-items:center; gap:6px }
+.cw-hints{ font-size:11px; color:var(--muted); letter-spacing:.06em; min-width:52px }
+
+/* **One scroller, and it is this one.** The picker was a flex column with the
+   list inside it as a second scroll box, `overscroll-behavior:contain` and all
+   — so the list scrolled to its end and then stopped the gesture dead instead
+   of passing it on, which is the same trap as `#setup` in §6 of HANDOFF. With
+   thirty-six puzzles in the bank that is most of them out of reach.
+   The whole panel scrolls now and the list inside it does not. */
+/* **`fixed`, not `absolute` — that is the double scroll.** It was positioned
+   against `#game-crossword`, which lives inside `.ov-body`, and `.ov-body`
+   scrolls. So the panel scrolled *and* the page under it scrolled, two bars and
+   two momentums fighting each other. Taken out of that flow it is the only
+   thing that moves. */
+.cw-picker{
+  position:fixed; inset:0; z-index:60;
+  display:flex; flex-direction:column; padding:16px 4px 8px;
+  overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;
+  background:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, var(--bg) 70%);
+}
+.cw-picker-head{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+.cw-picker-head .q-sec{ margin:0 }
+.cw-picker-note{ font-size:11.5px; color:var(--muted); margin:4px 0 10px }
+.cw-list{
+  flex:0 0 auto; display:flex; flex-direction:column; gap:6px;
+}
+/* Each row is also hold-to-reset, so a finger resting on one is meaningful —
+   which is exactly why the pan has to be spelled out here too, or a slow drag
+   starting on a puzzle goes nowhere. */
+.cw-item{
+  touch-action:pan-y manipulation;
+  display:flex; align-items:center; gap:10px; text-align:left;
+  padding:10px 12px; border-radius:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:13.5px;
+}
+.cw-item:hover{ background:rgba(255,255,255,.07) }
+.cw-item.on{ border-color:var(--accent) }
+.cw-item b{ flex:0 0 auto; font-weight:600; min-width:26px }
+.cw-item span{ flex:1; font-size:11.5px; color:var(--muted) }
+.cw-item.done b, .cw-item.done{ color:var(--muted) }
+.cw-item.done b{ text-decoration:line-through }
+.cw-item em{ flex:0 0 auto; font-style:normal; font-size:10.5px; color:var(--accent) }
+
+#game-crossword{ position:relative }
+#game-crossword .hide{ display:none !important }
+
+/* ---- on a phone ----
+   Four things across the top and six across the bar underneath is more than a
+   360px screen has room for. Rather than shrink everything until it is hard to
+   hit, the header becomes two rows of two and the bars become full-width rows
+   of their own — which leaves the buttons *bigger* than they were, not smaller. */
+@media (max-width: 460px){
+  #game-crossword .game-top{
+    display:grid; grid-template-columns:1fr auto;
+    grid-template-areas:"name meta" "dir list";
+    gap:8px; align-items:center;
+  }
+  #game-crossword .game-top .gname{ grid-area:name }
+  #game-crossword .game-top .meta{ grid-area:meta; text-align:right }
+  #cw-dir{ grid-area:dir; min-width:0 }
+  #cw-list{ grid-area:list }
+  #cw-dir, #cw-list{ padding:9px 12px }
+
+  .cw-bars{ gap:7px }
+  .cw-bars .diffs{ flex:1 1 100%; justify-content:center }
+  .cw-aids{ flex:1 1 100%; justify-content:center }
+  .cw-bars .mini-btn{ padding:9px 14px }
+  .cw-hints{ min-width:auto }
+
+  /* Two columns of clues at 12px is four or five words a line. One column,
+     bigger, is a list you can actually read and tap. */
+  .cw-clues{ grid-template-columns:1fr; gap:4px }
+  .cw-clue-item{ font-size:12.5px; padding:7px 6px }
+  .cw-clue-col + .cw-clue-col{ margin-top:8px }
+}

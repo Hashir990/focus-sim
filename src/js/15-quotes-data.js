@@ -22,9 +22,47 @@
     {t:"Well begun is half done.", a:"Aristotle"}
   ];
   let CUSTOM_QUOTES = [];
-  async function loadQuotes(){ const r=await KV.get('focus_quotes'); if(r&&r.value){ try{ CUSTOM_QUOTES=JSON.parse(r.value)||[]; }catch(e){} } }
+
+  /* Quotes other people in the room have shared, this session only. Not saved:
+     they're on loan, not yours, and a backup full of somebody else's quote bank
+     would be a surprise. Cleared when the room goes. */
+  let SHARED_QUOTES = [];
+  let QUOTES_SHARE = false;              // am I putting mine in? saved with settings
+
+  async function loadQuotes(){
+    const r=await KV.get('focus_quotes');
+    if(r&&r.value){ try{ CUSTOM_QUOTES=JSON.parse(r.value)||[]; }catch(e){} }
+    const p=await KV.get('focus_quotes_share');
+    QUOTES_SHARE = !!(p && p.value === '1');
+  }
   function saveQuotes(){ KV.set('focus_quotes', JSON.stringify(CUSTOM_QUOTES)); }
-  function allQuotes(){ return DEFAULT_QUOTES.concat(CUSTOM_QUOTES); }
+  function saveQuoteShare(){ KV.set('focus_quotes_share', QUOTES_SHARE ? '1' : '0'); }
+
+  function allQuotes(){ return DEFAULT_QUOTES.concat(CUSTOM_QUOTES, SHARED_QUOTES); }
+
+  /** Everything I'd be willing to pass on, capped so one big bank can't flood a room. */
+  function myShareableQuotes(){
+    return QUOTES_SHARE ? CUSTOM_QUOTES.slice(0, 40).map(q=>({t:q.t, a:q.a})) : [];
+  }
+
+  /** Take someone else's, tagged with who sent them so the attribution is honest. */
+  function quotesReceive(from, list){
+    if(!Array.isArray(list)) return;
+    SHARED_QUOTES = SHARED_QUOTES.filter(q=>q.from !== from);
+    for(const q of list.slice(0, 40)){
+      if(!q || typeof q.t !== 'string') continue;
+      SHARED_QUOTES.push({
+        t:String(q.t).slice(0, 240),
+        a:(q.a ? String(q.a).slice(0, 60) + ' · via ' + from : 'via ' + from),
+        from,
+      });
+    }
+    try{ renderQuotesList(); }catch(e){}
+  }
+  function quotesClearShared(){
+    SHARED_QUOTES = [];
+    try{ renderQuotesList(); }catch(e){}
+  }
 
   const Quote = {
     cycleT:null, swapT:null, last:-1,

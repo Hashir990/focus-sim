@@ -1,3 +1,50 @@
   /* ---------- init ---------- */
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), ambLoad(), syncLoad()]).then(()=>{ document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C); render(); });
+  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
+    document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
+    /* Anything planned for today joins the checklist before the first render,
+       so it is simply there rather than appearing a moment later. */
+    try{ planSpawnDue(); }catch(e){}
+    /* After load(), because the chosen face comes out of the same record — and
+       before render(), so the first paint draws the right one rather than the
+       digital default for a beat. */
+    /* Recompute the ember balance from where it actually came from — the log,
+       what has been claimed, what has been bought. Here rather than inside
+       `Embers.load()`, because that races `loadLog()` in the same `Promise.all`
+       and would derive a balance from an empty log. See reconcile() in
+       37-embers.js and 47-merge.js. */
+    try{ Embers.reconcile(); Embers.save(); }catch(e){}
+    try{ faceApply(); }catch(e){}
+    /* **Draw the shelves again now everything is loaded.** `ambLoad()` renders
+       the ambience picker at the end of its own promise, and it races
+       `Embers.load()` in the same `Promise.all` — so on a cold start it usually
+       drew the locks before there was any record of what had been bought, and
+       everything you owned came up looking unowned until something else
+       happened to re-render it. Both of these are cheap and idempotent; the
+       ordering is the fix, not the call. */
+    try{ ambRender(); }catch(e){}
+    /* If there is an account, catch up with it — quietly, because the app has
+       never needed the network and still does not. */
+    try{ Account.render(); Account.sync(true); }catch(e){}
+    try{ Embers.render(); }catch(e){}
+    render();
+    /* Last, so the first thing it does cannot race the layers it switches off.
+       See 49-rest.js: a timer left running for half an hour behind another
+       window should not be painting a buddy for nobody. */
+    try{ restWatch(); }catch(e){}
+  });
+
+  /* The app is left open overnight far more often than it is opened fresh in
+     the morning — it lives in a pinned tab or a window of its own. Without
+     this, a task planned for Tuesday would turn up whenever the thing next
+     happened to be restarted. Once a minute is more often than it needs to be
+     and costs nothing. */
+  var PLAN_DAY = dayKey(Date.now());
+  setInterval(()=>{
+    try{
+      const k = dayKey(Date.now());
+      if(k === PLAN_DAY) return;
+      PLAN_DAY = k;
+      planSpawnDue();
+    }catch(e){}
+  }, 60000);

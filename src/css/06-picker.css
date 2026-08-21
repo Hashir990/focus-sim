@@ -13,13 +13,58 @@
   border-radius:13px; background:var(--track)}
 .pcard h3{font-size:16.5px; font-weight:600; margin-bottom:3px}
 .pcard p{font-size:12.5px; color:var(--muted); line-height:1.45}
-.pcard .prog{margin-left:auto; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--accent); text-align:right; white-space:nowrap; flex:0 0 auto}
-.pcard .prog span{display:block; color:var(--muted); font-size:10px; margin-top:2px}
+/* The status on the right is a caption, not a paragraph. Left to itself
+   "claim it to set the word" pushed straight through the description beside it,
+   so it is capped at roughly the width of "tap to start" — the longest line it
+   was ever designed to hold — and anything longer wraps to two. */
+.pcard .prog{
+  margin-left:auto; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); text-align:right; flex:0 0 auto;
+  width:76px; white-space:normal; overflow-wrap:anywhere;
+}
+.pcard .prog span{
+  display:block; color:var(--muted); font-size:10px; margin-top:2px;
+  letter-spacing:.06em; line-height:1.25;
+}
 
-.game-top{display:flex; align-items:center; justify-content:space-between; margin:6px 0 14px}
-.game-top .gname{font-family:'Fraunces',serif; font-style:italic; font-size:16px}
-.game-top .meta{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; letter-spacing:.04em}
+/* Which games need somebody else, said once at the top of each group rather
+   than repeated on every card. */
+.pick-group{
+  display:flex; align-items:baseline; gap:8px;
+  margin:14px 0 -2px; flex:0 0 auto;
+}
+.pick-group:first-of-type{ margin-top:4px }
+.pick-group h4{
+  font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted); font-weight:600;
+}
+.pick-group em{ font-style:normal; font-size:11px; color:var(--muted); opacity:.65 }
+
+.pcard .tag{
+  position:absolute; top:10px; right:12px;
+  font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+  padding:2px 6px; border-radius:20px;
+  background:var(--glow); color:var(--text);
+}
+.pcard{ position:relative }
+.pcard.needs-room{ opacity:.72 }
+.pcard.needs-room .emoji{ opacity:.7 }
+
+/* A row of a name, a status and however many buttons that game wants. It had
+   neither a gap nor permission to wrap, so on a phone the crossword's four
+   items simply ran into each other. */
+.game-top{
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:8px; margin:6px 0 14px;
+}
+.game-top .gname{
+  font-size:15px; font-weight:600; letter-spacing:.01em;
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.game-top .meta{
+  font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;
+  letter-spacing:.04em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 .mini-btn{
   padding:8px 12px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:500;
   border:1px solid var(--line); background:var(--card); color:var(--text); transition:background .18s;

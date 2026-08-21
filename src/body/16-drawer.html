@@ -1,0 +1,105 @@
+<!-- The side menu sits outside `.app` on purpose. `.app` is the scrolling
+     shell, and a menu that has to open over *everything* — including the arcade
+     and every game inside it — has no business being inside the box that
+     scrolls or stacking against its children. -->
+  <div class="drawer-backdrop hide" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span class="drawer-title">Menu</span>
+      <button class="drawer-x" id="drawer-close" aria-label="Close menu">×</button>
+    </div>
+    <!-- Ordered by how often a hand reaches for it, not by when it was built.
+         Focus together and Your account are the two that start something or
+         change who you are; the three after them are things you look back at;
+         Quote bank is the one you set once and forget.
+
+         Shop is last and deliberately apart. It is the only accented row on
+         here, and an accented row in the middle of a list drags the eye past
+         everything above it every time the menu opens. -->
+    <button class="drawer-item" id="d-sync">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span><b>Focus together</b><small>Share a timer with someone else</small></span>
+    </button>
+    <button class="drawer-item" id="d-account">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg>
+      <span><b>Your account</b><small>Sign in &amp; your buddy</small></span>
+    </button>
+    <button class="drawer-item" id="d-stats">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span><b>Your focus</b><small>Totals, streaks and where the hours went</small></span>
+    </button>
+    <button class="drawer-item" id="d-history">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      <span><b>History</b><small>Your sessions &amp; notes calendar</small></span>
+    </button>
+    <button class="drawer-item" id="d-ach">
+      <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+      <span><b>Achievements</b><small>What the hours added up to</small></span>
+    </button>
+    <button class="drawer-item" id="d-quotes">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+      <span><b>Quote bank</b><small>Lines that fade in while you focus</small></span>
+    </button>
+    <!-- Leaving is a row on the Focus together screen, not a menu item. Two
+         places to leave from meant two things to keep in step and no obvious
+         home for it; the screen that put you in a room is the one to leave from. -->
+    <!-- What the embers are *for*. The counter has always been in the top bar
+         and the shelf has always been in Your focus, and nothing in between
+         ever said so — you could earn a hundred of them without learning there
+         was anywhere to spend them. Filled by Embers.render(). -->
+    <button class="drawer-spend" id="emb-spend-row">
+      <span class="emb-chip-mini"><i></i><b id="emb-spend-n">0</b></span>
+      <span>Shop<small>Lights, sounds and clock faces</small></span>
+    </button>
+
+    <div class="drawer-sec">Ambience</div>
+    <div class="amb-grid" id="amb-grid"></div>
+    <div class="amb-vol-row hide" id="amb-vol-row">
+      <span>Volume</span>
+      <input type="range" id="amb-vol" min="0" max="100" value="55" aria-label="Ambience volume" />
+    </div>
+
+    <div class="drawer-sec">Settings</div>
+    <div class="drawer-toggles">
+      <button class="toggle on" id="t-auto"><span class="dot"></span>Auto‑continue</button>
+      <button class="toggle on" id="t-sound"><span class="dot"></span>Chime</button>
+      <button class="toggle on" id="t-fx"><span class="dot"></span>Effects</button>
+    </div>
+    <!-- Filled by faceRender() in 43-faces.js rather than written out here, so
+         the list of faces lives in one place — add one to FACES and it appears.
+         Same `.toggle` chip as the switches above; these are one-of-four rather
+         than on/off, which the highlighted one already says. -->
+    <div class="drawer-sec">Clock face</div>
+    <div class="amb-grid" id="face-pick"></div>
+
+    <div class="drawer-sec">Your data</div>
+    <div class="drawer-toggles">
+      <button class="toggle" id="d-export"><span class="dot"></span>Export backup</button>
+      <button class="toggle" id="d-import"><span class="dot"></span>Import backup</button>
+    </div>
+    <!-- Only ever visible in a build that has somewhere to check. See
+         41-update.js: with no update URL stamped in, this stays empty. -->
+    <div id="upd-box" class="hide"></div>
+    <button class="drawer-reset" id="d-reset">Reset progress</button>
+    <input type="file" id="import-file" accept="application/json,.json" hidden />
+    <!-- **This line has to tell the truth.** It has always said the data stays
+         on this device, and that was true. With an account it is not, so the
+         claim is made by 48-account.js from what is actually the case rather
+         than being written here where it cannot know. -->
+    <div class="drawer-foot"><span id="acc-where">Focus Simulator · your data stays on this device</span><br><span class="build-stamp">v__VERSION__ · build __BUILD__</span></div>
+  </aside>
+
+<!-- ============ THE BUDDY LAYER ============
+     Outside `.app` on purpose, and fixed to the viewport.
+
+     He used to live inside the timer column, which is a ~420px box in the
+     middle of the window — so "across the screen" was across a strip, and on a
+     wide monitor he swung back and forth in the same small space in the middle
+     while the rest of the screen sat empty. Percentages here are percentages of
+     the *window*, which is what was meant all along.
+
+     `pointer-events:none` throughout: he is over everything and must never take
+     a tap. Below overlays in the stack, so opening a page covers him. -->
+<div class="bud-layer" id="bud-layer" aria-hidden="true">
+  <div class="bud-slot hide" id="bud-live"></div>
+</div>

@@ -5,7 +5,91 @@
 .pip.done{background:var(--accent); border-color:var(--accent); box-shadow:0 0 0 3px var(--glow)}
 .pip.long{width:11px; height:11px; border-style:solid; border-color:var(--accent)}
 
-.dial-wrap{flex:1; display:flex; align-items:center; justify-content:center; width:100%}
+.dial-wrap{flex:1; display:flex; align-items:center; justify-content:center; width:100%; position:relative}
+
+/* ---- Spider-Man's web ----
+   Off unless that light is burning: it is one theme's furniture, not part of
+   the timer. Absolutely placed rather than laid out, because `.dial-wrap` is a
+   centring flex row — as a sibling in the flow it sat *beside* the dial and
+   pushed it off centre. Wider than the dial so the outer ring runs away behind
+   it instead of stopping in a visible circle, and masked to nothing at the rim
+   for the same reason.
+
+   Deliberately faint. It is behind a countdown, and anything you can read at a
+   glance here is competing with the numbers. */
+.dial-web{ display:none }
+body[data-light="spiderman"] .dial-web{
+  display:block; position:absolute; left:50%; top:50%;
+  width:min(104vw,400px); aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  pointer-events:none; z-index:0;
+  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 40%, transparent 74%);
+  mask-image:radial-gradient(circle at 50% 50%, #000 40%, transparent 74%);
+}
+/* ---- the corner webs ----
+   Fixed to the corners of the window, not to the stage, so they frame the room
+   rather than the content — and off entirely under every other light. Mirrored
+   in CSS for the right-hand one, which is why both carry the same path data. */
+.corner-web{ display:none }
+body[data-light="spiderman"] .corner-web{
+  display:block; position:fixed; top:0; z-index:0; pointer-events:none;
+  /* Smaller than it was: at 190px the web reached a third of the way across a
+     phone and stopped being a corner. */
+  width:min(26vw,132px); height:min(26vw,132px);
+  -webkit-mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
+  mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
+}
+/* Breathing in and out, and deliberately not together. Two durations that do
+   not divide into each other, one of them started part-way through, so the pair
+   drifts and never lands on the same beat — regular pulsing reads as a fault in
+   the screen. Opacity only, so the right-hand one keeps its mirroring. Stops
+   with everything else when the window is hidden. */
+/* Longhand, not the `animation:` shorthand — jsdom does not expand the
+   shorthand at all (it reports animation-name: none for even a trivial one), so
+   written this way the smoke test can actually see it. */
+body[data-light="spiderman"] .corner-web-l{
+  left:0;
+  animation-name:web-breathe; animation-duration:9.5s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+}
+body[data-light="spiderman"] .corner-web-r{
+  right:0; transform:scaleX(-1);
+  animation-name:web-breathe; animation-duration:13.7s; animation-delay:-4.2s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+}
+@keyframes web-breathe{
+  0%{ opacity:.26 } 34%{ opacity:.9 } 57%{ opacity:.4 } 78%{ opacity:.72 } 100%{ opacity:.26 }
+}
+body.away .corner-web{ animation-play-state:paused }
+/* White, not the accent. Red web on a blue ground reads as a stain in the
+   corner; white reads as web. The dial's own web stays red — that one is
+   continuous with the mask and has to match it. */
+.corner-web-spokes,
+.corner-web-rings{ fill:none; stroke:#fff; stroke-linejoin:round; opacity:.30 }
+.corner-web-spokes{ stroke-width:1.1 }
+.corner-web-rings{ stroke-width:1.3 }
+
+.dial-web-spokes,
+.dial-web-rings{ fill:none; stroke:var(--accent); stroke-linejoin:round; opacity:.22 }
+.dial-web-spokes{ stroke-width:.9 }
+.dial-web-rings{ stroke-width:1.1 }
+/* The mask is the centre of the dial, so it sits at the centre of the viewBox
+   and the clock reads over it. Kept low enough that the digits still win: this
+   is a ground, not a picture. */
+.dial-web-mask{ opacity:.5 }
+.dw-mask-face{ fill:var(--accent); stroke:none }
+/* Webbing *on* the mask, struck from the same centre and the same twelve spokes
+   as the web outside it, so the two line up exactly at the rim. Drawn in the
+   ground colour — black on red, creases in the fabric rather than a third
+   colour brought in for the sake of it. */
+.dw-mask-web-spokes,
+.dw-mask-web-rings{ fill:none; stroke:var(--bg); stroke-linejoin:round; opacity:.85 }
+.dw-mask-web-spokes{ stroke-width:2 }
+.dw-mask-web-rings{ stroke-width:2.2 }
+/* The eyes are the whole symbol: dark, with a white rim so they hold their
+   shape against the red at any size. Lifted slightly and scaled to the disc. */
+.dw-mask-eyes{ transform:translate(120px,116px) scale(.82) translate(-120px,-116px) }
+.dw-mask-eye{ fill:var(--bg); stroke:#fff; stroke-width:3.2; stroke-linejoin:round }
 .dial{
   position:relative; width:min(78vw,300px); aspect-ratio:1;
   display:grid; place-items:center;
@@ -18,7 +102,44 @@
   animation:pulse var(--breathe) ease-in-out infinite; transition:background 1.1s ease;
 }
 @keyframes pulse{0%,100%{opacity:.5} 50%{opacity:1}}
-.dial svg{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg)}
+/* The part of the glow that spills past the dial. Fixed, so no scroll box
+   anywhere above it can crop it — see 39-dial-glow.js. */
+.dial-glow{
+  position:fixed; z-index:0; pointer-events:none; border-radius:50%;
+  opacity:0; transition:opacity .7s ease;
+  /* No blur filter. It was `blur(14px)` over a fixed element the size of the
+     dial, animating its opacity for ever — so the filter was re-rasterised on a
+     loop for something a gradient can do standing still. Extra stops give the
+     same soft falloff for nothing. */
+  background:radial-gradient(circle at 50% 50%,
+    var(--glow) 0%,
+    color-mix(in srgb, var(--glow) 55%, transparent) 26%,
+    color-mix(in srgb, var(--glow) 22%, transparent) 42%,
+    transparent 62%);
+  animation:pulse var(--breathe) ease-in-out infinite;
+}
+.dial-glow.on{ opacity:1 }
+@media (prefers-reduced-motion: reduce){ .dial-glow{ animation:none } }
+/* ---- the square ----
+   An `<svg>` clips to its own viewport by default — `overflow:hidden` is the
+   initial value for the element — and the viewport here is a square exactly the
+   size of the dial. The progress ring carries a 9px drop-shadow, and a Gaussian
+   that size reaches about 13px past the stroke, while the circle at r=108 in a
+   240-unit box only has 8.5 units of slack. So the glow was being cut off flush
+   against the four sides of the SVG box.
+
+   That is the square edge that survived every previous fix: it was never the
+   scroll container at all, it was inside the dial the whole time. */
+/* **Direct child only.** This is the progress ring: stretched over the dial and
+   turned a quarter so the sweep starts at twelve. Written as `.dial svg` it also
+   caught the clock faces in `.readout` — an analog dial stretched to fill the
+   whole thing and lying on its side, an hourglass on its back. Anything else
+   that ever goes inside the dial would have been next. */
+.dial > svg{
+  position:absolute; inset:0; width:100%; height:100%;
+  transform:rotate(-90deg);
+  overflow:visible;
+}
 .ring-track{fill:none; stroke:var(--track); stroke-width:7; transition:stroke 1.1s ease}
 .ring-prog{
   fill:none; stroke:var(--accent); stroke-width:7; stroke-linecap:round;

@@ -1,0 +1,62 @@
+/* ---------------- confirm + hold menu ---------------- */
+
+.confirm{
+  position:fixed; inset:0; z-index:60;
+  display:flex; align-items:center; justify-content:center; padding:24px;
+  background:rgba(6,10,18,.66); backdrop-filter:blur(4px);
+}
+.confirm.hide{ display:none; }
+.confirm-card{
+  width:100%; max-width:320px; padding:20px 20px 16px;
+  border-radius:16px; border:1px solid var(--line);
+  background:var(--bg2); box-shadow:0 18px 44px rgba(0,0,0,.5);
+}
+.confirm-card h3{ font-size:16px; font-weight:600; margin:0 0 6px; }
+.confirm-card p{ font-size:13.5px; line-height:1.55; color:var(--muted); margin:0 0 16px; }
+.confirm-card p:empty{ display:none; margin:0 0 10px; }
+.confirm-acts{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+.confirm-acts .primary{ padding:9px 16px; font-size:13.5px; width:auto; }
+
+/* The ring that fills while you hold. Without it a long press is
+   indistinguishable from a press that isn't doing anything. */
+.holdring{
+  position:fixed; z-index:62; width:44px; height:44px; pointer-events:none;
+  transform:translate(-50%,-50%);
+}
+.holdring.hide{ display:none }
+.holdring svg{ width:100%; height:100%; transform:rotate(-90deg) }
+.holdring circle{ fill:none; stroke-width:3; stroke-linecap:round }
+.hr-track{ stroke:rgba(255,255,255,.16) }
+.hr-fill{
+  stroke:var(--accent);
+  stroke-dasharray:119.4;              /* 2πr, r = 19 */
+  stroke-dashoffset:119.4;
+}
+.holdring.go .hr-fill{ animation:hrfill var(--hold-ms, 500ms) linear forwards }
+@keyframes hrfill{ to{ stroke-dashoffset:0 } }
+@media (prefers-reduced-motion: reduce){
+  .holdring.go .hr-fill{ animation:none; stroke-dashoffset:60 }
+}
+
+.hmenu{ position:fixed; inset:0; z-index:61; }
+.hmenu.hide{ display:none; }
+.hmenu-card{
+  position:absolute; min-width:150px; padding:5px;
+  border-radius:12px; border:1px solid var(--line);
+  background:var(--bg2); box-shadow:0 14px 34px rgba(0,0,0,.5);
+  display:flex; flex-direction:column; gap:2px;
+}
+.hmenu-item{
+  padding:9px 12px; border:none; border-radius:8px; background:none;
+  color:var(--text); font:inherit; font-size:13.5px; text-align:left; cursor:pointer;
+}
+.hmenu-item:hover{ background:rgba(255,255,255,.08); }
+.hmenu-item.danger{ color:#f08a7a; }
+
+/* the prompt's one line — same field as everywhere else you type in this app */
+.prompt-input{
+  width:100%; margin:2px 0 16px;
+  background:var(--bg2); border:1px solid var(--line); border-radius:12px;
+  padding:11px 13px; font:inherit; font-size:14px; color:var(--text); outline:none;
+}
+.prompt-input:focus{ border-color:var(--accent) }

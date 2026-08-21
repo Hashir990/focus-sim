@@ -19,7 +19,14 @@
   display:flex; align-items:flex-end; gap:5px;
   max-width:420px; margin:0 auto; height:120px;
 }
-.sbar{ flex:1; display:flex; flex-direction:column; align-items:center; height:100% }
+.sbar{
+  flex:1; display:flex; flex-direction:column; align-items:center; height:100%;
+  background:none; border:0; padding:0; font:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.sbar:hover .sbar-fill, .sbar.on .sbar-fill{ filter:brightness(1.25) }
+.sbar.on .sbar-track{ box-shadow:inset 0 0 0 1px var(--accent) }
+.sbar:hover span, .sbar.on span{ color:var(--text) }
 .sbar-track{
   flex:1; width:100%; display:flex; align-items:flex-end;
   background:var(--track); border-radius:6px; overflow:hidden;
@@ -30,6 +37,14 @@
 }
 .sbar-fill.empty{ background:transparent; box-shadow:none }
 .sbar span{ margin-top:6px; font-size:10px; color:var(--muted) }
+/* what the pointer is on, said in words under the chart */
+.sbar-read{
+  max-width:420px; margin:9px auto 0; text-align:center;
+  font-size:12px; color:var(--muted); min-height:1.2em;
+  transition:color .15s ease;
+}
+.sbar-read.on{ color:var(--text) }
+
 .stat-lines{
   max-width:420px; margin:18px auto 0;
   border:1px solid var(--line); border-radius:14px; overflow:hidden;
@@ -44,3 +59,12 @@
 @media (prefers-reduced-motion: reduce){
   .sbar-fill{ transition:none }
 }
+
+/* ---- who you focused alongside ---- */
+.stat-note{ font-size:12.5px; color:var(--muted); margin:-4px 0 10px }
+.stat-company{ display:flex; flex-direction:column; gap:7px }
+.scomp{ display:flex; align-items:center; gap:9px; font-size:12.5px }
+.scomp-name{ flex:0 0 84px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.scomp-bar{ flex:1; height:7px; border-radius:4px; background:var(--track); overflow:hidden }
+.scomp-bar i{ display:block; height:100%; border-radius:4px; background:var(--accent) }
+.scomp b{ flex:0 0 auto; font-weight:600; font-size:12px; color:var(--muted) }

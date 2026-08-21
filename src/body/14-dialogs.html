@@ -1,0 +1,40 @@
+
+<!-- ============ CONFIRM ============ -->
+<div class="confirm hide" id="confirm">
+  <div class="confirm-card">
+    <h3 id="confirm-title"></h3>
+    <p id="confirm-body"></p>
+    <div class="confirm-acts">
+      <button class="mini-btn" id="confirm-no">Cancel</button>
+      <button class="primary" id="confirm-yes">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PROMPT ============
+     A confirm with a line to type in. Its own markup rather than a field added
+     to the confirm above, because the two are open at different moments and
+     sharing one card means one of them has to hide half of it. -->
+<div class="confirm hide" id="prompt">
+  <div class="confirm-card">
+    <h3 id="prompt-title"></h3>
+    <input type="text" id="prompt-input" class="prompt-input" maxlength="90" autocomplete="off" />
+    <div class="confirm-acts">
+      <button class="mini-btn" id="prompt-no">Cancel</button>
+      <button class="primary" id="prompt-yes">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- the ring that fills while you hold, so the gesture is visible -->
+<div class="holdring hide" id="holdring" aria-hidden="true">
+  <svg viewBox="0 0 44 44">
+    <circle class="hr-track" cx="22" cy="22" r="19"></circle>
+    <circle class="hr-fill" cx="22" cy="22" r="19"></circle>
+  </svg>
+</div>
+
+<!-- ============ HOLD MENU ============ -->
+<div class="hmenu hide" id="hmenu">
+  <div class="hmenu-card" id="hmenu-card"></div>
+</div>

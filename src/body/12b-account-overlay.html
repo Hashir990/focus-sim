@@ -1,0 +1,30 @@
+
+<!-- ============ YOUR ACCOUNT ============
+     Signing in and your buddy used to sit in the middle of Your focus, between
+     the stats and the shelf. Both were things you *change*, wedged into a page
+     you *read*, and both were a scroll away from anything that pointed at them.
+
+     They are together here because they are the same subject — who you are, and
+     what other people see of you — and apart from the stats because a page of
+     totals is not the place to be asked for a password. -->
+<div class="overlay hide" id="acct-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="acct-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">Your account</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <!-- Filled by 48-account.js. In a build with no account server this stays
+         empty and hidden, which is why the buddy below is not inside it: your
+         buddy works with or without anywhere to sign in, and a page that is
+         blank for half its builds is a page nobody trusts. -->
+    <div id="acc-box" class="hide"></div>
+
+    <div class="bud-panel">
+      <p class="emb-head">Your buddy <em>who stands next to your name in a room</em></p>
+      <div id="bud-box"></div>
+    </div>
+  </div>
+</div>
