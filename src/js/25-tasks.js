@@ -90,6 +90,11 @@
   }
 
   /** Called at the end of a focus block: fold ticked tasks into that session's note. */
+  /* Asked by the timer engine before it decides whether a very short block is
+     worth a row in the history. Ticking something off is the clearest possible
+     statement that the block was not nothing. */
+  function tasksTickedCount(){ return TASKS_TICKED.length; }
+
   function tasksFlushToNote(){
     if(!TASKS_TICKED.length) return;
     const rec = S.lastLogId ? findLog(S.lastLogId) : null;

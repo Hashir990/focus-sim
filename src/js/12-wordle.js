@@ -83,7 +83,8 @@
       $('wdl-win-sub').textContent = sub;
       bn.classList.remove('hide');
     },
-    persist(){ try{ KV.set(this.skey, JSON.stringify({answer:this.answer,guesses:this.guesses,done:this.done,won:this.won})); }catch(e){} }
+    persist(){ writeGame(this.skey, {answer:this.answer,guesses:this.guesses,done:this.done,won:this.won}); },
+    forget(){ this.answer = ''; this.guesses = []; this.cur = ''; }
   };
 
   // physical keyboard for wordle
@@ -93,6 +94,8 @@
     else if(e.key==='Backspace') Wordle.key('back');
     else if(/^[a-zA-Z]$/.test(e.key)) Wordle.key(e.key.toLowerCase());
   });
+
+  forgetGame(Wordle.skey, ()=>Wordle.forget());
 
   registerGame('wordle', {
     el:'game-wordle', title:'Word guess', progEl:'prog-wordle', game:()=>Wordle,

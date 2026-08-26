@@ -267,12 +267,11 @@
     },
 
     persist(){
-      try{
-        KV.set(this.key, JSON.stringify({
-          board:this.board, score:this.score, best:this.best, won:this.won, done:this.done
-        }));
-      }catch(e){}
-    }
+      writeGame(this.key, {
+        board:this.board, score:this.score, best:this.best, won:this.won, done:this.done
+      });
+    },
+    forget(){ this.loaded = false; this.board = []; this.tiles = []; }
   };
 
   document.addEventListener('keydown', e=>{
@@ -284,6 +283,8 @@
     e.preventDefault();
     G2048.move(dir);
   });
+
+  forgetGame(G2048.key, ()=>G2048.forget());
 
   registerGame('g2048', {
     el:'game-2048', title:'2048', progEl:'prog-2048', game:()=>G2048,

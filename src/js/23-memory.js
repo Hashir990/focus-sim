@@ -117,18 +117,19 @@
     stop(){ clearInterval(this.tick); this.tick = null; },
 
     persist(){
-      try{
-        KV.set(this.key, JSON.stringify({
-          cards:this.cards, matched:this.matched, moves:this.moves,
-          elapsed:this.elapsed, done:this.done
-        }));
-      }catch(e){}
-    }
+      writeGame(this.key, {
+        cards:this.cards, matched:this.matched, moves:this.moves,
+        elapsed:this.elapsed, done:this.done
+      });
+    },
+    forget(){ this.loaded = false; this.cards = []; }
   };
 
   /* Memory is switched off for now. Flip this to true and un-comment its .pcard
      in src/body/06-arcade-picker.html to bring it back — nothing else to change. */
   const MEMORY_ENABLED = false;
+
+  forgetGame(Memory.key, ()=>Memory.forget());
 
   if(MEMORY_ENABLED) registerGame('memory', {
     el:'game-memory', title:'Memory', progEl:'prog-memory', game:()=>Memory,

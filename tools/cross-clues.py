@@ -2322,3 +2322,212 @@ CLUES.update({
     'yew':  'Dark evergreen in churchyards',
     'yup':  'Casual agreement',
 })
+
+
+# 2026-08-21, modern slang. Most of it lands here rather than in a file of its
+# own, and that is the interesting part: these are almost all ordinary words
+# that have picked up a second life. FIRE, SLAP, WICKED, GOAT, DRIP, MID and
+# CRIB already sit in the bank with straight definitions, so the slang sense
+# becomes a *second* clue and the "where an answer comes back, the clue
+# changes" rule gets a much better answer than a paraphrase would give.
+#
+# Chosen for whether a solver could actually get them. Left out: `skibidi`,
+# which the source itself says has no inherent meaning and so cannot be clued
+# fairly; `gyat` and the drinking sense of `shotgun`, which are the crude tier;
+# `fanum tax`, tied to one streamer; `ohio` as an insult to a place; and `mew`,
+# which is banned already and belongs to looksmaxxing besides.
+CLUES.update({
+    # ---- ordinary words that gained a modern sense ----
+    'boo':     ('Shout at a bad performance', 'What you jump out and say',
+                'Your sweetheart, informally'),
+    'cap':     ('Hat with a peak', 'Top for a bottle',
+                'Upper limit on spending', 'A lie, in modern slang'),
+    'clutch':  ('Grip it tightly', 'Delivered right when it mattered most'),
+    'crib':    ('Baby’s bed with high sides', 'Your home, informally'),
+    'dank':    ('Cold, damp and unpleasant', 'Excellent, said of a meme'),
+    'dope':    ('Inside information, or a fool', 'Excellent, in slang'),
+    'drip':    ('Fall in drops', 'Stylish clothes, in modern slang'),
+    'fire':    ('Flames', 'Absolutely brilliant, in modern slang'),
+    'fly':     ('Travel through the air', 'Buzzing insect at the picnic',
+                'Stylish, in older slang'),
+    'goat':    ('Farm animal with horns and a beard',
+                'The greatest of all time, in short'),
+    'lame':    ('Unable to walk properly', 'Boring and unimpressive'),
+    'lore':    ('Old knowledge passed down',
+                'Backstory a fandom knows by heart'),
+    'mid':     ('Halfway through', 'Thoroughly average, in modern slang'),
+    'pop':     ('Chart music', 'Fizzy drink, in the American Midwest'),
+    'scrub':   ('Clean it with hard rubbing', 'Useless sort, in slang'),
+    'shotgun': ('Firearm that fires a spread', 'Call for the front seat'),
+    'slap':    ('Hit with an open hand', 'Be very good, said of a song'),
+    'slay':    ('Kill, in older English', 'Do it impressively well'),
+    'wicked':  ('Morally bad', 'Very good, in slang'),
+
+    # ---- words a clue admits to the pool for the first time ----
+    'aura':    ('The feeling somebody gives off',
+                'Coolness points, in modern slang'),
+    'bingo':   'Hall game of numbered balls',
+    'bodega':  'Corner shop, in New York',
+    'fam':     'Your close friends, informally',
+    'flunk':   'Fail the exam badly',
+    'sigma':   'Confident sort who does his own thing',
+    'wack':    'Rubbish, in slang',
+    'yap':     'Talk far too much',
+})
+
+
+# Fixes from tools/check-clues.py, which reads the shipped bank and asks whether
+# each clue is answerable rather than merely accurate. MET was the one worth
+# building it for: "Came together with" hides the answer inside "ca-MET-ogether",
+# which no amount of reading catches and a substring test finds instantly.
+CLUES.update({
+    'apiece': 'Each one, when pricing them up',
+    'bard':   'The playwright from Stratford',
+    'cry':    'Shed a few tears',
+    'have':   'Possess it outright',
+    'mere':   'Only that, and nothing better',
+    'rage':   'Towering anger',
+    'sacred': 'Set apart as holy',
+    'yet':    'All the same, even so',
+})
+
+CLUES.update({
+    'met':    'Encountered by chance',
+    'nearer': 'A bit closer than before',
+})
+
+# 2026-08-23. Hand-written for everything `--clues` still had on a WordNet
+# gloss, which is the usual crop of wrong first senses: AIDES came through as
+# the Greek underworld, BAILEY as an American singer, ATTIC as slang for the
+# head, ASP as "of southern Europe", MACE as the spray rather than the club,
+# and REP as a ribbed fabric rather than the man with the sample case.
+CLUES.update({
+    'abandon':  'Walk out on for good',
+    'adapt':    'Change to suit new conditions',
+    'adobe':    'Mud brick dried in the sun',
+    'affair':   'A matter being dealt with',
+    'aides':    'Assistants to a politician',
+    'area':     'Region marked out on a map',
+    'array':    'An impressive spread of things',
+    'asp':      'Snake that finished off Cleopatra',
+    'attic':    'Room right under the roof',
+    'bailey':   'Outer wall of a castle',
+    'bald':     "Having lost all one's hair",
+    'bamboo':   'Fast-growing cane a panda eats',
+    'banded':   'Marked out with stripes',
+    'bespoke':  'Made to order for one customer',
+    'bite':     'Take a chunk out of',
+    'blasted':  'Blown to pieces',
+    'boast':    'Crow about your own success',
+    'booty':    "A pirate's stolen haul",
+    'candid':   'Frank and open',
+    'canine':   'One of the pointed teeth',
+    'canopy':   'Cover stretched overhead for shade',
+    'caste':    'Fixed social rank one is born into',
+    'cater':    'Provide the food for an event',
+    'chain':    'Links joined in a line',
+    'coat':     'Layer of paint',
+    'con':      'Swindle someone',
+    'cyst':     ('Small fluid-filled lump under the skin',
+                 'Harmless growth a surgeon may drain'),
+    'dip':      'Brief plunge in the pool',
+    'doc':      "The one you see when you're ill",
+    'dog':      'Pet that fetches',
+    'eclipse':  'When the moon blots out the sun',
+    'eddy':     'Small whirl in a stream',
+    'edge':     'The very rim of something',
+    'email':    'Message sent to an inbox',
+    'endemic':  'Found only in one region',
+    'energy':   'What you need to keep going',
+    'error':    'A mistake in the working',
+    'eve':      'The night before a big day',
+    'false':    'Not true at all',
+    'felony':   'A serious crime in US law',
+    'get':      'Come to have',
+    'handed':   'Passed over by hand',
+    'haul':     'Drag something heavy along',
+    'heretic':  'One who defies church doctrine',
+    'heroic':   'Brave beyond the call of duty',
+    'ice':      'Frozen water',
+    'iconic':   'Instantly known as a symbol',
+    'indirect': 'Roundabout, not straight to the point',
+    'lace':     'Delicate openwork fabric',
+    'lens':     'Glass that bends light in a camera',
+    'list':     'Items written one below another',
+    'mace':     'Spiked club of a medieval knight',
+    'manor':    'The big house on a country estate',
+    'minor':    'Under the legal age',
+    'nail':     'Hammer this into wood',
+    'papal':    'To do with the Pope',
+    'plain':    'Flat open stretch of country',
+    'poise':    'Calm, balanced self-control',
+    'raft':     'Flat boat of lashed logs',
+    'rand':     'South African currency',
+    'rep':      'A salesman out on the road',
+    'reset':    'Put back to the starting state',
+    'scale':    'Range from small to large',
+    'scarce':   'In very short supply',
+    'seizure':  'A sudden convulsive fit',
+    'sing':     'Carry a tune',
+    'singer':   'One who performs a song',
+    'slump':    'Fall sharply in value',
+    'spite':    'Petty desire to hurt someone',
+    'strut':    'Walk with a proud swagger',
+    'tee':      'Where a golf hole begins',
+    'tell':     'Let someone know',
+    'tester':   'One who tries a product out',
+    'theater':  'Where a play is staged',
+    'trainee':  'Someone learning on the job',
+    'trick':    'A cunning deception',
+    'wits':     'Your quick thinking',
+})
+
+# ---- 2026-08-26 fill: two new puzzles each at 5x5, 7x7 and 9x9 ----
+# Appended, not spliced: the file is read top to bottom and the last write for
+# an answer wins, so a tuple set further up would be lost by editing this in
+# place. The glosses these replace were the usual first-sense trouble — EAGER
+# came out as a tidal bore, EARTH as "abode of mortals", DUMMY as a person who
+# cannot speak, TUCKER as "sewer who tucks", READILY as "in a punctual manner".
+# SEA appears twice in the bank now and takes a tuple so the second appearance
+# asks a different question.
+CLUES.update({
+    'abort':    'Call off a mission before it finishes',
+    'abuse':    'Cruel or improper treatment',
+    'acre':     'Field measure of 4,840 square yards',
+    'badger':   'Pester relentlessly',
+    'bead':     'Little ball on a string',
+    'beard':    'Growth shaved off the chin',
+    'bias':     'A leaning that spoils fair judgement',
+    'caucus':   'Party members meeting behind closed doors',
+    'chef':     'The one in the kitchen whites',
+    'crash':    'Come down hard, as a computer might',
+    'crux':     'The heart of the matter',
+    'cube':     'Multiply a number by itself twice',
+    'dale':     'Broad valley between hills',
+    'dummy':    'Shop window figure',
+    'eager':    'Keen and impatient to start',
+    'earned':   'Worked for and got',
+    'earth':    'The planet under your feet',
+    'edict':    'Order handed down from on high',
+    'girl':     'Young woman or child',
+    'haste':    'Hurry that makes waste',
+    'lean':     'Prop yourself against something',
+    'lilac':    'Pale purple, or the shrub it comes from',
+    'mare':     'Horse that is not a stallion',
+    'messiah':  'The promised deliverer',
+    'mover':    'One of the pair carrying the sofa',
+    'naive':    'Too trusting for your own good',
+    'pray':     'Speak to a god',
+    'prior':    'Coming before',
+    'rabid':    'Foaming at the mouth',
+    'readily':  'Without hesitation',
+    'reap':     'Bring in the harvest',
+    'rural':    'Of the countryside',
+    'sea':      ('Where the rivers all end up',
+                 'Salt water between two coasts'),
+    'trade':    'Swap, or the business of swapping',
+    'tucker':   'Bush grub, in Australia',
+    'tutor':    'Teacher of one pupil at a time',
+    'ugly':     'Hard on the eye',
+    'used':     'Second-hand',
+})

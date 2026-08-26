@@ -157,8 +157,13 @@
     },
     run(){ this.stop(); this.tick=setInterval(()=>{ this.elapsed++; $('sdk-meta').textContent=this.diff.replace(/^./,m=>m.toUpperCase())+' · '+fmt(this.elapsed); if(this.elapsed%10===0) this.persist(); },1000); },
     stop(){ clearInterval(this.tick); this.tick=null; },
-    persist(){ try{ KV.set(this.key, JSON.stringify({grid:this.grid,given:this.given,sol:this.sol,notes:this.notes,diff:this.diff,elapsed:this.elapsed,done:this.done})); }catch(e){} }
+    persist(){ writeGame(this.key, {grid:this.grid,given:this.given,sol:this.sol,notes:this.notes,diff:this.diff,elapsed:this.elapsed,done:this.done}); },
+    /* An account replaced what is in storage: drop the grid so the next
+       `enter()` reads the new one instead of writing this one back. */
+    forget(){ this.grid = []; this.built = false; }
   };
+
+  forgetGame(Sudoku.key, ()=>Sudoku.forget());
 
   registerGame('sudoku', {
     el:'game-sudoku', title:'Sudoku', progEl:'prog-sudoku', game:()=>Sudoku,

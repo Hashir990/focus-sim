@@ -74,7 +74,7 @@
       const trimmed = {};
       for(const k of keys.slice(0, CH_KEEP)) trimmed[k] = this.saved[k];
       this.saved = trimmed;
-      KV.set(CH_SAVE, JSON.stringify(trimmed));
+      writeGame(CH_SAVE, trimmed);
     },
 
     build(){
@@ -595,6 +595,8 @@
     save(){ return Chess.state; },
     load(s){ Chess.state = s; Chess._ensure(); },
   });
+
+  forgetGame(CH_SAVE, ()=>{ Chess.loaded = false; Chess.saved = {}; });
 
   registerGame('chess', {
     el:'game-chess', title:'Chess', progEl:'prog-chess',

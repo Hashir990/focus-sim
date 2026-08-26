@@ -245,6 +245,44 @@ console.log('\nthe vault');
 
   const back = await call('/vault/get', { token });
   ok('and reading it back gives the merged thing', back.body.snapshot.log.length === 2);
+
+  /* **Everything the client sends, or the vault is a hole.**
+
+     The client's snapshot grew - the calendar, the checklist, the tombstones,
+     the quote bank, the arcade - and this file's copy of the merge did not.
+     Anything it did not name was simply absent from what it stored, so the
+     first write looked fine (it is kept verbatim) and every write after it
+     threw those keys away. It presented as "my quotes do not follow me", which
+     is exactly what it was. If a key is added to src/js/47-merge.js it must be
+     added to server/accounts.js in the same change; this is what notices. */
+  const rich = {
+    log: [], own: [], claimed: [], feats: {}, adjust: 0, sim: { at: 20 },
+    plan: [{ id: 'p1', t: 'gym', at: 3 }],
+    tasks: [{ id: 't1', t: 'inbox', at: 3 }],
+    gone: ['x9'],
+    quotes: [{ id: 'q1', t: 'one', a: '' }],
+    games: { arcade_2048: { at: 7, v: { board: [2], best: 400 } } },
+  };
+  const kept = (await call('/vault/put', { token, rev: back.body.rev, snapshot: rich })).body.snapshot;
+  ok('the calendar survives a merge', (kept.plan || []).length === 1, JSON.stringify(kept.plan));
+  ok('so does the checklist', (kept.tasks || []).length === 1, JSON.stringify(kept.tasks));
+  ok('so do deletions', (kept.gone || []).indexOf('x9') >= 0, JSON.stringify(kept.gone));
+  ok('so do your own quotes', (kept.quotes || []).length === 1, JSON.stringify(kept.quotes));
+  ok('so does a saved game', !!(kept.games && kept.games.arcade_2048), JSON.stringify(kept.games));
+
+  /* And once more against a copy that already holds them, which is the write
+     that used to lose everything. */
+  const again = (await call('/vault/put', {
+    token, rev: 0,
+    snapshot: { log: [], own: [], claimed: [], feats: {}, adjust: 0, sim: { at: 1 },
+                games: { arcade_2048: { at: 9, v: { board: [4], best: 1 } } } },
+  })).body.snapshot;
+  ok('a second write does not empty them',
+    (again.quotes || []).length === 1 && (again.plan || []).length === 1,
+    JSON.stringify({ q: again.quotes, p: again.plan }));
+  ok('and the best score is still the best of both',
+    !!(again.games && again.games.arcade_2048) && again.games.arcade_2048.v.best === 400,
+    JSON.stringify(again.games));
 }
 
 console.log('\nnot signed in');

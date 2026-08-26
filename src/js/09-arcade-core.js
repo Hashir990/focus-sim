@@ -12,6 +12,108 @@
     return null;
   }
 
+  /* ---------------- saved games, and how they reach an account ----------------
+
+     **A board is part of your profile.** The hours, the calendar and the buddy
+     all ride on the account; the half-finished crossword, the 2048 record and
+     the chess shelf did not, so signing in on a second machine gave you your
+     history back and a brand new empty arcade. This is the plumbing that fixes
+     that, and it is here rather than in each game so that adding a game is
+     still one `registerGame` call.
+
+     Three pieces:
+
+       * `GAME_SAVES` is what this device has written, in memory, because
+         `Account.snapshot()` is synchronous and storage is not. `gamesLoad()`
+         fills it at boot from storage, whether or not the arcade is ever
+         opened - a game you have not played this session is still yours.
+       * `GAME_AT` is when each was last written *by this device*, kept in its
+         own key rather than inside the saves. Stamping it into the blob would
+         put a stray field inside data the games parse; chess in particular
+         reads its whole save as a map of games, and would have listed the
+         timestamp as one of them.
+       * `forgetGame` lets a game drop its in-memory copy when an account
+         overwrites storage underneath it, so the next `enter()` re-reads rather
+         than persisting the old position back over the new one. */
+  const GAME_AT_KEY = 'focus_game_at';
+  const GAME_SAVES = Object.create(null);
+  const GAME_AT = Object.create(null);
+  const GAME_FORGET = Object.create(null);
+
+  /** Every single-player save, in the order they were added. Two-player games
+      are not here: a game of Scrabble belongs to a room, not to a person. */
+  const GAME_KEYS = ['arcade_sudoku', 'arcade_wordle', 'arcade_2048',
+                     'arcade_memory', 'arcade_cross', 'focus_chess'];
+
+  async function gamesLoad(){
+    try{
+      const r = await KV.get(GAME_AT_KEY);
+      if(r && r.value){
+        const d = JSON.parse(r.value);
+        if(d && typeof d === 'object') for(const k of GAME_KEYS) if(d[k]) GAME_AT[k] = d[k] | 0;
+      }
+    }catch(e){}
+    for(const k of GAME_KEYS){
+      const v = await readGame(k);
+      if(v && typeof v === 'object') GAME_SAVES[k] = v;
+    }
+  }
+
+  /** Save a game, and remember when. Everything that used to call
+      `KV.set(this.key, JSON.stringify(x))` calls this instead - a save that
+      skips it is a save the account never hears about. */
+  function writeGame(key, v){
+    GAME_SAVES[key] = v;
+    GAME_AT[key] = Date.now();
+    try{ KV.set(key, JSON.stringify(v)); }catch(e){}
+    try{ KV.set(GAME_AT_KEY, JSON.stringify(GAME_AT)); }catch(e){}
+  }
+
+  function forgetGame(key, fn){ GAME_FORGET[key] = fn; }
+
+  /** What `Account.snapshot()` carries: `{key: {at, v}}`, one per save. */
+  function gamesSnapshot(){
+    const out = {};
+    for(const k of GAME_KEYS){
+      const v = GAME_SAVES[k];
+      if(v) out[k] = {at: GAME_AT[k] | 0, v};
+    }
+    return out;
+  }
+
+  /** Become the account's saved games.
+
+      Only where the merge chose a save this device did not write - comparing
+      the merged `at` against our own is what stops a device rewriting its own
+      storage on every sync and re-stamping it as new. */
+  function gamesAdopt(map){
+    if(!map || typeof map !== 'object') return;
+    for(const k of GAME_KEYS){
+      const got = map[k];
+      if(!got || !got.v) continue;
+      const at = Number(got.at) || 0;
+      if(at === (GAME_AT[k] | 0) && GAME_SAVES[k]) continue;
+      GAME_SAVES[k] = got.v;
+      GAME_AT[k] = at;
+      try{ KV.set(k, JSON.stringify(got.v)); }catch(e){}
+      try{ GAME_FORGET[k] && GAME_FORGET[k](); }catch(e){}
+    }
+    try{ KV.set(GAME_AT_KEY, JSON.stringify(GAME_AT)); }catch(e){}
+    try{ if(Arcade.open) Arcade._refresh(); }catch(e){}
+  }
+
+  /** Signing out empties the arcade with everything else. */
+  function gamesWipe(){
+    for(const k of GAME_KEYS){
+      delete GAME_SAVES[k];
+      delete GAME_AT[k];
+      try{ KV.del(k); }catch(e){}
+      try{ GAME_FORGET[k] && GAME_FORGET[k](); }catch(e){}
+    }
+    try{ KV.del(GAME_AT_KEY); }catch(e){}
+    try{ if(Arcade.open) Arcade._refresh(); }catch(e){}
+  }
+
   /* Every game registers itself here, so this file never needs editing when you
      add one. Call registerGame() from the bottom of your game's own file:
 

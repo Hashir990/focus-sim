@@ -58,11 +58,16 @@ if (html.indexOf("const ACC_URL = 'https://acc.test'") < 0) {
   process.exit(1);
 }
 
-const device = (seedLog) => new JSDOM(html, {
+const device = (seedLog, seedStore) => new JSDOM(html, {
   runScripts: 'dangerously', pretendToBeVisual: true,
   virtualConsole: new VirtualConsole(), url: 'http://localhost/',
   beforeParse(w) {
     if (seedLog) w.localStorage.setItem('focus_log', JSON.stringify(seedLog));
+    /* Anything else this device is supposed to have already. A finished game is
+       seeded rather than played: what is under test is whether a save reaches
+       an account, and playing 2048 through the DOM to get one would be testing
+       2048. The shape is the game's own - see `writeGame` in 09-arcade-core. */
+    for (const k in (seedStore || {})) w.localStorage.setItem(k, seedStore[k]);
     w.fetch = async (url, opt) => {
       const res = await worker.fetch(new Request(String(url), { method: 'POST', body: opt.body }), { DB });
       return { json: async () => JSON.parse(await res.text()) };
@@ -72,7 +77,10 @@ const device = (seedLog) => new JSDOM(html, {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 console.log('\none device, making an account');
-const A = device([{ id: 'x1', secs: 1800, ts: 1, at: 1, day: '2026-08-01' }]);
+const A = device([{ id: 'x1', secs: 1800, ts: 1, at: 1, day: '2026-08-01' }], {
+  arcade_2048: JSON.stringify({ board: new Array(16).fill(0), score: 120, best: 2048, won: false, done: false }),
+  focus_game_at: JSON.stringify({ arcade_2048: 5 }),
+});
 await wait(800);
 {
   const a = A.document;
@@ -299,6 +307,25 @@ await wait(800);
   check('switching him off takes him off the screen, not out of the app',
     a.getElementById('bud-perch').classList.contains('hide') && opts('e').length > 0);
 
+  /* A quote of his own, written the way anybody writes one. Quotes were device
+     data: the bank lived in `focus_quotes` and nothing carried it, so one
+     written on a phone stayed on the phone. */
+  a.getElementById('acct-close').click();
+  await wait(60);
+  a.getElementById('d-quotes').click();
+  await wait(120);
+  a.getElementById('q-text').value = 'Deep work is the point.';
+  a.getElementById('q-author').value = 'Hashir';
+  a.getElementById('q-save').click();
+  await wait(80);
+  check('a quote written here is kept with an id to travel under',
+    (JSON.parse(A.localStorage.getItem('focus_quotes') || '[]')[0] || {}).id !== undefined,
+    A.localStorage.getItem('focus_quotes'));
+  a.getElementById('q-back').click();
+  await wait(60);
+  a.getElementById('d-account').click();
+  await wait(150);
+
   /* Set up a profile worth carrying, then push it, so the second device has
      something recognisable to receive. Him back on, a face, and an antic. */
   a.getElementById('bud-onscreen').checked = true;
@@ -309,6 +336,21 @@ await wait(800);
     || [...a.querySelectorAll('[data-anim]')][1];
   if (antic) antic.click();
   await wait(120);
+
+  /* **Which antic he does is a draft until Save is pressed**, exactly like the
+     rest of him. Choosing one used to take effect on the spot — it was written
+     down and sent to everybody in the room the instant you touched a button,
+     so there was no way to look through them, and Undo could not take back
+     something already gone. Everything on this page now moves together. */
+  check('choosing an antic changes nothing on its own',
+    (JSON.parse(A.localStorage.getItem('focus_sim') || '{}').budAnim | 0) === 0,
+    A.localStorage.getItem('focus_sim'));
+  check('and the page says so while it is unsaved',
+    /Unsaved changes/.test(a.querySelector('.bud-save').textContent),
+    a.querySelector('.bud-save').textContent.slice(0, 40));
+  a.getElementById('bud-save').click();
+  await wait(150);
+
   /* Nothing is on `window` — it is all one IIFE — so the push is made the way
      a person makes it, with the button. */
   a.getElementById('acc-sync').click();
@@ -316,7 +358,20 @@ await wait(800);
   const mine = JSON.parse(A.localStorage.getItem('focus_sim') || '{}');
   check('the chosen antic is written down on the way out',
     mine.budAnim > 0, JSON.stringify(mine.budAnim));
-  PROFILE = { budAnim: mine.budAnim, face: mine.face };
+  PROFILE = { budAnim: mine.budAnim, face: mine.face, buddy: JSON.stringify(mine.buddy || null) };
+
+  /* **One account, one code.** A friend code used to be per device, so signing
+     in on a phone and a laptop gave you two of them and "my code" meant nothing
+     to whoever you handed it to. It is derived from the username now; the
+     second device is checked against this one further down. */
+  a.getElementById('acct-close').click();
+  await wait(60);
+  a.getElementById('d-sync').click();
+  await wait(150);
+  PROFILE.code = a.getElementById('sync-mycode').textContent.trim();
+  check('a signed-in device has a code at all', /^[0-9A-Z]{6}$/.test(PROFILE.code), PROFILE.code);
+  a.getElementById('sync-close').click();
+  await wait(60);
 }
 
 console.log('\na second device, with its own history');
@@ -389,8 +444,33 @@ await wait(800);
     !!PROFILE && got.budAnim === PROFILE.budAnim,
     `${got.budAnim} here, ${PROFILE && PROFILE.budAnim} there`);
   check('and the settings were not judged stale by the wipe that preceded them',
-    !!PROFILE && got.face === PROFILE.face,
-    `${got.face} here, ${PROFILE && PROFILE.face} there`);
+    !!PROFILE && got.face === PROFILE.face && JSON.stringify(got.buddy || null) === PROFILE.buddy,
+    `${got.face}/${JSON.stringify(got.buddy || null)} here, `
+    + `${PROFILE && PROFILE.face}/${PROFILE && PROFILE.buddy} there`);
+
+  /* The rest of what a profile is. Each of these was device-only, and each of
+     them read as the account quietly not working: a quote bank that stayed
+     behind, an arcade that started again from nothing, and post going to a code
+     nobody was listening on. */
+  const quotes = JSON.parse(B.localStorage.getItem('focus_quotes') || '[]');
+  check('the quotes he wrote came with him',
+    quotes.some((q) => /Deep work/.test(q.t)), JSON.stringify(quotes).slice(0, 80));
+
+  const g = JSON.parse(B.localStorage.getItem('arcade_2048') || 'null');
+  check('and so did the arcade, best score and all',
+    !!g && g.best === 2048, JSON.stringify(g && g.best));
+
+  b.getElementById('acct-close').click();
+  await wait(60);
+  b.getElementById('d-sync').click();
+  await wait(200);
+  check('and both devices answer to one room code',
+    b.getElementById('sync-mycode').textContent.trim() === PROFILE.code,
+    `${b.getElementById('sync-mycode').textContent.trim()} here, ${PROFILE.code} there`);
+  b.getElementById('sync-close').click();
+  await wait(60);
+  b.getElementById('d-account').click();
+  await wait(150);
   /* **Signing out empties the device**, because otherwise signing into
      somebody else's account, syncing their embers and signing out again keeps
      everything they had bought. The account is the only home for progress once

@@ -233,85 +233,76 @@
     {s:'', box:'0 0 24 24', none:1},
     /* Pullover, so it closes at the front, and the hood is the point of it —
        an ellipse a little larger than the skull, drawn behind everything, so a
-       rim of it shows all the way round like a hood pushed back. */
+       rim of it shows all the way round like a hood pushed back. The pouch is
+       a curve rather than a rounded box: at this size a box with a radius on it
+       still reads as a box, and the one thing a hoodie's pocket is not is
+       square. */
     // hoodie
     {s:'<path d="M28 36h8a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-8a9 9 0 0 1-9-9v-1a9 9 0 0 1 9-9z" fill="#5b7fa8"/>'
-       + '<path d="M23.4 46.8h17.2v2.8a3.6 3.6 0 0 1-3.6 3.6H27a3.6 3.6 0 0 1-3.6-3.6z" fill="#4d6d94"/>'
-       + '<path d="M29.6 44.2q-1 3.4-1 6.2M34.4 44.2q1 3.4 1 6.2" stroke="#e9edf5" stroke-width="1.3" fill="none" stroke-linecap="round"/>'
-       + '<circle cx="28.4" cy="51" r="1.3" fill="#e9edf5"/>'
-       + '<circle cx="35.6" cy="51" r="1.3" fill="#e9edf5"/>',
+       + '<path d="M23.8 46.8q8.2 2.4 16.4 0 .3 4.2-3.2 5.6-5 1.5-10 0-3.5-1.4-3.2-5.6z" fill="#4d6d94"/>'
+       + '<path d="M29.4 43.8q-.7 2.6-.6 4.6M34.6 43.8q.7 2.6.6 4.6" stroke="#e9edf5" stroke-width="1.3" fill="none" stroke-linecap="round"/>'
+       + '<circle cx="28.7" cy="49.4" r="1.2" fill="#e9edf5"/>'
+       + '<circle cx="35.3" cy="49.4" r="1.2" fill="#e9edf5"/>',
      b:'<ellipse cx="32" cy="29.4" rx="19.8" ry="19.4" fill="#3f5d80"/>', box:'11 9 42 49'},
+    /* Denim: the lapels are the only hard lines on it, and they are meant to
+       be — a revere is a fold. Everything else curves. */
     // denim jacket
     {s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f6ea8"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f6ea8"/>'
-       + '<path d="M29.6 43.4L30.6 49l-7.2-4.2z" fill="#2d5280"/>'
-       + '<path d="M34.4 43.4L33.4 49l7.2-4.2z" fill="#2d5280"/>'
-       + '<path d="M21.6 47.6h5.8v4.2h-5.8zM36.6 47.6h5.8v4.2h-5.8z" fill="#35608f"/>'
-       + '<path d="M21.4 47.4h6.2M36.4 47.4h6.2" stroke="#9fc4e8" stroke-width=".9" fill="none"/>'
-       + '<circle cx="31.4" cy="52.4" r="1.2" fill="#d8b04a"/>', box:'17 41 30 17'},
+       + '<path d="M29.6 43.4q1.4 3 1 5.6-4-1.6-7.2-4.2 3.2-.8 6.2-1.4z" fill="#2d5280"/>'
+       + '<path d="M34.4 43.4q-1.4 3-1 5.6 4-1.6 7.2-4.2-3.2-.8-6.2-1.4z" fill="#2d5280"/>'
+       + '<path d="M21.8 47.6q3.2.9 6.4 0 .3 3-3.2 3.7-3.5-.7-3.2-3.7z" fill="#35608f"/>'
+       + '<path d="M35.8 47.6q3.2.9 6.4 0 .3 3-3.2 3.7-3.5-.7-3.2-3.7z" fill="#35608f"/>'
+       + '<circle cx="31.4" cy="52.2" r="1.2" fill="#d8b04a"/>', box:'17 41 30 17'},
     /* Quilted, which is the only thing that tells a puffer from a coat at this
-       size — three seams across it and a zip down the middle. */
+       size. The seams sag a little across him rather than running dead straight,
+       so they read as padding rather than as ruled lines. */
     // puffer
     {s:'<path d="M28 36h8a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-8a9 9 0 0 1-9-9v-1a9 9 0 0 1 9-9z" fill="#c0483a"/>'
-       + '<path d="M20.4 41.6h23.2M19.9 46.2h24.2M21.6 50.6h20.8" stroke="#a03a2e" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
-       + '<path d="M32 36.6v16.8" stroke="#8f3225" stroke-width="1.6" fill="none"/>'
-       + '<circle cx="32" cy="43.8" r="1.5" fill="#e9edf5"/>', box:'17 34 30 23'},
-    /* Nothing on the front at all but the clasp, so the body colour is
-       untouched — the whole garment is behind him. It trails on the swing;
-       see `.bud-cape` in the stylesheet. */
+       + '<path d="M20.6 41.4q11.4 2.2 22.8 0M20 46q12 2.2 24 0M21.8 50.4q10.2 2 20.4 0" stroke="#a03a2e" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+       + '<path d="M32 37v16.4" stroke="#8f3225" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+       + '<circle cx="32" cy="43.6" r="1.4" fill="#e9edf5"/>', box:'17 34 30 23'},
+    /* Nothing on the front but the clasp, so the body colour is untouched —
+       the whole garment is behind him. It trails on the swing; see `.bud-cape`
+       in the stylesheet. */
     // cape
-    {s:'<rect x="26" y="43.4" width="12" height="2.8" rx="1.4" fill="#c92a55"/>'
-       + '<circle cx="32" cy="44.8" r="2.2" fill="#ffd34a"/>',
+    {s:'<path d="M26 43.4q6 1.6 12 0 .2 2.6-1.4 3.4-4.6 1.2-9.2 0-1.6-.8-1.4-3.4z" fill="#c92a55"/>'
+       + '<circle cx="32" cy="45" r="2.1" fill="#ffd34a"/>',
      b:'<path class="bud-cape" d="M23 39q-13 8-15 22 24 7.4 48 0-2-14-15-22z" fill="#8a1f3d"/>'
        + '<path class="bud-cape" d="M27 39.6q-8 7-9.4 19 14.4 3.6 28.8 0-1.4-12-9.4-19z" fill="#a82a4c"/>',
      box:'6 36 52 27'},
     // lab coat
     {s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#eef2f7"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#eef2f7"/>'
-       + '<path d="M29.6 43.4L30.6 49.4l-7.6-4.6z" fill="#dbe3ee"/>'
-       + '<path d="M34.4 43.4L33.4 49.4l7.6-4.6z" fill="#dbe3ee"/>'
-       + '<path d="M21.4 48h6v4.6h-6z" fill="#dbe3ee"/>'
-       + '<path d="M24.4 46.6v3.4" stroke="#2f6fd0" stroke-width="1.4" fill="none" stroke-linecap="round"/>'
-       + '<circle cx="34" cy="52.4" r="1.2" fill="#c4cede"/>', box:'17 41 30 17'},
+       + '<path d="M29.6 43.4q1.4 3.2 1 6-4.2-1.8-7.6-4.6 3.4-.8 6.6-1.4z" fill="#dbe3ee"/>'
+       + '<path d="M34.4 43.4q-1.4 3.2-1 6 4.2-1.8 7.6-4.6-3.4-.8-6.6-1.4z" fill="#dbe3ee"/>'
+       + '<path d="M21.6 47.8q3 .8 6 0 .3 3.4-3 4.2-3.3-.8-3-4.2z" fill="#dbe3ee"/>'
+       + '<path d="M24.6 46.6v3.2" stroke="#2f6fd0" stroke-width="1.4" fill="none" stroke-linecap="round"/>'
+       + '<circle cx="33.8" cy="52" r="1.1" fill="#c4cede"/>', box:'17 41 30 17'},
     // blazer
     {s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f4d6b"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f4d6b"/>'
-       + '<path d="M29.6 43.4L30.6 49.6l-7.8-4.8z" fill="#57678c"/>'
-       + '<path d="M34.4 43.4L33.4 49.6l7.8-4.8z" fill="#3c4a68"/>'
-       + '<path d="M21.6 48.4h5.4l-.8 2.6h-3.8z" fill="#e01b24"/>'
-       + '<circle cx="31.6" cy="52.6" r="1.3" fill="#c9b06a"/>', box:'17 41 30 17'},
+       + '<path d="M29.6 43.4q1.5 3.4 1 6.4-4.4-1.9-8-4.9 3.6-.9 7-1.5z" fill="#57678c"/>'
+       + '<path d="M34.4 43.4q-1.5 3.4-1 6.4 4.4-1.9 8-4.9-3.6-.9-7-1.5z" fill="#57678c"/>'
+       + '<path d="M22 48.6q2.6.7 5.2 0-.4 2.4-2.6 2.8-2.2-.4-2.6-2.8z" fill="#e01b24"/>'
+       + '<circle cx="31.6" cy="52.4" r="1.2" fill="#c9b06a"/>', box:'17 41 30 17'},
     // cardigan
     {s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#6f8f5a"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#6f8f5a"/>'
-       /* **Down to 55 exactly, which is the hem.** Stopping short left a notch of
-          body colour below it — the gap between the two panels, showing through
-          as a square tab hanging under a rounded coat. Going past it hung the
-          placket's own square corners off the curve. 55 is right because the
-          placket is 29.4 to 34.6 and the body's bottom edge is flat between 28
-          and 36: the two coincide, so there is nothing to round. */
-       + '<path d="M29.4 42.6h5.2v12.4h-5.2z" fill="#5b7a48"/>'
-       + '<circle cx="32" cy="45" r="1.25" fill="#e6ddc4"/>'
-       + '<circle cx="32" cy="48.4" r="1.25" fill="#e6ddc4"/>'
-       + '<circle cx="32" cy="51.8" r="1.25" fill="#e6ddc4"/>'
-       + '<path d="M22.8 49.6h5.2M36 49.6h5.2" stroke="#5b7a48" stroke-width="1.3" fill="none" stroke-linecap="round"/>', box:'17 41 30 17'},
-    /* **Straight-fronted, because a hi-vis has a zip and not lapels** — and
-       because the V the other coats use puts a sloping edge exactly where the
-       reflective bands have to end, which is how you get bands that stop in
-       three different places.
-
-       **Butt caps, and every end computed against the hem.** These were round
-       caps, which add half a stroke width *beyond* the point you asked for: a
-       2.6-wide band told to stop at x=19 actually reached 17.7, a unit and a
-       third outside a garment whose edge is at 19. That is the whole of the
-       "sharp shape edges" — not a shape at all, a line cap. */
+       + '<path d="M29.4 43q2.6.6 5.2 0v10.2q-2.6.9-5.2 0z" fill="#5b7a48"/>'
+       + '<circle cx="32" cy="45.4" r="1.15" fill="#e6ddc4"/>'
+       + '<circle cx="32" cy="48.6" r="1.15" fill="#e6ddc4"/>'
+       + '<circle cx="32" cy="51.8" r="1.15" fill="#e6ddc4"/>'
+       + '<path d="M22.8 49.4q2.6.7 5.2 0M36 49.4q2.6.7 5.2 0" stroke="#5b7a48" stroke-width="1.3" fill="none" stroke-linecap="round"/>', box:'17 41 30 17'},
+    /* Straight-fronted, because a hi-vis has a zip and not lapels. The bands
+       curve with him: a reflective strip on a round body is not a ruler. */
     // high-vis vest
-    {s:'<path d="M30.6 36h-2.6a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6z" fill="#d8f24a"/>'
-       + '<path d="M33.4 36h2.6a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6z" fill="#d8f24a"/>'
-       + '<path d="M19.3 44.4h10.9M33.8 44.4h10.9" stroke="#c9d4e0" stroke-width="2.4" fill="none"/>'
-       + '<path d="M21 50.4h9.2M33.8 50.4h9.2" stroke="#c9d4e0" stroke-width="2.4" fill="none"/>'
-       + '<path d="M24.8 43.4v8.2M39.2 43.4v8.2" stroke="#c9d4e0" stroke-width="2" fill="none"/>', box:'17 41 30 17'},
+    {s:'<path d="M30.6 36h-2.6a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6z" fill="#d8f24a"/><path d="M33.4 36h2.6a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6z" fill="#d8f24a"/>'
+       + '<path d="M19.6 44.2q5.4 1.4 10.6.9M33.8 45.1q5.2.5 10.6-.9" stroke="#c9d4e0" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+       + '<path d="M21.2 50q4.6 1.2 9 .8M34 50.8q4.4.4 9-.8" stroke="#c9d4e0" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+       + '<path d="M25 43.8v7.4M39 43.8v7.4" stroke="#c9d4e0" stroke-width="2" fill="none" stroke-linecap="round"/>', box:'17 41 30 17'},
     // raincoat
     {s:'<path d="M28 36h8a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-8a9 9 0 0 1-9-9v-1a9 9 0 0 1 9-9z" fill="#f2c14a"/>'
-       + '<path d="M32 36.6v16.6" stroke="#d8a12c" stroke-width="1.4" fill="none"/>'
-       + '<path d="M27.8 45.6h8.4M27.8 50.2h8.4" stroke="#8f6a12" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
-       + '<circle cx="27.4" cy="45.6" r="1.3" fill="#8f6a12"/>'
-       + '<circle cx="27.4" cy="50.2" r="1.3" fill="#8f6a12"/>',
+       + '<path d="M32 37v16.2" stroke="#d8a12c" stroke-width="1.4" fill="none" stroke-linecap="round"/>'
+       + '<path d="M28.2 45.6h7.6M28.2 50.2h7.6" stroke="#8f6a12" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
+       + '<circle cx="27.6" cy="45.6" r="1.2" fill="#8f6a12"/>'
+       + '<circle cx="27.6" cy="50.2" r="1.2" fill="#8f6a12"/>',
      b:'<ellipse cx="32" cy="29.4" rx="19.8" ry="19.4" fill="#d8a12c"/>', box:'11 9 42 49'},
   ];
 
@@ -482,12 +473,23 @@
        The pale slivers along the inside edges are the block of pages, the one
        part of the far side you would actually catch. */
     read:{front:'<g class="bud-book">'
-      + '<path d="M31.2 35.4l-12.2 2.2v15.2l12.2-1.9z" fill="#6f47bd"/>'
-      + '<path d="M32.8 35.4l12.2 2.2v15.2l-12.2-1.9z" fill="#7d55c8"/>'
-      + '<path d="M19 52.8l12.2-1.9v1.5l-12.2 1.9z" fill="#e6ebf3"/>'
-      + '<path d="M45 52.8l-12.2-1.9v1.5l12.2 1.9z" fill="#eef2f7"/>'
-      + '<path d="M31 35.2h2v16.2h-2z" fill="#59349e"/>'
-      + '<path d="M32 35.2v16.2" stroke="#8a5fd8" stroke-width=".7" fill="none" opacity=".55"/></g>'},
+      /* **The far edges rise, they do not fall.** Drawn the other way up this is
+         an open book held out towards you with its pages showing, which is a
+         book being read *to* somebody. Seen from behind — which is what you see
+         of a person reading — the spine is nearest and lowest, and both covers
+         angle away and upwards from it. Two things to check it by: the spine's
+         top sits *below* the outer corners, and the page block shows along the
+         bottom, because that is the edge tilted towards you. */
+      + '<path d="M31.2 37.6l-12.2-2.2v15.5l12.2 2.2z" fill="#6f47bd"/>'
+      + '<path d="M32.8 37.6l12.2-2.2v15.5l-12.2 2.2z" fill="#7d55c8"/>'
+      /* **The page block is along the top.** It was under the covers, which is
+         where the folded edge of the pages is; the cut edge — the pale stack you
+         can actually see — is at the head of the book, above the covers, and
+         that is the edge that catches the light. */
+      + '<path d="M19 35.4l12.2 2.2v-1.7l-12.2-2.2z" fill="#e6ebf3"/>'
+      + '<path d="M45 35.4l-12.2 2.2v-1.7l12.2-2.2z" fill="#eef2f7"/>'
+      + '<path d="M31 37.4h2v16h-2z" fill="#59349e"/>'
+      + '<path d="M32 37.4v16" stroke="#8a5fd8" stroke-width=".7" fill="none" opacity=".55"/></g>'},
   };
   function budProp(pose, where){
     const p = BUD_PROPS[pose];
@@ -500,9 +502,23 @@
     i = parseInt(i, 10);
     return BUD_ANIMS[(i >= 0 && i < BUD_ANIMS.length) ? i : 0].k;
   }
-  function budAnim(){
+  /* **What he is *doing* is part of the buddy, so it drafts like the rest of
+     him.** Every other choice goes into `Buddy.draft` and waits for Save; the
+     antic wrote straight through to `S.budAnim`, saved, and announced itself to
+     the room — so trying the eight of them was eight saves and eight
+     broadcasts, Undo did not touch it, and Save had nothing to say about the
+     one change you can actually see moving. `Buddy.anim` is the unsaved one;
+     null means "not changed yet", which is not the same as 0. */
+  function budAnimIdx(){
+    const raw = (typeof Buddy === 'object' && Buddy.anim != null) ? Buddy.anim : S.budAnim;
+    const i = parseInt(raw, 10);
+    return (i >= 0 && i < BUD_ANIMS.length) ? i : 0;
+  }
+  function budAnim(){ return BUD_ANIMS[budAnimIdx()]; }
+  /** The saved one, for anything that has to agree with what the room was told. */
+  function budAnimSaved(){
     const i = parseInt(S.budAnim, 10);
-    return BUD_ANIMS[(i >= 0 && i < BUD_ANIMS.length) ? i : 0];
+    return (i >= 0 && i < BUD_ANIMS.length) ? i : 0;
   }
 
   function budDefault(){ return {b:0, c:0, e:0, h:0, a:0, f:0, o:0}; }
@@ -588,6 +604,12 @@
          `bud-torso` is a name, not decoration: the nap breathes this rect, and
          when it was selected as plain `rect` it also breathed the top hat. */
       + '<rect class="bud-torso" x="19" y="36" width="26" height="19" rx="9" fill="' + body + '"/>'
+      /* **The coat, then what is worn over it.** A scarf goes on *after* a coat
+         and hangs outside one, which is how it has to read — so `BUD_ACC` is
+         painted last of the two. (It was the other way round for one build, on
+         the tie-under-a-jacket argument; a scarf is the commoner case and it
+         looked wrong tucked away.) The coat still goes under the head, which is
+         what keeps a collar behind the chin rather than painted on it. */
       + BUD_OUTER[v.o].s
       + '<circle cx="32" cy="27" r="16" fill="' + skin + '"/>'
       + '<g fill="#20242e" stroke="#20242e">' + eyes + '</g>'
@@ -655,6 +677,13 @@
         + '<i class="bud-rope bud-rope-b"></i>'
         + budSvg(v, size, pose) + '</div>';
     }
+    /* **The skater hangs off a rig too, for the same kind of reason as the
+       swing.** Two things want to rotate him: the orbit, which turns him a
+       quarter turn at every corner so the board stays against the edge, and the
+       wheelie, which tips him back on the spot. `rotate` is one property and
+       the second would simply replace the first, so they are given an element
+       each — the rig carries the orbit, the drawing inside it does the trick. */
+    if(pose === 'skate') return '<div class="bud-ride">' + budSvg(v, size, pose) + '</div>';
     return budSvg(v, size, pose);
   }
 
@@ -690,7 +719,8 @@
         return;
       }
       const v = budMine();
-      const dirty = !budSame(budMine(), budSaved());
+      const dirty = !budSame(budMine(), budSaved())
+        || (this.anim != null && this.anim !== budAnimSaved());
       const row = (key, list, label)=>{
         const swatch = key === 'b' || key === 'c';
         const n = swatch ? (key === 'b' ? BUD_BODY : BUD_SKIN).length : list.length;
@@ -712,9 +742,9 @@
         + row('e', BUD_EYES, 'Eyes')
         + row('h', BUD_HATS, 'Hat')
         + row('f', BUD_FACE, 'Face')
-        /* Above Worn: a coat is the bigger decision and the tie goes on over
-           it, so the rows read the way you would actually get dressed. */
-        + row('o', BUD_OUTER, 'Coat')
+        /* Above Worn, and the rows read in the order things go on: the coat is
+           the bigger decision and the scarf goes over it. */
+        + row('o', BUD_OUTER, 'Outerwear')
         + row('a', BUD_ACC, 'Worn')
         + '<div class="bud-row"><span>Antics</span><div class="bud-opts">'
           + BUD_ANIMS.map((a, i)=>
@@ -743,6 +773,7 @@
     },
 
     draft:null,
+    anim:null,          // the unsaved antic; null is "unchanged", not zero
 
     /* Into the draft. Nothing is written down and nobody in the room is told
        until Save — trying on six hats should not be six announcements. */
@@ -755,31 +786,42 @@
     },
 
     commit(){
-      if(!this.draft) return;
-      S.buddy = budClean(this.draft);
-      this.draft = null;
+      if(!this.draft && this.anim == null) return;
+      if(this.draft) S.buddy = budClean(this.draft);
+      if(this.anim != null) S.budAnim = this.anim | 0;
+      this.draft = null; this.anim = null;
       save();
       this.render();
       this.stage();
       /* Everybody in the room is looking at the old one until they are told,
          and the account is the thing that carries him between devices. */
-      try{ syncBroadcast({t:'buddy', buddy:S.buddy, anim:(S.budAnim | 0)}); }catch(e){}
+      try{ syncBroadcast({t:'buddy', buddy:budSaved(), anim:budAnimSaved()}); }catch(e){}
       try{ Account.sync(true); }catch(e){}
       toast('Buddy saved.');
     },
 
     revert(){
-      if(!this.draft) return;
-      this.draft = null;
+      if(!this.draft && this.anim == null) return;
+      this.draft = null; this.anim = null;
       this.render();
+      this.clearSlots();
       this.stage();
+    },
+
+    /* `stage()` skips work when the signature matches, and changing the antic
+       changes which *slot* is used rather than what is in it — so the old one
+       has to be emptied by hand or the previous pose stays on screen. */
+    clearSlots(){
+      ['bud-live','bud-pause'].forEach(id=>{ const n = $(id); if(n){ n.innerHTML = ''; n.dataset.pose = ''; } });
     },
 
     /* Leaving the page with changes in hand. Asked rather than assumed either
        way: silently keeping them makes Save a lie, silently dropping them makes
        the page a trap. */
     leaving(done){
-      if(!this.draft || budSame(this.draft, budSaved())){ this.draft = null; return done(); }
+      const changed = (this.draft && !budSame(this.draft, budSaved()))
+        || (this.anim != null && this.anim !== budAnimSaved());
+      if(!changed){ this.draft = null; this.anim = null; return done(); }
       askConfirm('Save your buddy?',
         'You have changed him and not saved. Saving sends him to your account '
         + 'and to anybody in a room with you.',
@@ -795,7 +837,8 @@
       no.onclick = ()=>{
         no.onclick = was;
         closeConfirm();
-        Buddy.draft = null; Buddy.render(); Buddy.stage();
+        Buddy.draft = null; Buddy.anim = null;
+        Buddy.render(); Buddy.clearSlots(); Buddy.stage();
         done();
       };
     },
@@ -844,7 +887,6 @@
            twitch back to the start of his stroke every second. */
         const sig = pose + ':' + JSON.stringify(budMine());
         if(slot.dataset.pose === sig) return;
-        slot.dataset.pose = sig;
         /* **The pose class goes here and nowhere else.** The travel is written
            as `.bud-swing{ left:0; right:0; animation:bud-go }`, and the slot is
            the thing that spans the window, so the slot is the thing that has to
@@ -852,17 +894,56 @@
            well; both then ran `bud-go`, the drawing drifted out from under the
            rope, and the web looked severed. It emits a bare `class="bud"` now —
            see the note there before putting a pose class back on it. */
-        slot.className = 'bud-slot bud-' + pose;
-        /* **Swinging hangs off a rig.** The rope reaches the top of the layer
+        /* **The slot is replaced, not refilled — because two clocks have to
+           start together.**
+
+           The travel is an animation on the slot (`bud-go`, 7.8s) and the swing
+           and the mirror are animations on the rig *inside* it (`bud-arc` 1.3s,
+           `bud-turn` 7.8s). Every period divides the lap exactly, so once they
+           start together they stay locked for ever, and the whole antic is
+           built on that: the arc, the throw and the handover are all timed
+           against where the traverse has got to.
+
+           Nothing in CSS re-locks them. Writing `innerHTML` builds a new rig,
+           whose animations start *now*, while the slot's own `bud-go` carries
+           on from wherever it was — and the two are then out of phase until
+           something hides the slot. Measured at 1450ms, most of a whole swing:
+           he swings backwards under his own web, mirrors himself in the middle
+           of a crossing, and hangs about at the edge of the window. That is the
+           "web swinging is broken, but not always" and the "skateboard turns
+           too early, but not always" — the same bug, once for each pose, and
+           the "not always" is that it only starts when something re-renders him
+           mid-lap: saving a colour, an account arriving, switching him off and
+           on again.
+
+           A fresh element starts *all* of its animations, and its children's,
+           at the same moment. So the slot is rebuilt rather than refilled, and
+           the pair can never drift apart again. `tools/look-swing.mjs` measures
+           the phase error in a real browser; jsdom has no animation engine and
+           cannot see this at all, which is why it survived so long.
+
+           **The pose class goes on the slot and nowhere else.** The travel is
+           written as `.bud-swing{ left:0; right:0; animation:bud-go }`, and the
+           slot is the thing that spans the window. `budSvg()` used to stamp the
+           same class on the `<svg>` as well; both then ran `bud-go`, the
+           drawing drifted out from under the rope, and the web looked severed.
+           It emits a bare `class="bud"` now — see the note there before putting
+           a pose class back on it.
+
+           **Swinging hangs off a rig.** The rope reaches the top of the layer
            and he hangs at the bottom of it, and the *rig* is what rotates — so
            the rope and the man pivot together about a real anchor instead of
            him turning on the spot beneath a line that stays put. Two ropes: the
            one he is on and the one he is throwing; the CSS decides which is
-           lit, in step with the arc. */
-        /* The rig measures the rope and his own offset from his rendered size,
-           so it has to be told what that is — one number, one place. */
-        if(pose === 'swing') slot.style.setProperty('--bud', size + 'px');
-        slot.innerHTML = budFill(budMine(), size, pose);
+           lit, in step with the arc. The rig measures the rope and his own
+           offset from his rendered size, so it has to be told what that is —
+           one number, one place. */
+        const fresh = slot.cloneNode(false);      // same id and attributes, no children
+        fresh.className = 'bud-slot bud-' + pose;
+        fresh.dataset.pose = sig;
+        if(pose === 'swing' || pose === 'skate') fresh.style.setProperty('--bud', size + 'px');
+        fresh.innerHTML = budFill(budMine(), size, pose);
+        slot.replaceWith(fresh);
       };
       paint('bud-perch', setup, 'perch', 53);
       paint('bud-live', live && !setup && anim.k !== 'onpause', anim.k, 55);
@@ -929,7 +1010,7 @@
         el.style.setProperty('--t', '-' + ((seed % 1600) / 100).toFixed(2) + 's');
         el.style.setProperty('--x', ((seed >> 4) % 240) + 'px');
         el.style.setProperty('--y', ((seed >> 11) % 13) + 'vh');
-        if(pose === 'swing') el.style.setProperty('--bud', '55px');
+        if(pose === 'swing' || pose === 'skate') el.style.setProperty('--bud', '55px');
         el.innerHTML = budFill(budClean(p.buddy), 55, pose);
         lane.appendChild(el);
       });
@@ -963,21 +1044,12 @@
     if(b){ Buddy.set(b.getAttribute('data-bud'), parseInt(b.getAttribute('data-i'), 10) || 0); return; }
     const a = e.target.closest('[data-anim]');
     if(a){
-      S.budAnim = parseInt(a.getAttribute('data-anim'), 10) || 0;
-      save();
-      /* **Changing the antic is a change to your buddy, and the room has to be
-         told.** It was not: the only broadcast was in `commit()`, which the
-         antic buttons do not go through — so everybody else went on watching
-         you swing long after you had switched to the nap. There is no separate
-         message kind for it, on purpose; one kind is one thing for the host to
-         relay and one thing to forget. */
-      try{ syncBroadcast({t:'buddy', buddy:budSaved(), anim:(S.budAnim | 0)}); }catch(e){}
-      try{ Account.sync(true); }catch(e){}
+      /* Into the draft, like every other part of him. `commit()` is where the
+         room and the account find out, and it is the only place — one message
+         kind is one thing for the host to relay and one thing to forget. */
+      Buddy.anim = parseInt(a.getAttribute('data-anim'), 10) || 0;
       Buddy.render();
-      /* The slot has to be emptied, not just repainted: `stage()` skips work
-         when the signature matches, and switching antic changes which slot is
-         used rather than what is in it. */
-      ['bud-live','bud-pause'].forEach(id=>{ const s = $(id); if(s){ s.innerHTML = ''; s.dataset.pose = ''; } });
+      Buddy.clearSlots();
       Buddy.stage();
     }
   });

@@ -19,7 +19,10 @@
       const d=document.createElement('div'); d.className='q-item';
       d.innerHTML='<div class="qbody"><b>\u201c'+esc(q.t)+'\u201d</b>'+(q.a?'<span>'+esc(q.a)+'</span>':'')+'</div>';
       const del=document.createElement('button'); del.className='q-del'; del.textContent='\u00d7'; del.setAttribute('aria-label','Delete quote');
-      del.onclick=()=>{ CUSTOM_QUOTES.splice(i,1); saveQuotes(); quotesBroadcast(); renderQuotesList(); };
+      /* Deleted by id, not by position: the id is what travels to the account,
+         and without one the quote comes back on the next merge. */
+      del.onclick=()=>{ tombstone(q.id || quoteId(q)); CUSTOM_QUOTES.splice(i,1);
+                        saveQuotes(); quotesBroadcast(); renderQuotesList(); };
       d.appendChild(del); box.appendChild(d);
     });
   }
@@ -33,7 +36,15 @@
   function closeQuotes(){ $('quotes-overlay').classList.add('hide'); }
   function addQuote(){
     const t=$('q-text').value.trim(); if(!t){ $('q-text').focus(); return; }
-    CUSTOM_QUOTES.push({t, a:$('q-author').value.trim()}); saveQuotes(); quotesBroadcast();
+    const q = quoteNorm({t, a:$('q-author').value.trim(), at:Date.now()});
+    /* Typing back a quote you deleted is asking for it again, so its tombstone
+       goes with it - otherwise the next sync takes it away a second time. */
+    if(q){
+      const i = GONE.indexOf(q.id);
+      if(i >= 0){ GONE.splice(i, 1); try{ saveGone(); }catch(e){} }
+      if(!CUSTOM_QUOTES.some(x=>x.id === q.id)) CUSTOM_QUOTES.push(q);
+    }
+    saveQuotes(); quotesBroadcast();
     $('q-text').value=''; $('q-author').value=''; renderQuotesList();
   }
 

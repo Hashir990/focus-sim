@@ -124,6 +124,80 @@
     return out.length > cap ? out.slice(-cap) : out;
   }
 
+
+  /* ---- saved games ----
+
+     A board is one lump of state: half of one device's 2048 grid and half of
+     another's is not a game, it is a corrupt one. So the newer save wins
+     outright, the same rule settings get, and `at` is stamped by whichever
+     device wrote it — see `writeGame` in 09-arcade-core.js.
+
+     Three things are lifted out of the loser first, because they are records
+     rather than positions and losing one is losing history rather than losing a
+     place:
+
+       * **The best score only ever goes up.** Beating your record on a phone
+         and then playing one careless round on a laptop must not reset it.
+       * **Crossword progress is a set**, keyed by a hash of each puzzle, so two
+         devices working through different puzzles are not in conflict at all.
+       * **Saved chess games are a shelf**, each with its own id and clock. Same
+         argument; the app trims the shelf to length on its next write.
+
+     Anything else in a save is the position, and the position travels whole. */
+  function mergeGames(a, b){
+    const A = a || {}, B = b || {}, out = {};
+    const keys = Object.create(null);
+    for(const k in A) keys[k] = 1;
+    for(const k in B) keys[k] = 1;
+    for(const k in keys){
+      const x = A[k], y = B[k];
+      if(!x || !x.v){ if(y && y.v) out[k] = y; continue; }
+      if(!y || !y.v){ out[k] = x; continue; }
+      const win = (Number(y.at) || 0) > (Number(x.at) || 0) ? y : x;
+      const lose = win === y ? x : y;
+      out[k] = { at: Number(win.at) || 0, v: mergeGameSave(k, win.v, lose.v) };
+    }
+    return out;
+  }
+
+  /** How far through a crossword a record is, for choosing between two of them.
+      Finished beats everything; otherwise the one with more letters in it. */
+  function crossFill(r){
+    if(!r || typeof r.u !== 'string') return -1;
+    if(r.done) return 1e9;
+    let n = 0;
+    for(let i=0;i<r.u.length;i++) if(r.u[i] !== '.') n++;
+    return n;
+  }
+
+  function mergeGameSave(key, win, lose){
+    if(!win || typeof win !== 'object' || !lose || typeof lose !== 'object') return win;
+    if(key === 'arcade_2048'){
+      const best = Math.max(Number(win.best) || 0, Number(lose.best) || 0,
+                            Number(win.score) || 0, Number(lose.score) || 0);
+      return Object.assign({}, win, {best});
+    }
+    if(key === 'arcade_cross'){
+      const p = Object.assign({}, lose.p || {});
+      const mine = win.p || {};
+      for(const k in mine){
+        if(!Object.prototype.hasOwnProperty.call(mine, k)) continue;
+        p[k] = crossFill(mine[k]) >= crossFill(p[k]) ? mine[k] : p[k];
+      }
+      return Object.assign({}, win, {p});
+    }
+    if(key === 'focus_chess'){
+      const out = Object.assign({}, lose, win);
+      for(const k in out){
+        if(!Object.prototype.hasOwnProperty.call(out, k)) continue;
+        const mine = win[k], theirs = lose[k];
+        if(mine && theirs) out[k] = (Number(theirs.at) || 0) > (Number(mine.at) || 0) ? theirs : mine;
+      }
+      return out;
+    }
+    return win;
+  }
+
   /* ---- settings ---- */
   function mergeSim(a, b){
     const A = a || {}, B = b || {};
@@ -179,6 +253,8 @@
       plan: mergeById(A.plan, B.plan, gone),
       tasks: mergeById(A.tasks, B.tasks, gone),
       gone,
+      quotes: mergeById(A.quotes, B.quotes, gone),
+      games: mergeGames(A.games, B.games),
       sim: mergeSim(A.sim, B.sim),
     };
   }

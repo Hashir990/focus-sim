@@ -81,6 +81,13 @@
         plan: PLAN,
         tasks: TASKS,
         gone: GONE,
+        /* Your own quotes, and the arcade. Both were device-only, which is why
+           a quote written on a phone never reached a laptop and why signing in
+           somewhere new handed you your hours back beside an empty crossword.
+           See `quoteId` in 15-quotes-data.js for how a quote came to have an id
+           to travel under, and `gamesSnapshot` in 09-arcade-core.js. */
+        quotes: CUSTOM_QUOTES,
+        games: gamesSnapshot(),
         sim: {
           focusMin:S.focusMin, breakMin:S.breakMin, autoContinue:S.autoContinue,
           sound:S.sound, repeat:S.repeat, face:S.face,
@@ -104,6 +111,9 @@
       if(Array.isArray(snap.gone)){ GONE = snap.gone.slice(); saveGone(); }
       if(Array.isArray(snap.plan)){ PLAN = snap.plan.slice(); savePlan(); }
       if(Array.isArray(snap.tasks)){ TASKS = snap.tasks.slice(); saveTasks(); }
+      /* After `gone`, which both of these are filtered against. */
+      try{ quotesAdopt(snap.quotes); }catch(e){}
+      try{ gamesAdopt(snap.games); }catch(e){}
       const sim = snap.sim || {};
       /* Only if it is genuinely newer than what this device last wrote, which
          is the same test the server makes. Otherwise signing in on an old phone
@@ -137,10 +147,7 @@
       try{ tasksRender(); tasksRefresh(); }catch(e){}
       /* The antic may have changed under him, and `stage()` skips work when the
          signature matches — so the slots have to be emptied, not just redrawn. */
-      try{
-        ['bud-live','bud-pause'].forEach(id=>{ const s = $(id); if(s){ s.innerHTML = ''; s.dataset.pose = ''; } });
-        Buddy.render(); Buddy.stage();
-      }catch(e){}
+      try{ Buddy.clearSlots(); Buddy.render(); Buddy.stage(); }catch(e){}
       try{ Stats.render && $('stats-overlay') && !$('stats-overlay').classList.contains('hide') && Stats.render(); }catch(e){}
       try{ Cal.render && Cal.render(); }catch(e){}
       try{ render(); }catch(e){}
@@ -335,6 +342,9 @@
       PLAN = []; try{ savePlan(); }catch(e){}
       TASKS = []; try{ saveTasks(); }catch(e){}
       GONE = []; try{ saveGone(); }catch(e){}
+      CUSTOM_QUOTES = []; try{ saveQuotes(); }catch(e){}
+      try{ gamesWipe(); }catch(e){}
+      try{ renderQuotesList(); }catch(e){}
       /* `own` is empty now, so no bought light is valid any more. */
       Embers.light = 'seaglass';
       try{ Embers.save(); }catch(e){}
@@ -364,6 +374,8 @@
       if(LOG.length) bits.push(LOG.length === 1 ? '1 session' : LOG.length + ' sessions');
       if(PLAN.length) bits.push(PLAN.length === 1 ? '1 calendar entry' : PLAN.length + ' calendar entries');
       if(TASKS.length) bits.push(TASKS.length === 1 ? '1 task' : TASKS.length + ' tasks');
+      if(CUSTOM_QUOTES.length) bits.push(CUSTOM_QUOTES.length === 1
+        ? '1 quote you wrote' : CUSTOM_QUOTES.length + ' quotes you wrote');
       const bought = (Embers.own || []).filter(id=>id !== 'seaglass').length;
       if(bought) bits.push(bought === 1 ? '1 thing you have bought' : bought + ' things you have bought');
       return bits;

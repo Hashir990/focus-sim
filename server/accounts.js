@@ -72,14 +72,109 @@ function mergeSim(a, b) {
   const A = a || {}, B = b || {};
   return (Number(B.at) || 0) > (Number(A.at) || 0) ? B : A;
 }
+/* Lists you curate — the plan and the checklist. Union by id, minus anything
+   deleted; where both hold the same id the later `at` wins, and `done` is
+   unioned because it is keyed by day. Same rules as the client. */
+function mergeById(a, b, gone) {
+  const dead = new Set(gone || []);
+  const by = new Map();
+  const take = (r) => {
+    if (!r || !r.id || dead.has(r.id)) return;
+    const had = by.get(r.id);
+    if (!had) { by.set(r.id, r); return; }
+    const win = (Number(r.at) || 0) > (Number(had.at) || 0) ? r : had;
+    const lose = win === r ? had : r;
+    if (win.done && typeof win.done === 'object' && lose.done && typeof lose.done === 'object') {
+      by.set(r.id, Object.assign({}, win, { done: Object.assign({}, lose.done, win.done) }));
+    } else {
+      by.set(r.id, win);
+    }
+  };
+  (a || []).forEach(take);
+  (b || []).forEach(take);
+  return [...by.values()];
+}
+function mergeGone(a, b, max) {
+  const out = [], seen = Object.create(null);
+  for (const v of (a || []).concat(b || [])) {
+    if (typeof v !== 'string' || seen[v]) continue;
+    seen[v] = 1; out.push(v);
+  }
+  const cap = Number(max) || 500;
+  return out.length > cap ? out.slice(-cap) : out;
+}
+/* Saved games: the newer save of each wins whole, with the best score, the
+   crossword's finished puzzles and the chess shelf lifted out of the loser. */
+function crossFill(r) {
+  if (!r || typeof r.u !== 'string') return -1;
+  if (r.done) return 1e9;
+  let n = 0;
+  for (let i = 0; i < r.u.length; i++) if (r.u[i] !== '.') n++;
+  return n;
+}
+function mergeGameSave(key, win, lose) {
+  if (!win || typeof win !== 'object' || !lose || typeof lose !== 'object') return win;
+  if (key === 'arcade_2048') {
+    const best = Math.max(Number(win.best) || 0, Number(lose.best) || 0,
+                          Number(win.score) || 0, Number(lose.score) || 0);
+    return Object.assign({}, win, { best });
+  }
+  if (key === 'arcade_cross') {
+    const p = Object.assign({}, lose.p || {});
+    const mine = win.p || {};
+    for (const k in mine) {
+      if (!Object.prototype.hasOwnProperty.call(mine, k)) continue;
+      p[k] = crossFill(mine[k]) >= crossFill(p[k]) ? mine[k] : p[k];
+    }
+    return Object.assign({}, win, { p });
+  }
+  if (key === 'focus_chess') {
+    const out = Object.assign({}, lose, win);
+    for (const k in out) {
+      if (!Object.prototype.hasOwnProperty.call(out, k)) continue;
+      const mine = win[k], theirs = lose[k];
+      if (mine && theirs) out[k] = (Number(theirs.at) || 0) > (Number(mine.at) || 0) ? theirs : mine;
+    }
+    return out;
+  }
+  return win;
+}
+function mergeGames(a, b) {
+  const A = a || {}, B = b || {}, out = {};
+  const keys = Object.create(null);
+  for (const k in A) keys[k] = 1;
+  for (const k in B) keys[k] = 1;
+  for (const k in keys) {
+    const x = A[k], y = B[k];
+    if (!x || !x.v) { if (y && y.v) out[k] = y; continue; }
+    if (!y || !y.v) { out[k] = x; continue; }
+    const win = (Number(y.at) || 0) > (Number(x.at) || 0) ? y : x;
+    const lose = win === y ? x : y;
+    out[k] = { at: Number(win.at) || 0, v: mergeGameSave(k, win.v, lose.v) };
+  }
+  return out;
+}
 function mergeSnapshots(local, remote) {
   const A = local || {}, B = remote || {};
+  const gone = mergeGone(A.gone, B.gone);
   return {
     log: mergeLog(A.log, B.log),
     own: mergeSet(A.own, B.own),
     claimed: mergeSet(A.claimed, B.claimed),
     feats: mergeFeats(A.feats, B.feats),
     adjust: Math.max(Number(A.adjust) || 0, Number(B.adjust) || 0),
+    /* **These were missing, and the vault was quietly eating them.** The client
+       grew the calendar, the checklist, the tombstones, the quote bank and the
+       saved games; this copy did not, so every key it did not know about was
+       dropped from whatever it stored. A first put looked like it worked — it
+       is written verbatim — and every put after it threw the lot away. If a key
+       is added to src/js/47-merge.js it has to be added here in the same
+       change. */
+    plan: mergeById(A.plan, B.plan, gone),
+    tasks: mergeById(A.tasks, B.tasks, gone),
+    gone,
+    quotes: mergeById(A.quotes, B.quotes, gone),
+    games: mergeGames(A.games, B.games),
     sim: mergeSim(A.sim, B.sim),
   };
 }

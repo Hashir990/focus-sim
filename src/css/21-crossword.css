@@ -13,10 +13,29 @@
    simply would not move if your thumb started on the puzzle, which is most of
    the screen. `pan-y` gives the vertical to the scroller and keeps the tap;
    `manipulation` on the cells drops the double-tap-zoom delay with it. */
+/* **A grid is bounded by the window's height as well as its width.** This was
+   sized on width alone, which is fine at 380px and wrong the moment a fifteen
+   asks for 560: on a 768-tall window the puzzle ran from y=300 to y=860, so a
+   third of it was below the fold and there was no way to see the whole thing at
+   once — you scrolled the bottom rows into view and lost the top ones.
+
+   `--cw-chrome` is what the screen spends on everything that is not the grid:
+   about 300px above it (the overlay's bar, the game's title row, the size and
+   hint bar) and enough below for the clue line. The on-screen keyboard sits
+   under that and is deliberately *not* in the budget — including it leaves 268px
+   of grid on a 768-tall window, which is 17px squares, and a fifteen you cannot
+   read is worse than one you scroll a little.
+
+   Written twice on purpose: engines that do not understand `dvh` take the `vh`
+   line and are merely slightly conservative on a phone with a retracting URL
+   bar; ones that do, take the second. */
 .cw{
   --n:9;
+  --cw-chrome:352px;
+  --cw-size:min(94vw, 380px, calc(100vh - var(--cw-chrome)));
+  --cw-size:min(94vw, 380px, calc(100dvh - var(--cw-chrome)));
   display:grid; grid-template-columns:repeat(var(--n), 1fr);
-  gap:2px; width:min(94vw, 380px); margin:10px auto 0;
+  gap:2px; width:var(--cw-size); margin:10px auto 0;
   aspect-ratio:1;
   touch-action:pan-y;
 }
@@ -24,7 +43,11 @@
    square is 23px — under the touch target and too small to read a letter in.
    The gap comes down to 1px as well, because fourteen 2px gaps eat 28px of a
    grid that has none to spare. Set by JS, which knows n; see 27-crossword.js. */
-.cw.cw--wide{ width:min(96vw, 560px); gap:1px }
+.cw.cw--wide{
+  --cw-size:min(96vw, 560px, calc(100vh - var(--cw-chrome)));
+  --cw-size:min(96vw, 560px, calc(100dvh - var(--cw-chrome)));
+  gap:1px;
+}
 
 .cw-block{ background:transparent; border-radius:2px }
 .cw-cell{
@@ -33,7 +56,11 @@
   border:1px solid var(--line); border-radius:3px;
   display:grid; place-items:center; cursor:pointer;
   font-weight:600; text-transform:uppercase;
-  font-size:clamp(9px, calc(30vw / var(--n)), 19px);
+  /* **Off the grid's own width, not off the window's.** `30vw / n` was fine
+     while the grid was a fixed fraction of the viewport; now that height can be
+     the binding constraint, a wide-but-short window gave a 27px letter in a
+     28px square. One source of truth: whatever `--cw-size` came out as. */
+  font-size:clamp(9px, calc(var(--cw-size) * .62 / var(--n)), 19px);
   transition:background .12s ease, border-color .12s ease;
 }
 .cw-cell.peer{ background:color-mix(in srgb, var(--accent) 12%, transparent) }

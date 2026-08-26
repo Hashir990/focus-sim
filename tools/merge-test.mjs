@@ -18,10 +18,10 @@ const src = readFileSync(join(R, '47-merge.js'), 'utf8');
 
 const api = new Function(src + `
   return {mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, MERGE_PER,
-          mergeById, mergeGone};
+          mergeById, mergeGone, mergeGames};
 `)();
 const { mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom,
-        mergeById, mergeGone } = api;
+        mergeById, mergeGone, mergeGames } = api;
 
 let pass = 0;
 const fails = [];
@@ -167,6 +167,68 @@ console.log('\nthe plan and the checklist');
     JSON.stringify(mergeSnapshots(A, B).plan));
   check('and it is still gone with the sides the other way round',
     mergeSnapshots(B, A).plan.length === 0);
+}
+
+/* ---- saved games ----
+   A board travels whole; a record does not travel with it. */
+{
+  const save = (at, v) => ({ at, v });
+  const two = (a, b) => mergeGames(a, b);
+
+  const older = { arcade_2048: save(10, { board: [2], score: 40, best: 900 }) };
+  const newer = { arcade_2048: save(20, { board: [4], score: 8, best: 12 }) };
+  const m = two(older, newer).arcade_2048;
+  check('the newer board wins whole', JSON.stringify(m.v.board) === '[4]', JSON.stringify(m.v));
+  check('but a best score is never lost to it', m.v.best === 900, `${m.v.best}`);
+  check('and it does not matter which side it comes from',
+    two(newer, older).arcade_2048.v.best === 900);
+  check('a score standing higher than the best it was saved with counts',
+    two({ arcade_2048: save(1, { score: 500 }) },
+        { arcade_2048: save(2, { score: 1, best: 0 }) }).arcade_2048.v.best === 500);
+
+  check('a game only one device has still arrives',
+    !!two({}, { arcade_wordle: save(3, { answer: 'crane' }) }).arcade_wordle);
+  check('and one nobody wrote is not invented',
+    Object.keys(two({}, {})).length === 0);
+
+  /* Crosswords are the case that decides the design: two devices working
+     through different puzzles are not in conflict, so a newer save must not
+     take the other one's finished puzzles away with it. */
+  const cwA = { arcade_cross: save(5, { idx: 1, p: { aaa: { u: 'CAT', done: true } } }) };
+  const cwB = { arcade_cross: save(9, { idx: 2, p: { bbb: { u: 'DOG', done: true } } }) };
+  const cw = two(cwA, cwB).arcade_cross.v;
+  check('a crossword keeps puzzles finished on the other device',
+    !!cw.p.aaa && !!cw.p.bbb && cw.idx === 2, JSON.stringify(cw));
+  check('and the further-along copy of the same puzzle is the one kept',
+    two({ arcade_cross: save(5, { p: { aaa: { u: 'C..' } } }) },
+        { arcade_cross: save(9, { p: { aaa: { u: '...' } } }) }).arcade_cross.v.p.aaa.u === 'C..');
+  check('a finished puzzle beats a fuller unfinished one',
+    two({ arcade_cross: save(9, { p: { aaa: { u: 'C..', done: true } } }) },
+        { arcade_cross: save(5, { p: { aaa: { u: 'CAT' } } }) }).arcade_cross.v.p.aaa.done === true);
+
+  const chA = { focus_chess: save(4, { g1: { at: 4, m: 'e4' } }) };
+  const chB = { focus_chess: save(8, { g2: { at: 8, m: 'd4' } }) };
+  const ch = two(chA, chB).focus_chess.v;
+  check('saved chess games are a shelf, not a slot', !!ch.g1 && !!ch.g2, JSON.stringify(ch));
+
+  check('merging a snapshot with itself changes nothing',
+    JSON.stringify(mergeSnapshots({ games: cwA }, { games: cwA }).games)
+    === JSON.stringify(mergeSnapshots(mergeSnapshots({ games: cwA }, { games: cwA }),
+                                      { games: cwA }).games));
+}
+
+/* ---- your own quotes ----
+   They ride on ids now (see `quoteId`), which is what lets a deletion travel. */
+{
+  const q = (id, t) => ({ id, t, a: '' });
+  const A = { quotes: [q('q1', 'one')], gone: [] };
+  const B = { quotes: [q('q2', 'two')], gone: [] };
+  check('quotes written on two devices are both kept',
+    mergeSnapshots(A, B).quotes.length === 2, JSON.stringify(mergeSnapshots(A, B).quotes));
+  const del = { quotes: [], gone: ['q1'] };
+  check('and one deleted anywhere is deleted everywhere',
+    mergeSnapshots(A, del).quotes.length === 0
+    && mergeSnapshots(del, A).quotes.length === 0);
 }
 
 console.log('\n' + pass + '/' + (pass + fails.length) + ' merge checks passed');

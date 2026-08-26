@@ -66,6 +66,7 @@
        comment beside the room list said "their buddy does their antic, not
        yours" the whole time; it just was not true. */
     conns:{}, roster:{}, codes:{}, buddies:{}, anims:{}, remoteList:null,
+    leaving:false, lastState:null,   // see syncLeave(), and the joiner's first state
     name:'', myCode:null, accountCode:false, friends:[],
     beat:null, lastApplied:0, status:'',
     seen:{},                                 // host: id -> when we last heard from them
@@ -222,6 +223,18 @@
 
   /* Called when signing in or out. Signing out puts the device back on a code
      of its own, because the account's code is the account's. */
+  /* **Whose code is this, really.**
+
+     `syncLoad()` restores `myCode` from disk and this is called from the
+     account, and the two sit in the same `Promise.all` — so on a cold start
+     whichever finished last won. Land in the wrong order and a signed-in device
+     came up on the code it had *before* it signed in while the other device was
+     on the account's: one account, two codes. Mail is addressed to a code, so
+     half of it went somewhere nobody was listening. That is the whole of
+     "messaging is a little broken since accounts".
+
+     Called again once everything has loaded (see 90-init.js), where the answer
+     cannot depend on what finished first. Idempotent on purpose. */
   function syncAdoptAccount(username){
     const want = username ? syncCodeFor(username) : null;
     if(want){
@@ -388,7 +401,9 @@
   /** Called by the timer engine on every change. No-op unless we hold the timer. */
   function syncBroadcastState(){
     if(!syncIsLeader()) return;
-    syncBroadcast(syncStateMsg());
+    const m = syncStateMsg();
+    if(syncIsHost()) SYNC.lastState = m;
+    syncBroadcast(m);
   }
 
   function syncRosterMsg(){
@@ -640,7 +655,19 @@
       try{ syncMailRun(); }catch(e){}
       if(syncIsHost()){
         syncSend(conn, syncRosterMsg());
-        if(syncIsLeader()) syncSend(conn, syncStateMsg());
+        /* **Somebody arriving has to be put on the right screen, and the host
+           is not always the one holding the timer.** This sent the state only
+           when the host *was* the leader, so after a hand-over a new arrival
+           got a roster and nothing else — and sat on whatever screen they were
+           already on while the room was somewhere else entirely. The host
+           relays every state it sees anyway; keeping the last one costs a
+           reference and answers the question for whoever turns up next.
+
+           It matters most in the case Hashir hit: the leader back on the main
+           menu. Without this a joiner never hears "setup" and is left running a
+           timer nobody else is on. */
+        const first = syncIsLeader() ? syncStateMsg() : SYNC.lastState;
+        if(first) syncSend(conn, first);
       }
       const moved = SYNC.moving;
       SYNC.moving = '';
@@ -709,6 +736,7 @@
         // and the host is what carries it to everyone else.
         if(syncIsHost()){
           if(conn.peer !== SYNC.leaderId) return;
+          SYNC.lastState = m;               // for whoever joins next
           syncBroadcast(m, conn.peer);
         }
         syncApplyState(m);
@@ -796,7 +824,10 @@
          already accounted for, must not clear entries that now belong to a
          live connection — and must not take the follower down the "lost the
          host" path either, which had people retrying a room they were in. */
-      if(conn.__superseded || SYNC.conns[conn.peer] !== conn){ syncRender(); return; }
+      /* `SYNC.leaving` is the third case, and the one that made Leave useless:
+         a socket closing *because we are leaving* must not be read as the host
+         disappearing. See syncLeave(). */
+      if(SYNC.leaving || conn.__superseded || SYNC.conns[conn.peer] !== conn){ syncRender(); return; }
       delete SYNC.conns[conn.peer];
       delete SYNC.roster[conn.peer];
       delete SYNC.codes[conn.peer];
@@ -976,20 +1007,36 @@
     SYNC.rejoin = null; SYNC.rejoinCode = null; SYNC.rejoinTries = 0;
   }
 
+  /* **The state has to be true before the sockets are told.**
+
+     This set `mode = 'off'` *after* closing every connection, and closing a
+     connection can fire its `close` handler there and then rather than on a
+     later tick. That handler read `SYNC.mode`, found 'joined', concluded the
+     host had vanished, and called `syncRetry` — so pressing Leave dropped you
+     out of the room and immediately dialled straight back into it. From the
+     outside the button simply did not work.
+
+     Everything the handlers read is set first, and `SYNC.leaving` covers the
+     synchronous case outright: a handler running *during* the teardown has no
+     business acting on it at all. */
   function syncLeave(quiet, keepRetry){
     SYNC.epoch++;                 // anything still connecting is now stale
+    SYNC.leaving = true;
+    const conns = SYNC.conns;
+    SYNC.mode = 'off'; SYNC.code = null;
+    SYNC.selfId = null; SYNC.leaderId = null; SYNC.hostId = null;
+    SYNC.lastState = null;
     if(!keepRetry){
       syncStopRetrying(); SYNC.moving = ''; SYNC.leaveAfterMove = false;
       SYNC.expect = []; SYNC.expectUntil = 0;
     }
     clearInterval(SYNC.beat); SYNC.beat = null;
-    syncBroadcast({t:'bye'});
-    for(const id in SYNC.conns){ try{ SYNC.conns[id].close(); }catch(e){} }
+    for(const id in conns) syncSend(conns[id], {t:'bye'});
+    for(const id in conns){ try{ conns[id].close(); }catch(e){} }
     SYNC.conns = {}; SYNC.roster = {}; SYNC.codes = {}; SYNC.buddies = {}; SYNC.remoteList = null;
     SYNC.seen = {}; SYNC.hostSeen = 0;
     try{ if(SYNC.peer) SYNC.peer.destroy(); }catch(e){}
-    SYNC.peer = null; SYNC.mode = 'off'; SYNC.code = null;
-    SYNC.selfId = null; SYNC.leaderId = null; SYNC.hostId = null;
+    SYNC.peer = null;
     SYNC.hostName = ''; SYNC.hostCode = null;
     for(const g in SYNC_GAMES){
       const h = SYNC_GAMES[g];
@@ -997,6 +1044,7 @@
     }
     try{ chatRoomClosed(); }catch(e){}
     try{ quotesClearShared(); }catch(e){}
+    SYNC.leaving = false;
     if(!quiet) syncSetStatus('Left');
     syncRender();
   }

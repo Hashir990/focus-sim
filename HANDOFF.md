@@ -87,7 +87,7 @@ in the menu footer. `start.cmd` prints that stamp before it opens the window.
 
 ## 5. Tests
 
-`tools/smoke-test.mjs` drives the built file in jsdom — one file, ~783 checks.
+`tools/smoke-test.mjs` drives the built file in jsdom — one file, ~800 checks.
 It is the only test that matters and it must stay green.
 
 In this sandbox a shell call is capped at around 178s, and the full file does
@@ -140,10 +140,106 @@ cp dist/index.html ~/dist/ && cp server/* ~/server/
 cp tools/account-client-test.mjs ~/run/acct.mjs && cd ~/run && node acct.mjs
 ```
 
-Current, all green: **smoke 760**, `account-client-test` 48, `accounts-test` 59,
-`merge-test` 35, `scrabble-rules-test` 28, `mailbox-test` 31 — **961 checks**.
+Current, all green: **smoke 799**, `account-client-test` 55, `accounts-test` 66,
+`merge-test` 48, `scrabble-rules-test` 28, `mailbox-test` 31 — **1027 checks**.
+(Three crossword-bank checks want ten puzzles at every size and the background
+job is still short of that — `ship-release.ps1 -AllowBankInProgress` is what
+that flag is for, and nothing else belongs in it. A *fourth* red, the no-repeat
+rule, was the check being wrong rather than the bank; see §6.)
+
+Two of the tools are eyes rather than tests, and need playwright + a Chromium:
+`tools/look-swing.mjs` measures whether each antic's animations still share one
+clock, and `tools/look-glass.mjs` photographs the hourglass at both phases.
+Neither runs in `npm test`; both run in the sandbox.
 
 ## 6. Gotchas that have each cost real time
+
+- **Two clocks that must start together: the slot and what is inside it.** Every
+  antic is written as one animation on the slot that carries him across the
+  window (`bud-go` 7.8s for the swing, `bud-skate-lap` 48s for the board) and
+  more inside it doing the swinging, the mirroring and the turn. Every period is
+  an exact fraction of the lap, so started together they stay locked for ever —
+  and nothing in CSS re-locks them. `stage()` refilled the slot with
+  `innerHTML`, which builds a new rig whose animations start *now* while the
+  slot's own carries on from wherever it had got to. From that moment he swings
+  backwards under his own web, hangs off nothing at the edge of the window, and
+  the skateboard turns before it reaches the corner. Both were reported as
+  "sometimes broken, but not always"; the "not always" is that it only begins
+  when something re-renders him mid-lap — saving a colour, an account arriving,
+  switching him off and on again. The slot is now *replaced* rather than
+  refilled: a fresh element starts everything it contains at one moment. Measure
+  it with `tools/look-swing.mjs`, which reads `startTime` off `getAnimations()`
+  in a real browser and prints the drift per antic — 700ms+ against the old
+  code, 0 against this one. jsdom has no animation engine and cannot see any of
+  it, which is how it survived a green suite; the smoke test can only check the
+  mechanism, that the node is a new one.
+
+- **A check asserting a rule the data no longer keeps is worse than no check.**
+  The crossword no-repeat check wanted `GAP = 4` — no answer inside four puzzles
+  at a size. `tools/build-crosswords.py` retired that: "GAP is 2, so only the
+  immediately preceding puzzle's answers are blocked at a size. Words recycle by
+  design." Against today's bank that is 0 breaches at 2, 27 at 3, 36 at 4 — so
+  every release was blocked by a test that was wrong, about data that was right,
+  and the habit that forms is waving crossword failures through. The number
+  lives in the generator; the check now says so beside itself. Same family: "the
+  bank holds every size the picker offers" was written as `=== '5,7,9'` and
+  started failing the day fifteens were added, i.e. because a feature worked. It
+  asks the picker for its own row of sizes now and checks the direction that
+  matters — that no puzzle sits at a size nobody can select.
+
+- **Turning a picture over moves which edge things fall onto.** The hourglass
+  face swaps which bulb is filling for a break, and the stylesheet rotates the
+  whole face 180deg to say the glass has been turned over. Both were right and
+  the sand still collected at the top, because each bulb's fill was a band held
+  against a *fixed* edge — the upper one against the neck, the lower one against
+  the base. Rotated, those are the high edges: the sand hung off the ceiling of
+  one bulb and dangled from the neck of the other. The amounts were never wrong;
+  the gravity was. `facePaint` now hands each bulb the edge its sand rests on
+  and the direction its surface grows, and both flip with the glass. Anything
+  drawn against an edge and then rotated has this bug waiting in it.
+
+- **The server has its own copy of the merge rules, and it rebuilds the
+  snapshot.** `server/accounts.js` names every key it keeps; a key it does not
+  name is not passed through, it is *dropped*. Because a first write is stored
+  verbatim, adding something to `Account.snapshot()` and forgetting the server
+  looks like it works — right up to the second device, whose put merges and
+  returns a snapshot with your addition missing. That is what "my quotes do not
+  follow me" was. Change `src/js/47-merge.js` and `server/accounts.js` in the
+  same edit; `server/accounts-test.mjs` now writes a snapshot with every key in
+  it, twice, and checks they all survive.
+
+- **To rotate something against a surface, the pivot has to be the contact
+  point — so give it no size at all.** The skater rides the whole perimeter of
+  the window: floor, right wall, ceiling upside down, left wall, one continuous
+  turn per lap. The first version rotated a 55px box about its own middle, which
+  swung the drawing half a width clear of every wall it was supposed to be
+  riding. `.bud-ride` is `width:0;height:0;transform-origin:0 0`, the drawing
+  hangs off it by half a width across and 1.1 heights up (1.1 because the wheels
+  are drawn below the 64-unit box and it is the wheels that touch), and the
+  keyframes place that one point. Corners then need no special cases: the same
+  four `translate()` values put the contact patch on each corner in turn.
+
+  **And the rotation must never unwind.** 0 -> -90 -> -180 -> -270 -> -360 all
+  the same way round, so the -360 at the end *is* the 0 at the start. Mixed
+  signs spin him backwards at one corner; stopping at -270 and returning to 0
+  unwinds three quarters of a turn at the seam, in view, every lap.
+
+- **An eased traverse cannot be in step with anything.** The pacer walked an
+  `ease-in-out` lap against a fixed stride, so at the slow ends he was still
+  stepping and barely moving — feet going, floor not, and it is worst exactly
+  where the eye rests longest. A changing speed against a fixed cadence has no
+  correct stride length. `linear`, and then one constant speed means one
+  constant distance per step and the two stay locked with nothing to recompute.
+  The turn is instantaneous rather than a hold for the same reason: a hold is
+  time spent stepping and going nowhere.
+
+- **A grid is bounded by the window's height, not only its width.** The
+  crossword sized itself on width alone, which is invisible at 380px and wrong
+  the moment the fifteens asked for 560: on a 768-tall window the puzzle ran
+  from y=300 to y=860 and a third of it was under the fold, with no way to see
+  the whole thing at once. `--cw-size` is now `min(width cap, 100dvh - chrome)`
+  and the cell font is derived from *it* rather than from `vw` — a wide, short
+  window was otherwise putting a 27px letter in a 28px square.
 
 - **A test that counts is a hostage to the next feature.** `account-client-test`
   asserted `antics.length === 3`, which was true the day it was written; adding
@@ -376,11 +472,24 @@ Current, all green: **smoke 760**, `account-client-test` 48, `accounts-test` 59,
 
 - **The account is a profile, not a backup.** `Account.snapshot()` in
   `48-account.js` is the single list of what travels: the log, embers, the
-  calendar (`PLAN`), the checklist (`TASKS`), the tombstones (`GONE`), and a
+  calendar (`PLAN`), the checklist (`TASKS`), the tombstones (`GONE`), your own
+  quotes (`CUSTOM_QUOTES`), the single-player arcade (`gamesSnapshot()`), and a
   `sim` bundle holding the settings, the theme, the ambience, what the buddy
   looks like and which antic he does. **If you add something a person sets up,
-  add it here and to `Account.wipe()` in the same commit** — the two lists must
-  match or signing out leaves a stranger's things behind.
+  add it here, to `Account.wipe()`, to `mergeSnapshots` in `47-merge.js` *and*
+  to the server's copy in `server/accounts.js`, in the same commit** — the four
+  lists must match or signing out leaves a stranger's things behind and the
+  vault silently drops whatever it was not told about (see §6).
+
+- **Saved games ride on a small registry, not on each game.** `09-arcade-core.js`
+  holds `GAME_KEYS`, an in-memory copy of each save and when this device wrote
+  it; `writeGame(key, obj)` is what every single-player `persist()` calls, and a
+  save that reaches `KV.set` directly is a save the account never hears about.
+  `forgetGame(key, fn)` is how a game drops its in-memory copy when an account
+  overwrites storage underneath it, so the next `enter()` re-reads instead of
+  writing the old position back. A board travels whole (the newer save wins);
+  the best score, the finished crosswords and the chess shelf are lifted out of
+  the loser first, because they are records rather than positions.
 
 - **Signing up keeps this device's data; signing in erases it.** A new account
   has never held anything, so the work here is the only copy and goes up with
@@ -905,6 +1014,47 @@ for them on the main timer screen.** That is the only outstanding request.
 ## 9. Log
 
 Newest first. One line each.
+
+- **2026-08-26 (2)** — **"Sometimes the swing is broken" and "sometimes the
+  skateboard turns early" were one bug, and it was a clock.** The travel is an
+  animation on the slot and the arc, the mirror and the board's turn are
+  animations *inside* it; refilling the slot with `innerHTML` restarted the
+  inner ones and left the outer one running, so from then on he swung backwards
+  under his own web and the board turned before the corner. The "not always" was
+  that it only starts when something re-renders him mid-lap. The slot is
+  replaced now rather than refilled — see §6. New `tools/look-swing.mjs` reads
+  `startTime` off `getAnimations()` in a real browser and prints the drift for
+  every antic: 700ms+ before, 0 after. Also: the crossword no-repeat check was
+  asserting `GAP = 4`, a rule the generator retired in favour of 2, which is why
+  a correct bank kept blocking releases; and the size check was written as
+  `=== '5,7,9'` and had been failing since fifteens were added. Both now take
+  their number from the thing that owns it. `-AllowBankInProgress` is down to the
+  three counting checks, and the no-repeat rule is deliberately not among them.
+
+- **2026-08-26** — **Fourteen things, and two of them were the account quietly
+  eating your work.** The vault's copy of the merge rules (`server/accounts.js`)
+  had never grown past `log/own/claimed/feats/adjust/sim`, and it *rebuilds* the
+  stored snapshot from the keys it knows — so the first put looked fine, being
+  written verbatim, and every put after it dropped the calendar, the checklist
+  and the tombstones on the floor. Both copies now carry the same list and
+  `server/accounts-test.mjs` fails if one of them forgets again. On top of that,
+  `snapshot()` grew the two things that were never in it: **your own quotes**
+  (which had no ids, so a deletion could not travel — they are hashed from their
+  own words now, see `quoteId`) and **the single-player arcade**, boards and
+  best scores both, through a small registry in `09-arcade-core.js` where every
+  game's save is stamped and adopted rather than each game inventing its own.
+  The rest: the **hourglass** stopped hanging its sand from the ceiling during a
+  break (see §6 — turning the glass over moves which edge is the low one, and
+  swapping the bulbs was only half of it); **Leave** means left; **one account,
+  one room code**, settled after everything has loaded rather than by whichever
+  load finished first; the **antic is a draft** until Save, like the rest of
+  him; a **0-minute session** is not history unless something was ticked off;
+  **Coat became Outerwear**, drawn in curves with nothing poking out, and worn
+  items sit over it; **ambience** primes itself on the first tap so a follower's
+  track is not blocked by autoplay; **crossword puzzles say how many clues are
+  done** rather than "in progress"; and the infinite run pauses **every four**
+  blocks instead of eight, with the line under the clock bounded so it fits.
+  796 checks, plus 55 account-client and 66 server.
 
 - **2026-08-21 (2)** — **A paused clock was keeping time in the background.**
   45-notify.js calls `tick()` on the way back from being hidden, to catch up a

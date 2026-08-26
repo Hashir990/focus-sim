@@ -428,6 +428,30 @@
         + (h ? ' · ' + h + ' letter' + (h===1?'':'s') + ' revealed' : ' · no hints');
     },
 
+    /** How many of a puzzle's clues are completely filled in, for the picker.
+
+        A clue counts when every one of its squares matches the answer — the
+        same standard the finished banner holds a whole puzzle to. Saved letters
+        are uppercase and the bank is lowercase, so the comparison is done in
+        one case; forgetting that in `_migrate` once threw away every record it
+        was supposed to be rescuing. */
+    _clues(i, rec){
+      const g = CROSS_GRIDS[i];
+      if(!g) return { done:0, total:0 };
+      const puz = crossParse(g), n = puz.n;
+      const u = (rec && typeof rec.u === 'string' && rec.u.length === n*n) ? rec.u : '';
+      let done = 0;
+      if(u) for(const e of puz.entries){
+        let ok = true;
+        for(let k=0;k<e.cells.length;k++){
+          const [r,c] = e.cells[k];
+          if(u[r*n+c] !== e.answer[k].toUpperCase()){ ok = false; break; }
+        }
+        if(ok) done++;
+      }
+      return { done, total: puz.entries.length };
+    },
+
     /* ---- the puzzle picker ---- */
     openPicker(){ this._renderList(); $('cw-picker').classList.remove('hide'); },
     _closePicker(){ const el = $('cw-picker'); if(el) el.classList.add('hide'); },
@@ -440,8 +464,10 @@
         const rec = this._rec(i);
         const done = !!(rec && rec.done);
         const started = !done && rec && rec.u && /[A-Z]/.test(rec.u);
+        const c = this._clues(i, rec);
         const note = done ? 'finished' + (rec.secs ? ' in ' + fmt(rec.secs) : '')
-                   : started ? 'in progress' : 'not started';
+                   : started ? c.done + ' of ' + c.total + ' clues'
+                   : c.total + ' clues';
         const hints = rec && rec.g && rec.g.length ? rec.g.length + ' revealed' : '';
         return '<button class="cw-item'+(done?' done':'')+(i===this.idx?' on':'')+'" '
           + 'data-i="'+i+'" data-k="'+(k+1)+'"><b>#'+(k+1)+'</b><span>'+note+'</span>'
@@ -572,13 +598,24 @@
         if(this.done) rec.done = true;
         this.progress[this._fp(this.idx)] = rec;
       }
-      try{
-        KV.set(this.key, JSON.stringify({
-          size:this.size, idx:this.idx, key:this._fp(this.idx), p:this.progress,
-        }));
-      }catch(e){}
+      writeGame(this.key, {
+        size:this.size, idx:this.idx, key:this._fp(this.idx), p:this.progress,
+      });
+    },
+
+    /* An account brought different progress. The letters on screen belong to
+       the copy that has just been replaced, so the whole game is reloaded from
+       storage rather than repainted - and `loaded` going false is what makes
+       the next `enter()` do it. */
+    forget(){
+      this.loaded = false;
+      this.progress = {};
+      this.puz = null;
+      this.built = false;
     },
   };
+
+  forgetGame(Cross.key, ()=>Cross.forget());
 
   document.addEventListener('keydown', e=>{
     if(!Arcade.open || Arcade.active!=='crossword') return;

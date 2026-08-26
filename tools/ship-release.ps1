@@ -48,10 +48,15 @@
   known-red checks still catches the fourth.
 
 .PARAMETER AllowBankInProgress
-  Shorthand for the four crossword-bank checks. The bank is rebuilt by a
-  background process, so the ones that count puzzles per size go red for as long
-  as that is running; they are about the state of the data, not about the code
-  being shipped.
+  Shorthand for the crossword-bank counting checks. A background job adds a
+  couple of puzzles at each size a day, so the checks that want ten of
+  everything are red for as long as the bank is short of that; they are about
+  the state of the data, not about the code being shipped.
+
+  The no-repeat rule is deliberately NOT in here. That one is a rule the
+  generator keeps on every run, so if it goes red something is actually wrong --
+  either the bank, or, as happened once, the check itself asserting a rule the
+  generator had retired.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File .\tools\ship-release.ps1 -Notes "What changed."
@@ -149,7 +154,7 @@ if ($SkipTests) {
     }
     $allow = @($Except)
     if ($AllowBankInProgress) {
-      $allow += 'nine-by-nines in the bank', 'the bank holds every size',
+      $allow += 'nine-by-nines in the bank',
                 'at least ten of every size', 'every puzzle at this size'
     }
     $blocking = @($failed | Where-Object {

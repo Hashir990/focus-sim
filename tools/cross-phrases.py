@@ -88,6 +88,15 @@ PHRASES = {
     'yesman':      'One who always agrees with the boss',
     'zonein':      'Focus sharply on it',
 
+    # ---- five, and the run-together slang phrases ----
+    # These come in as phrases rather than as words because that is what they
+    # are: NOCAP is "no cap", ROMANEMPIRE is "Roman Empire". The same rules
+    # apply — the clue defines the phrase and never contains it.
+    'nocap':       'No word of a lie, in modern slang',
+    'thebomb':     'Absolutely brilliant, in older slang',
+    'letthemcook': 'Leave them to get on with it',
+    'romanempire': 'The thing you cannot stop thinking about',
+
     # ---- seven ----
     # Was four entries, which was the thinnest length in the file. Seven is a
     # length a 15x15 reaches for constantly, so it is worth the same depth six

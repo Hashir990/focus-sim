@@ -225,7 +225,23 @@ function boot(pageHtml, seed) {
           if (window.__peerSilent) return;
           setTimeout(() => c._peerConn && c._peerConn._emit('data', JSON.parse(JSON.stringify(msg))), 0);
         },
-        close: () => { setTimeout(() => { c._emit('close'); c._peerConn && c._peerConn._emit('close'); }, 0); },
+        /* **The local end closes synchronously, the far end on a tick.**
+
+           Both were deferred, and that hid a real bug for a release: `syncLeave`
+           closed every connection and only afterwards set `mode = 'off'`, so a
+           `close` handler that ran *during* the loop still saw a live room,
+           decided the host had vanished, and dialled straight back in. Pressing
+           Leave did nothing you could see. PeerJS fires the local `close`
+           there and then; a stub that always defers is a stub that cannot
+           express the ordering the app has to survive.
+
+           The far end stays deferred, because that one really does arrive over
+           a network. */
+        close: () => {
+          c.open = false;
+          c._emit('close');
+          setTimeout(() => { c._peerConn && c._peerConn._emit('close'); }, 0);
+        },
       };
       /* Kept so a test can reach a specific socket rather than only the app's
          idea of one. The reconnection case needs to close *the old* connection
@@ -1814,12 +1830,21 @@ check('and the puzzle it is on is named by content, not by position',
   check('nothing longer than the grid or shorter than three',
     flat.every((w) => w.length >= 3 && w.length <= 9));
 
-  /* Nothing comes back inside four puzzles at its size. This is the rule the
-     bank is built around — retiring a word after so many uses spreads it out
-     across thirty puzzles and does nothing about two in a row, which is the
-     repetition you notice. Checked here at every size, in the order the
-     picker walks them. */
-  const GAP = 4;
+  /* Nothing comes back in the puzzle immediately before it, at its size.
+
+     Retiring a word after so many uses spreads it out across thirty puzzles and
+     does nothing about two in a row, which is the repetition you actually
+     notice — so the rule is about neighbours, not about a quota.
+
+     **The number is `GAP` in `tools/build-crosswords.py`, and it is 2.** This
+     said 4, which the bank was built to once and has not been for a while: "the
+     list does not run out: GAP is 2, so only the immediately preceding puzzle's
+     answers are blocked at a size. Words recycle by design." A check asserting a
+     retired rule is worse than no check — it fails on data that is exactly
+     right, which is a release blocked by a test that is wrong, and after the
+     second time nobody reads the failure. Against today's bank: 0 breaches at
+     2, 27 at 3, 36 at 4. If that number moves in the generator, move it here. */
+  const GAP = 2;
   /* Walk CROSS_GRIDS once, in document order, taking both shapes as they come —
      because that is the order crossAtSize() hands puzzles to a session, and
      "inside four puzzles" means four as the solver meets them. The earlier
@@ -1923,8 +1948,21 @@ check('and the puzzle it is on is named by content, not by position',
         done[fp] && done[fp].secs === 1 && Object.keys(done).length === 1);
     }
   }
-  check('the bank holds every size the picker offers',
-    Object.keys(bySize).sort().join(',') === '5,7,9', Object.keys(bySize).join(','));
+  /* **Every puzzle is at a size somebody can choose**, which is the invariant
+     that direction round. This read `=== '5,7,9'`, and the bank grew fifteens —
+     so a check meant to catch a stranded puzzle started failing because of a
+     new feature working, and it can never pass again as written. The picker
+     builds its own row of sizes and disables the ones the bank has nothing at,
+     so a size with no puzzles is already handled; what nothing else would catch
+     is a puzzle at a size the picker never offers, which no one could ever
+     open. Read the row rather than naming the sizes twice. */
+  {
+    const offered = [...$('cw-size').children].map((b) => +b.dataset.s);
+    const stranded = Object.keys(bySize).map(Number).filter((n) => !offered.includes(n));
+    check('every puzzle in the bank is at a size the picker offers',
+      offered.length > 0 && stranded.length === 0,
+      stranded.length ? `${stranded.join(',')} vs ${offered.join(',')}` : 'no size row');
+  }
   check('and at least ten of every size',
     bySize[5].length >= 10 && bySize[7].length >= 10 && bySize[9].length >= 10,
     `${bySize[5].length}/${bySize[7].length}/${bySize[9].length}`);
@@ -2024,7 +2062,8 @@ check('and the puzzle it is on is named by content, not by position',
   check('it lists every puzzle at this size', items.length >= 10, `${items.length}`);
   check('the one you are on is marked', items.some((b) => b.classList.contains('on')));
   check('none are crossed off yet', items.every((b) => !b.classList.contains('done')));
-  check('progress is described', /in progress|not started/.test(items[0].textContent), items[0].textContent);
+  check('progress is described', /^(\d+ of )?\d+ clues$/.test(items[0].querySelector('span').textContent),
+    items[0].querySelector('span').textContent);
 
   // holding one offers to reset it
   items[0].dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 60, clientY: 120 }));
@@ -2058,6 +2097,36 @@ check('and the puzzle it is on is named by content, not by position',
     [...$('cw-size').children].filter((b) => !b.disabled).length >= 2,
     [...$('cw-size').children].map((b) => b.dataset.s + (b.disabled ? '!' : '')).join(','));
   check('switching size loads a puzzle of that size', cwN() === 5, `${cwN()}`);
+
+  /* **The picker counts clues, not squares.** "in progress" told you nothing
+     about which of thirty puzzles was nearly done, so each one now says how
+     many of its clues are completely right. A clue counts only when every one
+     of its letters is, which is why this reveals a whole entry rather than a
+     few letters and expects the count to move exactly once. */
+  {
+    const clues = $('cw-clues').querySelectorAll('.cw-clue-item').length;
+    $('cw-list').click();
+    await wait(60);
+    const fresh = $('cw-list-body').querySelector('.cw-item.on span');
+    check('an untouched puzzle says how many clues it has',
+      !!fresh && fresh.textContent === `${clues} clues`, fresh && fresh.textContent);
+    $('cw-picker-close').click();
+    await wait(30);
+
+    const clue = $('cw-clues').querySelector('[data-dir="A"]');
+    const len = +(clue.querySelector('i').textContent.match(/\d+/) || [0])[0];
+    clue.click();
+    await wait(30);
+    for (let k = 0; k < len; k++) { $('cw-hint').click(); await wait(20); }
+    $('cw-list').click();
+    await wait(60);
+    const part = $('cw-list-body').querySelector('.cw-item.on');
+    const note = part && part.querySelector('span');
+    check('and counts one once all of its letters are right',
+      !!note && /^1 of \d+ clues$/.test(note.textContent), note && note.textContent);
+    $('cw-picker-close').click();
+    await wait(30);
+  }
 
   // fill it by asking for a hint on every square
   for (let guard = 0; guard < 40; guard++) {
@@ -2214,6 +2283,37 @@ await wait(40);
 check('track restarts when it ends', window.__media.plays.length > playsBefore, `${window.__media.plays.length - playsBefore} replays`);
 ambBtn('off').click();
 await wait(300);
+
+/* **A follower's ambience is started by somebody else's finger.**
+
+   Autoplay is only allowed on an element that has already played from a user
+   gesture. In a shared room the follower's clock starts because a `state`
+   message arrived - not a gesture on their machine - so `el.play()` rejected,
+   `ambStart` swallowed it, and everybody who was not holding the timer sat in
+   silence with nothing saying why. The fix is to play and pause the element
+   once while a real gesture is on the stack, so the browser marks it
+   user-initiated and every later `play()` is allowed.
+
+   jsdom has no autoplay policy to reproduce, so what is checked is that the
+   priming happens at all: a fresh window, one tap anywhere, an element that has
+   been played and then left paused and silent. */
+{
+  const { window: pw } = boot(html);
+  await wait(400);
+  check('nothing is played before anything is touched', pw.__media.plays.length === 0,
+    pw.__media.plays.join(','));
+  pw.document.dispatchEvent(new pw.Event('pointerdown', { bubbles: true }));
+  await wait(80);
+  const el = pw.document.querySelector('audio');
+  check('the first tap anywhere primes the ambience element',
+    pw.__media.plays.length === 1 && !!el, `${pw.__media.plays.length} plays`);
+  check('and leaves it paused and silent, with nothing to hear',
+    !!el && el.paused && el.volume === 0, el && `paused ${el.paused} · volume ${el.volume}`);
+  pw.document.dispatchEvent(new pw.Event('pointerdown', { bubbles: true }));
+  await wait(40);
+  check('and it only happens once, however much is tapped',
+    pw.__media.plays.length === 1, `${pw.__media.plays.length} plays`);
+}
 
 // --- overlays --------------------------------------------------------------
 $('note-input').value = 'smoke test note';
@@ -2569,7 +2669,6 @@ if (nextDay) {
     !$3('cal-detail').textContent.includes('library books'));
 }
 
-
 // ===========================================================================
 // Pass 3 — two devices sharing a timer over the fake peer network
 // ===========================================================================
@@ -2703,6 +2802,33 @@ if (nextDay) {
     check('and no two of them are on the same clock',
       new Set([...$('hg-grains').children].map((g) => g.style.animationDelay)).size >= 8,
       new Set([...$('hg-grains').children].map((g) => g.style.animationDelay)).size + ' distinct');
+    /* **A break turns the glass over, and sand does not hang from a ceiling.**
+
+       Swapping which bulb fills was only half of the flip. Both fills stayed
+       anchored to the same edges - the upper one to the neck, the lower one to
+       the base - so with the face rotated 180 degrees those became the *high*
+       edges and the sand clung to the cap of one bulb and dangled off the neck
+       of the other. Read in screen terms the rule does not change: whichever
+       way up the glass is, each fill's flat edge is the one nearest the floor,
+       and turned over that is the cap and the neck. */
+    $('skip').click();
+    await wait(240);
+    check('a break turns the glass over', $('app').dataset.phase === 'rest', $('app').dataset.phase);
+    const rt = $('hg-sand-top').getAttribute('d') || '';
+    const rb = $('hg-sand-bot').getAttribute('d') || '';
+    check('and it is the glass itself that turns',
+      /matrix\(-1|rotate\(180/.test(window.getComputedStyle($('face-glass')).transform),
+      window.getComputedStyle($('face-glass')).transform);
+    check('and the sand lies on what is now the low edge of each bulb',
+      rt.endsWith('L82 12L18 12Z') && rb.endsWith('L82 66L18 66Z'),
+      `${rt.slice(-14)} · ${rb.slice(-14)}`);
+    const depth = (d, edge) => Math.abs(parseFloat((d.match(/^M18 ([\d.]+)/) || [])[1]) - edge);
+    check('with a break that has only just started still to run through',
+      depth(rb, 66) > depth(rt, 12),
+      `${depth(rb, 66).toFixed(1)} above vs ${depth(rt, 12).toFixed(1)} below`);
+    $('skip').click();                     // back to focusing for the rest of this block
+    await wait(240);
+
     /* The phase name is the one thing a glass with sand at the top already
        says, so it goes; "1 of 4" is what it cannot say and stays. */
     check('the phase name is not repeated over the hourglass',
@@ -2749,7 +2875,6 @@ if (nextDay) {
   check('and nothing threw while all that happened', faceErr.length === 0,
     faceErr.slice(0, 2).join(' | '));
 }
-
 
 const { window: host, errors: hostErr } = boot(html);
 const { window: guest, errors: guestErr } = boot(html);
@@ -2816,7 +2941,6 @@ check('and tapping it opens the room', !$h('sync-overlay').classList.contains('h
 $h('sync-close').click();
 await wait(60);
 check('guest sees who is leading', $g('sync-people').textContent.includes('holds the timer'), $g('sync-people').textContent.slice(0, 60));
-
 
 // leader starts the timer; the follower should follow
 $h('begin').click();
@@ -3085,11 +3209,66 @@ await wait(700);
     guestSaid.slice(-3).join(' | '));
 }
 
+/* ---- The leader is where the room is ----------------------------------------
+
+   A follower never runs the timer engine: the only thing that moves it between
+   the main menu and the clock is the leader's state message. So both directions
+   are checked, and the second one is the report - a room that follows the
+   leader into a session but not back out of it leaves everybody sitting on a
+   clock that nobody is running, which is worse than not following at all.
+
+   Checked here rather than in the block above because it needs the room whole
+   and the guest already reconnected, so what is being read is the ordinary
+   path and not something the retry happened to fix. */
+{
+  $h('begin').click();
+  await wait(320);
+  check('the leader starting a session takes the room into it',
+    !$g('timer').classList.contains('hide') && $g('app').dataset.phase === 'focus',
+    `phase ${$g('app').dataset.phase}`);
+
+  $h('stop').click();
+  await wait(320);
+  check('and the leader going back to the main menu brings everyone back',
+    !$g('setup').classList.contains('hide') && $g('timer').classList.contains('hide'),
+    `setup ${$g('setup').className} · timer ${$g('timer').className}`);
+  check('with nothing still counting down on their side',
+    $g('app').dataset.phase === '', `phase ${$g('app').dataset.phase}`);
+}
+
+/* ---- Leave has to mean left ------------------------------------------------
+
+   `syncLeave` set `mode = 'off'` *after* closing every connection, and closing
+   one can fire its `close` handler there and then rather than on a later tick.
+   The handler read `SYNC.mode`, found 'joined', concluded the host had gone,
+   and called `syncRetry` — so pressing Leave dropped you out of the room and
+   dialled straight back in. From the outside the button did nothing at all.
+
+   The guest goes first, on its own initiative, because that is the case that
+   was broken: a host leaving takes the room with it and would look fine either
+   way. And it is checked twice — immediately, and again after longer than one
+   heartbeat and the first retry backoff, because the bug rejoined within about
+   six hundred milliseconds and a check that only looked once would have passed
+   against it. */
+{
+  await leaveRoom($g);
+  await wait(300);
+  check('a guest leaving actually leaves', $g('sync-state').textContent === 'Not connected',
+    $g('sync-state').textContent);
+  await wait(1500);
+  check('and has not quietly rejoined a moment later',
+    $g('sync-state').textContent === 'Not connected'
+    && !/trying again/i.test($g('sync-status').textContent),
+    `${$g('sync-state').textContent} / ${$g('sync-status').textContent}`);
+  check('and the room stops counting them',
+    !$h('sync-people').textContent.includes('Friend'),
+    $h('sync-people').textContent.slice(0, 80));
+}
+
 // leaving tears the room down on both sides
 await leaveRoom($h);
 await wait(250);
 check('host returns to disconnected', $h('sync-state').textContent === 'Not connected', $h('sync-state').textContent);
-check('guest notices the host left', $g('sync-state').textContent === 'Not connected', $g('sync-state').textContent);
 check('controls unlock after leaving', !$g('toggle-run').disabled);
 check('band hidden once alone', $h('sync-band').classList.contains('hide'));
 
@@ -3100,7 +3279,6 @@ check('one-off room uses a different code', $h('sync-state').textContent.include
 check('one-off room does not overwrite your code', $h('sync-mycode').textContent === hostCode);
 await leaveRoom($h);
 await wait(100);
-
 
 // --- messages that wait ------------------------------------------------------
 // There is no server, so a message to somebody who isn't in your room goes into
@@ -3305,7 +3483,6 @@ $g('sync-join').click();
 await wait(400);
 $h('sync-close').click();
 $g('sync-close').click();
-
 
 // hangman ---------------------------------------------------------------
 await openGame(host, $h, 'hangman');
@@ -3567,7 +3744,6 @@ await openGame(guest, $g, 'pictionary');
     check('and it can be turned off again',
       artist.$('pic-fill').getAttribute('aria-pressed') === 'false');
   }
-
 
   // and getting it right ends the round for everyone — spaces optional, since
   // where the gaps go is the drawer's problem, not the guesser's
@@ -3919,7 +4095,6 @@ await wait(400);
 $h('sync-close').click();
 $g('sync-close').click();
 
-
 // chess ------------------------------------------------------------------
 /* Chess is the one shared game that isn't one game for the whole room, so the
    lobby is as much under test as the board: you pick a person, the two of you
@@ -4238,6 +4413,7 @@ await wait(400);
 check('new leader starts everyone', $h('setup').classList.contains('hide') && $t('setup').classList.contains('hide'), `host ${$h('setup').classList.contains('hide')} third ${$t('setup').classList.contains('hide')}`);
 check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock').textContent.trim()), $t('clock').textContent);
 
+
 /* ---- the room, on the screen you are actually looking at ------------------
 
    Everybody's buddy used to live only in Focus together, which is a page you
@@ -4253,11 +4429,19 @@ check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock')
 {
   // two different antics, so "their antic, not yours" has something to be wrong
   // about: 4 is the jetpack and 7 is the reader, and the host picked neither
+  /* **And Save, because the antic is a draft now.** Choosing one used to write
+     straight through and announce itself; it goes into `Buddy.draft` with the
+     rest of him and the room is told once, on Save. A test that only clicks the
+     antic is testing the preview. */
   for (const [$w, i] of [[$g, 4], [$t, 7]]) {
     $w('d-account').click();
     await wait(140);
     $w('bud-box').querySelectorAll('[data-anim]')[i].click();
     await wait(120);
+    check('choosing an antic is a draft, not a save', !$w('bud-save').disabled,
+      `save ${$w('bud-save').disabled ? 'disabled' : 'offered'}`);
+    $w('bud-save').click();
+    await wait(140);
     $w('acct-close').click();
     await wait(80);
   }
@@ -4284,6 +4468,44 @@ check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock')
     peers.every((n) => /px$/.test(n.style.getPropertyValue('--x'))
       && /vh$/.test(n.style.getPropertyValue('--y'))),
     peers.map((n) => n.style.getPropertyValue('--x') + '/' + n.style.getPropertyValue('--y')).join(' '));
+  /* **When he changes, his slot is started again rather than refilled.**
+
+     Every antic is two clocks: one on the slot carrying him across the window
+     (`bud-go` for the swing, `bud-skate-lap` for the board) and more inside it
+     doing the swinging, the turning and the mirroring. They are written as
+     exact fractions of one lap, so once they start together they stay locked -
+     and nothing in CSS re-locks them. Writing `innerHTML` builds a new rig,
+     whose animations start *now*, while the slot's own carries on from wherever
+     it had got to; from then on he swings backwards under his own web and the
+     board turns before it reaches the corner. "Not always", because it only
+     begins when something re-renders him mid-lap - saving a colour, an account
+     arriving, switching him off and on again. Measured at 1450ms adrift.
+
+     A fresh element starts everything it contains at one moment, so the slot is
+     rebuilt rather than refilled, and what can be checked here is exactly that:
+     the node is a new one. jsdom has no animation engine and cannot see the
+     drift itself - `tools/look-swing.mjs` measures it in a real browser. */
+  {
+    const was = $g('bud-live');
+    $g('d-account').click();
+    await wait(140);
+    const swatch = [...$g('bud-box').querySelectorAll('[data-bud="c"]')]
+      .find((b) => !b.classList.contains('on'));
+    if (swatch) swatch.click();
+    await wait(100);
+    $g('bud-save').click();
+    await wait(200);
+    $g('acct-close').click();
+    await wait(160);
+    check('changing him mid-antic starts his slot again rather than refilling it',
+      !!$g('bud-live') && $g('bud-live') !== was,
+      $g('bud-live') === was ? 'the same node was refilled' : 'no slot at all');
+    check('and he is still on the screen after it',
+      !!$g('bud-live') && !$g('bud-live').classList.contains('hide')
+      && /<svg/.test($g('bud-live').innerHTML),
+      $g('bud-live') ? $g('bud-live').className : 'gone');
+  }
+
   /* And the switch is yours: turning buddies off empties your screen and says
      nothing to anybody else about theirs. */
   $h('d-account').click();
@@ -4341,7 +4563,6 @@ check('it is on the remaining person’s code now',
 check('and they hold the timer', !$h('toggle-run').disabled, `disabled=${$h('toggle-run').disabled}`);
 await leaveRoom($h);
 await wait(200);
-
 
 /* ---- a build that knows where to check ------------------------------------
    The shipped build has no update host, and the block in Pass 1 checks that it

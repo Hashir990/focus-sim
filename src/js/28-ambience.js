@@ -13,7 +13,7 @@
      event, which only fires about four times a second — too coarse to sound
      smooth. */
 
-  var AMB = { id:'off', vol:0.7, el:null, tick:null, wanted:false, warned:false };
+  var AMB = { id:'off', vol:0.7, el:null, tick:null, wanted:false, warned:false, primed:false };
 
   var AMB_LIST = [
     ['off','Off'], ['rain','Rain'], ['forest','Forest'],
@@ -88,6 +88,42 @@
     }, 80);
   }
 
+  /* ---- letting it play at all ----
+
+     **A follower's timer is started by somebody else's finger.** Autoplay is
+     allowed only for an element that has already been played from a user
+     gesture, and in a shared room the gesture belongs to the leader: the
+     follower's clock starts because a `state` message arrived, which is not a
+     gesture on their machine. `el.play()` rejects, the `.catch(()=>{})` in
+     `ambStart` swallows it, and the ambience is simply silent for everyone who
+     is not holding the timer — with nothing anywhere saying so.
+
+     The fix is the standard one and it has to happen while a real gesture is on
+     the stack: play the element and pause it again immediately. That is enough
+     for the browser to mark it as user-initiated, and every programmatic
+     `play()` afterwards is allowed. It is muted and lasts a frame, so there is
+     nothing to hear.
+
+     Once, on the first gesture of the session, whatever that gesture was —
+     joining a room is a click, so a follower is always primed before the
+     leader can start anything. */
+  function ambPrime(){
+    if(AMB.primed) return;
+    AMB.primed = true;
+    try{
+      const el = ambElement();
+      const was = el.volume;
+      el.volume = 0;
+      const p = el.play();
+      const settle = ()=>{ try{ if(!AMB.wanted) el.pause(); }catch(e){} el.volume = was; };
+      if(p && p.then) p.then(settle, settle); else settle();
+    }catch(e){}
+  }
+  try{
+    ['pointerdown','keydown','touchstart'].forEach(ev=>
+      document.addEventListener(ev, ambPrime, {once:false, passive:true, capture:true}));
+  }catch(e){}
+
   function ambStart(){
     if(AMB.id === 'off' || !AMB_TRACKS[AMB.id]){ ambStop(); return; }
     AMB.wanted = true;
@@ -100,7 +136,11 @@
     }
     el.volume = 0;
     const p = el.play();
-    if(p && p.catch) p.catch(()=>{});   // blocked until a gesture; harmless
+    /* Blocked until a gesture — and in a shared room the gesture is somebody
+       else's, which is why `ambPrime()` above exists. Swallowed rather than
+       reported because by the time it can succeed it will, and a warning about
+       a thing that fixes itself is noise. */
+    if(p && p.catch) p.catch(()=>{});
     ambTicker();
   }
 

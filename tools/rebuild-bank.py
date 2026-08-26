@@ -59,14 +59,15 @@ in if when while than of to for with on at by from as into over under about
 
 # Puzzles that must pass before an answer may appear again, at that size.
 #
-# 4 is what the shipped bank was built to and what it satisfies exactly: several
-# answers recur at distance 4 (ace in 9x9 #1 and #5), so raising this retroactively
-# puts the existing bank in breach — measured at 58 breaches at 5, and --reorder
-# only gets that down to 25, because ten puzzles a size share too much short
-# vocabulary to space it further. A wider gap becomes reachable as each size grows
-# toward 50; CW_GAP lets a run try one without editing this file, and the run keeps
-# the result only if it closes with nothing dropped.
-GAP = int(os.environ.get('CW_GAP', '4'))
+# 2 means one whole puzzle has to sit between two uses: an answer in 9x9 #1 may
+# come back at #3 but not at #2. That is what Hashir asked for — "try not to in
+# the same size until 1 game later" — and it replaces a 4 that was set when the
+# bank was being built toward fifty a size and could afford to be strict.
+#
+# Two is a floor, not a target. The fill still spends least-used answers first,
+# so in practice a word waits far longer than two puzzles; the rule only says
+# what is forbidden, not what is preferred.
+GAP = int(os.environ.get('CW_GAP', '2'))
 
 # Every puzzle is stamped with the run that made it, and no answer may appear
 # twice inside one run at any size. Same-day repeats are the ones a solver meets
@@ -84,7 +85,7 @@ adit alit anil arum ares seta stele affine ariose imaret teredo ctenoid
 egger enate peba balas serer bonce apery baric salmi grume pavis soave amyl
 anna abohm argal aery ess ell emu gnu ogee obi oud oka orle
 anomie ague bolo citrate comer eared oiled non semi sepia scud strew glower
-elfin abed bosom fete tine ogle mow yap shod scab
+elfin abed bosom fete tine ogle mow shod scab
 adsorb borate paean manse withe impute oaken lilt arty bats edged citrine
 cilium elute supine talky prewar wads bogey brig patina teem opus moire
 toter nosed basal accede decry deem laden allot corona teat lewd clod
@@ -94,6 +95,10 @@ chyle dentate joss shaw roarer ovate supra blooded roughen retie intima
 bleb ology titer humic sept vas dicot plat
 feces arousal
 """.split())
+
+# `yap` was in the block above and has been taken out. It was banned as
+# crosswordese for the "small dog's bark" sense, but "having a yap" for chatter
+# is ordinary current usage and clues cleanly, so it earns its place back.
 
 # Read off the 2026-08-20 fill, the same way `bleb` was. Each one passed the
 # ordinariness test and none of them is a word a solver arrives at from the
@@ -238,6 +243,181 @@ BANNED |= set("""
 theta rhea haw chico actin
 """.split())
 
+# 2026-08-23, read off this run's fill. `urine` is the bodily tier the list has
+# excluded since the first block — `pee` was banned off the second 15x15 and
+# `pus`, `feces` and `anus` are above it. `wta` is the `acc` tier: a sporting
+# body's initials that nobody spells out from the crossings. `marc` glosses as
+# the residue left after pressing grapes, a proper noun's spelling wearing a
+# common-noun gloss, exactly the `ben`/`fife` pattern. All three sat only in
+# grids built this run, so pruning them cost nothing already shipped.
+#
+# `eta` was weighed against the bare Greek letters above — `beta`, `theta`,
+# `omega` and the rest — and kept. Unlike any of them it has an everyday
+# non-Greek sense, the arrival time, and it is clued that way.
+BANNED |= set("""
+urine wta marc
+""".split())
+
+# The rebuild of those three grids reached for two more. `twat` is the crude
+# tier beside `fag`, `shit` and `cock`, and is a slur before it is anything
+# else. `giro` is the British benefit cheque and the European bank transfer —
+# regional and institutional at once, the `lev` tier, and not a word a solver
+# assembles from crossings. Both sat in the same nine, which was pruned and
+# rebuilt.
+#
+# `damon` and `lee` were read in the same pass and kept: both already sit in
+# shipped puzzles, and both clue as plain proper nouns rather than as a gloss
+# nobody would reach for.
+BANNED |= set("""
+twat giro
+""".split())
+
+# Third pass over the same nines. `bey` is the Ottoman governor, the `bel`/`daw`
+# tier exactly — a dictionary word nobody meets outside a grid. `byrne` and
+# `han` are proper nouns wearing common-noun glosses, the `ben`/`fife` pattern:
+# the bank's other proper nouns are first-rank (`tarantino`, `damon`, `caine`,
+# `narnia`, `toyota`) and a solver reaches them, whereas a surname and a Chinese
+# dynasty arrive only from the crossings. All three sat in one nine.
+#
+# `roe` and `pta` were read in the same pass and left alone for the reason the
+# `bel daw col` note gives: both are in shipped puzzles this run had no cause to
+# disturb, and dropping `roe` would take a shipped 15x15 with it. They stay the
+# obvious candidates for the next pass.
+BANNED |= set("""
+bey byrne han
+""".split())
+
+# Fourth pass, from the rebuild of those nines. `boner` is the crude tier —
+# whatever the dictionary leads with, the word is the vulgar sense first, and it
+# joins `cock` and `twat`. `bendis` is a comics writer's surname and is far past
+# the line `byrne` was banned at one block above. Both sat in the same nine.
+#
+# `mlb`, `nba` and `isp` came through the same fill and are kept: initials that
+# a solver actually says out loud, the tier `dna`, `fbi` and `ssd` already sit
+# in, and the first two are in shipped puzzles already.
+BANNED |= set("""
+bendis boner
+""".split())
+
+# Fifth pass. `silva` is a written account of a region's forest trees — the
+# `bethel`/`rudd`/`imaret` tier, a dictionary entry with no life outside one.
+#
+# Kept from the same fill, and worth recording so the line does not move again:
+# `uma` and `cicero` are proper nouns but each attaches to one famous person a
+# solver actually names, which is where `akira` and `tarantino` already sit,
+# unlike `byrne` — a surname shared out among several. `bailey` is the outer
+# wall of a castle, an ordinary common noun beside `manor` and `altar`. `pga`
+# joins `nba` and `mlb`.
+BANNED |= set("""
+silva
+""".split())
+
+# Sixth pass over the nines, which are the size that keeps reaching. `bronc` is
+# the rodeo horse with its last letter taken off, straight crosswordese beside
+# `daw` and `roc`. `kat` is the stimulant leaf, a drug under a variant spelling.
+# `brb` is chat shorthand rather than a word — `asap` earns its place because
+# people say it aloud, and this is the line between them.
+#
+# `emir` is kept though `bey` went two blocks up: emirates and their rulers are
+# current news vocabulary, which is exactly what an Ottoman governor is not.
+BANNED |= set("""
+bronc kat brb
+""".split())
+
+# Seventh pass, read off the 2026-08-23 fill. `semen` and `shag` are the crude
+# tier that `cock` and `pee` set: `shag` has innocent senses (a carpet pile, a
+# cormorant) exactly as `cock` had, and the same answer to the same objection.
+# `lynch` is a racial-terror killing whichever way it is clued, and the grid is
+# no place for the word even when the director is meant. `dirk` is the Scottish
+# dagger, sitting with `bolo` and `tam` above. `mercer` is the archaic dealer in
+# cloth, an agent noun with no life outside the dictionary beside `toter` and
+# `roarer`.
+#
+# Kept from the same fill: `buns`, `stud`, `joint` and `screw` all have a plain
+# primary sense — bread, a fastener, a junction, a fastener — and are clued to
+# it; the crude reading is a second sense, which is not what `shag` and `semen`
+# are. `urea` stays where `actin` went, because school biology names it.
+BANNED |= set("""
+semen shag lynch dirk mercer
+""".split())
+
+# Second read of the same fill. `autism` is not crude and not obscure, which is
+# why it needs saying: it names a group of people rather than a passing state,
+# and a one-line clue for it is either clinical or reductive. `coma`, `icu` and
+# `sinus` stay, because a condition someone *is in* clues neutrally and a
+# condition someone *is* does not. This app is used by the people in question.
+#
+# Kept on the second read, each already carrying a deliberate hand clue that a
+# previous pass wrote: `sus` (modern slang, not the pig genus), `pec`, `bra`,
+# `amino`. `sony`, `kia`, `ebay`, `nokia`, `kfc`, `aol` and `tesla` are brands
+# a solver names without prompting, which is the `pga`/`nba` line. `sagan`,
+# `pele` and `ali` are the one-famous-person proper nouns `uma` and `cicero`
+# already settled. `rowan` is a tree that grows in gardens, not a `cole`.
+BANNED |= set("""
+autism
+""".split())
+
+# Third read, off the 15x15 that replaced the one `autism` took out — the size
+# reaches furthest and duly surfaced three more. `cervix` is reproductive
+# anatomy, straight into `semen`. `wiener` is the sausage whose second sense is
+# the one every solver would land on, which is the whole of the `cock` argument.
+# `mot` is the witty saying, the `esne`/`shaw` tier; the British vehicle test is
+# an acronym and this answer is not.
+#
+# Kept: `ecg`, `icu` and `cpr` are neutral clinical shorthand a first-aider
+# knows. `lux` and `watt` are both SI units and stand together. `dmv` is US-only
+# where `gcse` is UK-only, and one cannot stay without the other. `ump` is said
+# aloud at every ball game, unlike `bronc`.
+BANNED |= set("""
+cervix wiener mot
+""".split())
+
+# Read off the 2026-08-26 fill. `faggot` is the hole `fag` left: `fag` was
+# banned as a slur several blocks up but the longer form was never listed, and
+# WordNet leads on the bundle of sticks exactly as it led on `cock` and `shag`.
+# It is a slur before it is anything else and no clue rescues it. `crap` is the
+# plain crude tier beside `shit`, with no innocent first sense to argue from.
+#
+# Kept from the same fill and worth naming, since a later pass will meet them
+# again: `pec` and `bra` are already settled above; `yeet` and `fam` are current
+# slang a solver says out loud, the `sus` line rather than the `bronc` one;
+# `brr` is an interjection printed in every newspaper grid; `faa`, `dhl`, `css`,
+# `gmt`, `npc` and `pta` are initials people actually speak, the `mlb`/`nba`
+# tier; `sagan` and `monet` are the first-rank proper nouns `pele` and `damon`
+# already settled; and `termcap` never existed — it is TERM and CAP either side
+# of a bar.
+BANNED |= set("""
+faggot crap
+""".split())
+
+# Second read of the 2026-08-26 fill, both nines. `uterus` is reproductive
+# anatomy and goes exactly where `cervix` went one block up. `roper` is the
+# agent noun the `toter`/`mercer`/`roarer` note already drew the line at — a
+# form the dictionary lists and nobody says. `laird` is the Scottish landowner,
+# sitting with `wally`, `tam` and `dirk`. `phoebe` is the flycatcher, the banned
+# bird tier `erne`, `rhea`, `kea` and `coot` set, and the girl's name underneath
+# it is not a first-rank proper noun the way `sagan` and `monet` are.
+#
+# Kept on this read: `agate` is the marble and the stone a solver has handled,
+# unlike `peridot`; `anemia` is a household word with a household metaphor on
+# top of it, which is what `apnea` and `aortic` lack; `eke`, `gab` and `yak` are
+# all live verbs; `atp` is school biology beside `urea`; `gpu` and `mba` join
+# `isp` and `ssd`; and `dale` is kept over `lea` and `ness` because up hill and
+# down dale is a phrase people still say.
+BANNED |= set("""
+uterus roper laird phoebe
+""".split())
+
+# Third read of the same fill, over the two nines that replaced the pruned pair.
+# Nothing banned, which is worth recording so the next pass does not re-argue
+# it. `tucker` was the close call: it is the shape `roper` was just banned at,
+# but "tuckered out" and "bush tucker" are both live phrases and it clues
+# plainly without them, so it is a keep rather than a regional `giro`. `dung` is
+# the farmyard word, not the clinical `feces`. `abuse` clues as plain misuse.
+# `bailey` is school-history castle vocabulary beside the motte. `cad`, `uni`,
+# `aft` and `ante` are dated or clipped but all still said. `roe` is in this
+# fill again and stays where the `bel daw col` note left it — banning it takes a
+# shipped 15x15 with it, and that is still the reason.
 # The joins of ordinary English, which WordNet's own counts do not always cover.
 CLUE_OK = set("""
 a an the and or but of to in on at by for from with without into onto over
@@ -509,10 +689,11 @@ def generate(cw, words, n, want, budget, barred=True):
         # the one rule that reaches across the bank; between runs GAP takes over
         # again, and where a word does have to come back a later run gives it a
         # second clue rather than repeating the first (see cross-clues.py).
-        for size_ps in bank.values():
-            for p in size_ps:
-                if p.get('run') == RUN:
-                    recent |= set(p['answers'])
+        # Only this size. Excluding what the other sizes took in the same run
+        # is what starved the fill — see check_run for the measurements.
+        for p in have:
+            if p.get('run') == RUN:
+                recent |= set(p['answers'])
         pool = {w: v for w, v in words.items() if w not in recent}
         # The stock cap retires an answer after eight puzzles, which is aimed at
         # a bank filled from sixteen thousand words. Out of eight thousand, with
@@ -656,11 +837,19 @@ def check_gap(bank):
 
 
 def check_run(bank):
-    """Nothing may appear twice inside one run, across every size.
+    """Nothing may appear twice inside one run *at the same size*.
 
-    check_gap is per-size and blind to the rest of the bank; this is the rule
-    that reaches across it. Only puzzles carrying a run stamp are considered, so
-    the bank that shipped before stamping existed is not retroactively in breach.
+    This used to reach across every size, so a word in the day's 5x5 was off the
+    table for the day's 7x7 and 9x9. That was the right rule when the whole bank
+    was fifteen puzzles built in one go, and it is the wrong one for a daily
+    build: it is what stopped the fives closing and what held the second 15x15
+    up for six attempts, because the commonest short words are needed by every
+    size and there is only one set of them.
+
+    Hashir's rule replaces it — repeats between sizes are allowed, repeats
+    inside a size wait for GAP. Cross-size repetition is still discouraged,
+    just not forbidden: the fill spends least-used answers first, so a word
+    taken by the 5x5 goes to the back of the queue for the 7x7 anyway.
     """
     where = collections.defaultdict(list)
     for size, puzzles in bank.items():
@@ -668,9 +857,9 @@ def check_run(bank):
             if not p.get('run'):
                 continue
             for a in set(p['answers']):
-                where[(p['run'], a)].append('%sx%s #%d' % (size, size, i + 1))
+                where[(p['run'], size, a)].append('%sx%s #%d' % (size, size, i + 1))
     return ['%s: %s in %s' % (run, a, ' and '.join(ps))
-            for (run, a), ps in sorted(where.items()) if len(ps) > 1]
+            for (run, size, a), ps in sorted(where.items()) if len(ps) > 1]
 
 
 def reorder(bank):

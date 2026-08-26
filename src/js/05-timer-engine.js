@@ -9,7 +9,37 @@
      eight blocks — a little over three hours at the default length — costs a
      tap to somebody who is really there and costs everything to somebody who
      isn't. A counted run doesn't need this; it already stops at its own end. */
-  const AUTO_CAP = 8;
+  const AUTO_CAP = 4;
+
+  /* **A block that did not happen must not reach the history.**
+
+     `stop()` has always had a floor — under half a minute and the record is
+     taken back rather than written. `complete()` had none, and `skip()` goes
+     through `complete()`: begin a block, press Skip, and a session of zero
+     seconds was logged, counted for the day and carried to every device the
+     account reaches. A row saying "0 min" is worse than no row, because it
+     looks like the app losing your time rather than like nothing happening.
+
+     A minute rather than thirty seconds, because a minute is where the history
+     stops rounding to nothing — `fmtDur` is `Math.round(secs/60)`, so anything
+     under thirty seconds already displayed as 0 and anything under ninety
+     displays as 0 or 1. One floor, both paths.
+
+     **Unless something was actually done.** A block can be short and still
+     have been worth something: a task ticked off during it, or a note typed.
+     Those are the two marks a person leaves, and either of them keeps the
+     record whatever the clock says. */
+  const LOG_FLOOR = 60;
+
+  /** Did anything happen in this block besides time passing? */
+  function blockHasWork(){
+    try{ if(tasksTickedCount()) return true; }catch(e){}
+    try{
+      const rec = S.lastLogId ? findLog(S.lastLogId) : null;
+      if(rec && rec.note && rec.note.trim()) return true;
+    }catch(e){}
+    return false;
+  }
 
   function start(){
     S.running=true;
@@ -79,10 +109,18 @@
 
     if(wasFocus){
       S.cycle++; S.sessionsToday++; S.runCount++;
-      // no actualSecs means the clock reached zero on its own; anything else
-      // came from skip(), which is a block cut short however long it ran
-      logSession(focusSecs, actualSecs == null);
-      tasksFlushToNote();   // ticked tasks become this session's note
+      /* The ticks that ran while the block lasted have already opened a record,
+         so a block too short to keep has to be taken *back* rather than simply
+         not written — see `logDrop`. The counters above still move: skipping a
+         block is a decision about this block, not about the run. */
+      if(focusSecs < LOG_FLOOR && !blockHasWork()){
+        try{ logDrop(); }catch(e){}
+      }else{
+        // no actualSecs means the clock reached zero on its own; anything else
+        // came from skip(), which is a block cut short however long it ran
+        logSession(focusSecs, actualSecs == null);
+        tasksFlushToNote();
+      }   // ticked tasks become this session's note
       // reached the requested number of focus blocks? end the run.
       if(S.repeat>0 && S.runCount>=S.repeat){
         save();
@@ -135,14 +173,14 @@
     if(S.mode==='focus'){
       const rem = S.running ? Math.max(0, Math.round((S.endAt-Date.now())/1000)) : S.remaining;
       const done = Math.max(0, S.total - rem);
-      if(done >= 30){
+      if(done >= LOG_FLOOR || blockHasWork()){
         S.sessionsToday++;
         logSession(done, false);   // ending early is never a whole block
         tasksFlushToNote();
         toast('Saved '+fmtDur(done)+' to your history');
       }else{
-        // under half a minute has never been written down; the ticks opened a
-        // record anyway, so it has to be taken back
+        // too little to be worth a row, and nothing was ticked off or written
+        // down in it; the ticks opened a record anyway, so take it back
         logDrop();
       }
     }

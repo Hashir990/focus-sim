@@ -499,11 +499,65 @@ SPLIT_ABOVE = {15: 7}
 # always filled — a 9x9 carries about twelve threes, not thirty.
 MIN_ENTRY = {}
 
+# Shortest *run between black squares* a size will accept, which is a different
+# and gentler thing from MIN_ENTRY. Bars may still cut a run below this, so a
+# three or a four remains possible where the fill needs one — but the walls stop
+# manufacturing them wholesale.
+#
+# This is the lever for keeping the 15x15 off the short-word list. Measured over
+# the two shipped fifteens, one puzzle was eating 39 three-letter answers — 6% of
+# the entire 639-word three-letter pool in a single grid — while using 4.5
+# sevens out of 2,270 available. The small grids need those threes far more: a
+# 9x9 has nowhere else to go, and a 5x5 has nothing but fives.
+#
+# Forbidding threes outright (MIN_ENTRY = 4 or 5) was tried and does not fill —
+# 21 shapes at four letters, none closed — because every entry then crosses more
+# entries and the grid over-constrains. Spacing the walls instead keeps the fill
+# tractable and still moves the bulk of the grid into 5-8, where the pool is
+# deepest and barely touched.
+WALL_FLOOR = {}
+
 # How many runs each line of a 15x15 is cut into, which is the same as how many
 # black squares it spends: k runs need k-1 blocks between them. With a
 # four-letter floor 15 = 4+1+4+1+5 is the densest a line can legally get, so
 # three runs a line is the ceiling. None means "any".
 WALL_PARTS = {15: [1, 2, 3]}
+
+# Attempts to push the 15x15 onto longer entries, and why none of them ship.
+#
+# The concern is real and measurable: one 15x15 consumes 39 three-letter
+# answers, 6% of the whole 639-word three-letter pool, while using 4.5 sevens
+# out of 2,270 available. Six approaches were tried, all measured on the current
+# pool, and every one of them stops the grid filling:
+#
+#   MIN_ENTRY = 4 (no threes at all) ........... 21 shapes, none closed
+#   MIN_ENTRY = 5 .............................. 43 shapes, none closed
+#   WALL_FLOOR = 5, walls spaced so no run < 5 . 43 shapes, none closed
+#   WALL_FLOOR = 4 ............................. 23 shapes, none closed
+#   fewer blocks (22-30) to lengthen the runs ... 54 shapes, none closed
+#   segmentation reweighted toward 5-8 ......... 148 shapes, none closed
+#   LONG_SLOTS, demanding 3 entries of 9+ ...... 82 shapes, none closed
+#   LONG_SLOTS, demanding only 2 ............... 156 shapes, none closed
+#
+# The reason is structural rather than a tuning failure. In a fully checked grid
+# a three-letter entry crosses three others and a nine-letter entry crosses
+# nine, so every letter added to an entry multiplies the agreements the fill has
+# to satisfy at once. Short entries are what make a dense grid tractable; they
+# are not laziness in the shaper.
+#
+# The pressure is also not where it looks. At the current cadence — two each of
+# 5x5, 7x7 and 9x9 daily, one 15x15 every fifth day — the fifteens account for
+# 7.8 of the 71.4 three-letter answers used per day, which is 11%. The nines and
+# sevens together are 84% of it. Making the fifteen longer would barely move the
+# number even if it worked.
+#
+# And the list does not run out: GAP is 2, so only the immediately preceding
+# puzzle's answers are blocked at a size. Words recycle by design. What is worth
+# guarding against is staleness rather than exhaustion, and the answer to that is
+# a wider pool — the three-letter tier went from 371 to 639 this session — plus
+# the least-used-first spending the Filler already does.
+LONG_SLOTS = {}
+LONG_LEN = 9
 
 # ---------------------------------------------------------------------------
 # Why there is still no 15x15 in the bank. Measured 2026-08-21; read this before
@@ -615,7 +669,7 @@ def barred_shape(n):
     constraint is most of why the shapes it commits to turn out unfillable.
     """
     for _ in range(200):
-        lo_walls = MIN_ENTRY.get(n, MIN_RUN)
+        lo_walls = max(MIN_ENTRY.get(n, MIN_RUN), WALL_FLOOR.get(n, 0))
         if lo_walls > MIN_RUN:
             # A floor above three needs walls placed constructively; see
             # wide_walls for why scattering them at random stops working.
@@ -658,6 +712,11 @@ def barred_shape(n):
             if not ok:
                 break
         if ok and across and down:
+            want_long = LONG_SLOTS.get(n, 0)
+            if want_long:
+                long_runs = sum(1 for r in across + down if len(r) >= LONG_LEN)
+                if long_runs < want_long:
+                    continue
             return walls, across, down
     return None
 

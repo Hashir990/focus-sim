@@ -173,19 +173,45 @@
          of a bulb holding almost nothing is a bump floating in a glass. */
       const top = $('hg-sand-top'), bot = $('hg-sand-bot');
       const sag = (x)=> 3.4 * Math.sin(Math.PI * Math.max(0, Math.min(1, x)));
-      if(top){
-        const y = 12 + (52 - 52 * upper), d = sag(upper);
-        // dished: the control point sits *below* the rim, twice the sag deep
-        top.setAttribute('d', 'M18 ' + y.toFixed(2)
-          + 'Q50 ' + (y + d * 2).toFixed(2) + ' 82 ' + y.toFixed(2)
-          + 'L82 66L18 66Z');
-      }
-      if(bot){
-        const y = 116 - 52 * (1 - upper), d = sag(1 - upper);
-        // heaped: the same curve, the other way up
-        bot.setAttribute('d', 'M18 ' + y.toFixed(2)
-          + 'Q50 ' + (y - d * 2).toFixed(2) + ' 82 ' + y.toFixed(2)
-          + 'L82 118L18 118Z');
+
+      /* **Sand lies on the low edge, and turning the glass over moves it.**
+
+         Swapping which bulb fills was only half of it. Each bulb's sand was
+         drawn as a band held against a fixed edge - the upper one against the
+         neck, the lower one against the base - which is right way up and
+         upside down when the stylesheet turns the face through 180 degrees:
+         the neck and the base are then the *high* edges of their bulbs, so the
+         sand hung off the ceiling of one and dangled from the neck of the
+         other. That is the "sand collecting at the top" during a break, and no
+         amount of swapping fixes it, because the amounts were never the wrong
+         way round - the gravity was.
+
+         So each bulb is told which edge the sand rests on and which way its
+         surface grows from there, and both flip when the glass does:
+
+           upright   upper bulb rests on the neck, lower bulb on the base
+           turned    the cap and the neck are the low edges instead
+
+         `dish` is the shape of the free surface - hollow in the bulb that is
+         draining, heaped in the one that is filling - and it is expressed
+         relative to `dir`, so it turns over with everything else rather than
+         needing its own case. The band always stands 2 units proud of its
+         edge, which is what keeps a nearly-empty bulb from vanishing. */
+      const bulb = (el, edge, dir, amount, heap)=>{
+        if(!el) return;
+        const a = Math.max(0, Math.min(1, amount));
+        const y = edge + dir * (2 + 52 * a);
+        const c = y + dir * 2 * sag(a) * (heap ? 1 : -1);
+        el.setAttribute('d', 'M18 ' + y.toFixed(2)
+          + 'Q50 ' + c.toFixed(2) + ' 82 ' + y.toFixed(2)
+          + 'L82 ' + edge + 'L18 ' + edge + 'Z');
+      };
+      if(over){
+        bulb(top, 12, 1, upper, true);          // now the lower bulb: heaped on the cap
+        bulb(bot, 66, 1, 1 - upper, false);     // now the upper bulb: dished at the neck
+      }else{
+        bulb(top, 66, -1, upper, false);        // draining into the neck
+        bulb(bot, 118, -1, 1 - upper, true);    // heaping on the base
       }
       /* Grains only fall while the clock is going. Written on #app rather than
          toggled per element so the CSS can decide what else it means. */

@@ -1132,42 +1132,97 @@ body[data-amb="campfire"] #drawer{
 }
 
 
-/* --- skate --- the width of the window, and a kick-turn at each wall.
+/* --- skate --- all the way round the inside of the window, and never off it.
 
-   `ease-in-out` here, where the swing insists on `linear`, and for the opposite
-   reason: nothing else is moving him, so the slow-down at each end *is* the
-   kick-turn. Linear with an instant reversal reads as a bounce off a wall that
-   is not there.
+   He used to run the bottom edge and kick-turn at each wall, which is a length
+   of pavement rather than a place. He rides the whole perimeter now: along the
+   bottom, up the right-hand wall, back across the ceiling upside down, down the
+   left wall, and round again -- one continuous roll with no reversal in it, so
+   nothing ever has to stop and turn around.
 
-   **He stands up straight.** There was a flat `rotate:-6deg` lean on him, which
-   at this size reads as a figure falling over rather than as a rider carving.
-   The motion comes from the tricks instead: he rolls, pops a wheelie, rolls,
-   then ollies and flips the board under himself. Everything below hangs off one
-   5.6s trick cycle, and the three moving parts each take a property of their
-   own — `transform` is the hop, `rotate` is the wheelie, `scale` is which way
-   he is going — because individual transform properties compose and three
-   `transform`s would leave only the last one standing. */
+   **The travel is on the slot and the orientation is on a rig inside it.** The
+   slot is inset from the right and bottom by exactly the drawing's size, which
+   is what makes the corners fall out for free: `translate(0, 100%)` is the
+   bottom-left of a box that is already `size` short of the window, so the
+   drawing's own box lands flush against the edge. No `calc`, no `var()` in a
+   keyframe, and it holds at every window shape.
+
+   **One full turn per lap, and it never unwinds.** The corners go 0 -> -90 ->
+   -180 -> -270 -> -360, always the same way round, so the rotation is
+   continuous and the 360 at the end is the 0 at the start. Written as +90 for
+   one corner and -90 for another it would visibly spin back the wrong way
+   somewhere; written 0..-270 and home it would unwind through three quarters of
+   a turn at the seam.
+
+   The speed is not identical on the long and short edges -- each side gets a
+   quarter of the lap, and a window is wider than it is tall. That is the one
+   thing CSS cannot express here, and a skater carrying more speed down the long
+   straight is the version of it that reads as intended. */
 .bud-skate{
-  left:0; right:0; top:auto; bottom:calc(7vh + var(--y, 0px));
-  animation:bud-skate-lap 24s ease-in-out infinite;
+  top:0; left:0; right:0; bottom:0;
+  animation:bud-skate-lap 48s linear infinite;
 }
+/* Four legs of 24% and four corners of 1%. The corners are that short because
+   the *distance* round one is about a thirtieth of a leg, and the timing has to
+   follow the distance or he crawls round every corner and shoots down every
+   straight. Twenty-eight pixels of corner cut is roughly his own half-width,
+   which is what stops him hanging off the screen while the turn is happening. */
 @keyframes bud-skate-lap{
-  0%   { transform:translateX(2%) }
-  50%  { transform:translateX(calc(100% - 64px)) }
-  100% { transform:translateX(2%) }
+  0%   { transform:translate(28px, 100%) }
+  24%  { transform:translate(calc(100% - 28px), 100%) }
+  25%  { transform:translate(100%, calc(100% - 28px)) }
+  49%  { transform:translate(100%, 28px) }
+  50%  { transform:translate(calc(100% - 28px), 0) }
+  74%  { transform:translate(28px, 0) }
+  75%  { transform:translate(0, 28px) }
+  99%  { transform:translate(0, calc(100% - 28px)) }
+  100% { transform:translate(28px, 100%) }
 }
-/* The origin is the *back* wheel, at 35% across and on the ground, because that
-   is what a board pivots on when the nose comes up. It is shared with the
-   facing flip, which therefore shifts him sideways a little as he turns — that
-   happens at the far wall, off the edge of the window, the same place the
-   swing hides its own mirror. */
+/* **The rig is a point, and the point is where the wheels touch.**
+
+   Rotating a 55px box about its own middle sends the drawing swinging off the
+   wall by half its width at every corner, which is what the first version did —
+   he ended up hanging in space a good inch clear of the edge he was supposed to
+   be riding. So the rig has no size at all: it is a 0x0 marker at the slot's
+   origin, the drawing hangs off it by half a width across and a little over a
+   full height up, and `transform-origin:0 0` turns the whole thing about the
+   contact patch. The keyframes above then place *that* point, and the figure
+   arranges itself around it — upright on the floor, sideways on the walls,
+   inverted on the ceiling, with no per-leg offsets anywhere.
+
+   1.1 rather than 1: the wheels are drawn below the 64-unit box, and it is the
+   wheels that touch. */
+.bud-ride{
+  position:absolute; top:0; left:0; width:0; height:0;
+  transform-origin:0 0;
+  animation:bud-skate-turn 48s ease-in-out infinite;
+}
+.bud-ride svg{
+  position:absolute;
+  left:calc(var(--bud, 55px) * -.5);
+  top:calc(var(--bud, 55px) * -1.1);
+}
+/* **One full turn per lap, always the same way round.** 0 -> -90 -> -180 ->
+   -270 -> -360, so the rotation is continuous and the -360 at the end is the 0
+   at the start. Mixed signs would spin him back the wrong way at one corner;
+   stopping at -270 and returning to 0 would unwind three quarters of a turn at
+   the seam, in view, every lap. The windows are the corner windows above, so
+   the turn happens exactly where the path bends. `ease-in-out` because a carve
+   starts and finishes gently and a step function does not. */
+@keyframes bud-skate-turn{
+  0%,24%   { rotate:0deg }
+  25%,49%  { rotate:-90deg }
+  50%,74%  { rotate:-180deg }
+  75%,99%  { rotate:-270deg }
+  100%     { rotate:-360deg }
+}
+/* The tricks, on their own clock, which is why they turn up in different places
+   each lap -- and why one of them sometimes happens on the ceiling. */
 .bud-skate svg{
   transform-origin:35% 100%;
-  animation:bud-skate-face 24s step-end infinite,
-            bud-skate-hop 5.6s ease-in-out infinite,
+  animation:bud-skate-hop 5.6s ease-in-out infinite,
             bud-wheelie 5.6s ease-in-out infinite;
 }
-@keyframes bud-skate-face{ 0%{ scale:1 1 } 50%{ scale:-1 1 } 100%{ scale:1 1 } }
 /* Crouch, pop, float, land. The landing is a frame lower than level: a hop that
    returns exactly to where it left reads as a lift, not as weight. */
 @keyframes bud-skate-hop{
@@ -1186,8 +1241,8 @@ body[data-amb="campfire"] #drawer{
 }
 /* **The kickflip is the board and not the rider.** He goes up, it spins under
    him: `scaleY` through zero is a deck seen edge-on, and coming out the far
-   side at −1 is it upside down, which is the whole trick in one property.
-   `linear`, so the spin is even — eased, it hangs at the extremes and reads as
+   side at -1 is it upside down, which is the whole trick in one property.
+   `linear`, so the spin is even -- eased, it hangs at the extremes and reads as
    a flap. `fill-box` because the group's own middle is the axis; the viewBox's
    is up in his chest. */
 .bud-skate .bud-board{
@@ -1202,7 +1257,7 @@ body[data-amb="campfire"] #drawer{
   96%,100% { transform:scaleY(1) }
 }
 /* **A plain disc spinning is a disc standing still.** The wheels carry a hub
-   and two spokes so the rotation has something to be seen by; without them this
+   and a spoke so the rotation has something to be seen by; without them this
    animation was running perfectly and invisibly. */
 .bud-skate .bud-wheel{
   transform-box:fill-box; transform-origin:50% 50%;
@@ -1308,47 +1363,53 @@ body[data-amb="campfire"] #drawer{
 
 /* --- pace --- the length of the floor and back, at thinking speed.
 
-   **Slow, and actually on the floor.** It ran a 26s lap seven percent of the
-   window up in the air, which is a man hurrying along a shelf. Seventy-eight
-   seconds end to end is about the pace of somebody working a problem out, and
-   `bottom:-2px` puts his soles on the bottom edge of the window — the drawing
-   carries two pixels of empty box under the feet, which is exactly what that
-   number is paying for.
+   **Every step has to move him and every bit of movement has to be a step.**
+   This ran an eased lap against a fixed stride, so at the slow ends of the ease
+   he was still stepping and barely travelling -- feet going, floor not. An ease
+   cannot correlate with anything: it is a changing speed against a fixed
+   cadence, and the mismatch is largest exactly where you look longest.
 
-   No `--y` on this one: everybody paces on the same floor, or it is not a
-   floor. Peers are told apart by `--t` alone, which is enough because they are
-   all moving.
+   So the lap is `linear`. One constant speed for the whole traverse means one
+   constant distance per stride, and the two stay locked without anything having
+   to be recomputed. The turn is instantaneous rather than a hold, for the same
+   reason: a hold is time spent stepping and not moving.
+
+   The stride is 1.2s to a lap of 78s, which at a normal window is a little over
+   half his own width per step. Change one of these and the other has to move,
+   or he starts to skate.
 
    **Two keyframe sets rather than one and a negative delay.** The left foot and
    the right foot are half a stride apart, and the obvious way to say that is
-   one animation offset by half its period — but a negative delay is exactly
+   one animation offset by half its period -- but a negative delay is exactly
    what the room crowd below overwrites to desynchronise people. Writing the
    opposite phase out as its own `-b` block puts the relationship in the
    keyframes, where nothing can shift it. */
 .bud-pace{
   left:0; right:0; top:auto; bottom:-2px;
-  animation:bud-pace-lap 78s ease-in-out infinite;
+  animation:bud-pace-lap 78s linear infinite;
 }
 @keyframes bud-pace-lap{
-  0%,3%    { transform:translateX(4%) }
-  50%,53%  { transform:translateX(calc(84% - 26px)) }
-  100%     { transform:translateX(4%) }
+  0%   { transform:translateX(4%) }
+  50%  { transform:translateX(calc(84% - 26px)) }
+  100% { transform:translateX(4%) }
 }
 .bud-pace svg{
   transform-origin:50% 96%;
   animation:bud-pace-face 78s step-end infinite,
-            bud-pace-bob 1.5s ease-in-out infinite;
+            bud-pace-bob 1.2s ease-in-out infinite;
 }
-/* Turned at 51.5%, in the middle of the three percent he stands still — a
-   person turning round mid-stride slides. */
-@keyframes bud-pace-face{ 0%{ scale:1 1 } 51.5%{ scale:-1 1 } 100%{ scale:1 1 } }
-@keyframes bud-pace-bob{ 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-1.2px) } }
-.bud-pace .bud-foot-l{ animation:bud-stride-a 1.5s ease-in-out infinite }
-.bud-pace .bud-foot-r{ animation:bud-stride-b 1.5s ease-in-out infinite }
-@keyframes bud-stride-a{ 0%,100%{ transform:translate(-2.4px,0) } 50%{ transform:translate(2.4px,-1.6px) } }
-@keyframes bud-stride-b{ 0%,100%{ transform:translate(2.4px,-1.6px) } 50%{ transform:translate(-2.4px,0) } }
-.bud-pace .bud-hand-l{ animation:bud-armswing-a 1.5s ease-in-out infinite }
-.bud-pace .bud-hand-r{ animation:bud-armswing-b 1.5s ease-in-out infinite }
+@keyframes bud-pace-face{ 0%{ scale:1 1 } 50%{ scale:-1 1 } 100%{ scale:1 1 } }
+/* Once per stride, not once per step: the body rises on each push-off, and
+   there are two of those in a stride. */
+@keyframes bud-pace-bob{ 0%,50%,100%{ transform:translateY(0) } 25%,75%{ transform:translateY(-1.2px) } }
+.bud-pace .bud-foot-l{ animation:bud-stride-a 1.2s linear infinite }
+.bud-pace .bud-foot-r{ animation:bud-stride-b 1.2s linear infinite }
+/* `linear`, so the foot travels at the speed the floor does. Eased, the swing
+   foot slows at the ends while he carries on, which is a skid. */
+@keyframes bud-stride-a{ 0%,100%{ transform:translate(-2.6px,0) } 50%{ transform:translate(2.6px,-1.8px) } }
+@keyframes bud-stride-b{ 0%,100%{ transform:translate(2.6px,-1.8px) } 50%{ transform:translate(-2.6px,0) } }
+.bud-pace .bud-hand-l{ animation:bud-armswing-a 1.2s ease-in-out infinite }
+.bud-pace .bud-hand-r{ animation:bud-armswing-b 1.2s ease-in-out infinite }
 @keyframes bud-armswing-a{ 0%,100%{ transform:translateY(1.8px) } 50%{ transform:translateY(-1.8px) } }
 @keyframes bud-armswing-b{ 0%,100%{ transform:translateY(-1.8px) } 50%{ transform:translateY(1.8px) } }
 

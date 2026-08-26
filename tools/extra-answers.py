@@ -255,3 +255,32 @@ EXTRA.update({
     'omg':  'Text shorthand for astonishment',
     'wta':  'The women’s tennis tour',
 })
+
+
+# 2026-08-21. Modern slang that is not in any dictionary, which is what this
+# file is for. The test applied was whether a solver could get it from the clue
+# without already using the word — so `skibidi` is absent (its own definition
+# says it has no inherent meaning), as are the crude ones and anything tied to a
+# single streamer.
+EXTRA.update({
+    'ballpark': 'Roughly right, as an estimate',
+    'boujee':   'Fancy and expensive, in slang',
+    'brainrot': 'What too much scrolling does to you',
+    'bussin':   'Absolutely delicious, in slang',
+    'cheugy':   'Trying too hard, and out of date',
+    'chillax':  'Calm down and take it easy',
+    'delulu':   'Deluded, in playful modern slang',
+    'homie':    'Close friend, informally',
+    'iykyk':    'If you know you know, in short',
+    'janky':    'Shoddy and badly made',
+    'jawn':     'Thing or object, in Philadelphia',
+    'npc':      'Background character in a video game',
+    'oomf':     'One of my followers, in short',
+    'rizz':     'Charm with a romantic interest',
+    'rizzler':  'One with a great deal of charm',
+    'stan':     'Obsessive fan of a celebrity',
+    'sus':      'Dodgy-looking, in modern slang',
+    'tfw':      'That feeling when, in text shorthand',
+    'yassify':  'Glamorise to a ridiculous degree',
+    'yeet':     'Hurl something with great force',
+})

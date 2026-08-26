@@ -61,8 +61,13 @@
     $('phase-name').textContent = S.mode==='focus' ? 'Focus' : (S.restIsLong ? 'Long rest' : 'Rest');
     /* An endless run stops itself every so often and says why, otherwise the
        one time the timer doesn't roll on by itself reads as a bug. */
+    /* **It has to fit inside the dial.** This line sits under the clock inside
+       a circle a hundred and fifty pixels across at most, uppercase, with a
+       fifth of an em of letter-spacing on every character — and it said
+       "PAUSED AFTER 4 — TAP PLAY TO CARRY ON", which is thirty-one characters
+       and about twice the width there is. Five words, one line. */
     $('subline').textContent = S.autoHold
-      ? 'Paused after '+S.runCount+' — tap play to carry on'
+      ? S.runCount+' done — tap play'
       : S.mode==='focus'
         /* Just the count. "Session 1 of 4" spends two thirds of the line saying
            what the line is, under a clock, on a screen with nothing else it
