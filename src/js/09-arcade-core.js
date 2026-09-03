@@ -177,6 +177,7 @@
     async pick(g){ this.active=g; await this._showGame(g); },
     _picker(){
       this.active=null;
+      this._calBtn('');
       $('picker').classList.remove('hide');
       for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.add('hide'); }
       $('ov-title').textContent='Rest arcade';
@@ -195,7 +196,18 @@
       for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.toggle('hide', id!==g); }
       const def=GAMES[g];
       $('ov-title').textContent = def ? def.title : 'Rest arcade';
+      /* The back catalogue, for the games that have one. Hidden rather than
+         disabled: a button that is never usable in 2048 is clutter, not a
+         hint. See `registerDaily` in 09b-daily.js. */
+      this._calBtn(g);
       if(def){ try{ await def.game().enter(); }catch(e){} }
+    },
+    _calBtn(g){
+      const b=$('ov-cal');
+      if(!b) return;
+      let has=false;
+      try{ has = !!(g && dailyDef(g)); }catch(e){}
+      b.classList.toggle('hide', !has);
     }
   };
 

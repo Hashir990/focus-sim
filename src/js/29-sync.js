@@ -68,6 +68,11 @@
     conns:{}, roster:{}, codes:{}, buddies:{}, anims:{}, remoteList:null,
     leaving:false, lastState:null,   // see syncLeave(), and the joiner's first state
     name:'', myCode:null, accountCode:false, friends:[],
+    /* Requests waiting for an answer, by code. Kept with the friends list
+       because an unanswered request is a thing you came back to deal with.
+       `cards` is what people in the room told us about themselves this
+       session — see 29a-friends.js. */
+    asks:{}, cards:{},
     beat:null, lastApplied:0, status:'',
     seen:{},                                 // host: id -> when we last heard from them
     hostSeen:0,                              // follower: when the host last spoke
@@ -407,7 +412,7 @@
   }
 
   function syncRosterMsg(){
-    const list = [{id:SYNC.selfId, name:SYNC.name || 'Host', code:SYNC.myCode, buddy:budSaved(), anim:(S.budAnim|0)}];
+    const list = [{id:SYNC.selfId, name:SYNC.name || 'Host', code:SYNC.myCode, buddy:budSaved(), anim:budAnimSaved()}];
     for(const id in SYNC.roster) list.push({id, name:SYNC.roster[id], code:SYNC.codes[id] || '',
       buddy:SYNC.buddies[id] || null, anim:(SYNC.anims[id] | 0)});
     return {t:'roster', leaderId:SYNC.leaderId, list};
@@ -649,7 +654,12 @@
       syncTouch(conn.peer);
       const wasRejoining = SYNC.rejoinTries > 0;
       if(wasRejoining) syncStopRetrying();
-      syncSend(conn, {t:'hello', name:SYNC.name, code:SYNC.myCode, buddy:budSaved(), anim:(S.budAnim|0)});
+      /* The card goes with the greeting. Being in a room with somebody is the
+         moment their profile is worth refreshing, and it costs one small object
+         on a connection that is already open. See 29a-friends.js. */
+      syncSend(conn, {t:'hello', name:SYNC.name, code:SYNC.myCode,
+        buddy:budSaved(), anim:budAnimSaved(), card:(function(){
+          try{ return friendCard(); }catch(e){ return null; } })()});
       quotesBroadcast();
       // somebody just came within reach; anything queued for them can go now
       try{ syncMailRun(); }catch(e){}
@@ -701,6 +711,7 @@
         // who they look like, kept beside who they are
         if(m.buddy) SYNC.buddies[conn.peer] = budClean(m.buddy);
         SYNC.anims[conn.peer] = m.anim | 0;
+        try{ if(m.card && m.code) friendSawCard(m.code, m.card); }catch(e){}
         if(syncIsHost()){ syncBroadcast(syncRosterMsg()); syncGameRosterChanged(); }
         syncRender();
       }
@@ -927,8 +938,8 @@
          not there. */
       syncSetStatus(!held ? 'Could not connect. Check your internet.'
         : useMine && SYNC.accountCode
-          ? 'You are already in a room on another device — this code is yours and only one device can hold it. Leave it there, or open a one-off room here.'
-        : useMine ? 'Your code is still held by a session that did not close properly. Give it a minute, or open a one-off room.'
+          ? 'Your code is in a room on another device. Leave it there, or open a one-off room.'
+        : useMine ? 'Your code is still held. Give it a minute, or open a one-off room.'
         : 'That code is already in use — try a new room');
       SYNC.mode = 'off';
     }
@@ -1049,16 +1060,28 @@
     syncRender();
   }
 
-  /* ---- friends ---- */
+  /* ---- friends ----
+     The list itself and the rules about it live in 29a-friends.js; these two
+     are the old entry points, kept because the room's "keep" button and a few
+     other places call them. Adding from the room now carries the username the
+     person sent with their `hello`, so somebody met in a room is saved as
+     themselves rather than as a code with a nickname typed over it. */
   function syncAddFriend(raw, name){
     const code = syncNormalise(raw);
     if(code.length < 4) return;
-    if(SYNC.friends.some(f=>f.code === code)) return;
-    SYNC.friends.push({code, name:(name||'').trim() || code});
-    syncSave(); syncRender();
+    const card = (function(){ try{ return friendCardOf(code); }catch(e){ return null; } })();
+    const user = (card && card.u) || '';
+    const had = SYNC.friends.some(f=>f.code === code);
+    if(had && !user) return;
+    try{
+      friendSet(code, {u:user || undefined, name:user || (name||'').trim() || code,
+        card:card || undefined, ok:1, at:Date.now()});
+    }catch(e){
+      if(!had){ SYNC.friends.push({code, name:(name||'').trim() || code}); syncSave(); syncRender(); }
+    }
   }
   function syncRemoveFriend(code){
-    SYNC.friends = SYNC.friends.filter(f=>f.code !== code);
+    SYNC.friends = SYNC.friends.filter(f=>f.code !== syncNormalise(code));
     syncSave(); syncRender();
   }
 
@@ -1322,7 +1345,7 @@
     try{
       KV.set('focus_sync', JSON.stringify({
         myCode:SYNC.myCode, accountCode:SYNC.accountCode,
-        name:SYNC.name, friends:SYNC.friends,
+        name:SYNC.name, friends:SYNC.friends, asks:SYNC.asks,
         token:SYNC.token,
       }));
     }catch(e){}
@@ -1336,6 +1359,7 @@
         SYNC.accountCode = !!(d && d.accountCode);
         if(d && typeof d.name === 'string') SYNC.name = d.name;
         if(d && Array.isArray(d.friends)) SYNC.friends = d.friends;
+        if(d && d.asks && typeof d.asks === 'object') SYNC.asks = d.asks;
         if(d && typeof d.token === 'string') SYNC.token = d.token;
       }
     }catch(e){}
@@ -1359,7 +1383,7 @@
          be lost — a peer that reconnected while its own sends were failing came
          back connected but nameless, and vanished from the list while being very
          much in the room. Who is here is who is connected. */
-      const list = [{id:SYNC.selfId, name:SYNC.name || 'You', code:SYNC.myCode, me:true, buddy:budSaved(), anim:(S.budAnim|0)}];
+      const list = [{id:SYNC.selfId, name:SYNC.name || 'You', code:SYNC.myCode, me:true, buddy:budSaved(), anim:budAnimSaved()}];
       for(const id in SYNC.conns){
         if(id === SYNC.selfId) continue;
         list.push({id, name:SYNC.roster[id] || 'Someone', code:SYNC.codes[id]||'', me:false,
@@ -1475,8 +1499,41 @@
     const chk = $('sync-check');
     if(chk){
       chk.disabled = SYNC.probing || !SYNC.friends.length;
-      chk.textContent = SYNC.probing ? 'Checking…' : 'Who’s online';
+      chk.textContent = SYNC.probing ? 'Checking…' : 'Who’s around';
     }
+
+    /* ---- you, at the top ----
+       What a friend sees when they open your profile, shown to you first, so
+       the page opens on a person rather than on a string to copy out. */
+    const mebox = $('ft-me');
+    if(mebox){
+      const who = friendMe();
+      const card = friendCard();
+      mebox.innerHTML = '<div class="ft-me-top">'
+        + (Buddy.shown() && card.buddy ? '<span class="ft-face">' + budSvg(card.buddy, 46) + '</span>' : '')
+        + '<div class="ft-me-who"><b>' + esc(who || SYNC.name || 'Not signed in') + '</b>'
+        + '<span>' + esc(who ? 'Friends find you by this' : 'Sign in to be findable by name') + '</span></div>'
+        + '</div>'
+        + friendStatsHtml(card);
+    }
+
+    /* ---- anybody waiting on an answer ---- */
+    const abox = $('ft-asks');
+    if(abox){
+      const asks = Object.keys(SYNC.asks || {}).map(k=>SYNC.asks[k]).filter(Boolean);
+      abox.classList.toggle('hide', !asks.length);
+      abox.innerHTML = asks.map(a=>
+        '<div class="ft-ask"><b>' + esc(a.u || a.code) + '</b>'
+        + '<span>wants to be friends</span>'
+        + '<button class="mini-btn" data-yes="' + esc(a.code) + '">Accept</button>'
+        + '<button class="sync-x" data-no="' + esc(a.code) + '" aria-label="Ignore">×</button></div>').join('');
+      abox.querySelectorAll('[data-yes]').forEach(b=>{ b.onclick = ()=>friendAccept(b.dataset.yes); });
+      abox.querySelectorAll('[data-no]').forEach(b=>{ b.onclick = ()=>friendDecline(b.dataset.no); });
+    }
+
+    /* ---- the room, hidden entirely when there is not one ---- */
+    const rbox = $('ft-room');
+    if(rbox) rbox.classList.toggle('hide', !syncActive());
 
     const fbox = $('sync-friends');
     if(fbox){
@@ -1490,16 +1547,30 @@
                       : '';
             const tag = here ? '<span class="sync-tag">joined</span>'
                       : room ? '<span class="sync-tag">room open</span>'
+                      : f.ok === undefined && f.asked ? '<span class="sync-tag quiet">asked</span>'
                       : up === true ? '<span class="sync-tag quiet">around</span>' : '';
+            /* **The row is the profile.** Their name opens what they last told
+               you about themselves; the buttons beside it are the two things
+               you would do without looking. */
             return '<div class="sync-friend'+(here?' here':'')+'">'
-              + dot+'<b>'+esc(f.name)+'</b><code>'+esc(f.code)+'</code>'
+              + dot
+              + '<button class="ft-who" data-who="'+esc(f.code)+'">'
+                + '<b>'+esc(friendLabel(f))+'</b>'
+                + (f.u ? '' : '<code>'+esc(f.code)+'</code>')
+              + '</button>'
               + tag
               + (here ? '' : '<button class="mini-btn" data-join="'+esc(f.code)+'">Join</button>')
               + '<button class="sync-x" data-drop="'+esc(f.code)+'" aria-label="Remove">×</button></div>';
           }).join('')
-        : '<p class="cal-empty">No friends saved yet. Add someone’s code above.</p>';
+        : '<p class="cal-empty">Nobody yet. Add someone by their username.</p>';
       fbox.querySelectorAll('[data-join]').forEach(b=>{ b.onclick = ()=>syncJoin(b.dataset.join); });
-      fbox.querySelectorAll('[data-drop]').forEach(b=>{ b.onclick = ()=>syncRemoveFriend(b.dataset.drop); });
+      fbox.querySelectorAll('[data-who]').forEach(b=>{ b.onclick = ()=>profOpen(b.dataset.who); });
+      fbox.querySelectorAll('[data-drop]').forEach(b=>{
+        const f = friendFind(b.dataset.drop);
+        b.onclick = ()=>askConfirm('Remove ' + friendLabel(f) + '?',
+          'They stay on your messages; only the friends list changes.',
+          'Remove', ()=>syncRemoveFriend(b.dataset.drop));
+      });
     }
 
     const band = $('sync-band');
@@ -1645,7 +1716,17 @@
   }
   $('sync-leave').onclick = syncLeaveFlow;
   $('sync-join').onclick = ()=>syncJoin($('sync-code').value);
-  $('sync-add').onclick = ()=>{ syncAddFriend($('sync-code').value, $('sync-friend-name').value); $('sync-code').value=''; $('sync-friend-name').value=''; };
+  /* Adding somebody is typing their username — the code is a hash of it, so
+     there is nothing to look up. See `friendAsk` in 29a-friends.js. */
+  const askGo = ()=>{ friendAsk($('ft-user').value); $('ft-user').value=''; };
+  if($('sync-add-legacy')) $('sync-add-legacy').onclick = ()=>{
+    syncAddFriend($('sync-code').value);
+    $('sync-code').value = '';
+  };
+  if($('ft-ask')) $('ft-ask').onclick = askGo;
+  if($('ft-user')) $('ft-user').addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){ e.preventDefault(); askGo(); }
+  });
   $('sync-name').addEventListener('input', ()=>{ SYNC.name = $('sync-name').value.slice(0,24); syncSave(); });
   $('sync-check').onclick = ()=>syncCheckOnline();
   $('sync-copy').onclick = ()=>{

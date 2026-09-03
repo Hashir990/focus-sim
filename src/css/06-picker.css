@@ -11,7 +11,10 @@
 .pcard:active{transform:scale(.99)}
 .pcard .emoji{font-size:26px; width:46px; height:46px; flex:0 0 auto; display:grid; place-items:center;
   border-radius:13px; background:var(--track)}
-.pcard h3{font-size:16.5px; font-weight:600; margin-bottom:3px}
+.pcard h3{
+  font-size:16.5px; font-weight:600; margin-bottom:3px;
+  display:flex; align-items:baseline; gap:7px;
+}
 .pcard p{font-size:12.5px; color:var(--muted); line-height:1.45}
 /* The status on the right is a caption, not a paragraph. Left to itself
    "claim it to set the word" pushed straight through the description beside it,
@@ -22,6 +25,9 @@
   color:var(--accent); text-align:right; flex:0 0 auto;
   width:76px; white-space:normal; overflow-wrap:anywhere;
 }
+/* A game with nothing to report takes no room at all, rather than leaving a
+   76px column of empty space beside the description. */
+.pcard .prog:empty{ display:none }
 .pcard .prog span{
   display:block; color:var(--muted); font-size:10px; margin-top:2px;
   letter-spacing:.06em; line-height:1.25;
@@ -40,11 +46,15 @@
 }
 .pick-group em{ font-style:normal; font-size:11px; color:var(--muted); opacity:.65 }
 
+/* **How many people, beside the name.** It used to be pinned to the card's
+   top-right corner, which is where the status also is — so "2+" sat on top of
+   "ROOM / NEEDS A ROOM", itself saying what the group heading says. In the
+   title line it cannot collide with anything and reads as part of the name. */
 .pcard .tag{
-  position:absolute; top:10px; right:12px;
+  font-style:normal; flex:0 0 auto;
   font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
   padding:2px 6px; border-radius:20px;
-  background:var(--glow); color:var(--text);
+  background:var(--glow); color:var(--muted);
 }
 .pcard{ position:relative }
 .pcard.needs-room{ opacity:.72 }

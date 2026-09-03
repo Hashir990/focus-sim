@@ -154,12 +154,72 @@ function mergeGames(a, b) {
   }
   return out;
 }
+/* What happened to each dated puzzle: `{'sudoku:easy': {'2026-08-27': {s:2,
+   t:412}}}` — 1 started, 2 finished, plus whatever the game measured. Must
+   stay identical to `mergeDaily` in src/js/47-merge.js. */
+function mergeDaily(a, b){
+  const out = {};
+  /* A day is `{s, t, g, …}` — a state and whatever numbers the game hung on
+     it. Older records are a bare number and are read as `{s: n}`.
+
+     The winner is the one that got further: higher `s`, and on a tie the one
+     whose clock ran longer, which is the same argument `mergeLog` makes
+     about two observations of one block. Then the loser's fields are kept
+     underneath, so a device that recorded guesses and one that recorded a
+     time end up with both rather than with whichever synced last. */
+  const asRec = (v)=>{
+    if(typeof v === 'number') return (v === 1 || v === 2) ? {s: v} : null;
+    if(!v || typeof v !== 'object') return null;
+    const s = v.s | 0;
+    if(s !== 1 && s !== 2) return null;
+    const r = {s};
+    for(const k of ['t', 'g', 'w', 'c', 'n', 'h', 'm', 'd']){
+      const x = Number(v[k]);
+      if(isFinite(x) && x >= 0) r[k] = x;
+    }
+    /* The word game's grid of squares — five characters a guess.
+       A string, and the only one; capped so a bad record stays small. */
+    if(typeof v.p === 'string' && v.p && v.p.length <= 40) r.p = v.p;
+    return r;
+  };
+  for(const src of [a || {}, b || {}]){
+    if(!src || typeof src !== 'object') continue;
+    for(const id in src){
+      if(!Object.prototype.hasOwnProperty.call(src, id)) continue;
+      const days = src[id];
+      if(!days || typeof days !== 'object') continue;
+      const into = out[id] || (out[id] = {});
+      for(const k in days){
+        if(!Object.prototype.hasOwnProperty.call(days, k)) continue;
+        const rec = asRec(days[k]);
+        if(!rec) continue;
+        const had = into[k];
+        if(!had){ into[k] = rec; continue; }
+        const win = rec.s !== had.s ? (rec.s > had.s ? rec : had)
+          : ((rec.t || 0) >= (had.t || 0) ? rec : had);
+        const lose = win === rec ? had : rec;
+        into[k] = Object.assign({}, lose, win);
+      }
+    }
+  }
+  return out;
+}
+
 function mergeSnapshots(local, remote) {
   const A = local || {}, B = remote || {};
   const gone = mergeGone(A.gone, B.gone);
   return {
     log: mergeLog(A.log, B.log),
     own: mergeSet(A.own, B.own),
+    /* Grandfathered prices, unioned exactly like `own`: a device that met the
+       price rise owning ten things and one that met it owning twelve should
+       agree on all twelve. Dropping this key would re-charge the difference at
+       the new price — see EMB_WAS in 37-embers.js. */
+    grand: mergeSet(A.grand, B.grand),
+    /* Grandfathered prices, unioned exactly like `own`: a device that met the
+       price rise owning ten things and one that met it owning twelve should
+       agree on all twelve. Dropping this key would re-charge the difference at
+       the new price — see EMB_WAS in 37-embers.js. */
     claimed: mergeSet(A.claimed, B.claimed),
     feats: mergeFeats(A.feats, B.feats),
     adjust: Math.max(Number(A.adjust) || 0, Number(B.adjust) || 0),
@@ -175,6 +235,7 @@ function mergeSnapshots(local, remote) {
     gone,
     quotes: mergeById(A.quotes, B.quotes, gone),
     games: mergeGames(A.games, B.games),
+    daily: mergeDaily(A.daily, B.daily),
     sim: mergeSim(A.sim, B.sim),
   };
 }

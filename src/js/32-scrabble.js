@@ -854,7 +854,11 @@
     reset(){ syncGameSend(Scrabble.key, {a:'reset'}); },
     resetNote:'The board is cleared, the bag refilled, and every score goes back to zero.',
     async progress(){
-      if(!syncActive()) return 'Room<span>needs a room</span>';
+      /* **Nothing.** The group heading above these four already says "needs a
+         room", and the card's own chip says how many people — three ways of
+         saying the same thing, stacked on top of each other in the same
+         corner. An empty status collapses; see `.pcard .prog:empty`. */
+      if(!syncActive()) return '';
       const v = Scrabble.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
       if(v.over) return 'Over<span>'+(v.winner ? esc(v.winner)+' won' : 'a draw')+'</span>';

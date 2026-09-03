@@ -208,8 +208,7 @@
           ? '<div class="upd new"><b>Version ' + esc(n.version || '') + ' is ready</b>'
             + '<em>It goes in next time you close the app — or now, if you like.</em>'
             + '<button type="button" class="upd-get" id="upd-restart">Restart now</button>'
-            + '<p class="upd-safe">Your sessions, embers and games stay where they '
-            + 'are.</p></div>'
+            + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
           /* **Say what is in it while it comes down.** This showed a version
              number and a percentage and nothing else, so the one moment the
              person is actually looking at the banner was the moment it had
@@ -247,8 +246,7 @@
           + (shellAuto ? ' It is downloading on its own — nothing to do.' : '') + '</em>'
           + (v.url && !shellAuto ? '<a class="upd-get" href="' + esc(v.url)
               + '" target="_blank" rel="noopener">Get it</a>' : '')
-          + '<p class="upd-safe">Your sessions, embers and games stay where they '
-          + 'are. Export a backup first if you would rather be sure.</p></div>'
+          + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
         /* **Answer the question that was asked.**
 
            With nothing newer to report this showed "Check for updates" again —

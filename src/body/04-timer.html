@@ -106,14 +106,22 @@
                    `d` is rebuilt each tick in 43-faces.js; it is one string. -->
               <path class="hg-sand" id="hg-sand-top" clip-path="url(#hg-top)"
                     d="M18 12Q50 12 82 12L82 66L18 66Z"/>
-              <path class="hg-sand" id="hg-sand-bot" clip-path="url(#hg-bot)"
-                    d="M18 116Q50 116 82 116L82 118L18 118Z"/>
               <!-- The grains themselves, built by faceGrains() in 43-faces.js:
                    a dozen little circles falling the length of the neck on their
                    own clocks. Individually they are two pixels; together they
                    are a stream, and the illusion is entirely in their being on
-                   different schedules. -->
+                   different schedules.
+
+                   **Between the two bulbs, and which side depends on which way
+                   up the glass is.** Sand that has already landed is in front of
+                   the sand still falling — a grain drawn over the heap reads as
+                   sitting on the glass rather than as having gone into it. SVG
+                   has no z-index, so `facePaint` moves this group to the far
+                   side of whichever bulb is receiving; here it sits before the
+                   lower bulb, which is right way up. -->
               <g class="hg-grains" id="hg-grains"></g>
+              <path class="hg-sand" id="hg-sand-bot" clip-path="url(#hg-bot)"
+                    d="M18 116Q50 116 82 116L82 118L18 118Z"/>
               <path class="hg-glass" d="M24 12H76C76 36 57 58 50 64C43 58 24 36 24 12Z"/>
               <path class="hg-glass" d="M24 116H76C76 92 57 70 50 64C43 70 24 92 24 116Z"/>
               <path class="hg-frame" d="M18 11H82M18 117H82"/>

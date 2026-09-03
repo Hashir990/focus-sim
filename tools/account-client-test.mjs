@@ -80,6 +80,17 @@ console.log('\none device, making an account');
 const A = device([{ id: 'x1', secs: 1800, ts: 1, at: 1, day: '2026-08-01' }], {
   arcade_2048: JSON.stringify({ board: new Array(16).fill(0), score: 120, best: 2048, won: false, done: false }),
   focus_game_at: JSON.stringify({ arcade_2048: 5 }),
+  /* **Owning a few antics, without a purse to match.** They are bought now, and
+     the checks below are about where each one draws — so this device needs more
+     than the free one. `own` is seeded and the balance is *not*: embers are
+     derived from the log by `embersFrom`, so an invented balance here would be
+     read as carried history, written into `adjust`, synced, and would break the
+     "the account's embers, not the two added up" check further down. Owning
+     more than you could afford simply leaves the balance at zero, which is
+     true, harmless, and exactly what a test wants. */
+  focus_embers: JSON.stringify({
+    own: ['seaglass', 'bud-an0', 'bud-an1', 'bud-an2', 'bud-an4', 'bud-an7'],
+    light: 'seaglass' }),
 });
 await wait(800);
 {
@@ -188,21 +199,32 @@ await wait(800);
   /* Each antic in the slot it belongs to. The swing and the swim ride the lane;
      the nap sits on the Pause button, which is somewhere else entirely.
 
-     **Counted against the table, not against a number.** This asserted three,
-     which was true the day it was written and stopped being true the first time
-     an antic was added — at which point the only thing standing between a
-     finished change and a release was a test asserting the old world. A literal
-     count is a hostage to the next feature. What is worth holding is that the
-     picker offers *every* antic the app defines: a button missing here is an
-     antic that exists, syncs and animates and that nobody can choose. */
+     **The picker offers what he owns, and this account has bought nothing.**
+     It used to offer every antic the app defines, and that was the right check
+     while they were free. They are bought now, and the one everybody starts
+     with is the only free one — so what has to hold here is that a new account
+     has exactly that one and a way to get the rest. A count against the table
+     would now be asserting that nothing is for sale. */
   const antics = [...a.querySelectorAll('[data-anim]')];
   const defined = (html.match(/\{k:'[\w-]+', n:'/g) || []).length;
-  check('the picker offers every antic the app defines',
-    defined >= 3 && antics.length === defined,
-    `${antics.length} buttons for ${defined} antics`);
+  const ownHere = (JSON.parse(A.localStorage.getItem('focus_embers') || '{}').own || []);
+  check('the antic picker offers exactly the ones he owns, and no more',
+    defined >= 8 && antics.length < defined
+    && antics.every((b) => ownHere.indexOf('bud-an' + b.dataset.anim) >= 0)
+    && antics.length === ownHere.filter((id) => /^bud-an/.test(id)).length,
+    `${antics.length} buttons, owns ${ownHere.filter((id) => /^bud-an/.test(id)).join(',')}`);
+  check('and the wardrobe says how to get the others',
+    !!a.getElementById('bud-shop') && /more to try on/.test(a.getElementById('bud-shop').textContent),
+    a.getElementById('bud-shop') ? a.getElementById('bud-shop').textContent : 'no shop button');
+  /* Nothing is chosen to begin with — the web-swing is bought like everything
+     else now — so this chooses one first and then reads the line. */
+  antics[0].click();
+  await wait(90);
   check('and choosing one says which it is',
-    /swing/i.test(a.querySelector('.bud-anim-name').textContent),
-    a.querySelector('.bud-anim-name').textContent.slice(0, 40));
+    !!a.querySelector('.bud-anim-name')
+    && a.querySelector('.bud-anim-name').textContent.length > 8,
+    a.querySelector('.bud-anim-name')
+      ? a.querySelector('.bud-anim-name').textContent.slice(0, 40) : 'no line');
 
   // Actually start a block: `S` lives inside the IIFE and is not reachable
   // from here, so the way to be on the clock screen is to be on the clock.
@@ -212,12 +234,14 @@ await wait(800);
   await wait(200);
   a.getElementById('d-account').click();
   await wait(120);
+  /* By the antic's own number rather than by its place in the row: the row is
+     what he owns now, so the third button is not antic 2. */
   for (const [i, slot, other, name] of [
     [0, 'bud-live', 'bud-pause', 'swing'],
     [2, 'bud-live', 'bud-pause', 'swim'],
     [1, 'bud-pause', 'bud-live', 'nap on the pause button'],
   ]) {
-    a.querySelectorAll('[data-anim]')[i].click();
+    a.querySelector(`[data-anim="${i}"]`).click();
     await wait(90);
     check(`${name} draws in its own place`,
       !a.getElementById(slot).classList.contains('hide')
@@ -231,7 +255,7 @@ await wait(800);
      an anchor. It is an element in the rig now, measured in `vh`, and the rig
      is what rotates — so the rope and the man pivot together about a real
      point instead of him turning on the spot under a line that stays put. */
-  a.querySelectorAll('[data-anim]')[0].click();
+  a.querySelector('[data-anim="0"]').click();
   await wait(90);
   const rig = a.getElementById('bud-live').querySelector('.bud-rig');
   check('the swing hangs from a rig, not from lines inside the drawing',
@@ -330,10 +354,16 @@ await wait(800);
      something recognisable to receive. Him back on, a face, and an antic. */
   a.getElementById('bud-onscreen').checked = true;
   a.getElementById('bud-onscreen').dispatchEvent(new A.Event('change'));
-  const eye = opts('e')[2] || opts('e')[1];
-  if (eye) eye.click();
-  const antic = [...a.querySelectorAll('[data-anim]')][2]
-    || [...a.querySelectorAll('[data-anim]')][1];
+  /* A colour rather than a part: colours are free and every one of them is
+     there from the first minute, so this is the only change that is guaranteed
+     to be available on a device that has bought nothing. */
+  const skin = a.querySelectorAll('[data-bud="c"]')[3];
+  if (skin) skin.click();
+  const shade = a.querySelectorAll('[data-bud="b"]')[2];
+  if (shade) shade.click();
+  /* One he owns and did not start with, so what crosses to the second device is
+     a real choice rather than the default. */
+  const antic = [...a.querySelectorAll('[data-anim]')].find((b) => +b.dataset.anim > 0);
   if (antic) antic.click();
   await wait(120);
 
@@ -480,7 +510,7 @@ await wait(800);
   check('signing out asks first, because it clears this device',
     !b.getElementById('confirm').classList.contains('hide'));
   check('and says where the history is going, not that it is safe',
-    /kept in your account/i.test(b.getElementById('confirm-body').textContent),
+    /stays in the account/i.test(b.getElementById('confirm-body').textContent),
     b.getElementById('confirm-body').textContent.slice(0, 80));
 
   b.getElementById('confirm-yes').click();

@@ -11,17 +11,41 @@
   const Wordle = {
     skey:'arcade_wordle', built:false, tiles:[], keys:{},
     answer:'', guesses:[], cur:'', done:false, won:false,
+    /* Which dated edition is on the board; a save from before there were
+       editions is adopted as today's rather than thrown away. */
+    day:'',
     async enter(){
       if(!this.answer){
         const d=await readGame(this.skey);
-        if(d){ Object.assign(this,{answer:d.answer,guesses:d.guesses||[],done:!!d.done,won:!!d.won,cur:''}); }
-        else this._new();
+        if(d){ Object.assign(this,{answer:d.answer,guesses:d.guesses||[],done:!!d.done,won:!!d.won,cur:'',day:d.day||pktNow()}); }
+        else this._new(pktNow());
+      }
+      /* Finished an older one and today's is untouched: hand over today's.
+         A word still being guessed is never taken away. */
+      if(this.done && this.day !== pktNow() && !dailyPlayed('wordle', '')){
+        this._new(pktNow());
       }
       this.build(); this.render(); this._banner();
     },
     leave(){ this.persist(); },
-    _new(){ this.answer=WORDS[Math.random()*WORDS.length|0]; this.guesses=[]; this.cur=''; this.done=false; this.won=false; this.persist(); },
-    newGame(){ this._new(); this.render(); $('wdl-banner').classList.add('hide'); },
+    /** **The same word for everybody, chosen by the date.** It was
+        `WORDS[Math.random()*…]`, which is precisely why no two people could
+        compare a result. The generator is seeded from the day; see 09b-daily.js. */
+    _new(day){
+      const d = day || pktNow();
+      this.answer=WORDS[dailyGen('wordle', '', d)()*WORDS.length|0];
+      this.guesses=[]; this.cur=''; this.done=false; this.won=false; this.day=d;
+      this.persist();
+      dailyMark('wordle', '', d, DAILY_STARTED);
+    },
+    newGame(day){
+      if(!day && dailyPlayed('wordle', '')){
+        toast('Today\u2019s word is done');
+        dailyCalOpen('wordle');
+        return;
+      }
+      this._new(day || pktNow()); this.render(); $('wdl-banner').classList.add('hide');
+    },
     build(){
       const b=$('wdl-board'); b.innerHTML=''; this.tiles=[];
       for(let r=0;r<6;r++){ const row=document.createElement('div'); row.className='wrow'; const rr=[]; for(let c=0;c<5;c++){ const t=document.createElement('div'); t.className='wtile'; row.appendChild(t); rr.push(t);} b.appendChild(row); this.tiles.push(rr); }
@@ -50,6 +74,14 @@
       if(this.cur===this.answer){ this.won=true; this.done=true; }
       else if(this.guesses.length>=6){ this.done=true; }
       this.cur=''; this.persist(); this.render();
+      /* Out of guesses counts as played: the word is spent either way, and a
+         calendar that only marked wins would read as "never opened". */
+      /* **The picture, not just the count.** Five characters a guess — `g`
+         green, `y` yellow, `x` grey — which is exactly what `wScore` already
+         works out for the tiles, and is the one thing about a finished word
+         that cannot be reconstructed from a number afterwards. */
+      if(this.done) dailyMark('wordle', '', this.day, DAILY_DONE,
+        {g:this.guesses.length, w:this.won ? 1 : 0, p:this._pattern()});
       if(this.done){ chime(false); if(this.won) buzz(120); this._banner(this.won); }
     },
     render(){
@@ -71,6 +103,10 @@
     },
     // justWon is only true on the guess that ends the game, so re-opening a
     // finished board doesn't fire the confetti again.
+    /** The grid of squares, as one string. */
+    _pattern(){
+      return this.guesses.map(g=>wScore(g, this.answer).join('')).join('');
+    },
     _banner(justWon){
       const bn=$('wdl-banner');
       if(!this.done){ bn.classList.add('hide'); return; }
@@ -78,12 +114,13 @@
       const sub = this.won
         ? ('Found it in '+this.guesses.length+'/6.')
         : ('The word was '+this.answer.toUpperCase()+'.');
+
       if(justWon && this.won){ showBanner('wdl-banner', title, sub); return; }
       $('wdl-win-title').textContent = title;
       $('wdl-win-sub').textContent = sub;
       bn.classList.remove('hide');
     },
-    persist(){ writeGame(this.skey, {answer:this.answer,guesses:this.guesses,done:this.done,won:this.won}); },
+    persist(){ writeGame(this.skey, {answer:this.answer,guesses:this.guesses,done:this.done,won:this.won,day:this.day}); },
     forget(){ this.answer = ''; this.guesses = []; this.cur = ''; }
   };
 
@@ -97,14 +134,53 @@
 
   forgetGame(Wordle.skey, ()=>Wordle.forget());
 
+  registerDaily('wordle', {
+    title:'Word guess',
+    diffs:[{k:'', n:'Word'}],
+    open(day){ Wordle.newGame(day); },
+    /* What one day's line says on the calendar, in place of repeating the
+       word "Word" down the page. */
+    line(rec){
+      if(!rec) return '';
+      if(rec.s !== 2) return 'Started';
+      return rec.w ? ('Found in ' + (rec.g || '?') + '/6') : 'Missed';
+    },
+    /* The grid, drawn from the five-characters-a-guess string. This is the
+       picture people screenshot: it says how close each try was without ever
+       giving away the word. */
+    art(rec){
+      const p = rec && rec.p;
+      if(typeof p !== 'string' || p.length < 5) return '';
+      let out = '<div class="wdl-art" aria-hidden="true">';
+      for(let i = 0; i + 5 <= p.length; i += 5){
+        out += '<div class="wdl-art-row">';
+        for(let k = 0; k < 5; k++){
+          const c = p[i + k];
+          out += '<i class="' + (c === 'g' ? 'hit' : c === 'y' ? 'near' : '') + '"></i>';
+        }
+        out += '</div>';
+      }
+      return out + '</div>';
+    },
+    stats(all){
+      const done = all.filter(r=>r.s === 2);
+      const won = done.filter(r=>r.w);
+      const avg = won.length ? (won.reduce((n,r)=>n + (r.g || 0), 0) / won.length) : 0;
+      return [
+        {v:String(dailyStreak('wordle', '')), n:'streak'},
+        {v:String(won.length), n:'found'},
+        {v:avg ? avg.toFixed(1) : '—', n:'guesses'},
+      ];
+    },
+  });
+
   registerGame('wordle', {
     el:'game-wordle', title:'Word guess', progEl:'prog-wordle', game:()=>Wordle,
-    reset(){ Wordle.newGame(); },
-    resetNote:'A new word. This one\u2019s guesses are lost.',
+    /* No reset: the day's word is guessed once and the result is kept. */
     async progress(){
       const w = await readGame(Wordle.skey);
       if(!w) return 'New<span>tap to start</span>';
-      if(w.done) return w.won ? 'Solved<span>new word</span>' : '—<span>new word</span>';
+      if(w.done) return w.won ? 'Found<span>see history</span>' : 'Missed<span>see history</span>';
       return (w.guesses.length)+'/6<span>in progress</span>';
     }
   });

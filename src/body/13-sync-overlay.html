@@ -1,5 +1,16 @@
+<!-- ============ FOCUS TOGETHER OVERLAY ============
+     Rebuilt around people rather than around codes.
 
-<!-- ============ FOCUS TOGETHER OVERLAY ============ -->
+     It used to open on a six-letter code, a nickname box and two buttons, with
+     the friends list at the bottom past a fold — so the first thing it asked
+     you to do was copy a string and read it out to somebody. A code is still
+     how two devices find each other, but it is machinery: it is derived from
+     your username (see `syncCodeFor` in 29-sync.js), so anybody who knows your
+     name already knows your address.
+
+     So the order is: who you are, then the people, then the room. The code is
+     kept, folded away, for the one case usernames cannot serve — somebody with
+     no account, or a one-off room. -->
 <div class="overlay hide" id="sync-overlay">
   <div class="ov-head">
     <button class="ov-back" id="sync-close" aria-label="Back">
@@ -9,50 +20,81 @@
     <div style="width:40px"></div>
   </div>
   <div class="ov-body" id="sync-body">
-    <p class="q-intro">Share a timer with someone else. Whoever starts the room leads —
-      their start, pause and skip drive everyone's clock. Nothing goes through a server
-      of ours; the devices talk to each other directly.</p>
 
-    <div class="sync-state" id="sync-state">Not connected</div>
-    <p class="sync-status" id="sync-status"></p>
-    <p class="sync-me" id="sync-me"></p>
+    <!-- Who you are, and what a friend sees when they open your profile. -->
+    <div class="ft-me" id="ft-me"></div>
 
-    <div class="field">
-      <div class="flabel"><span>Your code</span></div>
-      <div class="sync-mine">
-        <code id="sync-mycode">——————</code>
-        <button class="mini-btn" id="sync-copy">Copy</button>
-      </div>
-      <input id="sync-name" class="task-field" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off" />
-      <div class="sync-actions">
-        <button class="primary" id="sync-host">Host with my code</button>
-        <button class="mini-btn" id="sync-room">One-off room</button>
-      </div>
+    <!-- The room, when there is one: who is in it and the way out. Hidden
+         entirely when there isn't, rather than shown as an empty state — the
+         page's job with no room open is to help you start one. -->
+    <div class="ft-room hide" id="ft-room">
+      <div class="sync-state" id="sync-state">Not connected</div>
+      <p class="sync-status" id="sync-status"></p>
+      <div class="sync-people hide" id="sync-people"></div>
+      <button class="sync-leave hide" id="sync-leave">
+        <span>Leave the room</span>
+        <em id="sync-leave-sub">Stop sharing this timer</em>
+      </button>
     </div>
 
-    <div class="sync-people hide" id="sync-people"></div>
+    <!-- Anybody who has asked to be friends. Above the list, because it is the
+         one thing on this page that is waiting on you. -->
+    <div class="ft-asks hide" id="ft-asks"></div>
 
-    <button class="sync-leave hide" id="sync-leave">
-      <span>Leave the room</span>
-      <em id="sync-leave-sub">Stop sharing this timer</em>
-    </button>
+    <div class="ft-head">
+      <p class="q-sec">Friends</p>
+      <button class="mini-btn" id="sync-check">Who's around</button>
+    </div>
+    <div class="ft-add">
+      <input id="ft-user" class="task-field" type="text" maxlength="20"
+             placeholder="Their username" autocomplete="off" spellcheck="false" />
+      <button class="mini-btn" id="ft-ask">Add</button>
+    </div>
+    <div id="sync-friends"></div>
 
-    <div class="field">
-      <div class="flabel"><span>Join someone</span></div>
+    <!-- Starting one. Under the people, because most of the time you are here
+         to reach somebody rather than to open a room and wait in it. -->
+    <div class="ft-head"><p class="q-sec">Start a room</p></div>
+    <div class="sync-actions">
+      <button class="primary" id="sync-host">Open my room</button>
+      <button class="mini-btn" id="sync-room">One-off room</button>
+    </div>
+    <p class="sync-me" id="sync-me"></p>
+
+    <!-- The machinery, folded away. Codes still work and always will; they are
+         just not the thing to lead with. -->
+    <details class="ft-codes">
+      <summary>Join by code</summary>
       <div class="sync-join">
         <input id="sync-code" class="task-field" type="text" maxlength="7" placeholder="Their code" autocomplete="off" spellcheck="false" />
         <button class="mini-btn" id="sync-join">Join</button>
+        <!-- For somebody with no account to be found by name. They are saved
+             under the code until the first time you meet in a room, when their
+             `hello` carries a username and the entry becomes a person. -->
+        <button class="mini-btn" id="sync-add-legacy">Save</button>
       </div>
-      <div class="sync-join">
-        <input id="sync-friend-name" class="task-field" type="text" maxlength="24" placeholder="Save as (name)" autocomplete="off" />
-        <button class="mini-btn" id="sync-add">Save</button>
+      <div class="ft-mine">
+        <span>Yours</span>
+        <code id="sync-mycode">——————</code>
+        <button class="mini-btn" id="sync-copy">Copy</button>
       </div>
-    </div>
-
-    <div class="sync-fhead">
-      <p class="q-sec">Friends</p>
-      <button class="mini-btn" id="sync-check">Who's online</button>
-    </div>
-    <div id="sync-friends"></div>
+      <input id="sync-name" class="task-field" type="text" maxlength="24" placeholder="Name shown in a room" autocomplete="off" />
+    </details>
   </div>
+</div>
+
+<!-- ============ PROFILE ============
+     What somebody sent you about themselves, the last time you were in touch.
+     There is no server here that knows what anybody did, so a profile is a card
+     they handed over — with the request, with the reply, or on `hello` in a
+     room — and it says how old it is rather than pretending to be live. -->
+<div class="overlay hide" id="prof-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="prof-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title" id="prof-title">Profile</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body" id="prof-body"></div>
 </div>

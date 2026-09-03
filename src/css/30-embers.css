@@ -553,10 +553,20 @@ body[data-amb="campfire"] #drawer{
    name in a room. See 46-buddy.js. */
 .bud-panel{ margin:22px 0 4px }
 .bud-stage{
-  display:grid; place-items:center; padding:10px 0 14px;
+  display:grid; place-items:center; padding:26px 0 14px;
   border-radius:16px; border:1px solid var(--line); background:var(--card);
   margin:9px 0 12px;
 }
+/* **An `<svg>` clips to its own viewBox unless you say otherwise, and that —
+   not the box around it — is what was cutting the tops off the tall hats.**
+   His viewBox stops at y=0; a party cone's pompom is at y=-6.6 and a wizard's
+   point at -4.6, and `.bud-slot svg` has had `overflow:visible` since the day
+   the jester was drawn for exactly this reason. The two editing stages never
+   got it, so every hat that goes above the crown was sliced flat there and
+   nowhere else — and adding padding to the stage could not help, because the
+   crop was happening inside it. The padding is what gives the escaped part
+   somewhere to go. */
+.bud-stage svg, .bud-shop-stage svg{ display:block; overflow:visible }
 .bud-row{ display:flex; align-items:center; gap:10px; margin:0 0 7px }
 .bud-row > span{
   flex:0 0 54px; font-size:11px; letter-spacing:.14em;
@@ -598,8 +608,14 @@ body[data-amb="campfire"] #drawer{
   display:flex; align-items:center; gap:8px; margin:14px 0 0;
   padding:10px 12px; border-radius:12px;
   border:1px solid var(--line); background:var(--card);
+  /* Three buttons and a line of text; on a narrow phone the text takes the row
+     above rather than squeezing "Save buddy" onto two lines. */
+  flex-wrap:wrap;
 }
-.bud-save > span{ flex:1 1 auto; font-size:12px; color:var(--muted) }
+.bud-save > span{ flex:1 1 auto; min-width:96px; font-size:12px; color:var(--muted) }
+/* Start over is not a thing you can only do to unsaved work, so it stays live
+   while the other two are greyed out. */
+#bud-reset{ margin-right:auto }
 .bud-save.on{ border-color:var(--accent) }
 .bud-save.on > span{ color:var(--accent) }
 .bud-save .mini-btn[disabled]{ opacity:.45; cursor:default }
@@ -1609,3 +1625,174 @@ body[data-amb="campfire"] #drawer{
 }
 .acc-forgot:hover{ color:var(--text) }
 #acc-pass-box:empty{ display:none }
+
+/* ---------------- the shop, tabbed ----------------
+
+   Five shelves rather than one long page. The lights, the sounds and the faces
+   were already three sections and the wardrobe would have made it five times
+   longer than a thumb wants to travel — and a shop where the thing you came
+   for is below the fold is a shop nobody buys from.
+
+   The row scrolls sideways rather than wrapping: five tabs on a narrow phone
+   would otherwise become two rows, and a tab bar that changes height as you
+   move along it is a tab bar that moves the page under your finger. */
+.shop-tabs{
+  display:flex; gap:6px; margin:12px 0 2px; padding-bottom:4px;
+  overflow-x:auto; scrollbar-width:none;
+}
+.shop-tabs::-webkit-scrollbar{ display:none }
+.shop-tab{
+  flex:0 0 auto; padding:7px 13px; border-radius:999px; cursor:pointer;
+  font:inherit; font-size:12px; letter-spacing:.02em;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  transition:border-color .15s ease, color .15s ease, background .15s ease;
+}
+.shop-tab.on{
+  border-color:var(--accent); color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 14%, var(--card));
+}
+
+/* ---- the wardrobe shelf ----
+   He stands at the top and everything below changes him, which is the whole
+   point of trying before buying: the answer to "what would that look like" is
+   on the same screen as the question. */
+.bud-shop-stage{
+  display:grid; place-items:center; padding:26px 0 10px; margin:12px 0 0;
+  border-radius:16px; border:1px solid var(--line); background:var(--card);
+  color:var(--text);
+}
+.bud-try-note{ font-size:12px; color:var(--muted); line-height:1.5; margin:8px 0 0 }
+.bud-try{
+  display:flex; align-items:center; gap:8px; margin:9px 0 0;
+  padding:9px 11px; border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background:color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.bud-try > b{ flex:1 1 auto; font-size:12.5px; color:var(--text) }
+.bud-tiles{ display:flex; flex-wrap:wrap; gap:6px; margin-top:9px }
+/* Same square as the wardrobe's own, plus the price under it. A tile you do
+   not own is dimmed rather than hidden: this is the page where seeing what you
+   have not got yet is the point. */
+.bud-tile{
+  position:relative; display:grid; place-items:center; gap:1px;
+  width:46px; padding:5px 0 4px; border-radius:10px; cursor:pointer;
+  font:inherit; border:1px solid var(--line);
+  background:var(--card); color:var(--muted); opacity:.72;
+  transition:border-color .15s ease, transform .1s ease, opacity .15s ease;
+}
+.bud-tile svg{ display:block; width:28px; height:28px }
+.bud-tile em{ font-style:normal; font-size:10px; letter-spacing:.02em }
+.bud-tile.mine{ opacity:1 }
+.bud-tile:active{ transform:scale(.94) }
+.bud-tile.tried{
+  border-color:var(--accent); color:var(--accent); opacity:1;
+  box-shadow:0 0 0 2px var(--glow);
+}
+.bud-tile.on{
+  border-color:var(--accent); color:var(--accent); opacity:1;
+  background:color-mix(in srgb, var(--accent) 16%, var(--card));
+}
+/* Out of reach for now, and saying so quietly — a price you cannot pay is
+   still worth reading, it is the reason to come back. */
+.bud-tile.far{ opacity:.45 }
+
+/* The way back to the shop from the wardrobe. Deliberately not a `.mini-btn`:
+   it is the one thing on that page that leaves it. */
+.bud-shop-btn{
+  display:flex; align-items:baseline; gap:8px; width:100%; margin:12px 0 18px;
+  padding:11px 13px; border-radius:12px; cursor:pointer; text-align:left;
+  font:inherit; color:var(--text);
+  border:1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background:color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.bud-shop-btn b{ font-size:13px; color:var(--accent) }
+.bud-shop-btn span{ flex:1 1 auto; text-align:right; font-size:11.5px; color:var(--muted) }
+/* Eye size is a word, not a picture — there is nothing to draw for "wide" that
+   is not just the eyes again at a different size. */
+.bud-opt.bud-size span{ font-size:12px; font-weight:600 }
+/* "Buy for 44" on two lines reads as two buttons. */
+.bud-try .mini-btn{ white-space:nowrap }
+
+/* ---------------- the wardrobe, which is the shop with the prices off -------
+   Same tiles, same headings, same order. Two layouts for one list was learning
+   it twice, and the settings-page version was the one that made a hat feel
+   like a preference rather than a thing you own. */
+.bud-sec{ display:flex; align-items:baseline; gap:8px; margin-top:16px }
+.bud-sec .bud-dial{
+  margin-left:auto; padding:4px 10px; border-radius:999px; cursor:pointer;
+  font:inherit; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+}
+.bud-sec .bud-dial:hover{ border-color:var(--accent); color:var(--accent) }
+/* A tile in the wardrobe says what the thing is called rather than what it
+   costs, and a name needs more room than a number. */
+.bud-tiles .bud-tile{ width:58px }
+.bud-tile em{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:54px }
+
+/* The drawer a colour lives in. It opens under the row it belongs to, is used,
+   and closes — the palette is not a thing to scroll past thirteen times. */
+.bud-sheet{
+  margin:8px 0 2px; padding:9px 11px; border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  background:color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.bud-sheet > span, .bud-sheet-lab{
+  display:block; margin-bottom:6px;
+  font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+}
+.bud-sheet .bud-opts{ align-items:center }
+.bud-sheet-done{ margin-left:auto }
+/* The eye dials. Sliders because "a bit wider apart" is one gesture and eleven
+   squares that all look the same is not. */
+.bud-slider{ display:flex; align-items:center; gap:10px; margin:0 0 7px }
+.bud-slider > span{
+  flex:0 0 46px; font-size:10.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted);
+}
+.bud-slider input[type=range]{
+  flex:1 1 auto; accent-color:var(--accent); height:22px; cursor:pointer;
+}
+
+/* **He stays on screen while you dress him.** The list is longer than a phone
+   and the whole point of a wardrobe is watching the thing change — scrolling
+   the buddy off the top to reach the hats meant choosing blind and scrolling
+   back to look. */
+.bud-stage, .bud-shop-stage{
+  position:sticky; z-index:4;
+  /* Opaque, not translucent: `--card` is a glass and the swatch rows sliding
+     underneath him showed through it, which reads as a double exposure. The app
+     background is painted under the card colour to close it. */
+  background:linear-gradient(var(--card), var(--card)), var(--bg);
+  /* **Pinned six pixels high, not filled in with a shadow.** `.ov-body` has
+     six pixels of padding over its first child, and a box pinned at `top:0`
+     leaves that open — rows scrolled up through a gap above him. The fix was
+     an upward `box-shadow` in `--card`, and `--card` is a glass: that painted
+     a translucent band with square ends over rounded corners, which is the
+     "weird outline on top". Pinning at `-6px` puts the box's own opaque
+     background over the padding instead, and the scroller clips the six pixels
+     that overshoot — a flush top edge, nothing drawn to go wrong. The top
+     padding above carries the extra six so a tall hat still clears it.
+
+     **Square at the top, because a rounded corner is a hole.** Pinned, the two
+     16px curves leave a triangle at each end that the card's own background
+     does not cover, and the swatch rows slide up through them — the same
+     complaint in miniature. A panel that meets the top of the screen has no
+     business being rounded there anyway. */
+  top:-6px;
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+.bud-shop-btn i{
+  font-style:normal; font-size:15px; line-height:1; color:var(--accent);
+  transition:transform .15s ease;
+}
+.bud-shop-btn:hover i{ transform:translateX(3px) }
+/* What is being tried on, all of it, with what it comes to. */
+.bud-try{ display:block }
+.bud-try-list{ list-style:none; margin:0 0 8px; padding:0; display:grid; gap:3px }
+.bud-try-list li{ display:flex; align-items:baseline; gap:8px; font-size:12.5px }
+.bud-try-list li b{ flex:1 1 auto; font-weight:600; color:var(--text) }
+.bud-try-list li span{ color:var(--accent); font-size:11.5px }
+.bud-try-list li.mine span{ color:var(--muted) }
+.bud-try-do{ display:flex; align-items:center; gap:8px }
+.bud-try-do .mini-btn{ white-space:nowrap }

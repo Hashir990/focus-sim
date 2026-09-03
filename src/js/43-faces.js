@@ -20,9 +20,9 @@
      `Embers.own` list, exactly as sounds use `snd-`. */
   const FACES = [
     {id:'digital', name:'Digital',   note:'The numbers, plainly',        cost:0},
-    {id:'analog',  name:'Analog',    note:'Hands, sweeping down',        cost:40},
-    {id:'flip',    name:'Flip',      note:'Cards turning, one a digit',  cost:20},
-    {id:'glass',   name:'Hourglass', note:'Sand running through',        cost:60},
+    {id:'analog',  name:'Analog',    note:'Hands, sweeping down',        cost:70},
+    {id:'flip',    name:'Flip',      note:'Cards turning, one a digit',  cost:40},
+    {id:'glass',   name:'Hourglass', note:'Sand running through',        cost:100},
   ];
   const EMB_FACE = 'face-';
   function faceDef(id){ return FACES.find(f=>f.id === id) || FACES[0]; }
@@ -212,6 +212,16 @@
       }else{
         bulb(top, 66, -1, upper, false);        // draining into the neck
         bulb(bot, 118, -1, 1 - upper, true);    // heaping on the base
+      }
+      /* **Sand that has landed goes over sand that is still falling.**
+         SVG paints in document order and has no z-index, so the only way to put
+         the stream behind the heap is to move it — and which bulb is the heap
+         depends on which way up the glass is. Two `insertBefore`s, and only when
+         it is actually on the wrong side, because this runs once a second. */
+      const grains = $('hg-grains');
+      if(grains && top && bot){
+        const want = over ? top : bot;
+        if(grains.nextSibling !== want) want.parentNode.insertBefore(grains, want);
       }
       /* Grains only fall while the clock is going. Written on #app rather than
          toggled per element so the CSS can decide what else it means. */

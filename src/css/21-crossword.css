@@ -80,8 +80,22 @@
 }
 .cw-let{ line-height:1; pointer-events:none }
 
+/* The clue and its two arrows are one line: the arrows have to be beside what
+   they move, not somewhere else on the page. */
+.cw-clue-bar{ display:flex; align-items:center; gap:6px; margin:11px auto 0; max-width:420px }
+.cw-arrow{
+  flex:0 0 auto; display:grid; place-items:center; cursor:pointer;
+  width:34px; height:34px; padding:0; border-radius:10px;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  transition:border-color .15s ease, color .15s ease, transform .1s ease;
+}
+.cw-arrow svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2;
+               stroke-linecap:round; stroke-linejoin:round }
+.cw-arrow:active{ transform:scale(.92) }
+.cw-arrow:hover{ border-color:var(--accent); color:var(--accent) }
 .cw-clue{
-  text-align:center; margin:11px auto 0; max-width:380px;
+  flex:1 1 auto;
+  text-align:center; margin:0; max-width:380px;
   font-size:13.5px; line-height:1.45; color:var(--text);
   min-height:2.4em; display:flex; align-items:center; justify-content:center;
 }

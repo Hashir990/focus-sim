@@ -131,10 +131,20 @@
    The sand is two plain rectangles inside clip paths shaped like the bulbs, so
    a level change is one `y`/`height` attribute rather than a rebuilt path. */
 /* Taller than it is wide, like an hourglass. The viewBox is 100 × 128. */
-.face-glass{ width:clamp(112px, 36vw, 150px); height:clamp(143px, 46vw, 192px) }
+/* **Back to the size it was.** It grew to 36vw when the sand was redrawn and
+   at that size it is the loudest thing on the screen — which is the wrong way
+   round for a clock face you are meant to glance at. 30vw, and the ratio is
+   the viewBox's own 128:100. */
+.face-glass{ width:clamp(96px, 30vw, 126px); height:clamp(123px, 38.4vw, 161px) }
 .hg-glass{ fill:none; stroke:var(--track); stroke-width:2.6 }
 .hg-frame{ fill:none; stroke:var(--muted); stroke-width:3.4; stroke-linecap:round; opacity:.75 }
-.hg-sand{ fill:var(--accent); opacity:.85 }
+/* **Opaque sand, and the alpha baked into the colour instead.**
+   `opacity:.85` was the whole of "the falling grains still show through the
+   heap": moving the stream behind the lower bulb in document order does
+   nothing when the thing in front of it is see-through. Mixing the same 15%
+   of the background into the fill gives the identical colour over the identical
+   backdrop, and hides what is behind it — which is the point of sand. */
+.hg-sand{ fill:color-mix(in srgb, var(--accent) 85%, var(--bg)) }
 
 /* The two surfaces: dished where the sand is funnelling out, heaped where it is
    landing. `--bg` for the dip so it reads as sand missing rather than as a
@@ -156,8 +166,13 @@
   animation-name:hgGrain; animation-timing-function:linear;
   animation-iteration-count:infinite;
 }
+/* **The fall starts below the neck, not at it.** It began at 62 — level with
+   the underside of the upper sand — so the stream appeared to grow straight out
+   of the heap above it with no gap, which reads as a solid column rather than
+   as grains coming through a hole. Six units of daylight under the neck is the
+   hole, and it is the thing that makes the neck a neck. */
 @keyframes hgGrain{
-  0%{ transform:translateY(62px); opacity:0 }
+  0%{ transform:translateY(70px); opacity:0 }
   12%{ opacity:.95 }
   88%{ opacity:.95 }
   100%{ transform:translateY(112px); opacity:0 }
@@ -169,7 +184,7 @@
    face is flipped it lands on the screen going down. */
 #app[data-phase="rest"][data-face="glass"] .hg-grain{ animation-name:hgGrainOver }
 @keyframes hgGrainOver{
-  0%{ transform:translateY(66px); opacity:0 }
+  0%{ transform:translateY(58px); opacity:0 }
   12%{ opacity:.95 }
   88%{ opacity:.95 }
   100%{ transform:translateY(16px); opacity:0 }

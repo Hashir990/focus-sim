@@ -75,6 +75,60 @@
     return out;
   }
 
+  /* ---- which daily puzzles you have played ----
+
+     `{'sudoku:easy': {'2026-08-27': {s:2, t:412}}}` — a state and whatever the
+     game measured. Finishing today's sudoku on a phone and only opening it on
+     a laptop is one finished sudoku, not a disagreement. See 09b-daily.js. */
+  function mergeDaily(a, b){
+    const out = {};
+    /* A day is `{s, t, g, …}` — a state and whatever numbers the game hung on
+       it. Older records are a bare number and are read as `{s: n}`.
+
+       The winner is the one that got further: higher `s`, and on a tie the one
+       whose clock ran longer, which is the same argument `mergeLog` makes
+       about two observations of one block. Then the loser's fields are kept
+       underneath, so a device that recorded guesses and one that recorded a
+       time end up with both rather than with whichever synced last. */
+    const asRec = (v)=>{
+      if(typeof v === 'number') return (v === 1 || v === 2) ? {s: v} : null;
+      if(!v || typeof v !== 'object') return null;
+      const s = v.s | 0;
+      if(s !== 1 && s !== 2) return null;
+      const r = {s};
+      for(const k of ['t', 'g', 'w', 'c', 'n', 'h', 'm', 'd']){
+        const x = Number(v[k]);
+        if(isFinite(x) && x >= 0) r[k] = x;
+      }
+      /* The word game's grid of squares — five characters a guess.
+         A string, and the only one; capped so a bad record stays small. */
+      if(typeof v.p === 'string' && v.p && v.p.length <= 40) r.p = v.p;
+      return r;
+    };
+    for(const src of [a || {}, b || {}]){
+      if(!src || typeof src !== 'object') continue;
+      for(const id in src){
+        if(!Object.prototype.hasOwnProperty.call(src, id)) continue;
+        const days = src[id];
+        if(!days || typeof days !== 'object') continue;
+        const into = out[id] || (out[id] = {});
+        for(const k in days){
+          if(!Object.prototype.hasOwnProperty.call(days, k)) continue;
+          const rec = asRec(days[k]);
+          if(!rec) continue;
+          const had = into[k];
+          if(!had){ into[k] = rec; continue; }
+          const win = rec.s !== had.s ? (rec.s > had.s ? rec : had)
+            : ((rec.t || 0) >= (had.t || 0) ? rec : had);
+          const lose = win === rec ? had : rec;
+          into[k] = Object.assign({}, lose, win);
+        }
+      }
+    }
+    return out;
+  }
+
+
   /* ---- lists you curate: the plan, and today's checklist ----
 
      Union by id, minus anything deleted. A plain union is right for adding —
@@ -234,7 +288,7 @@
 
   /* ---- the whole thing ----
      Two snapshots in, one out. A snapshot is what a single device knows:
-     `{log, own, claimed, feats, adjust, sim}`. Embers are deliberately absent
+     `{log, own, claimed, feats, adjust, daily, sim}`. Embers are deliberately absent
      from the output as a stored quantity — `embersFrom` is called on the merged
      result, so the balance is a consequence of the merge rather than an input
      to it. */
@@ -246,6 +300,11 @@
     return {
       log: mergeLog(A.log, B.log),
       own: mergeSet(A.own, B.own),
+      /* Grandfathered prices, unioned exactly like `own`: a device that met
+         the price rise owning ten things and one that met it owning twelve
+         should agree on all twelve. Dropping this key would re-charge the
+         difference at the new price — see EMB_WAS in 37-embers.js. */
+      grand: mergeSet(A.grand, B.grand),
       claimed: mergeSet(A.claimed, B.claimed),
       feats: mergeFeats(A.feats, B.feats),
       // the larger carried balance, so a merge can never lose history
@@ -255,6 +314,9 @@
       gone,
       quotes: mergeById(A.quotes, B.quotes, gone),
       games: mergeGames(A.games, B.games),
+      /* Which dated puzzle you started and which you finished — see
+         `mergeDaily` above and 09b-daily.js. */
+      daily: mergeDaily(A.daily, B.daily),
       sim: mergeSim(A.sim, B.sim),
     };
   }

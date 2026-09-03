@@ -418,6 +418,74 @@ uterus roper laird phoebe
 # `aft` and `ante` are dated or clipped but all still said. `roe` is in this
 # fill again and stays where the `bel daw col` note left it — banning it takes a
 # shipped 15x15 with it, and that is still the reason.
+# Fourth read, 2026-08-27. `pimp` is a crude word describing a crime and
+# exploitation; it has no innocent first sense to offset it.
+BANNED |= set("""
+pimp
+""".split())
+
+# Read off the 2026-09-02 fill. `vagina` is the `cock`/`pee` tier — anatomical
+# and not what anybody wants in a focus timer's crossword.
+#
+# `kris`, `pec`, `vac` and `fam` were banned here too and have been taken back
+# out. The test they failed was the wrong one: their WordNet glosses are opaque,
+# which is an argument for writing them a clue, not for dropping the word. A
+# Malayan dagger, a chest muscle, the Hoover and your closest friends all clue
+# plainly once somebody writes the clue by hand.
+BANNED |= set("""
+vagina
+""".split())
+
+# Read off the 2026-09-02 catch-up fill. `rape` is the plant in the dictionary
+# and the assault everywhere else; no clue makes that safe in a focus timer and
+# it should never have been reachable. `boob` is the `cock`/`pee` tier.
+#
+# `lakh`, `gui`, `zag` and `mon` came out again for the reason above. "Zig's
+# partner" is a fair question; so is the Indian hundred thousand, which is
+# ordinary English to most of the people who will ever open this app.
+BANNED |= set("""
+rape boob
+""".split())
+
+# Second read of the same fill. `bong` is drug gear.
+#
+# `beth` and `donna` are back: a bare given name is unfair only if it is clued
+# as one. "Sister in Little Women" and "Prima ___" are both ordinary questions.
+BANNED |= set("""
+bong
+""".split())
+
+# Third read. `dyke` is a Dutch embankment in the dictionary and a slur in the
+# street; the grid cannot control which one a solver reads.
+#
+# `kappa` is back, clued by its place in the alphabet. Note that this leaves it
+# out of step with `beta`, `zeta`, `gamma`, `delta`, `psi`, `tau`, `chi` and
+# `phi`, which are still banned in the blocks above — the same clue would work
+# for any of them, so that set is worth revisiting as a whole.
+BANNED |= set("""
+dyke
+""".split())
+
+# Read off the 2026-09-03 fill. `eisner` is a bare surname — no solver reaches
+# it from crossings; `lulu` is a proper name far more often than the "remarkable
+# thing" noun; `kip` is British slang for a nap and Lao money, the same tier as
+# `wally` and `tam` above. All three were single-use and new this run.
+BANNED |= set("""
+eisner lulu kip
+""".split())
+
+# Second pass over the same run, off the puzzles that replaced the three above.
+# `caine` is another bare surname, exactly the `eisner` case; `oui` is a bare
+# foreign word with no English sense, the tier of `dolce` and `aloha` already
+# banned. Both single-use and new this run.
+BANNED |= set("""
+caine oui
+""".split())
+
+
+
+
+
 # The joins of ordinary English, which WordNet's own counts do not always cover.
 CLUE_OK = set("""
 a an the and or but of to in on at by for from with without into onto over

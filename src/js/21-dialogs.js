@@ -8,25 +8,59 @@
      anyway, but the markup has to exist by the time the handlers bind. */
 
   let confirmYes = null;
+  let confirmAlt = null;
+  let confirmNo = null;
 
-  /** A yes/no the user has to mean. `onYes` runs only on Yes. */
-  function askConfirm(title, body, yesLabel, onYes){
+  /** A yes/no the user has to mean. `onYes` runs only on Yes.
+   *
+   *  `opt` is for the handful of confirms where No is not "do nothing" — an
+   *  unsaved buddy is the standing example: Save, throw it away, or go back to
+   *  what you were doing. Those are three answers, and a two-button dialog
+   *  makes one of them the close box, which nobody reads as an answer.
+   *    opt.no   — rename Cancel, when "Cancel" is misleading ("Discard")
+   *    opt.onNo — run something on No, for when No is an answer and not an exit
+   *    opt.alt  — {label, run} for a third button, shown only when given.
+   *
+   *  Backdrop and Escape still mean "nothing happened", never `onNo` — the way
+   *  out of a dialog cannot also be one of its answers.
+   */
+  function askConfirm(title, body, yesLabel, onYes, opt){
     if(!$('confirm')) { if(onYes) onYes(); return; }
+    const o = opt || {};
     $('confirm-title').textContent = title || 'Are you sure?';
     $('confirm-body').textContent = body || '';
     $('confirm-yes').textContent = yesLabel || 'Yes';
+    $('confirm-no').textContent = o.no || 'Cancel';
+    const alt = $('confirm-alt');
+    if(alt){
+      confirmAlt = (o.alt && o.alt.run) || null;
+      alt.textContent = (o.alt && o.alt.label) || '';
+      alt.classList.toggle('hide', !o.alt);
+    }
     confirmYes = onYes;
+    confirmNo = o.onNo || null;
     $('confirm').classList.remove('hide');
   }
+  /* Closing puts the card back the way every other caller expects to find it —
+     label restored, third button gone. A dialog that remembers the last thing
+     it was asked is a dialog that offers "Discard" over a light you are
+     buying. */
   function closeConfirm(){
     const el = $('confirm');
     if(el) el.classList.add('hide');
     confirmYes = null;
+    confirmAlt = null;
+    confirmNo = null;
+    if($('confirm-no')) $('confirm-no').textContent = 'Cancel';
+    if($('confirm-alt')) $('confirm-alt').classList.add('hide');
   }
 
   if($('confirm')){
     $('confirm-yes').onclick = ()=>{ const f = confirmYes; closeConfirm(); if(f) f(); };
-    $('confirm-no').onclick = closeConfirm;
+    $('confirm-no').onclick = ()=>{ const f = confirmNo; closeConfirm(); if(f) f(); };
+    if($('confirm-alt')) $('confirm-alt').onclick = ()=>{
+      const f = confirmAlt; closeConfirm(); if(f) f();
+    };
     $('confirm').addEventListener('click', e=>{ if(e.target === $('confirm')) closeConfirm(); });
   }
 

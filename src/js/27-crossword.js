@@ -43,6 +43,9 @@
     sel:-1, dir:'across',
     done:false, elapsed:0, tick:null, wrong:null,
     progress:{},             // puzzle index -> {u, g, done, secs}
+    /* Which release day the open puzzle belongs to. The bank index is where it
+       lives; this is what it is *called*. See the schedule in 09b-daily.js. */
+    day:'',
 
     /* ---- coming and going ---- */
     async enter(){
@@ -60,14 +63,44 @@
         }
         this.loaded = true;
       }
-      if(this.idx < 0 || !CROSS_GRIDS[this.idx]) this.idx = this._firstUnfinished(this.size);
-      this.load(this.idx);
+      let pick = null;
+      if(this.idx < 0 || !CROSS_GRIDS[this.idx]){
+        pick = this._firstUnfinished(this.size);
+        this.idx = pick.i;
+      }
+      this.load(this.idx, pick ? pick.day : '');
+      /* Finished the one you were on and today's edition of that size is out
+         and untouched — so open today's. Same rule the other games follow, and
+         the same exception: a grid with letters in it is never taken away. */
+      if(this.done && crossReleases(this.size, pktNow())
+         && !dailyPlayed('crossword', String(this.size))){
+        const t = crossOnDay(this.size, pktNow());
+        if(t.i >= 0 && t.i !== this.idx) this.load(t.i, pktNow());
+      }
       if(!this.done) this.run();
     },
     leave(){ this.stop(); this.persist(); this._closePicker(); },
 
     /* ---- which puzzle ---- */
     _at(size){ return crossAtSize(size); },
+
+    /* ---- dates ----
+       A puzzle's *name* is the day it came out. The bank index is only where
+       it happens to be stored, and it is the position in the size's own list
+       that decides the date — which is why the bank has to stay append-only.
+       See the schedule and `crossOnDay` in 09b-daily.js. */
+    _dayOf(i){
+      const g = CROSS_GRIDS[i];
+      if(!g) return '';
+      const size = crossRows(g).length;
+      const pos = this._at(size).indexOf(i);
+      return pos < 0 ? '' : crossReleaseDay(size, pos);
+    },
+    /** The most recent day at this size that has come out, up to today. */
+    _latestDay(size){
+      const days = crossDaysUpTo(size, pktNow(), 1);
+      return days.length ? days[0] : '';
+    },
 
     /* A puzzle's name, which is a hash of the puzzle — see crossKey(). Note
        `this.key` is the storage key for the whole game and is a different
@@ -122,18 +155,37 @@
     },
     _isDone(i){ const r = this._rec(i); return !!(r && r.done); },
 
-    /** The one to open by default: the first at this size you haven't finished. */
+    /** The one to open by default.
+
+        Today's edition if it has come out and you have not finished it; failing
+        that the most recent released day you have not finished, walking
+        backwards; failing that today's again, so there is always a grid. */
+    /* **Returns the day as well as the index, and that matters.**
+       It used to hand back a bank index alone, and `load()` then worked the day
+       out again from the index's position — which is right until the schedule
+       runs past the end of the bank and a day gets an *encore* of an earlier
+       puzzle. Then the index says Aug 17 and the day you actually opened is Aug
+       28, so the calendar filed your progress under a day you were not looking
+       at. The day the puzzle was *chosen for* is the day it belongs to. */
     _firstUnfinished(size){
+      const days = crossDaysUpTo(size, pktNow());
+      for(const d of days){
+        const t = crossOnDay(size, d);
+        if(t.i >= 0 && !this._isDone(t.i)) return {i: t.i, day: d};
+      }
+      const d0 = days[0] || pktNow();
+      const t = crossOnDay(size, d0);
+      if(t.i >= 0) return {i: t.i, day: d0};
       const list = this._at(size);
-      for(const i of list) if(!this._isDone(i)) return i;
-      return list.length ? list[0] : 0;
+      return {i: list.length ? list[0] : 0, day: d0};
     },
 
-    load(i){
+    load(i, day){
       const g = CROSS_GRIDS[i];
       if(!g) return;
       this.stop();
       this.idx = i;
+      this.day = day || this._dayOf(i);
       this.puz = crossParse(g);
       this.size = this.puz.n;
       const n = this.puz.n, cells = n*n;
@@ -166,43 +218,41 @@
       $('cw-banner').classList.toggle('hide', !this.done);
       if(this.done) $('cw-win-sub').textContent = this._summary();
       this.persist();
+      /* On the calendar as soon as it is on screen — an opened puzzle is one
+         you have met, and a day that only goes amber once you type a letter
+         reads as a day you never visited. `dailyMark` only ever moves the
+         state forward, so re-opening a finished one cannot un-finish it. */
+      if(this.day) dailyMark('crossword', String(this.size),
+        this.day, this.done ? DAILY_DONE : DAILY_STARTED);
     },
 
-    /* Start one over: clear its letters and the ones it revealed.
+    /* **Nothing here can be started over any more.**
+       Every puzzle is published on a day and its result is kept — the time,
+       the clues, the letters you revealed. A button that wipes all of that
+       makes the record worth nothing, and the archive is what "play something
+       else" means now. `resetPuzzle`, `resetAll` and the hold-to-reset gesture
+       are gone with it. */
 
-       Order matters. `persist()` writes the *in-memory* letters back against the
-       current index, so deleting the record and then persisting immediately puts
-       everything straight back. The reload has to happen in between — it is what
-       empties `user` and `given` — and it persists on its way out. */
-    resetPuzzle(i){
-      delete this.progress[this._fp(i)];
-      if(i === this.idx){ this.load(i); this.run(); }
-      else{ this.persist(); this._renderList(); }
-      this._renderList();
-    },
-
-    /** From the game's card in the arcade — clears the whole set. */
-    resetAll(){
-      this.progress = {};
-      if(this.puz){ this.load(this._firstUnfinished(this.size)); this.run(); }
-      else{ this.idx = -1; this.persist(); }
-    },
-
+    /** The next one still open at this size, oldest first — what the finished
+        banner offers. Falls back to the calendar when there is nothing left. */
     nextPuzzle(){
-      const list = this._at(this.size);
-      const k = list.indexOf(this.idx);
-      for(let step=1; step<=list.length; step++){
-        const cand = list[(k + step + list.length) % list.length];
-        if(!this._isDone(cand)){ this.load(cand); this.run(); return; }
+      const days = crossDaysUpTo(this.size, pktNow());
+      for(let k = days.length - 1; k >= 0; k--){
+        const t = crossOnDay(this.size, days[k]);
+        if(t.i >= 0 && !this._isDone(t.i) && !(t.i === this.idx && days[k] === this.day)){
+          this.load(t.i, days[k]);
+          this.run();
+          return;
+        }
       }
-      this.load(list[(k + 1) % list.length]);
-      this.run();
+      try{ dailyCalOpen('crossword'); }catch(e){}
     },
 
     setSize(size){
       if(this.size === size) return;
       this.persist();
-      this.load(this._firstUnfinished(size));
+      const pick = this._firstUnfinished(size);
+      this.load(pick.i, pick.day);
       if(!this.done) this.run();
     },
 
@@ -352,6 +402,9 @@
       }
       this.persist(); this.render();
     },
+    /** The clue before or after this one. Wired to the arrows either side of
+        the clue line and to Tab; the two have to be the same journey or the
+        keyboard and the buttons disagree about where you are. */
     nextClue(step){
       const es = this.puz.entries;
       const cur = this.current();
@@ -418,9 +471,10 @@
         if(sol && this.user[i] !== sol) return;
       }
       this.done = true; this.stop(); this.persist();
+      if(this.day) dailyMark('crossword', String(this.size), this.day, DAILY_DONE,
+        {t:this.elapsed, c:this.puz.entries.length, n:this.puz.entries.length, h:this._hintCount()});
       chime(false); buzz(120);
       showBanner('cw-banner', 'Filled in.', this._summary());
-      this._renderList();
     },
     _summary(){
       const h = this._hintCount();
@@ -435,6 +489,28 @@
         are uppercase and the bank is lowercase, so the comparison is done in
         one case; forgetting that in `_migrate` once threw away every record it
         was supposed to be rescuing. */
+    /** How many clues are right *on the board in front of you*.
+
+        `_clues` below answers the same question for any puzzle in the bank, and
+        to do it it re-parses the grid and re-reads the saved record — fine once
+        for a list, and far too much on every keystroke, which is where the
+        calendar's record is written from. This one reads `this.puz` and
+        `this.user`, both already in hand. */
+    _cluesNow(){
+      const p = this.puz;
+      if(!p) return {done:0, total:0};
+      const n = p.n;
+      let done = 0;
+      for(const e of p.entries){
+        let ok = true;
+        for(let k=0;k<e.cells.length;k++){
+          const [r,c] = e.cells[k];
+          if((this.user[r*n+c] || '') !== e.answer[k].toUpperCase()){ ok = false; break; }
+        }
+        if(ok) done++;
+      }
+      return {done, total:p.entries.length};
+    },
     _clues(i, rec){
       const g = CROSS_GRIDS[i];
       if(!g) return { done:0, total:0 };
@@ -452,44 +528,13 @@
       return { done, total: puz.entries.length };
     },
 
-    /* ---- the puzzle picker ---- */
-    openPicker(){ this._renderList(); $('cw-picker').classList.remove('hide'); },
-    _closePicker(){ const el = $('cw-picker'); if(el) el.classList.add('hide'); },
-
-    _renderList(){
-      const box = $('cw-list-body');
-      if(!box) return;
-      const list = this._at(this.size);
-      box.innerHTML = list.map((i,k)=>{
-        const rec = this._rec(i);
-        const done = !!(rec && rec.done);
-        const started = !done && rec && rec.u && /[A-Z]/.test(rec.u);
-        const c = this._clues(i, rec);
-        const note = done ? 'finished' + (rec.secs ? ' in ' + fmt(rec.secs) : '')
-                   : started ? c.done + ' of ' + c.total + ' clues'
-                   : c.total + ' clues';
-        const hints = rec && rec.g && rec.g.length ? rec.g.length + ' revealed' : '';
-        return '<button class="cw-item'+(done?' done':'')+(i===this.idx?' on':'')+'" '
-          + 'data-i="'+i+'" data-k="'+(k+1)+'"><b>#'+(k+1)+'</b><span>'+note+'</span>'
-          + (hints ? '<em>'+hints+'</em>' : '') + '</button>';
-      }).join('');
-
-      box.querySelectorAll('[data-i]').forEach(b=>{
-        const i = +b.dataset.i, k = b.dataset.k;
-        b.onclick = ()=>{
-          this._closePicker();
-          this.load(i);
-          if(!this.done) this.run();
-        };
-        // hold one to start it over, the same gesture as the arcade cards
-        holdMenu(b, ()=>[{
-          label:'Reset puzzle #'+k, danger:true,
-          run(){ askConfirm('Start puzzle #'+k+' again?',
-            'Its letters, and any you revealed, are cleared.',
-            'Reset', ()=>Cross.resetPuzzle(i)); },
-        }]);
-      });
-    },
+    /* **The picker is the calendar now.** There were two lists of the same
+       puzzles — a panel inside the game and a month grid outside it — and the
+       month grid is the one that knows about the other three sizes, what you
+       scored and which days are still open. `openPicker` is kept as the name
+       everything already calls. */
+    openPicker(){ try{ dailyCalOpen('crossword'); }catch(e){} },
+    _closePicker(){},
 
     /* ---- drawing ---- */
     render(){
@@ -570,11 +615,14 @@
         .forEach(b=>b.classList.toggle('on', +b.dataset.s === this.size));
     },
 
+    /* **A puzzle is a date, not a number out of a total.** "#11 of 11" was
+       true of the bank and told you nothing about the puzzle — and now that
+       every one of them is published on a day, the day is its name. The
+       position is still what decides that date; it is just not something to
+       read on screen. See `_dayOf` and the schedule in 09b-daily.js. */
     _label(){
-      const list = this._at(this.size);
-      const k = list.indexOf(this.idx);
-      return this.size + '×' + this.size + ' · #' + (k >= 0 ? k+1 : 1)
-        + ' of ' + list.length + ' · ' + fmt(this.elapsed);
+      const when = this.day === pktNow() ? 'Today' : (this.day ? pktLabel(this.day) : '');
+      return this.size + '×' + this.size + (when ? ' · ' + when : '') + ' · ' + fmt(this.elapsed);
     },
 
     run(){
@@ -601,6 +649,16 @@
       writeGame(this.key, {
         size:this.size, idx:this.idx, key:this._fp(this.idx), p:this.progress,
       });
+      /* **The calendar's record goes down with the board.** It used to be
+         written on the clock's ten-second beat, which meant a puzzle put down
+         between beats lost its last few clues off the calendar. `dailyMark`
+         does nothing when nothing has changed, so calling it on every letter
+         is cheap. */
+      if(this.day && !this.done && this.puz){
+        const c = this._cluesNow();
+        dailyMark('crossword', String(this.size), this.day, DAILY_STARTED,
+          {t:this.elapsed, c:c.done, n:c.total, h:this._hintCount()});
+      }
     },
 
     /* An account brought different progress. The letters on screen belong to
@@ -632,16 +690,56 @@
     else if(/^[a-zA-Z]$/.test(e.key)) Cross.type(e.key);
   });
 
+  /* **Four editions, on four different schedules.** The other games make a
+     puzzle out of a number and can have one every day for ever; these are
+     hand-written and come out of a bank, so the sizes are published on the
+     rhythm a newspaper uses — see CROSS_WHEN in 09b-daily.js. */
+  registerDaily('crossword', {
+    title:'Crossword',
+    diffs:[{k:'5', n:'5×5'}, {k:'7', n:'7×7'}, {k:'9', n:'9×9'}, {k:'15', n:'15×15'}],
+    /* Not every size comes out every day, so the calendar asks before it draws
+       a dot — an empty Tuesday under "9×9" is the schedule, not a gap. */
+    on(day, diff){ return crossReleases(+diff, day); },
+    line(rec){
+      if(!rec) return '';
+      const h = rec.h ? ' · ' + rec.h + ' revealed' : '';
+      if(rec.s !== 2) return (rec.c != null && rec.n ? rec.c + ' of ' + rec.n + ' clues' : 'Started') + h;
+      return (rec.n ? rec.n + ' clues' : 'Filled in') + ' in ' + fmt(rec.t || 0) + h;
+    },
+    stats(all){
+      const done = all.filter(r=>r.s === 2);
+      const clues = done.reduce((n,r)=>n + (r.n || 0), 0);
+      const noHint = done.filter(r=>!r.h).length;
+      /* Each size keeps its own streak, on its own schedule — a 9×9 comes out
+         on Wednesday and Friday, so the days between are not misses. The
+         longest of the four is the one worth showing. */
+      const run = [5, 7, 9, 15].reduce((b, n)=>Math.max(b,
+        dailyStreak('crossword', String(n), (day, k)=>crossReleases(+k, day))), 0);
+      return [
+        {v:String(run), n:'day streak'},
+        {v:String(done.length), n:'filled in'},
+        {v:String(clues), n:'clues'},
+      ];
+    },
+    open(day, diff){
+      const size = +diff || 7;
+      const t = crossOnDay(size, day);
+      if(t.i < 0){ toast('No ' + size + '×' + size + ' on ' + pktLabel(day)); return; }
+      Cross.size = size;
+      Cross.load(t.i, day);
+      if(!Cross.done) Cross.run();
+    },
+  });
+
   registerGame('crossword', {
     el:'game-crossword', title:'Crossword', progEl:'prog-crossword', game:()=>Cross,
-    reset(){ Cross.resetAll(); },
-    resetNote:'Every puzzle goes back to blank, including the ones you finished.',
+
     async progress(){
       const d = await readGame(Cross.key);
       const p = (d && d.p) || {};
       const size = (d && [5,7,9,15].indexOf(d.size) >= 0) ? d.size : 7;
       const list = crossAtSize(size);
-      const done = list.filter(i=>p[i] && p[i].done).length;
+      const done = list.filter(i=>p[crossKey(CROSS_GRIDS[i])] && p[crossKey(CROSS_GRIDS[i])].done).length;
       if(!done && !Object.keys(p).length) return 'New<span>tap to start</span>';
       return done + '/' + list.length + '<span>' + size + '×' + size + ' done</span>';
     }

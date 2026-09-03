@@ -140,19 +140,141 @@ cp dist/index.html ~/dist/ && cp server/* ~/server/
 cp tools/account-client-test.mjs ~/run/acct.mjs && cd ~/run && node acct.mjs
 ```
 
-Current, all green: **smoke 799**, `account-client-test` 55, `accounts-test` 66,
-`merge-test` 48, `scrabble-rules-test` 28, `mailbox-test` 31 — **1027 checks**.
+Current, all green: **smoke 830**, `account-client-test` 56, `accounts-test` 66,
+`merge-test` 48, `scrabble-rules-test` 28, `mailbox-test` 31 — **1059 checks**.
 (Three crossword-bank checks want ten puzzles at every size and the background
 job is still short of that — `ship-release.ps1 -AllowBankInProgress` is what
 that flag is for, and nothing else belongs in it. A *fourth* red, the no-repeat
 rule, was the check being wrong rather than the bank; see §6.)
 
-Two of the tools are eyes rather than tests, and need playwright + a Chromium:
-`tools/look-swing.mjs` measures whether each antic's animations still share one
-clock, and `tools/look-glass.mjs` photographs the hourglass at both phases.
-Neither runs in `npm test`; both run in the sandbox.
+Four of the tools are eyes rather than tests, and need playwright + a Chromium:
+`look-swing.mjs` measures whether each antic's animations still share one clock,
+`look-glass.mjs` photographs the hourglass at both phases, `look-parts.mjs`
+draws every part at icon size and worn (`--tint=7` to check the dye), and
+`look-shop.mjs` shoots the shop and the wardrobe. None runs in `npm test`; all
+of them run in the sandbox.
 
 ## 6. Gotchas that have each cost real time
+
+- **`n` is taken.** Every entry in every buddy part table starts `n:'Pendant'`
+  — that is its *name*. Adding a layer called `n:` gave the object literal two
+  of them, the second won, and the shop listed a path string where the name
+  goes. The neck layer is `nk`.
+
+- **A count that is cheap for a list is not cheap for a keystroke.**
+  `Cross._clues(i, rec)` re-parses the grid and re-reads the saved record. That
+  is fine once for a list and ruinous on every letter typed, which is where the
+  calendar's record is written from — it more than doubled the suite's runtime
+  before anyone noticed a slow app. `_cluesNow()` reads `this.puz` and
+  `this.user`, both already in hand.
+
+- **Write the calendar record where the board is written, not on the clock's
+  beat.** The record used to go down every ten seconds, so a puzzle put away
+  between beats lost its last few clues off the calendar. `dailyMark` is a
+  no-op when nothing changed, so calling it from `persist()` is free.
+
+- **An `<svg>` clips to its own viewBox unless you say otherwise.** The buddy's
+  box stops at y=0 and half the hats go above the crown — a party cone's pompom
+  is at −6.6. `.bud-slot svg` has had `overflow:visible` since the jester was
+  drawn; the two *editing* stages never got it, so every tall hat was sliced
+  flat in the wardrobe and nowhere else. Padding on the box around it cannot
+  help: the crop is happening inside.
+
+- **A cord goes behind a head, and `worn.s` is painted after the head.** That is
+  why a necklace could only ever start below the jaw and hang there. `budPart`
+  returns three layers now — `b` behind everything, `n` between the coat and
+  the skull, `s` over the lot — and anything that loops round the neck puts its
+  loop in `n`.
+
+- **A second overlay over the first is two washes, not one.** `.overlay` is 96%
+  of the background on purpose, so the weather shows through. Open one over
+  another and you get ~92%: the puzzle calendar drew its month grid over the
+  words of the game underneath. An overlay that opens over an overlay needs a
+  solid background and a higher `z-index`.
+
+- **Never seed a shared generator from a module-level variable.** The daily
+  puzzles pass `rnd` down into `sShuffle`/`sFill`/`sMake` as an argument
+  precisely so the functions stay pure — a hidden seed that some other call
+  advances is a puzzle that is reproducible in testing and different in the
+  wild. Same reason `pktDay` returns a string: two devices comparing `Date`
+  objects agree about an instant and disagree about a day.
+
+- **The crossword bank is append-only, and now it is load-bearing.** A puzzle's
+  release date is its position in its size's list counted from `DAILY_EPOCH`.
+  Insert one in the middle and every date after it shifts — which relabels
+  history and orphans every board saved against those days. Append.
+
+- **Raising a price re-charges everybody who already paid the old one.** The
+  balance is derived, so `spent` is recomputed over `own` at whatever the table
+  says *today*. Putting the lights, sounds and clock faces up took hundreds of
+  embers off long-standing accounts in one update and put several on zero. The
+  shape that works: freeze the old numbers (`EMB_WAS`), record what each device
+  was holding when the rise landed (`Embers.grand`, written once in `load()`
+  when the stored key is absent — `null` means "has not met the rise", `[]`
+  means "met it owning nothing", and the two must not be confused), and price
+  the owned list with `paidFor` rather than `priceOf`. `grand` has to merge, or
+  a second device re-charges the difference. **A per-device flag plus a bump to
+  `adjust` does not work** — `adjust` merges by `max` and two devices updating
+  weeks apart each add the credit, so the second one doubles it. Anything
+  derived has to stay derived.
+
+- **`A r r 0 0 1` is the small arc, and the small arc is not the one you want
+  over a head.** Two points 32.5 apart on a circle of 16.4 admit two centres;
+  the small-arc flag picks the one *below* the chord, which crests at y=14.6
+  against a skull that starts at 11. Every hairstyle had four units of bare
+  scalp above it for that reason, and no amount of adjusting the radius fixes
+  it (a small arc's sagitta cannot exceed its radius). `0 1 1` picks the head's
+  own circle. The hats get away with `0 0 1` by luck of having narrower chords.
+
+- **Anything in `worn.s`, `face.s` or `hatSvg` is painted after the head, so
+  the head does not cover it.** The skull is `cx=32 cy=27 r=16` — its lowest
+  point is y=43. A strap, cord or ribbon that begins at 41 is drawn *on his
+  jaw*, not behind it. Nothing worn starts above 44.2.
+
+- **A translucent fill cannot hide what is behind it, whatever the paint
+  order.** `.hg-sand` was `opacity:.85`, so the falling grains showed straight
+  through the heap they had landed in — and the `insertBefore` that moves the
+  stream behind the receiving bulb was doing its job perfectly the whole time.
+  Mix the alpha into the colour (`color-mix(... var(--bg))`) when the thing is
+  meant to be opaque.
+
+- **A sticky box pinned at `top:0` inside a padded scroller leaves a gap, and
+  filling it with a `box-shadow` in `--card` fills it with glass.** `--card` is
+  translucent; the shadow also follows the border radius, so what you get is a
+  see-through band with square ends over rounded corners. Pin at `-6px` (the
+  scroller's own padding) and square off the top corners: the box's own opaque
+  background covers the padding and the overflow clips the overshoot.
+
+- **A rule that strips things must know it is looking at the real list.**
+  `Embers.own` is `['seaglass']` until the record comes back out of storage,
+  and `budOwns` answers "no" for anything it cannot read — so `budStrip` run in
+  that window takes everything off him and writes it down. `Embers.ready` (set
+  *after* the await in `load()`, unlike `loaded`, which is the re-entrancy latch
+  and goes up before it) is the only honest answer. And prefer hiding to
+  clearing: `budAnimIdx()` already returns -1 for an unowned antic, so
+  overwriting `S.budAnim` bought nothing and lost the choice permanently.
+
+- **A price table beside a drawing table, and a check that they match.** Parts
+  are drawings; keeping a `cost` on each one would mean every art change
+  touching the economy and every price change touching the art. `BUD_COST` in
+  46-buddy.js is one row per list, in the same order as the list, and
+  `tools/smoke-test.mjs` fails if the two ever come apart — which is the only
+  reason it is safe to keep them separate. **Anything that can appear in
+  `Embers.own` must be priceable by `priceOf`** (37-embers.js), because the
+  balance is *derived*: `embersFrom` works out what has been spent by pricing
+  the list, so an id nothing recognises is a thing that was bought for nothing.
+  That is why every buddy purchase is filed as `bud-<row><index>` and parsed
+  back by `budPriceOf` rather than being given a friendly name.
+
+- **Recolouring a drawing from the outside beats putting tokens in it.** The
+  obvious way to dye a part is `%A%` and `%B%` in the path data and a colour
+  pair per item — thirty hand-tuned drawings to rewrite and two shades to get
+  right in each. `budDye` reads the hexes already in the string and maps each
+  onto the chosen hue at the lightness it already had, keyed off the *first*
+  colour (these are written back to front, so the first fill is the garment and
+  the rest are its trim). Both layers of a coat are read together or a cape's
+  lining picks a different base from its back. Index 0 returns the string
+  untouched, so nothing anybody is already wearing moved by a pixel.
 
 - **Two clocks that must start together: the slot and what is inside it.** Every
   antic is written as one animation on the slot that carries him across the
@@ -461,6 +583,55 @@ Neither runs in `npm test`; both run in the sandbox.
   alone. Pinned at **^30** now. If you test in a scratch directory, install the
   version package.json pins; a newer one there passes checks that `npm test`
   fails, which is worse than no test at all.
+- **A test door must be spliced at the *last* `})();`, not the first.** The
+  smoke test's `withDoor(src, code)` opens a window onto the bundle's private
+  scope by inserting an assignment just before the IIFE closes. Written as
+  `html.replace('})();', …)` it hit the first occurrence in the file — a nested
+  one two-thirds up, inside `28-ambience.js` — and a door spliced *there* names
+  `const`s that are still in temporal dead zone, so the whole IIFE throws on
+  load and about seventeen entirely unrelated room checks fail with nothing to
+  connect them to the change. It is `lastIndexOf` now, in `withDoor` and in
+  `tools/look-ft.mjs`. If a batch of unrelated checks ever dies at once after a
+  door is added, this is why. The other `look-*.mjs` still splice at the first
+  match and are fine, but only by accident of shape: their door is a *deferred
+  function* (`window.__x = () => {…}`) that nothing runs until the page has
+  finished loading, so no binding is read while it is still dead. A door that
+  reads anything at splice time must go at the last close.
+- **An invisible byte in a string literal is a thing nobody can review.** The
+  friend-request sentinel is U+0001, which is the right choice — it has to be
+  something a person cannot type into a message — but a *literal* control
+  character got into `29a-friends.js` and later into this very file, where it
+  showed up as a search that would not match and an edit that would not apply.
+  Write it as an escape inside the literal, never pasted — `'\u0001fr:'`.
+  `grep -P '\x01' -r src tools *.md` finds any that creep back in.
+- **Every `try{ xAdopt(…) }catch(e){}` in `48-account.js` can hide a whole
+  section going missing.** The catches are there for a good reason — one bad
+  section must not abort the rest of the sign-in — but they turn a typo into
+  silence. `dailyAdopt` called `dailyMerge` when the function is `mergeDaily`,
+  so from the day the calendar shipped, signing in on a second device threw a
+  `ReferenceError` into that catch and brought across no puzzle history at all.
+  Nothing logged, nothing visibly wrong, just an empty calendar on the new
+  phone. **The test for an adopt path has to go through the adopt path**: the
+  streak checks originally wrote the record straight into `DAILY` and would have
+  passed forever. If you add a section to the snapshot, add a check that adopts
+  it rather than one that inspects the store.
+- **A dated puzzle must carry its day, not recompute it from its index.** The
+  crossword picks the first unfinished puzzle by walking the days its size
+  publishes, so on a day past the end of the bank it picks an *encore* — an
+  early puzzle shown again. `_firstUnfinished` used to return only a bank index
+  and `load(i)` worked the day back out of that index's position, which is the
+  puzzle's *original* date, not the day you opened it. Progress was filed under
+  17 August while the calendar, quite correctly, showed the 28th and said "Not
+  opened". It returns `{i, day}` now and both call sites pass the day through.
+  Any other game that ever gets an encore has the same trap waiting.
+- **Never read the version out of a working copy that is not `D:\Focus`.**
+  The sandbox copy of `package.json` has drifted — it carries a `playwright`
+  dependency the look tools need and is missing the `ship:release` script — and
+  its `version` had been left three minor releases behind. Quoting it would
+  have shipped 1.0.11 over a 1.3.0 that is already out, and the updater
+  compares versions, so every installed copy would have ignored it. `D:\Focus`
+  is the only authority on the version; check there before naming a number,
+  and never push a sandbox `package.json` over it.
 - **jsdom windows must be closed before `process.exit()`.** `pretendToBeVisual`
   gives each one a rAF loop that never stops, and exiting under it aborts libuv
   on Windows — *"Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file
@@ -475,7 +646,9 @@ Neither runs in `npm test`; both run in the sandbox.
   calendar (`PLAN`), the checklist (`TASKS`), the tombstones (`GONE`), your own
   quotes (`CUSTOM_QUOTES`), the single-player arcade (`gamesSnapshot()`), and a
   `sim` bundle holding the settings, the theme, the ambience, what the buddy
-  looks like and which antic he does. **If you add something a person sets up,
+  looks like and which antic he does. What he *owns* rides separately, in
+  `Embers.own`, which is unioned — so a hat bought on a phone is his on a
+  laptop, and `budStrip` takes off anything the account has not paid for. **If you add something a person sets up,
   add it here, to `Account.wipe()`, to `mergeSnapshots` in `47-merge.js` *and*
   to the server's copy in `server/accounts.js`, in the same commit** — the four
   lists must match or signing out leaves a stranger's things behind and the
@@ -994,11 +1167,29 @@ web he throws is the web he lands on. Four smoke checks guard the geometry
 (§6). If you change one number, run them; the failure modes here are silent and
 look like something else entirely every single time.
 
-### Focus together — working, one thing unmoved
+### Focus together — people-shaped now
 
 Peer-to-peer, five two-player games, host and leader separable so the timer can
-be handed over. **Friends' buddies still render in the sync band; Hashir asked
-for them on the main timer screen.** That is the only outstanding request.
+be handed over. As of 2026-08-27 (4) the page is built around **people rather
+than codes**: friends are stored and shown under their username, you add
+somebody by typing that username, they get a request and agree to it, and their
+name opens a **profile** with their focus and puzzle numbers.
+
+The whole thing rests on one fact that was already true and was simply never
+used: **a code is a hash of a username** (`syncCodeFor`, deterministic, one
+account one code), so typing a name *is* finding the address. No directory, no
+lookup, no server change — which is why this shipped without a deploy.
+
+A profile is a **card the person handed over**, not something fetched: it rides
+on the request, on the reply, and on `hello` in a room, and the page says how
+old it is rather than pretending to be live. The app has never had a server that
+knows what anybody did, and a profile page was not a good enough reason to build
+one. Codes still work and always will — they are folded into a `<details>` at
+the bottom for the one case usernames cannot serve (somebody with no account, a
+one-off room).
+
+**Friends' buddies still render in the sync band; Hashir asked for them on the
+main timer screen.** That is the only outstanding request.
 
 ### What is deliberately not built
 
@@ -1014,6 +1205,183 @@ for them on the main timer screen.** That is the only outstanding request.
 ## 9. Log
 
 Newest first. One line each.
+
+- **2026-08-27 (4)** — **Focus together is about people now, and a streak is
+  about the day.** The overlay opened on a six-letter code and a nickname you
+  typed yourself, so the same person was "Sam" here and "sam2" there and nobody
+  could tell whether a code they had been handed was even real. It leans instead
+  on a fact that was already true and never used: **a code is a hash of a
+  username** (`syncCodeFor`), so typing a name *is* finding the address — no
+  directory, no lookup, no server change, nothing to deploy. You add somebody by
+  username, they get a **request** and agree to it, and their name opens a
+  **profile**: hours focused, sessions, day streak, sudoku, words, crosswords,
+  and their buddy. A request is an ordinary mail item whose `text` starts with
+  U+0001 then `fr:` — a control character, because it has to be something a
+  person cannot type — and `friendTake` lifts it out of the stream before the chat log
+  sees it. A **profile is a card they handed over**, riding on the request, the
+  reply and `hello`, saying *as of two hours ago* rather than pretending to be
+  live; there has never been a server here that knows what anybody did, and a
+  profile page is not a good enough reason to build one. Codes are folded into a
+  `<details>` at the bottom, for somebody with no account or a one-off room.
+  New file `src/js/29a-friends.js`; the overlay body is rewritten around
+  you → room → requests → people → start a room → codes.
+  **Streaks count the day of release only.** A finished record now carries `d`
+  when it was finished on its own day, and `dailyStreak` walks back over the days
+  that game actually publishes (today is a grace day, and it stops at
+  `DAILY_EPOCH`). Going back through the archive is welcome; it is not a streak.
+  Sudoku, word guess and the crossword all lead their calendar tiles with it.
+  **Word guess draws the grid.** The record keeps one string, five characters a
+  guess (`g`/`y`/`x`), so the calendar can redraw the picture people screenshot —
+  it says how close each try was and never which word it was.
+  **And the puzzle calendar never crossed between devices.** `dailyAdopt` called
+  `dailyMerge`; the function is `mergeDaily`, and its one caller in
+  `48-account.js` wraps it in a `try/catch`, so signing in on a second device
+  threw a `ReferenceError` into the void and dropped every day you had ever
+  played — no error, no log, streaks simply absent. It has been that way since
+  the calendar shipped. The new streak check goes through `dailyAdopt` rather
+  than writing the record by hand, which is the only reason it surfaced; a test
+  that reaches past the real path finds nothing.
+  **A finished day is finished.** "Look again" hands the board back, and every
+  key pressed on it used to overwrite the record — a word found in three,
+  reopened and abandoned, became a miss, and the grid people screenshot became
+  whatever was last typed. `dailyMark` now returns early on a day already at
+  `DAILY_DONE`. The board is still playable; it just no longer counts. `p` is
+  capped at 30, which is six guesses of five and not a character more.
+  **And the grid moved into the row**, in place of the edition's name — a
+  calendar of words did not need every line to say "Word" — with the result
+  and the button centred against however many tries it took.
+  **Some of the prose came back.** The cut of a day earlier went too far in
+  three places, all of them things that cannot be worked out from the screen:
+  what happens to the minutes left over when a block ends (the shop), what
+  "nothing is replaced" actually means when two devices sync (the account), and
+  when the next puzzle arrives (the calendar). The paragraphs that stayed cut
+  are the ones the app was already demonstrating. The rule that came out of it:
+  **cut what the screen shows anyway, keep what only the code knows.**
+  **And the dry lines got something to say.** The four solo games were listed
+  as specifications — "Easy, medium, hard", "Six tries, five letters",
+  "Swipe or arrow keys", "5×5 to 15×15" — and each now says the thing worth
+  knowing instead ("Everyone gets the same word", "Small ones daily, a big one
+  on Sundays"). The four rooms-required screens all said the identical sentence;
+  each says its own now, naming what the second person is actually *for* —
+  somebody has to think of the word, no use drawing with nobody watching.
+  Also: the picker's `2+` chip moved into the game's title, because it was
+  landing on top of "needs a room" in the same corner, and the four two-player
+  games now say nothing at all rather than "Room" when there isn't one.
+  And the crossword's `_firstUnfinished` returns `{i, day}` — see §6.
+
+- **2026-08-27 (3)** — **The calendar keeps results, not just states.** A
+  recorded day was the number 1 or 2; it is `{s, t, g, c, n, h}` now — how long
+  it took, how many guesses, how many clues, how many letters given away. The
+  day panel shows *that* instead of repeating the edition's name down the page,
+  and three tiles above the month give the game's totals; each game supplies
+  its own `line(rec)` and `stats(all)`, because only it knows whether its
+  numbers are guesses or clues. Old bare-number records read as `{s: n}`, and
+  `mergeDaily` picks the record that got further (higher `s`, then longer
+  clock) and keeps the loser's fields underneath.
+  **No more resets in sudoku, wordle or the crossword.** A dated puzzle is
+  played once and the result is kept; a button that wipes the board and the
+  time with it makes the record worth nothing. **Sudoku keeps a board per day
+  and difficulty** on a shelf in its save, so opening Tuesday's easy no longer
+  throws away Monday's half-finished hard — and swapping grids stopped asking
+  for confirmation, because nothing is lost by it. The crossword's own puzzle
+  list is gone: its button opens the calendar, which is the list that also
+  knows about the other three sizes and what you scored. `#11 of 11` is off the
+  meta line (the position still decides the date; it just says nothing worth
+  reading). Word guess says **History** rather than New.
+  Also: the worn-item names were coming out as raw SVG — `n:` is a part's
+  *name* and the new neck layer was added as `n:` too, so the second one won;
+  it is `nk`. The party hat's yellow bands and pompom now survive being dyed
+  (`keep:[…]` holds hexes out of `budDyeMap`). And **the screen copy was cut
+  back hard** — the shop's five-line explanation of how embers are banked, the
+  chat's paragraph about offline delivery, the picker's two-sentence blurb per
+  game, the sign-out essay. The app was explaining itself at every turn.
+
+- **2026-08-27 (2)** — **Every puzzle in the arcade is a dated edition now.**
+  Sudoku at each difficulty, Wordle and the four crossword sizes get one a day,
+  the same one for everybody, turning over at midnight in Pakistan. Three ideas
+  carry it, all in the new `src/js/09b-daily.js`: a day is the *string*
+  `pktDay(ts)` (PKT is UTC+5 all year, so the timezone handling is one added
+  constant and no `Intl`); a puzzle is *derived* from its day rather than
+  shipped — `dailyRng(dailySeed(game, diff, day))` replaces the `Math.random()`
+  in `sShuffle`, `Wordle._new` and `Memory._new`, which is why nobody could
+  compare a grid before; and the only thing stored is what you *did*, one small
+  `{'sudoku:easy': {'2026-08-27': 2}}` record that merges by union-then-max in
+  `47-merge.js` and `server/accounts.js`. The crossword can't be generated, so
+  it gets a *schedule* instead — 5×5 and 7×7 daily, 9×9 Wednesday and Friday,
+  15×15 Sunday, counted from `DAILY_EPOCH` — and its shelf lists dates rather
+  than `#1`. **The bank must stay append-only**: a puzzle's date is its position
+  in its size's list, so inserting one in the middle rewrites history and
+  orphans saved boards; the smoke test pins the first few dates. Days past the
+  end of the bank get an *encore* of an earlier puzzle, said out loud, rather
+  than nothing. One overlay serves every game's calendar (`#dcal-overlay`): a
+  dot per edition, its colour the difficulty and its fill how far you got, with
+  the archive always open — only today is rationed. The roll is built in, a
+  timer to the next Pakistani midnight re-armed on every wake.
+  Also this round: worn cords go *round the neck* — `budPart` grew a third
+  layer, `n`, painted under the skull, so a pendant chain and a medal ribbon
+  disappear at the jaw instead of starting below it; the party hat was being
+  clipped by the `<svg>`'s own default `overflow:hidden` (only `.bud-slot svg`
+  ever had `overflow:visible`, which is why it looked fine on the timer and cut
+  off in the wardrobe) and now sits on the crown rather than sunk into it; the
+  ponytail lost its scratch of a parting line and gained a forehead; and the
+  wardrobe has a **Start over** that puts every row, every colour and all three
+  eye dials back — the dials to `BUD_EYE_MID`, not 0, which is the bit worth
+  saying out loud.
+
+- **2026-08-27** — **A price is not a number you can just change.** The balance
+  is derived and never stored — `have = earned - SUM(price(id) for id in own)` —
+  so putting eleven lights, five tracks and three clock faces up at once
+  recomputed everybody's spend at the *new* numbers and took hundreds of embers
+  off people who had bought them at the old ones. Several balances landed on
+  zero. Two things are true now: `EMB_WAS` in 37-embers.js freezes what each of
+  those cost before the rise, and `Embers.grand` is the list a device was
+  holding the first time it met the rise. `paidFor(id)` — not `priceOf(id)` — is
+  what `reconcile()` prices the owned list with, so anything grandfathered keeps
+  its old price forever and anything bought afterwards pays the shelf. `grand`
+  is unioned across devices like `own` is, in both `47-merge.js` and
+  `server/accounts.js`; the server rebuilds snapshots from the keys it knows, so
+  a key it is not told about is a key it silently drops. The smoke test boots a
+  device with a pre-rise record and asserts 195 rather than 88.
+  Also this round: **the hair was a ring** — every style hung from `A r r 0 0 1`,
+  the *small* arc, which crests four units below the skull, which is the bald
+  patch you could see through all six of them; the large-arc flag picks the
+  head's own circle. Hairlines moved off the eyes and up to a forehead, and the
+  pulled-back ones (bun, ponytail) stop at the equator instead of the ears.
+  **Nothing worn may start above y=43** — the chin — because `worn.s` is painted
+  after the head: the backpack straps, the pendant cord, the medal ribbon and
+  the lanyard were all drawn on his jaw. **The falling sand showed through the
+  heap** because `.hg-sand` was `opacity:.85`; moving the stream behind the bulb
+  in document order does nothing when the thing in front is see-through, so the
+  alpha is mixed into the fill instead. The wardrobe's sticky stage pins at
+  `-6px` with square top corners rather than filling the gap with a translucent
+  `box-shadow` (that shadow was the "weird outline on top"), and has 26px over
+  his head so a party hat's pompom at y=-6.6 clears. **`budStrip` now refuses to
+  run before `Embers.ready`**, and never clears `S.budAnim`: `budAnimIdx()`
+  already hides an unowned antic, so writing -1 bought nothing and cost the
+  choice for good the first time an ownership list was read a beat early — that
+  is "sometimes antics randomly reset". Leaving the buddy menu offers three
+  answers (Save / Discard / Keep editing) via `askConfirm`'s new `opt`.
+
+- **2026-08-26 (3)** — **Everything he wears is bought now, and there is a shop
+  to buy it in.** Five new drawings in every row — eyes, hats, face, worn,
+  outerwear — plus **hair**, which is its own row rather than more hats because
+  you wear both. Every part can be **dyed**, and no part had to be rewritten for
+  it: `budDye` reads the colours already in a drawing and moves each one onto
+  the chosen hue *keeping the lightness it had*, so a hoodie's drawstrings stay
+  near-white when the hoodie turns red and index 0 returns the string untouched
+  (there is a check that the untouched one is byte-identical). Eyes get an ink
+  and a size instead of eight more drawings of everything: one `<g>` fill and
+  one scale about the point between them, so both apply to every style there is.
+  The shop is five tabbed shelves — Looks, Sounds, Clock faces, Buddy, Antics —
+  and on the buddy shelf **you put a thing on before paying for it**: the
+  preview is him, the tile is lit, and nothing is bought or written down until
+  the confirm. The wardrobe holds only what you own, with one button through to
+  the shop rather than a wall of locked tiles. Skin and body colour are free and
+  always were; so is every dye. Antics are the dearest things in there.
+  **The update takes everything off everybody** — not as a migration behind a
+  flag but as a rule that holds continuously: `budStrip` takes off anything not
+  in `Embers.own`, at boot, when an account arrives, and when progress is reset.
+  830 smoke, 56 account-client.
 
 - **2026-08-26 (2)** — **"Sometimes the swing is broken" and "sometimes the
   skateboard turns early" were one bug, and it was a clock.** The travel is an

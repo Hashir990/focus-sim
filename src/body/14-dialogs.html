@@ -5,6 +5,9 @@
     <h3 id="confirm-title"></h3>
     <p id="confirm-body"></p>
     <div class="confirm-acts">
+      <!-- A third way out, for the confirms where No is not "do nothing". Hidden
+           unless the caller asks for it — see askConfirm's `opt.alt`. -->
+      <button class="mini-btn hide" id="confirm-alt"></button>
       <button class="mini-btn" id="confirm-no">Cancel</button>
       <button class="primary" id="confirm-yes">Yes</button>
     </div>

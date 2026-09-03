@@ -42,15 +42,15 @@
   const EMB_LIGHTS = [
     {id:'seaglass', name:'Sea glass', note:'Blue and teal, rising', cost:0,
      accent:'#4fe0c8', fx:'sparks', fxc:'#5ee6d0', fxc2:'#6fb6f5', fxm:1},
-    {id:'latesun', name:'Late sun', note:'Yellow into orange, in waves', cost:5,
+    {id:'latesun', name:'Late sun', note:'Yellow into orange, in waves', cost:18,
      accent:'#f7bd52', fx:'sun', fxc:'#ffe07a', fxc2:'#ff9a3c', fxm:1},
-    {id:'dusk', name:'Dusk', note:'Smoke, white through to blue-black', cost:10,
+    {id:'dusk', name:'Dusk', note:'Smoke, white through to blue-black', cost:26,
      accent:'#c3cede', fx:'smoke', fxc:'#eef3fb', fxc2:'#55637a', fxm:1},
     /* Bubblegum is the quiet one of the pair: the same purple night, pink
        lights swelling and going out instead of anything going bang. */
-    {id:'frost', name:'First frost', note:'Snow, white and grey', cost:15,
+    {id:'frost', name:'First frost', note:'Snow, white and grey', cost:34,
      accent:'#e4ecf2', fx:'snow', fxc:'#ffffff', fxc2:'#9aa8b4', fxm:1},
-    {id:'hearth', name:'Hearth', note:'Spores, every shade of green', cost:20,
+    {id:'hearth', name:'Hearth', note:'Spores, every shade of green', cost:42,
      accent:'#8fd977', fx:'spores', fxc:'#c8f0a0', fxc2:'#4f9e58', fxm:1},
     /* Dusk's smoke, lit from underneath and three times as thick — smoke coming
        off a fire is not weather drifting past, and eight shapes read as the
@@ -63,7 +63,7 @@
        colours taken in turn rather than blended, because what makes molten rock
        read as molten is bright orange *between* dark crust. A blend of orange
        and near-black is an unbroken brown, which is mud. */
-    {id:'magma', name:'Magma', note:'Lava, cracking orange through black', cost:25,
+    {id:'magma', name:'Magma', note:'Lava, cracking orange through black', cost:50,
      accent:'#ff6a30', fx:'smoke', fxc:'#ff4a1e', fxc2:'#3a0602', fxm:1,
      /* `fxn` still asks for plenty; the kind's `cap` is what actually decides,
         and it is there because these carry a blur each. Thickness past that
@@ -76,18 +76,18 @@
         already starting to pull it back towards smoke. */
      fxpal:['#ff7a1e', '#ff3b0f', '#ffab3d', '#c21f07', '#ffd27a',
             '#ff5c14', '#ff9326', '#8f2a05', '#ffc266', '#1c0402']},
-    {id:'bubblegum', name:'Bubblegum', note:'Pink lights on a purple night', cost:30,
+    {id:'bubblegum', name:'Bubblegum', note:'Pink lights on a purple night', cost:58,
      accent:'#ff8fd0', fx:'bokeh', fxc:'#ffa6dc', fxc2:'#ff62b4', fxm:1},
-    {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:40,
+    {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:70,
      accent:'#f28cae', fx:'petals', fxc:'#ffd3e0', fxc2:'#e8608f', fxm:1},
     /* The one light look on the shelf, and the only one whose weather has to be
        *darker* than the ground to be seen at all — pale motes on cream are
        nothing. Deep sand and sea blue, drifting like glare off water. See the
        light-mode note in 30-embers.css: this palette carries --card, --line and
        --track as well, because those three assume a dark room everywhere else. */
-    {id:'beach', name:'Beach', note:'Sand and sea, with a tide', cost:40,
+    {id:'beach', name:'Beach', note:'Sand and sea, with a tide', cost:70,
      accent:'#2f9fd0', fx:'bokeh', fxc:'#2f9fd0', fxc2:'#c98f2b', fxm:1},
-    {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:50,
+    {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:85,
      accent:'#ff7ab8', fx:'fw', fxc:'#ffe066', fxc2:'#ff7ab8', fxm:1,
      // weighted towards the yellows, with the pinks and blues between them
      fxpal:['#ffe066', '#ff7ab8', '#fff2a8', '#7ac8ff', '#ffd166', '#b78cff',
@@ -96,7 +96,7 @@
        behind the dial, drawn as inline SVG in the timer markup and shown by
        this id alone. Kept faint on purpose — it is behind a countdown, and a
        mark you can read at a glance is a mark that competes with the numbers. */
-    {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:40,
+    {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:70,
      accent:'#e01b24', fx:'motes', fxc:'#e01b24', fxc2:'#2438a8', fxm:1},
   ];
 ;
@@ -106,20 +106,48 @@
      ships with no sound at all until you have earned some is a worse app. Each
      brings its own weather as well as its own tint. */
   const EMB_SOUNDS = [
-    {id:'cafe', name:'Café', note:'A room, out of focus', cost:5,
+    {id:'cafe', name:'Café', note:'A room, out of focus', cost:18,
      accent:'#d9a774', fx:'bokeh', fxc:'#e8c398', fxm:1},
-    {id:'rain', name:'Rain', note:'Lines down the glass', cost:15,
+    {id:'rain', name:'Rain', note:'Lines down the glass', cost:34,
      accent:'#7fb2d9', fx:'rain', fxc:'#a8d6f5', fxm:1},
-    {id:'office', name:'Office', note:'Somebody typing next door', cost:20,
+    {id:'office', name:'Office', note:'Somebody typing next door', cost:42,
      accent:'#9fb4cc', fx:'keys', fxc:'#bcd0e6', fxc2:'#7f97b3', fxm:1},
-    {id:'forest', name:'Forest', note:'Leaves letting go', cost:35,
+    {id:'forest', name:'Forest', note:'Leaves letting go', cost:62,
      accent:'#7fc98a', fx:'leaves', fxc:'#cbe8a8', fxc2:'#5f9c6b', fxm:1.2},
-    {id:'campfire', name:'Campfire', note:'Sparks thrown off the top', cost:35,
+    {id:'campfire', name:'Campfire', note:'Sparks thrown off the top', cost:62,
      accent:'#f0a05a', fx:'sparks', fxc:'#ffc083', fxc2:'#ff8f4d', fxm:.6, fxw:2.6,
      fxflick:1},
   ];
 ;
   const EMB_SND = 'snd-';                       // how a sound is filed in `own`
+
+  /* ---------------- what these used to cost ----------------
+
+     **A price is not a number you can just change here.** The balance is
+     derived and never stored: `have = earned - SUM(price(id) for id in own)`.
+     Put a price up and that sum is recomputed over things people bought years
+     ago at the old one — so raising eleven lights, five tracks and three clock
+     faces at once took several hundred embers off everybody who owned them,
+     all at once, for nothing. That is the "embers automatically going to 0"
+     report, and it is not a rounding error: it is what a derived balance does
+     when you rewrite its history.
+
+     So the shop's price and the price you *paid* are two different things.
+     This is the second one, frozen: what each of these cost before the rise.
+     Anything a device already owned when it first ran this build is written
+     into `Embers.grand` and priced from this table forever; anything bought
+     afterwards pays what the shelf says. `grand` is unioned across devices
+     like `own` is, so two devices updating weeks apart agree.
+
+     **Never edit these numbers.** They are a receipt, not a price list. If
+     something goes up again, the way to do it is another table beside this
+     one and another list beside `grand` — not a change here. */
+  const EMB_WAS = {
+    seaglass:0, latesun:5, dusk:10, frost:15, hearth:20, magma:25,
+    bubblegum:30, peony:40, beach:40, fireworks:50, spiderman:40,
+    'snd-cafe':5, 'snd-rain':15, 'snd-office':20, 'snd-forest':35, 'snd-campfire':35,
+    'face-digital':0, 'face-analog':40, 'face-flip':20, 'face-glass':60,
+  };
 
   function embLight(id){ return EMB_LIGHTS.find(l=>l.id === id) || EMB_LIGHTS[0]; }
   function embSound(id){ return EMB_SOUNDS.find(s=>s.id === id) || null; }
@@ -136,9 +164,20 @@
     earned:0,           // ever, which is the number that is really a record
     bank:0,             // seconds of focus not yet worth a whole ember
     own:['seaglass'],
+    /* Everything owned when the prices went up, priced from `EMB_WAS` for
+       good. `null` means "this device has not met the rise yet" and is what
+       `load()` looks for; an empty array is a device that met it owning
+       nothing, which is a different thing and must not migrate twice. */
+    grand:null,
     claimed:[],         // achievements already paid out; see 40-achievements.js
     light:'seaglass',
+    /* `loaded` is the re-entrancy latch and goes up *before* the await, so it
+       is true throughout a load that has not finished. `ready` goes up after,
+       and is the only honest answer to "is `own` the real list yet" — see
+       `budStrip` in 46-buddy.js, which takes things off him for good and must
+       never do it against the default. */
     loaded:false,
+    ready:false,
 
     /* Things that happened once and left no trace.
        Nearly every achievement is *derived* — the hours come from the log, the
@@ -162,6 +201,7 @@
           this.earned = Math.max(0, d.earned|0);
           this.bank = Math.max(0, Math.min(EMB_PER - 1, d.bank|0));
           this.own = Array.isArray(d.own) && d.own.length ? d.own : ['seaglass'];
+          this.grand = Array.isArray(d.grand) ? d.grand : null;
           // Meadow became Fireworks; anybody who bought the one has the other
           if(this.own.indexOf('meadow') >= 0 && this.own.indexOf('fireworks') < 0){
             this.own.push('fireworks');
@@ -180,6 +220,15 @@
          nothing owned until something else happened to redraw them. Which is
          why a purchase from a previous session only appeared after finishing a
          block or opening the page twice. */
+      /* The one moment at which "owned" means "owned before the rise". After
+         the record has been read, before anything can be bought. A device with
+         no record at all is a fresh install and grandfathers nothing, which is
+         also the right answer — it never paid the old price. */
+      if(this.grand == null){
+        this.grand = (this.own || []).filter(id=>EMB_WAS[id] != null);
+        try{ this.save(); }catch(e){}
+      }
+      this.ready = true;
       this.paint();
       this._mark();
       try{ this.render(); }catch(e){}
@@ -188,6 +237,7 @@
       KV.set(EMB_KEY, JSON.stringify({
         adjust:this.adjust,
         have:this.have, earned:this.earned, bank:this.bank, own:this.own,
+        grand:this.grand || [],
         claimed:this.claimed, feats:this.feats, light:this.light,
       }));
     },
@@ -231,12 +281,29 @@
        been running since before this existed has embers that were never in a
        log. Rather than take them away, the difference is written down once, on
        the first load that notices, and carried from then on. */
+    /* **What it costs on the shelf.** Not necessarily what you were charged —
+       see `paidFor` below and `EMB_WAS` above. */
     priceOf(id){
       if(typeof id !== 'string') return 0;
       if(id.indexOf(EMB_SND) === 0){ const s = embSound(id.slice(EMB_SND.length)); return s ? s.cost : 0; }
       if(id.indexOf('face-') === 0){ try{ return faceDef(id.slice(5)).cost || 0; }catch(e){ return 0; } }
+      /* Everything the buddy wears, and every antic he does. **Anything that
+         can appear in `own` has to be priceable here or the balance drifts** —
+         `embersFrom` derives what has been spent by pricing the list, so an id
+         this does not recognise is a thing that was bought for nothing. See
+         `budPriceOf` in 46-buddy.js for how one is parsed. */
+      if(id.indexOf(BUD_ITEM) === 0){ try{ return budPriceOf(id); }catch(e){ return 0; } }
       const l = EMB_LIGHTS.find(x=>x.id === id);
       return l ? l.cost : 0;
+    },
+    /* **What you were actually charged**, which is the only honest input to a
+       derived balance. The shelf price for anything bought after the rise; the
+       frozen one for anything held before it. This is what `reconcile()` and
+       the achievements page price the owned list with — `priceOf` is for
+       what to write on a tile. */
+    paidFor(id){
+      if(this.grand && EMB_WAS[id] != null && this.grand.indexOf(id) >= 0) return EMB_WAS[id];
+      return this.priceOf(id);
     },
     payout(id){
       try{ const a = ACH.find(x=>x.id === id); return a ? (a.pays || 0) : 0; }catch(e){ return 0; }
@@ -245,7 +312,7 @@
     reconcile(){
       const self = this;
       const d = embersFrom(LOG, this.own, this.claimed, this.feats, this.adjust,
-        (id)=>self.priceOf(id), (id)=>self.payout(id));
+        (id)=>self.paidFor(id), (id)=>self.payout(id));
       /* First run after the derivation existed: whatever the old stored number
          was above what can be explained is written down as carried history. */
       if(!this.adjust && this.earned > d.earned){
@@ -294,8 +361,7 @@
       if(this.own.indexOf(l.id) >= 0){ this.use(l.id); return; }
       if(this.have < l.cost){ toast('Not enough embers yet'); return; }
       askConfirm('Light the ' + l.name.toLowerCase() + '?',
-        l.cost + ' embers, and it is yours for good. You can switch between any '
-        + 'you have whenever you like.',
+        l.cost + ' embers, yours for good.',
         'Spend ' + l.cost, ()=>{
           if(Embers.have < l.cost) return;
           Embers.have -= l.cost;
@@ -314,8 +380,7 @@
       if(embHasSound(id)){ if(then) then(); return; }
       if(this.have < s.cost){ toast(s.cost + ' embers for ' + s.name.toLowerCase()); return; }
       askConfirm('Unlock ' + s.name.toLowerCase() + '?',
-        s.cost + ' embers, and it is yours for good — the sound, the colours it '
-        + 'brings, and the weather with it.',
+        s.cost + ' embers, yours for good — sound, colours and weather.',
         'Spend ' + s.cost, ()=>{
           if(Embers.have < s.cost) return;
           Embers.have -= s.cost;
@@ -383,12 +448,24 @@
 
     reset(){
       this.have = 0; this.earned = 0; this.bank = 0;
-      this.own = ['seaglass']; this.light = 'seaglass';
+      this.own = ['seaglass']; this.grand = ['seaglass']; this.light = 'seaglass';
       this.claimed = []; this.feats = {};
       this.save(); this.paint(); this.render();
       // a track you no longer own cannot keep playing
       try{ if(!embHasSound(AMB.id)) ambSet('off'); else ambVfx(); }catch(e){}
+      /* and a hat you no longer own cannot stay on his head. The wardrobe is
+         bought with the same embers as everything else, so it goes when they
+         do — see `budStrip` in 46-buddy.js. */
+      try{ budStrip(); Buddy.render(); Buddy.clearSlots(); Buddy.stage(); }catch(e){}
     },
+
+    /* Which shelf is open. The shop was one long page of lights, sounds and
+       faces, and the buddy would have made it three times longer — so it is
+       tabbed, and the tab is remembered while the app is open so coming back
+       from a purchase does not put you at the top of the wrong shelf. */
+    tab:'looks',
+    TABS:[['looks', 'Looks'], ['sounds', 'Sounds'], ['faces', 'Clock faces'],
+          ['buddy', 'Buddy'], ['antics', 'Antics']],
 
     /** The block at the top of Your focus. */
     html(){
@@ -396,21 +473,29 @@
         .concat(EMB_SOUNDS.filter(sd=>!embHasSound(sd.id)))
         .sort((a, b)=>a.cost - b.cost)[0];
       const hours = Math.floor(this.earned * EMB_PER / 3600);
+      const tab = this.TABS.some(t=>t[0] === this.tab) ? this.tab : 'looks';
+      const pane = (id, body)=>tab === id ? body : '';
       return '<div class="emb">'
         + '<div class="emb-count"><b>' + this.have + '</b>'
         + '<span>ember' + (this.have === 1 ? '' : 's') + ' unspent</span></div>'
+        /* **Two lines: the rate, and the thing nobody can work out.** This was
+           five, then it was one, and one was too few — the leftover-minutes
+           rule is the whole reason a short session is worth sitting through,
+           and there is nowhere else in the app it could be inferred from. What
+           was cut and stays cut is the paragraph about where bonus embers come
+           from, which the achievements screen already says. */
         + '<p class="emb-sub">' + this.earned + ' earned in all'
         + (hours ? ' · about ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' of focus' : '')
-        + '. One for every ten minutes you finish — counted by the minute, so '
-        + 'part of a block is never wasted and a block you abandon is never '
-        + 'worth anything. A few more come from the achievements page.</p>'
-        + '<p class="emb-spend">Embers are for spending. Everything below is a '
-        + 'theme — pick one and it costs you once, then it is yours to switch '
-        + 'back to whenever you like.</p>'
+        + '</p>'
+        + '<p class="emb-sub">One ember per ten minutes of focus. Minutes left '
+        + 'over are kept and count towards the next one.</p>'
+        + '<div class="shop-tabs">' + this.TABS.map(([id, name])=>
+            '<button class="shop-tab' + (tab === id ? ' on' : '') + '" data-tab="' + id + '">'
+            + esc(name) + '</button>').join('') + '</div>'
         /* "puts it out" belongs to the same retired metaphor as "burning". A
            sound replaces the look rather than extinguishing it, and that is
            also plainer about what actually happens. */
-        + '<p class="emb-head">Looks <em>colour and weather — one at a time, and a sound replaces it</em></p>'
+        + pane('looks', '<p class="emb-head">Looks <em>one at a time</em></p>'
         + '<div class="emb-lights">' + EMB_LIGHTS.map(l=>{
             const mine = this.own.indexOf(l.id) >= 0;
             let on = this.light === l.id;
@@ -427,8 +512,8 @@
                  says the same thing about every look on the shelf. */
               + '<em>' + (mine ? (on ? 'in use' : 'owned') : l.cost + ' embers') + '</em>'
               + '<span>' + esc(l.note) + '</span></button>';
-          }).join('') + '</div>'
-        + '<p class="emb-head">Sounds <em>and the colours and weather they bring</em></p>'
+          }).join('') + '</div>')
+        + pane('sounds', '<p class="emb-head">Sounds <em>with their own colours</em></p>'
         + '<div class="emb-lights">' + EMB_SOUNDS.map(sd=>{
             const mine = embHasSound(sd.id);
             let on = false;
@@ -441,13 +526,13 @@
               + '<b>' + esc(sd.name) + '</b>'
               + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : sd.cost + ' embers') + '</em>'
               + '<span>' + esc(sd.note) + '</span></button>';
-          }).join('') + '</div>'
+          }).join('') + '</div>')
         /* The clock faces belong on the shelf too — they cost embers like
            everything else, and a thing you can buy that is not where the buying
            happens is a thing nobody finds. The catalogue lives in 43-faces.js;
            this only draws it, and the tiles carry `data-face-pick` so the same
            click handler serves the shelf and the menu. */
-        + '<p class="emb-head">Clock faces <em>how the time itself is drawn</em></p>'
+        + pane('faces', '<p class="emb-head">Clock faces <em>how the time itself is drawn</em></p>'
         + '<div class="emb-lights">' + FACES.map(f=>{
             const mine = faceHas(f.id);
             const on = mine && faceOk(S.face) === f.id;
@@ -459,7 +544,11 @@
               + '<b>' + esc(f.name) + '</b>'
               + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : f.cost + ' embers') + '</em>'
               + '<span>' + esc(f.note) + '</span></button>';
-          }).join('') + '</div>'
+          }).join('') + '</div>')
+        /* The wardrobe and the antics. Both are drawn by 46-buddy.js, next to
+           the parts and the prices they are about — see `budShopHtml`. */
+        + pane('buddy', (()=>{ try{ return budShopHtml(); }catch(e){ return ''; } })())
+        + pane('antics', (()=>{ try{ return budAnticShopHtml(); }catch(e){ return ''; } })())
         + (next ? '<p class="emb-next">' + (this.have >= next.cost
             ? 'You can afford ' + next.name.toLowerCase() + '.'
             : (next.cost - this.have) + ' more for ' + next.name.toLowerCase()
@@ -482,6 +571,10 @@
       box.querySelectorAll('[data-light]').forEach(b=>{
         b.onclick = ()=>Embers.buy(b.dataset.light);
       });
+      box.querySelectorAll('[data-tab]').forEach(b=>{
+        b.onclick = ()=>{ Embers.tab = b.dataset.tab; Embers.render(); };
+      });
+      try{ budShopWire(box); }catch(e){}
       box.querySelectorAll('[data-sound]').forEach(b=>{
         b.onclick = ()=>{
           const id = b.dataset.sound;

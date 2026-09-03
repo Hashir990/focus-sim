@@ -1,0 +1,27 @@
+<!-- ============ PUZZLE CALENDAR ============
+     One overlay, every game. Opened from the button in the arcade header when
+     the game on screen has dated editions; `dailyCalOpen(id)` in 09b-daily.js
+     fills it in. A month of days, a dot per difficulty, and the dot's colour
+     says which difficulty while its fill says how far you got. -->
+<div class="overlay hide" id="dcal-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="dcal-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title" id="dcal-title">Puzzles</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <p class="dcal-lede" id="dcal-lede"></p>
+    <div class="dcal-sum hide" id="dcal-sum"></div>
+    <div class="dcal-keys" id="dcal-keys"></div>
+    <div class="cal-nav">
+      <button id="dcal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="cal-month" id="dcal-month">—</div>
+      <button id="dcal-next" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="cal-week"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+    <div class="cal-grid dcal-grid" id="dcal-grid"></div>
+    <div class="dcal-day" id="dcal-day"></div>
+  </div>
+</div>

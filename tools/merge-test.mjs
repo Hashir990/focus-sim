@@ -17,10 +17,10 @@ const R = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'js');
 const src = readFileSync(join(R, '47-merge.js'), 'utf8');
 
 const api = new Function(src + `
-  return {mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, MERGE_PER,
+  return {mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, MERGE_PER, mergeDaily,
           mergeById, mergeGone, mergeGames};
 `)();
-const { mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom,
+const { mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, mergeDaily,
         mergeById, mergeGone, mergeGames } = api;
 
 let pass = 0;
@@ -105,11 +105,33 @@ console.log('\nembers, derived rather than merged');
 
 console.log('\nthe whole snapshot');
 {
-  const A = { log: [sec('s1', 600, 1, 1)], own: ['dusk'], claimed: ['first'], feats: { p: 1 }, adjust: 0, sim: { face: 'flip', at: 2 } };
-  const B = { log: [sec('s2', 600, 1, 2)], own: ['beach'], claimed: [], feats: { p: 4 }, adjust: 7, sim: { face: 'glass', at: 9 } };
+  const A = { log: [sec('s1', 600, 1, 1)], own: ['dusk'], grand: ['dusk'], claimed: ['first'], feats: { p: 1 }, adjust: 0,
+    daily: { 'sudoku:easy': { '2026-08-20': 2, '2026-08-21': 1 } }, sim: { face: 'flip', at: 2 } };
+  const B = { log: [sec('s2', 600, 1, 2)], own: ['beach'], grand: ['beach', 'dusk'], claimed: [], feats: { p: 4 }, adjust: 7,
+    daily: { 'sudoku:easy': { '2026-08-21': 2 }, 'crossword:7': { '2026-08-22': 1 } }, sim: { face: 'glass', at: 9 } };
   const m = mergeSnapshots(A, B);
   check('every session from both sides survives', m.log.length === 2);
   check('every purchase from both sides survives', m.own.length === 2, m.own.join(','));
+  /* **What each device was holding when the prices went up, unioned.** Two
+     devices meeting the rise weeks apart hold different lists, and the one
+     that met it later knows about more — so anything either of them was
+     charged the old price for keeps it. Dropping this key on a merge would
+     re-charge the difference at the new price and take the embers away, which
+     is the whole failure `grand` exists to prevent. See EMB_WAS in
+     37-embers.js. */
+  /* The dated puzzles, which is two unions and a max. Started on one device
+     and finished on the other is one finished puzzle. */
+  check('every day either device played is on the merged calendar',
+    m.daily['sudoku:easy']['2026-08-20'].s === 2
+    && m.daily['crossword:7']['2026-08-22'].s === 1,
+    JSON.stringify(m.daily));
+  check('and finishing beats starting, whichever side did which',
+    m.daily['sudoku:easy']['2026-08-21'].s === 2,
+    JSON.stringify(m.daily['sudoku:easy']));
+
+  check('what kept the old price on either device keeps it on both',
+    m.grand.length === 2 && m.grand.indexOf('dusk') >= 0 && m.grand.indexOf('beach') >= 0,
+    (m.grand || []).join(','));
   check('claims are unioned', m.claimed.join(',') === 'first');
   check('the larger carried balance is kept', m.adjust === 7, `${m.adjust}`);
   check('the newer settings win', m.sim.face === 'glass');

@@ -123,3 +123,103 @@
 .sync-leave.hide{ display:none }
 .sync-leave:hover{ background:rgba(240,138,122,.08) }
 .sync-leave em{ font-style:normal; font-size:11.5px; font-weight:400; color:var(--muted) }
+
+/* ---------------- Focus together, rebuilt around people ----------------
+   The page opens on a person now — you — then the people you know, then the
+   room. See src/body/13-sync-overlay.html for why that order. */
+
+/* You, and what a friend sees when they open your profile. Same block on both
+   sides on purpose: seeing your own card is the plainest way to say that what
+   they see about you is what you see about them. */
+.ft-me{
+  border:1px solid var(--line); background:var(--card);
+  border-radius:16px; padding:14px; margin:2px 0 16px;
+}
+.ft-me-top{ display:flex; align-items:center; gap:12px }
+.ft-face{ flex:0 0 auto; line-height:0; color:var(--text) }
+.ft-face svg{ display:block; overflow:visible }
+.ft-me-who{ min-width:0 }
+.ft-me-who b{
+  display:block; font-size:16px; font-weight:600; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ft-me-who span{ font-size:11.5px; color:var(--muted) }
+
+.ft-stats{ display:flex; gap:8px; margin:12px 0 0 }
+.ft-stat{
+  flex:1; min-width:0; text-align:center;
+  border-radius:12px; padding:8px 4px;
+  background:color-mix(in srgb, var(--text) 5%, transparent);
+}
+.ft-stat b{
+  display:block; font-size:16px; font-weight:600;
+  font-variant-numeric:tabular-nums; color:var(--text);
+}
+.ft-stat span{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted) }
+
+/* Somebody waiting on an answer. Above the list, because it is the one thing
+   on this page that is waiting on you. */
+.ft-asks{ margin:0 0 16px }
+.ft-asks.hide{ display:none }
+.ft-ask{
+  display:flex; align-items:center; gap:9px; margin:0 0 7px;
+  padding:10px 12px; border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  background:color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.ft-ask b{ font-size:13.5px; color:var(--text) }
+.ft-ask span{ flex:1 1 auto; font-size:11.5px; color:var(--muted) }
+
+.ft-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin:18px 0 8px;
+}
+.ft-head .q-sec{ margin:0 }
+.ft-head .mini-btn{ padding:6px 10px; font-size:11.5px; flex:0 0 auto }
+.ft-head .mini-btn:disabled{ opacity:.45; cursor:default }
+
+.ft-add{ display:flex; gap:8px; margin:0 0 10px }
+.ft-add .task-field{ flex:1 1 auto; text-transform:none; letter-spacing:0 }
+.ft-add .mini-btn{ flex:0 0 auto }
+
+/* The friend's name is the way into their profile, so it has to look like a
+   thing you can press rather than like the label it used to be. */
+.ft-who{
+  flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:7px;
+  background:none; border:0; padding:0; margin:0; cursor:pointer;
+  font:inherit; text-align:left; color:inherit;
+}
+.ft-who b{
+  font-size:13.5px; font-weight:600; color:var(--text);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ft-who:hover b{ color:var(--accent) }
+
+/* Codes still work and always will. They are machinery, so they are folded. */
+.ft-codes{ margin:18px 0 0; border-top:1px solid var(--line); padding-top:12px }
+.ft-codes summary{
+  cursor:pointer; font-size:11px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted); list-style:none;
+}
+.ft-codes summary::-webkit-details-marker{ display:none }
+.ft-codes summary::after{ content:' ▾'; opacity:.6 }
+.ft-codes[open] summary::after{ content:' ▴' }
+.ft-codes > *{ margin-top:10px }
+.ft-mine{ display:flex; align-items:center; gap:9px }
+.ft-mine > span{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted) }
+.ft-mine code{
+  flex:1 1 auto; font-size:15px; letter-spacing:.22em;
+  color:var(--accent); font-variant-numeric:tabular-nums;
+}
+
+.ft-room.hide{ display:none }
+.ft-note{ font-size:12.5px; color:var(--muted); line-height:1.55; margin:12px 0 0 }
+.ft-acts{ display:flex; gap:8px; margin:16px 0 0 }
+.ft-acts .primary{ flex:1 1 auto; height:44px; border-radius:12px; font-size:14px }
+.ft-acts .mini-btn{ flex:0 0 auto }
+
+/* **Opaque, and above the page it opens from.** `.overlay` is 96% of the
+   background on purpose, so the weather shows through on the timer. Open one
+   over another and you get two washes: Focus together read straight through
+   the profile. The same fix the puzzle calendar needed. */
+#prof-overlay{ background:var(--bg); z-index:56 }

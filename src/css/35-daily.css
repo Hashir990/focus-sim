@@ -1,0 +1,133 @@
+/* ---------------- the puzzle calendar ----------------
+   One overlay for every game with dated editions; see 09b-daily.js and
+   src/body/17-daily-cal.html. A day is a cell, an edition is a dot, and the
+   dot carries both facts at once: `--hue` is which difficulty, and whether it
+   is hollow, ringed or solid is how far you got. */
+
+/* The way in, in the arcade's own header, beside the title. */
+.ov-cal{
+  width:38px; height:38px; border-radius:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  display:grid; place-items:center; flex:0 0 auto;
+}
+.ov-cal.hide{ display:none }
+.ov-cal svg{
+  width:19px; height:19px; fill:none; stroke:currentColor;
+  stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round;
+}
+.ov-cal:active{ transform:scale(.94) }
+
+/* **Opaque, and above the arcade.** Every other overlay in the app opens over
+   the timer, where a 96% wash of the background is exactly right — you can
+   still feel the weather behind it. This one opens over *another overlay*, and
+   two washes at 96% is one at 92%: the game underneath came through, so the
+   month grid was drawn over the words "Fill the grid across several breaks".
+   Solid, and one layer up. */
+#dcal-overlay{ background:var(--bg); z-index:56 }
+
+.dcal-lede{ font-size:12.5px; line-height:1.6; color:var(--muted); margin:2px 0 12px }
+
+/* The legend. Two kinds of thing in one strip: which colour is which
+   difficulty, then what the three fills mean. */
+.dcal-keys{ display:flex; flex-wrap:wrap; gap:6px 12px; margin:0 0 14px }
+.dcal-keys.hide{ display:none }
+.dcal-key{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11.5px; color:var(--muted);
+}
+.dcal-key-how{ gap:4px; opacity:.85 }
+.dcal-key-how .dcal-dot{ margin-left:6px }
+.dcal-key-how .dcal-dot:first-of-type{ margin-left:0 }
+
+/* **The dot.** Hollow and faint is a day you never opened; the same ring at
+   full strength is one you started; filled is one you finished. Three states
+   in one shape, so a row of them reads as a row rather than as three kinds of
+   mark. `--hue` defaults to the accent for a game with one edition a day. */
+.dcal-dot{
+  display:inline-block; width:9px; height:9px; border-radius:50%;
+  border:1.8px solid var(--hue, var(--accent));
+  background:transparent; opacity:.32; flex:0 0 auto;
+}
+.dcal-dot.start{ opacity:1 }
+.dcal-dot.done{ opacity:1; background:var(--hue, var(--accent)) }
+
+.dcal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px }
+.dcal-cell{
+  aspect-ratio:1; border-radius:10px; border:1px solid var(--line);
+  background:var(--card); color:var(--muted); cursor:pointer;
+  font:inherit; padding:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+}
+.dcal-cell b{ font-weight:500; font-size:12.5px; font-variant-numeric:tabular-nums }
+.dcal-cell.blank{ border:none; background:transparent; cursor:default }
+.dcal-cell.today{ outline:2px solid var(--accent); outline-offset:-2px; color:var(--text) }
+.dcal-cell.sel{ background:color-mix(in srgb, var(--accent) 26%, var(--bg2)); border-color:var(--accent); color:var(--text) }
+/* Days that have not happened. Not disabled-looking so much as absent — there
+   is no puzzle there to have an opinion about. */
+.dcal-cell.future{ opacity:.3; cursor:default }
+.dcal-dots{ display:flex; gap:3px; min-height:9px; align-items:center }
+
+/* What the chosen day holds, under the grid. */
+.dcal-head{
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); margin:16px 0 8px;
+}
+.dcal-row{
+  display:flex; align-items:center; gap:9px; margin:0 0 7px;
+  padding:10px 12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card);
+}
+.dcal-row b{ font-size:13px; font-weight:600; color:var(--text) }
+.dcal-row > span{ flex:1 1 auto; text-align:right; font-size:11.5px; color:var(--muted) }
+.dcal-none{ font-size:12.5px; color:var(--muted); margin:16px 0 0 }
+
+.cal-nav button[disabled]{ opacity:.35; cursor:default }
+
+/* Small screens get the same treatment the history calendar gets. */
+[data-dense="2"] .dcal-cell{ aspect-ratio:auto; height:34px; gap:2px }
+[data-dense="2"] .dcal-cell b{ font-size:10.5px }
+[data-dense="2"] .dcal-dot{ width:7px; height:7px; border-width:1.5px }
+[data-dense="2"] .dcal-lede{ display:none }
+
+/* The numbers for the game as a whole, above the month. Same shape as the
+   history calendar's own summary, because they answer the same kind of
+   question. */
+.dcal-sum{ display:flex; gap:8px; margin:0 0 14px }
+.dcal-sum.hide{ display:none }
+.dcal-stat{
+  flex:1; min-width:0; background:var(--card); border:1px solid var(--line);
+  border-radius:14px; padding:10px 12px;
+}
+.dcal-stat b{
+  display:block; font-size:19px; font-weight:600;
+  font-variant-numeric:tabular-nums; color:var(--text);
+}
+.dcal-stat span{
+  font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+}
+
+/* **The word grid.** Five squares a guess, green where a letter was in the
+   right place and amber where it was in the word but somewhere else — the
+   picture people screenshot, and the one result that says how a puzzle went
+   without giving away the answer. Under its row rather than in it, because at
+   five columns wide it is a block, not a value. */
+/* The share grid, which sits in the row where the edition's name would be.
+   One line per try actually taken, so a word found in three is three lines
+   tall and the row shrinks to match — the shape is part of the result. */
+.wdl-art{ display:grid; gap:3px }
+.wdl-art-row{ display:flex; gap:3px }
+.wdl-art i{
+  width:13px; height:13px; border-radius:3px;
+  background:color-mix(in srgb, var(--muted) 22%, transparent);
+}
+.wdl-art i.hit{ background:#4fae62 }
+.wdl-art i.near{ background:#c9a227 }
+/* A row holding a grid needs room to breathe and its text aligned to the top
+   of it rather than floated against the middle of a three-line block. */
+.dcal-row.art{ align-items:flex-start; padding:12px }
+/* The dot belongs beside the first try; the result and the button belong in
+   the middle of the whole grid, or a six-line game leaves them stranded at the
+   top of an empty right-hand column. */
+.dcal-row.art > .dcal-dot{ margin-top:4px }
+.dcal-row.art > span, .dcal-row.art .mini-btn{ align-self:center }
+[data-dense="2"] .wdl-art i{ width:11px; height:11px }

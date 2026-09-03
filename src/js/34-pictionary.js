@@ -915,7 +915,11 @@
     reset(){ syncGameSend(Pictionary.key, {a:'reset'}); },
     resetNote:'Scores go back to zero for everyone and the round is thrown open.',
     async progress(){
-      if(!syncActive()) return 'Room<span>needs a room</span>';
+      /* **Nothing.** The group heading above these four already says "needs a
+         room", and the card's own chip says how many people — three ways of
+         saying the same thing, stacked on top of each other in the same
+         corner. An empty status collapses; see `.pcard .prog:empty`. */
+      if(!syncActive()) return '';
       const v = Pictionary.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
       if(v.phase === 'claim') return 'Open<span>claim to draw</span>';

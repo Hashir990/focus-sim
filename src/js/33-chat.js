@@ -107,10 +107,15 @@
     /** Everything that arrived while we were closed, or from a friend's outbox. */
     receiveMail(items){
       let got = 0, last = null;
+      const got0 = [];
       for(const m of items || []){
         if(!m || typeof m.text !== 'string') continue;
         const code = syncNormalise(m.fromCode || '');
         if(!code) continue;
+        /* Friend requests arrive by post like everything else. Taken out here,
+           and still acknowledged to the server — the id has to go back in the
+           `taken` list or the mailbox hands it over again for ever. */
+        try{ if(friendTake({text:m.text, fromCode:code})){ got0.push(m.id); continue; } }catch(e){}
         const into = this.dm[code] || [];
         if(into.some(x=>x.id === m.id)) continue;
         this._add(code, m, false);
@@ -118,6 +123,7 @@
         last = {code, name:m.name, text:m.text};
         got++;
       }
+      if(!got) return got0.length ? got0.length : 0;
       if(got){
         if(!chatQuietHours()){
           blip(); buzz(14);
@@ -245,8 +251,33 @@
       this._toBottom();
     },
 
+    /* **The friend system's wire, not a message.** A request and its answer
+       travel the same path a message does — straight over the peer if they are
+       reachable, into the mailbox if they are not — because building a second
+       delivery system for two small events would be building the same thing
+       twice. Nothing here reaches the conversation: it is queued, sent, and
+       lifted out on the far side by `friendTake`. See 29a-friends.js. */
+    sendRaw(code, text){
+      const to = syncNormalise(code);
+      if(!to || typeof text !== 'string' || !text) return;
+      const msg = {
+        t:'say',
+        id:'w' + Date.now() + '_' + (Math.random()*1e4|0),
+        name:SYNC.name || 'Someone',
+        from:SYNC.selfId,
+        fromCode:SYNC.myCode,
+        to:this._idFor(to),
+        text, at:Date.now(),
+      };
+      if(msg.to && syncActive()){ syncBroadcast(msg); return; }
+      this.queue(to, {id:msg.id, name:msg.name, fromCode:msg.fromCode, text:msg.text, at:msg.at});
+      syncMailRun();
+    },
+
     receive(m){
       if(!m || typeof m.text !== 'string') return;
+      // machinery never becomes a line in a conversation
+      try{ if(friendTake({text:m.text, fromCode:m.fromCode})) return; }catch(e){}
       const key = m.to ? syncNormalise(m.fromCode || '') : 'room';
       if(m.to && !key) return;      // a direct message with no return address
       const into = key === 'room' ? this.log : (this.dm[key] || []);
@@ -392,13 +423,16 @@
       const box = $('chat-log');
       if(!lines.length){
         const nobody = !room && !(SYNC.friends && SYNC.friends.length);
+        /* One sentence each. These used to explain how offline delivery works,
+           how to add a friend and what happens to a room thread — three
+           paragraphs on an empty screen, which reads as an apology. */
         box.innerHTML = '<p class="chat-empty">' + (dm
-          ? 'Nothing between you two yet. Say something even if they’re not here — it waits until you’re both open at the same time.'
+          ? 'Nothing yet. Write anyway — it waits for them.'
           : nobody
-            ? 'Nobody to write to yet. Open <b>Focus together</b> from the menu, swap codes with a friend and save them — after that you can message them any time, whether or not either of you is in a room.'
+            ? 'Nobody to write to yet. Add someone by username in <b>Focus together</b>.'
             : !room
-              ? 'This is the room thread, and there’s no room open. Pick a friend above to write to them instead.'
-              : 'Nothing said yet. The room thread lives as long as the room does — nothing is saved.')
+              ? 'No room open. Pick a friend above.'
+              : 'Nothing said yet.')
           + '</p>';
       }else{
         let last = '';
@@ -437,6 +471,15 @@
   function chatPendingCodes(){ return Object.keys(Chat.out); }
   function chatDelivered(code, ids){ Chat.delivered(code, ids); }
   function chatReceiveMail(items){ return Chat.receiveMail(items); }
+  function chatSendRaw(code, text){ return Chat.sendRaw(code, text); }
+  /** Open the sheet on one person's thread — what a profile's Message goes to. */
+  function chatOpenWith(code){
+    const c = syncNormalise(code);
+    if(!c) return;
+    Chat.build();
+    Chat.thread = c;
+    Chat.show();
+  }
   function chatRoomChanged(){ Chat.build(); Chat.render(); }
   function chatRoomClosed(){ Chat.clear(); }
 

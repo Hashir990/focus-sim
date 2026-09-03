@@ -23,10 +23,12 @@
     // a sheet over a screen
     {id:'chat',           close:()=>{ const b = $('chat-close'); if(b) b.click(); }},
     // the crossword's puzzle list sits over its own game
-    {id:'cw-picker',      close:()=>{ const b = $('cw-picker-close'); if(b) b.click(); }},
+    {id:'dcal-overlay',   close:()=>{ const b = $('dcal-close'); if(b) b.click(); }},
     // the menu, which can be over anything
     {sel:'.drawer.open',  close:()=>{ try{ closeDrawer(); }catch(e){} }},
     // full-screen pages
+    /* Above Focus together, because it opens from it. */
+    {id:'prof-overlay',   close:()=>{ const b = $('prof-close'); if(b) b.click(); }},
     {id:'sync-overlay',   close:()=>{ const b = $('sync-close'); if(b) b.click(); }},
     {id:'ach-overlay',    close:()=>{ const b = $('ach-close'); if(b) b.click(); }},
     {id:'stats-overlay',  close:()=>{ const b = $('stats-close'); if(b) b.click(); }},

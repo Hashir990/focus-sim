@@ -21,7 +21,12 @@
              reload, and he is back to swinging. It looked like the picker was
              ignoring you. `budAnim` is an index into `BUD_ANIMS`, so `|0`
              rather than `||` — nought is a real choice, not a missing one. */
-          budAnim:d.budAnim|0,
+          /* **Absent is -1, not 0.** 0 is the web-swing, which is bought like
+             everything else now; a record written before antics were bought has
+             no key at all and its owner has bought nothing, so the honest
+             reading of a missing antic is "none". `budStrip` would take it off
+             anyway; this stops him flickering through one swing first. */
+          budAnim:(d.budAnim == null ? -1 : d.budAnim | 0),
           budShow:d.budShow !== false,
           at:d.at||0
         });

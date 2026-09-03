@@ -230,9 +230,7 @@
       box.dataset.done = String(done.length);
       box.innerHTML =
         '<div class="ach-top"><b>' + done.length + '</b><span>of ' + ACH_LIST.length + '</span></div>'
-        + '<p class="ach-lede">Each one pays once, in embers. Nothing here is '
-        + 'kept as a score of its own — every mark is read back off what you have '
-        + 'done, so Reset progress clears them with everything else.'
+        + '<p class="ach-lede">Each one pays once, in embers.'
         + (owed ? ' <b>' + owed + ' embers</b> still out there.' : '')
         + '</p>'
         + ACH_GROUPS.map(g=>{

@@ -219,7 +219,8 @@ console.log('\nthe vault');
 
   const first = await call('/vault/put', {
     token, rev: 0,
-    snapshot: { log: [sec('s1', 600, 1, 1)], own: ['dusk'], claimed: [], feats: {}, adjust: 0, sim: { face: 'flip', at: 5 } },
+    snapshot: { log: [sec('s1', 600, 1, 1)], own: ['dusk'], grand: ['dusk'], claimed: [], feats: {}, adjust: 0,
+      daily: { 'sudoku:easy': { '2026-08-20': 2 } }, sim: { face: 'flip', at: 5 } },
   });
   ok('the first write is kept', first.body.ok && first.body.rev === 1);
 
@@ -227,11 +228,25 @@ console.log('\nthe vault');
      pushes work the server has never seen, and the server must keep both. */
   const second = await call('/vault/put', {
     token, rev: 1,
-    snapshot: { log: [sec('s2', 900, 1, 2)], own: ['beach'], claimed: ['first'], feats: { p: 2 }, adjust: 0, sim: { face: 'glass', at: 9 } },
+    snapshot: { log: [sec('s2', 900, 1, 2)], own: ['beach'], grand: ['beach'], claimed: ['first'], feats: { p: 2 }, adjust: 0,
+      daily: { 'crossword:7': { '2026-08-21': 1 } }, sim: { face: 'glass', at: 9 } },
   });
   const m = second.body.snapshot;
   ok('a second device does not overwrite the first', m.log.length === 2, `${m.log.length} sessions`);
   ok('purchases from both devices survive', m.own.length === 2, m.own.join(','));
+  /* The server rebuilds the snapshot from the keys it knows, so a key it is
+     not told about is a key that is silently dropped. `grand` is what kept the
+     old price on everything bought before the rise — losing it here would
+     re-charge the difference the next time any device reconciled. */
+  ok('and so does what each of them kept the old price on',
+    (m.grand || []).length === 2, (m.grand || []).join(','));
+  /* And the puzzle calendar. Same argument: a key the server is not told to
+     carry is a key it silently drops, and dropping this one loses which dated
+     puzzles you played on the other device. */
+  ok('and the dated puzzles both of them played',
+    (m.daily || {})['sudoku:easy'] && m.daily['sudoku:easy']['2026-08-20'].s === 2
+    && m.daily['crossword:7'] && m.daily['crossword:7']['2026-08-21'].s === 1,
+    JSON.stringify(m.daily));
   ok('and the newer settings win', m.sim.face === 'glass');
   ok('the revision moves on', second.body.rev === 2);
 

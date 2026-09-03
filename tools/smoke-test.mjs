@@ -364,8 +364,31 @@ const seedLog = [0, 1, 2, 5].flatMap((back, i) =>
 // ===========================================================================
 /* A modest balance to start with, because embers are paid by the minute now and
    a test cannot sit through ten of them. Nothing is owned. */
-const { window, errors } = boot(html, {
-  focus_embers: JSON.stringify({ have: 60, earned: 60, own: ['seaglass'], light: 'seaglass' }),
+/* **A purse that can reach the top shelf.** The lights, the tracks and the
+   clock faces were priced when they were the only things in the shop; against
+   a wardrobe where a coat is eighty they were the change in the bottom of the
+   bag, and they roughly doubled. Nobody already holding one paid the
+   difference — see EMB_WAS and `grand` in 37-embers.js, and the check for it
+   further down — but a test that wants to press Buy has to be able to. */
+/* **A door into the closure, spliced at the *last* `})();` in the file.**
+
+   The app is one IIFE, so a test cannot reach `Chat` or `Sudoku` or the friend
+   machinery from outside. Putting a handful of names on `window` just before
+   the closing line is the same trick the `look-*` tools use and costs the
+   shipped build nothing — but it has to be the *last* one. `String.replace`
+   with a string pattern takes the first match, and the first `})();` in the
+   bundle is inside the ambience wiring, two thirds of the way up: a door
+   spliced there names `const`s that are still in their temporal dead zone, the
+   IIFE throws, and every check after it fails for a reason that looks nothing
+   like the cause. */
+function withDoor(src, code){
+  const at = src.lastIndexOf('})();');
+  if (at < 0) throw new Error('no closing IIFE to splice a door into');
+  return src.slice(0, at) + '\n' + code + '\n' + src.slice(at);
+}
+
+const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet};'), {
+  focus_embers: JSON.stringify({ have: 200, earned: 200, own: ['seaglass'], light: 'seaglass' }),
 });
 const $ = (id) => window.document.getElementById(id);
 const click = (id) => { const el = $(id); if (!el) throw new Error(`#${id} missing`); el.click(); };
@@ -1018,25 +1041,38 @@ check('and it lifts when the overlay closes', !window.document.body.classList.co
     check('every face and clothing option is a picture of itself, not a number',
       ['e', 'h', 'a', 'o'].every((k) => opts(k).length > 0
         && opts(k).every((b) => b.querySelector('svg') && !/\d/.test(b.textContent))));
-    /* **A hoodie's icon is mostly hood, and the hood is the layer drawn behind
-       the head.** Outerwear is the one part built in two passes, so an icon
-       that only draws the front half is an icon of a drawstring. */
-    check('and a coat with a hood shows the hood in its own icon', (() => {
-      const withHood = opts('o').map((b) => b.innerHTML).filter((h) => /ellipse/.test(h));
-      return withHood.length >= 2 ? true : `${withHood.length} of ${opts('o').length} draw a back layer`;
-    })() === true, 'see budIcon');
+    /* **The wardrobe is what you own, and a new buddy owns nothing.**
+
+       Every row used to list every part there is. Now the parts are bought, so
+       a row is your things — and on a device that has bought nothing that is
+       exactly one tile per row, the "none" that every row starts with. The
+       point of checking the *empty* case is that it is the one a new person
+       sees, and a wardrobe of locked tiles they cannot use is the thing this
+       replaced. Eyes are the exception: index 0 is a real pair rather than an
+       absence, because a buddy with no eyes is not a buddy. */
+    check('a wardrobe holds what you own, which to begin with is nothing',
+      ['h', 'a', 'o', 'f', 'r'].every((k) => opts(k).length === 1),
+      ['h', 'a', 'o', 'f', 'r'].map((k) => k + ':' + opts(k).length).join(' '));
+    check('and the way to get more is one button, not a wall of locked tiles',
+      !!$('bud-shop') && /\d+ more to try on/.test($('bud-shop').textContent),
+      $('bud-shop') ? $('bud-shop').textContent : 'no shop button');
+    /* Colours are free, all of them, from the first minute — a colour is not an
+       item and charging for one would make the shop a tollbooth. */
+    check('every skin and every colour is there from the start, and free',
+      opts('c').length >= 10 && opts('b').length >= 10,
+      `${opts('c').length} skins, ${opts('b').length} colours`);
+    check('colours stay as swatches, being pictures of themselves already',
+      [...$('bud-box').querySelectorAll('[data-bud="c"],[data-bud="b"]')]
+        .every((b) => b.classList.contains('sw')));
     /* Putting one on has to change the drawing. It is the cheapest possible
        check and it is the one that catches a part wired to nothing. */
     {
       const stage = () => $('bud-box').querySelector('.bud-stage').innerHTML;
       const bare = stage();
-      opts('o')[1].click();
-      check('and choosing one actually dresses him', stage() !== bare && stage().length > bare.length);
-      opts('o')[0].click();
+      opts('c')[3].click();
+      check('and choosing one actually changes him', stage() !== bare);
+      opts('c')[0].click();
     }
-    check('colours stay as swatches, being pictures of themselves already',
-      [...$('bud-box').querySelectorAll('[data-bud="c"],[data-bud="b"]')]
-        .every((b) => b.classList.contains('sw')));
   }
 
   const budJs = html.slice(html.indexOf('your buddy ---'), html.indexOf('function budDefault'));
@@ -1089,8 +1125,9 @@ check('and it lifts when the overlay closes', !window.document.body.classList.co
   check('a coat is optional and its absence means no coat', (() => {
     if (!/const BUD_OUTER = \[/.test(budJs)) return 'no BUD_OUTER';
     if (!/o: ?n\(v\.o, BUD_OUTER\.length\)/.test(html)) return 'budClean does not clean o';
-    if (!/function budDefault\(\)\{ return \{[^}]*\bo:\s*0/.test(html)) return 'budDefault has no o';
-    return /\['b','c','e','h','a','f','o'\]/.test(html) ? true : 'budSame does not compare o';
+    if (!/function budDefault\(\)\{\s*return \{[^}]*\bo: ?0/.test(html)) return 'budDefault has no o';
+    return /BUD_KEYS = \['b', ?'c', ?'e', ?'h', ?'a', ?'f', ?'o'/.test(html)
+      ? true : 'budSame does not compare o';
   })() === true, 'see budClean / budDefault / budSame');
   /* Same fixed order rule as the hats and the extras, and the same reason. */
   check('the coats are in a fixed, documented order too',
@@ -1105,7 +1142,13 @@ check('and it lifts when the overlay closes', !window.document.body.classList.co
      like the app ignoring you rather than like a missing rule. */
   {
     const styles = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
-    const keys = [...budJs.matchAll(/\{k:'([\w-]+)'/g)].map((m) => m[1]);
+    /* **From the antic table itself, not from anywhere a `k:` appears.**
+       `budJs` starts at a CSS comment and runs through every game's file to
+       reach the buddy, and `registerDaily` describes its difficulties as
+       `{k:'easy', n:'Easy'}` — the same shape. Slicing to `BUD_ANIMS` is what
+       keeps this checking antics rather than whatever else is passing. */
+    const anims = budJs.slice(budJs.indexOf('const BUD_ANIMS'));
+    const keys = [...anims.slice(0, anims.indexOf('\n  ];')).matchAll(/\{k:'([\w-]+)'/g)].map((m) => m[1]);
     check('every antic has an engine in the stylesheet',
       keys.length > 3 && keys.every((k) => styles.includes('.bud-' + k + '{')),
       keys.filter((k) => !styles.includes('.bud-' + k + '{')).join(', ') || `${keys.length} antics`);
@@ -1125,7 +1168,7 @@ check('and it lifts when the overlay closes', !window.document.body.classList.co
      never the problem. */
   check('the chosen antic is written to storage, not just to memory',
     /budAnim:\s*S\.budAnim/.test(html) && /budShow:\s*S\.budShow/.test(html)
-    && /budAnim:\s*d\.budAnim/.test(html),
+    && /budAnim:\(d\.budAnim == null/.test(html),
     'see 02-persistence.js');
 
   /* **An account is a profile or it is only a backup.** Everything a person
@@ -1427,7 +1470,7 @@ await wait(60);
    second, and the counter has not moved. */
 $('d-stats').click();
 await wait(120);
-check('a one-second block is not worth an ember', +$('emb-box').dataset.have === 60,
+check('a one-second block is not worth an ember', +$('emb-box').dataset.have === 200,
   $('emb-box').dataset.have);
 check('the leftover seconds are kept rather than thrown away',
   $('emb-box').dataset.bank !== undefined && +$('emb-box').dataset.bank < 600,
@@ -1444,6 +1487,21 @@ check('written down, so they survive the app closing',
   /"earned"/.test(window.localStorage.getItem('focus_embers') || ''),
   window.localStorage.getItem('focus_embers'));
 {
+  /* **The shop is five shelves now, not one page.** The lights, the sounds and
+     the faces were already three sections and the wardrobe would have made it
+     five times longer than a thumb wants to travel, so each is its own tab and
+     only the open one is in the DOM. Which means a test that wants the sounds
+     has to open the sounds, exactly as a person does. */
+  const shopTab = async (id) => {
+    const t = $('emb-box').querySelector(`[data-tab="${id}"]`);
+    if (t) t.click();
+    await wait(60);
+    return !!t;
+  };
+  check('the shop is a shelf per kind of thing',
+    [...$('emb-box').querySelectorAll('[data-tab]')].map((b) => b.dataset.tab).join(',')
+      === 'looks,sounds,faces,buddy,antics',
+    [...$('emb-box').querySelectorAll('[data-tab]')].map((b) => b.dataset.tab).join(','));
   const shelf = () => [...$('emb-box').querySelectorAll('[data-light]')];
   /* Counted from the catalogue in the build, not written down here. It said 8,
      and adding three lights made it say 8 about a shelf of 11 — a number that
@@ -1461,8 +1519,9 @@ check('written down, so they survive the app closing',
   /* The ambience tracks re-colour the app too, so they are on the same shelf.
      Two are free — an app with no sound at all until you have earned some is a
      worse app — and each brings its own weather. */
+  await shopTab('sounds');
   const sounds = () => [...$('emb-box').querySelectorAll('[data-sound]')];
-  check('and the sounds are on it as well', sounds().length === 5, `${sounds().length}`);
+  check('and the sounds are on their own shelf', sounds().length === 5, `${sounds().length}`);
   check('every sound has a price on it now',
     sounds().filter((b) => /free/.test(b.textContent)).length === 0,
     sounds().map((b) => b.textContent).join(' | '));
@@ -1485,10 +1544,11 @@ check('written down, so they survive the app closing',
     `${window.document.body.dataset.amb} / ${$('emb-box').dataset.own}`);
   check('the light is still what is burning', window.document.body.dataset.light === 'seaglass',
     window.document.body.dataset.light);
+  await shopTab('looks');
   check('the first is free and already burning',
     shelf()[0].classList.contains('mine') && shelf()[0].classList.contains('on'), shelf()[0].className);
   check('the rest are not yours yet', shelf().slice(1).every((b) => !b.classList.contains('mine')));
-  check('and say what they cost', /5 embers/.test($('emb-box').textContent),
+  check('and say what they cost', /18 embers/.test($('emb-box').textContent),
     $('emb-box').textContent.slice(0, 140));
   // "12 more for x" while it is out of reach, "you can afford x" once it isn't
   check('with the next one either priced or offered',
@@ -1548,7 +1608,7 @@ check('no speck asks to be a compositing layer for the life of the page', (() =>
   $('confirm-no').click();
   await wait(60);
   check('and backing out leaves it locked, with the embers still there',
-    $('emb-box').dataset.own === 'seaglass' && +$('emb-box').dataset.have === 60,
+    $('emb-box').dataset.own === 'seaglass' && +$('emb-box').dataset.have === 200,
     `${$('emb-box').dataset.own} / ${$('emb-box').dataset.have}`);
 }
 $('stats-close').click();
@@ -1620,11 +1680,24 @@ check('chess says it takes two', byGame.chess.querySelector('.tag').textContent 
   byGame.chess.querySelector('.tag').textContent);
 check('and no solo game is', ['sudoku', 'wordle', 'g2048', 'crossword'].every((g) => !byGame[g].classList.contains('needs-room')));
 
-// The status caption is capped, because "claim it to set the word" used to run
-// straight through the description beside it.
+/* **Said once, not three times in the same corner.** The group heading above
+   these four says "needs a room", the card's own chip says how many people, and
+   the status used to say "ROOM / NEEDS A ROOM" as well — all stacked on top of
+   each other, because the chip is pinned top-right and so is the status. The
+   chip moved into the title line and the status says nothing at all. */
+check('the heading is where "needs a room" is said', /needs a room/i.test(groups[1].textContent),
+  groups[1].textContent);
 for (const g of ['hangman', 'scrabble', 'pictionary', 'chess']) {
-  check(`${g} card asks for a room when alone`, /needs a room/.test($('prog-' + g).textContent), $('prog-' + g).textContent);
+  check(`${g} card does not repeat it`, $('prog-' + g).textContent.trim() === '',
+    $('prog-' + g).textContent);
 }
+check('and the room-size chip sits in the title, clear of the status',
+  ['hangman', 'scrabble', 'pictionary', 'chess'].every((g) => {
+    const tag = byGame[g].querySelector('.tag');
+    return tag && tag.parentElement.tagName === 'H3'
+      && window.getComputedStyle(tag).position === 'static';
+  }),
+  byGame.chess.querySelector('.tag').parentElement.tagName);
 byGame.hangman.click();
 await wait(60);
 check('hangman offers the way into a room', !$('hm-need').classList.contains('hide') && $('hm-live').classList.contains('hide'));
@@ -1713,7 +1786,12 @@ check('the grid is square', cwN() * cwN() === $('cw-grid').children.length, `${$
 check('it has walls', $('cw-grid').querySelectorAll('.cw-block').length >= 0);
 check('progress is kept per puzzle, not as one board', !!cwState() && typeof cwState().p === 'object'
   && typeof cwState().idx === 'number', JSON.stringify(cwState()).slice(0, 80));
-check('the meta line names the size and position', /^\d×\d · #\d+ of \d+ · \d{2}:\d{2}$/.test($('cw-meta').textContent),
+/* **A puzzle is a date, not "#11 of 11".** The position in the bank is what
+   decides that date and is still what the code works in; it just says nothing
+   worth reading, now that every puzzle has a day. */
+check('the meta line names the size and the day', /^\d+×\d+ · (Today|\w{3} \d+) · \d{2}:\d{2}$/.test($('cw-meta').textContent),
+  $('cw-meta').textContent);
+check('and not its place in the bank', !/#\d+ of \d+/.test($('cw-meta').textContent),
   $('cw-meta').textContent);
 check('difficulty is gone', !window.document.getElementById('cw-ctrl'));
 check('and the puzzle it is on is named by content, not by position',
@@ -2044,47 +2122,42 @@ check('and the puzzle it is on is named by content, not by position',
   })());
 }
 
-// the picker: choose a puzzle, see which are finished, hold one to reset it
+/* **The list is the calendar now.** There were two lists of the same puzzles —
+   a panel inside the game and a month grid outside it — and only one of them
+   knew about the other three sizes, what you scored on each and which days are
+   still open. The button in the game's own bar opens that one.
+
+   And nothing here can be started over. Every puzzle is published on a day and
+   its time, its clues and the letters it gave away are kept; a Reset would
+   make that record worth nothing. */
 {
+  check('the crossword no longer carries a list of its own',
+    !$('cw-picker') && !$('cw-list-body'), 'the old picker panel is still in the markup');
   $('cw-list').click();
-  await wait(60);
-  check('the puzzle picker opens', !$('cw-picker').classList.contains('hide'));
-  /* **One scroller, and it is the panel.** The list inside used to be a second
-     scroll box with `overscroll-behavior:contain`, so it reached its end and
-     stopped the gesture dead instead of passing it on — the same trap as
-     `#setup` in §6, and with thirty-six puzzles in the bank it put most of them
-     out of reach. */
-  check('and the picker itself is what scrolls, not a box inside it',
-    window.getComputedStyle($('cw-picker')).overflowY === 'auto'
-    && window.getComputedStyle($('cw-list')).overflowY !== 'auto',
-    `picker ${window.getComputedStyle($('cw-picker')).overflowY} · list ${window.getComputedStyle($('cw-list')).overflowY}`);
-  const items = [...$('cw-list-body').querySelectorAll('.cw-item')];
-  check('it lists every puzzle at this size', items.length >= 10, `${items.length}`);
-  check('the one you are on is marked', items.some((b) => b.classList.contains('on')));
-  check('none are crossed off yet', items.every((b) => !b.classList.contains('done')));
-  check('progress is described', /^(\d+ of )?\d+ clues$/.test(items[0].querySelector('span').textContent),
-    items[0].querySelector('span').textContent);
-
-  // holding one offers to reset it
-  items[0].dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 60, clientY: 120 }));
-  await wait(60);
-  check('holding a puzzle offers a reset', !$('hmenu').classList.contains('hide')
-    && /Reset puzzle #1/.test($('hmenu-card').textContent), $('hmenu-card').textContent);
-  $('hmenu-card').querySelector('button').click();
-  await wait(40);
-  check('resetting a puzzle asks first', !$('confirm').classList.contains('hide'));
-  $('confirm-yes').click();
   await wait(120);
-  check('and clears that puzzle', !/[A-Z]/.test(cwRec().u || ''), cwRec().u);
-  check('including its revealed letters', !$('cw-grid').querySelector('.cw-cell.given'));
+  check('its button opens the calendar instead', !$('dcal-overlay').classList.contains('hide'),
+    $('dcal-overlay').className);
+  check('which is the crossword’s', /Crossword/.test($('dcal-title').textContent),
+    $('dcal-title').textContent);
 
-  // switching puzzle keeps them separate
-  const list = [...$('cw-list-body').querySelectorAll('.cw-item')];
-  const firstIdx = cwState().idx;
-  list[1].click();
-  await wait(150);
-  check('picking another puzzle opens it', cwState().idx !== firstIdx, `${cwState().idx}`);
-  check('and the picker closes', $('cw-picker').classList.contains('hide'));
+  /* Every size for the chosen day, with today's at the top of the grid. */
+  const rows = [...$('dcal-day').querySelectorAll('.dcal-row')];
+  check('and offers the day’s puzzles, one per size published',
+    rows.length >= 2 && /5×5/.test(rows[0].textContent), rows.map((r) => r.textContent).join(' | '));
+  $('dcal-close').click();
+  await wait(80);
+
+  // holding a card no longer offers to wipe the record
+  const cwCard = [...window.document.querySelectorAll('.pcard')].find((c) => c.dataset.game === 'crossword');
+  cwCard.dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 60, clientY: 120 }));
+  await wait(60);
+  check('and the crossword card offers no reset',
+    $('hmenu').classList.contains('hide') || !/Reset/i.test($('hmenu-card').textContent),
+    $('hmenu-card').textContent);
+  $('hmenu').click();
+  await wait(40);
+  [...window.document.querySelectorAll('.pcard')].find((c) => c.dataset.game === 'crossword').click();
+  await wait(250);
 }
 
 // solve one outright — the small grids are the quickest way to prove the whole
@@ -2098,34 +2171,26 @@ check('and the puzzle it is on is named by content, not by position',
     [...$('cw-size').children].map((b) => b.dataset.s + (b.disabled ? '!' : '')).join(','));
   check('switching size loads a puzzle of that size', cwN() === 5, `${cwN()}`);
 
-  /* **The picker counts clues, not squares.** "in progress" told you nothing
-     about which of thirty puzzles was nearly done, so each one now says how
-     many of its clues are completely right. A clue counts only when every one
-     of its letters is, which is why this reveals a whole entry rather than a
-     few letters and expects the count to move exactly once. */
+  /* **The calendar counts clues, not squares.** "in progress" told you nothing
+     about which day was nearly done, so a started puzzle says how many of its
+     clues are completely right. A clue counts only when every one of its
+     letters is, which is why this reveals a whole entry rather than a few
+     letters and expects the count to move exactly once. */
   {
-    const clues = $('cw-clues').querySelectorAll('.cw-clue-item').length;
-    $('cw-list').click();
-    await wait(60);
-    const fresh = $('cw-list-body').querySelector('.cw-item.on span');
-    check('an untouched puzzle says how many clues it has',
-      !!fresh && fresh.textContent === `${clues} clues`, fresh && fresh.textContent);
-    $('cw-picker-close').click();
-    await wait(30);
-
     const clue = $('cw-clues').querySelector('[data-dir="A"]');
     const len = +(clue.querySelector('i').textContent.match(/\d+/) || [0])[0];
     clue.click();
     await wait(30);
     for (let k = 0; k < len; k++) { $('cw-hint').click(); await wait(20); }
     $('cw-list').click();
+    await wait(120);
+    const row = [...$('dcal-day').querySelectorAll('.dcal-row')]
+      .find((r) => /5×5/.test(r.querySelector('b').textContent));
+    const note = row && row.querySelector('span');
+    check('a started puzzle says how many of its clues are right',
+      !!note && /^1 of \d+ clues · \d+ revealed$/.test(note.textContent), note && note.textContent);
+    $('dcal-close').click();
     await wait(60);
-    const part = $('cw-list-body').querySelector('.cw-item.on');
-    const note = part && part.querySelector('span');
-    check('and counts one once all of its letters are right',
-      !!note && /^1 of \d+ clues$/.test(note.textContent), note && note.textContent);
-    $('cw-picker-close').click();
-    await wait(30);
   }
 
   // fill it by asking for a hint on every square
@@ -2140,17 +2205,26 @@ check('and the puzzle it is on is named by content, not by position',
     $('cw-win-sub').textContent);
   check('it is recorded as done', !!cwRec().done);
 
+  /* And it goes onto the calendar with its numbers, which is the whole reason
+     for keeping one: how long it took, how many clues, how much was given away. */
   $('cw-list').click();
+  await wait(120);
+  {
+    const row = [...$('dcal-day').querySelectorAll('.dcal-row')]
+      .find((r) => /5×5/.test(r.querySelector('b').textContent));
+    check('a finished puzzle is on the calendar with its numbers',
+      !!row && /^\d+ clues in \d{2}:\d{2} · \d+ revealed$/.test(row.querySelector('span').textContent),
+      row && row.querySelector('span').textContent);
+    check('and the game’s totals are above the month',
+      !$('dcal-sum').classList.contains('hide')
+      && /filled in/.test($('dcal-sum').textContent), $('dcal-sum').textContent);
+  }
+  $('dcal-close').click();
   await wait(60);
-  check('a finished puzzle is crossed off in the picker',
-    $('cw-list-body').querySelectorAll('.cw-item.done').length === 1,
-    `${$('cw-list-body').querySelectorAll('.cw-item.done').length}`);
-  $('cw-picker-close').click();
-  await wait(30);
 
   $('cw-again').click();
   await wait(200);
-  check('Next puzzle moves to an unfinished one', !cwRec().done);
+  check('Next moves to one that is still open', !cwRec().done);
 }
 
 // celebration — actually solve the Sudoku, clicking cells and numpad keys the way
@@ -2158,8 +2232,16 @@ check('and the puzzle it is on is named by content, not by position',
 // reaching into the closure, so this exercises the real input path end to end.
 byGame.sudoku.click();
 await wait(250);
-const saved = JSON.parse(window.localStorage.getItem('arcade_sudoku') || 'null');
+/* **One board per day and difficulty, on a shelf.** There used to be a single
+   board in the save, so opening Tuesday's easy threw away Monday's unfinished
+   hard — which, with an archive to browse, is a thing you do on the way to
+   somewhere else. `sdkBoard()` is the one on screen. */
+const sdkSave = () => JSON.parse(window.localStorage.getItem('arcade_sudoku') || 'null');
+const sdkBoard = () => { const d = sdkSave(); return (d && d.boards && d.boards[d.day + '|' + d.diff]) || null; };
+const saved = sdkBoard();
 check('sudoku persisted its board', !!(saved && saved.sol && saved.sol.length === 81));
+check('and files it under the day and difficulty it belongs to',
+  !!sdkSave() && /^\d{4}-\d{2}-\d{2}$/.test(sdkSave().day || ''), JSON.stringify(sdkSave() && sdkSave().day));
 
 // the Check button: put one deliberately wrong digit in and confirm it's flagged
 const firstFree = saved.given.findIndex((g, i) => !g && saved.sol[i] !== saved.grid[i]);
@@ -2185,7 +2267,7 @@ for (let i = 0; i < 81; i++) {
 }
 await wait(120);
 check('sudoku solved by clicking', !$('sdk-banner').classList.contains('hide'));
-check('sudoku win text written', /Finished in \d{2}:\d{2}/.test($('sdk-win-sub').textContent), $('sdk-win-sub').textContent);
+check('sudoku win text written', /^\d{2}:\d{2} · (easy|medium|hard)$/.test($('sdk-win-sub').textContent), $('sdk-win-sub').textContent);
 check('celebration fired', !!window.document.querySelector('canvas.confetti'));
 check('banner pop applied', $('sdk-banner').classList.contains('pop'));
 
@@ -2203,6 +2285,8 @@ const ambProblems = [];
    also the only way anybody ever hears one. */
 $('d-stats').click();
 await wait(120);
+{ const t = $('emb-box').querySelector('[data-tab="sounds"]'); if (t) t.click(); }
+await wait(60);
 $('emb-box').querySelector('[data-sound="cafe"]').click();
 await wait(60);
 check('a track is bought the same way a light is', !$('confirm').classList.contains('hide'),
@@ -2387,6 +2471,9 @@ await wait(80);
 $('d-stats').click();
 await wait(120);
 {
+  /* Whichever shelf the last block left open, this one is about lights. */
+  { const t = $('emb-box').querySelector('[data-tab="looks"]'); if (t) t.click(); }
+  await wait(60);
   const shelf = () => [...$('emb-box').querySelectorAll('[data-light]')];
   check('there is enough to buy something', +$('emb-box').dataset.have >= 5,
     $('emb-box').dataset.have);
@@ -2396,7 +2483,7 @@ await wait(120);
   shelf()[1].click();
   await wait(60);
   check('buying a light asks first', !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
-  check('and says what it costs', /5/.test($('confirm-yes').textContent), $('confirm-yes').textContent);
+  check('and says what it costs', /18/.test($('confirm-yes').textContent), $('confirm-yes').textContent);
   $('confirm-no').click();
   await wait(40);
   check('changing your mind costs nothing', +$('emb-box').dataset.have === before);
@@ -2404,7 +2491,7 @@ await wait(120);
   await wait(40);
   $('confirm-yes').click();
   await wait(80);
-  check('it is paid for', +$('emb-box').dataset.have === before - 5, $('emb-box').dataset.have);
+  check('it is paid for', +$('emb-box').dataset.have === before - 18, $('emb-box').dataset.have);
   check('it is yours', /latesun/.test($('emb-box').dataset.own), $('emb-box').dataset.own);
   check('and it is what is burning now', window.document.body.dataset.light === 'latesun',
     window.document.body.dataset.light);
@@ -2454,7 +2541,9 @@ await wait(120);
     $('emb-box').dataset.own.split(' ').filter((k) => k.indexOf('snd-') < 0).length === 2,
     $('emb-box').dataset.own);
 
-  // a locked sound, once there is something to spend
+  // a locked sound, once there is something to spend — on the sounds shelf
+  { const t = $('emb-box').querySelector('[data-tab="sounds"]'); if (t) t.click(); }
+  await wait(60);
   const sounds2 = () => [...$('emb-box').querySelectorAll('[data-sound]')];
   const had = +$('emb-box').dataset.have;
   sounds2().find((b) => b.dataset.sound === 'rain').click();
@@ -2463,7 +2552,7 @@ await wait(120);
     !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
   $('confirm-yes').click();
   await wait(150);
-  check('buying it spends the embers', +$('emb-box').dataset.have === had - 15,
+  check('buying it spends the embers', +$('emb-box').dataset.have === had - 34,
     `${$('emb-box').dataset.have} was ${had}`);
   check('and starts it playing', window.document.body.dataset.amb === 'rain',
     window.document.body.dataset.amb);
@@ -2472,6 +2561,8 @@ await wait(120);
      the weather, so they are alternatives rather than layers. */
   check('and the light is out while it plays',
     window.document.body.dataset.light === 'none', window.document.body.dataset.light);
+  { const t = $('emb-box').querySelector('[data-tab="looks"]'); if (t) t.click(); }
+  await wait(60);
   const shelf3 = [...$('emb-box').querySelectorAll('[data-light]')];
   check('no light is marked as burning', !shelf3.some((b) => b.classList.contains('on')),
     shelf3.map((b) => b.className).join(' | '));
@@ -2686,7 +2777,8 @@ if (nextDay) {
    purse costs one more jsdom and keeps both sides honest. */
 {
   const { window: fw, errors: faceErr } = boot(html, {
-    focus_embers: JSON.stringify({ have: 200, earned: 200, own: ['seaglass'], light: 'seaglass' }),
+    /* Enough for all three at the new prices — 70 + 40 + 100. */
+    focus_embers: JSON.stringify({ have: 400, earned: 400, own: ['seaglass'], light: 'seaglass' }),
   });
   await wait(400);
   const $ = (id) => fw.document.getElementById(id);
@@ -2842,7 +2934,9 @@ if (nextDay) {
      is not where the buying happens is a thing nobody finds. */
   fw.document.getElementById('d-stats').click();
   await wait(160);
-  check('the clock faces are on the ember shelf too',
+  { const t = fw.document.querySelector('#emb-box [data-tab="faces"]'); if (t) t.click(); }
+  await wait(60);
+  check('the clock faces are on their own shelf in the shop',
     fw.document.querySelectorAll('#emb-box [data-face-pick]').length >= 4,
     `${fw.document.querySelectorAll('#emb-box [data-face-pick]').length}`);
   check('and the menu picker uses the same chip the ambience picker does',
@@ -2876,8 +2970,627 @@ if (nextDay) {
     faceErr.slice(0, 2).join(' | '));
 }
 
-const { window: host, errors: hostErr } = boot(html);
-const { window: guest, errors: guestErr } = boot(html);
+/* ---- a price went up, and nobody paid it twice -----------------------------
+
+   **This is the one that broke.** The balance is derived and never stored:
+   `have = earned - SUM(price(id) for id in own)`. Put a price up in the shop
+   and that sum is silently recomputed over everything people already own, at
+   the new number — so eleven lights, five tracks and three clock faces going
+   up at once took hundreds of embers off everybody who had them, in a single
+   update, and several people watched their balance land on zero.
+
+   The fix is that the shelf price and the price you paid are two different
+   things: `EMB_WAS` in 37-embers.js freezes the old list, and `grand` — the
+   ids a device owned the first time it met the rise — decides which of the
+   two applies. So this boots a device with an *old* ember record: one that
+   holds pre-rise purchases and has never heard of `grand`.
+
+   Old prices: 5 + 10 + 15 + 15 + 60 = 105. New ones: 18 + 26 + 34 + 34 + 100
+   = 212. A balance of 195 is the fix; 88 is the bug. */
+{
+  const OLD_OWN = ['seaglass', 'latesun', 'dusk', 'frost', 'snd-rain', 'face-glass'];
+  const { window: pw, errors: pErr } = boot(html, {
+    // no `grand` key: this record was written by a build that had no such idea
+    focus_embers: JSON.stringify({ have: 300, earned: 300, own: OLD_OWN, light: 'latesun' }),
+  });
+  await wait(400);
+  const $p = (id) => pw.document.getElementById(id);
+  check('an old record keeps every ember it had when the prices went up',
+    +$p('emb-box').dataset.have === 195, `${$p('emb-box').dataset.have}, wanted 195`);
+  /* Written down, so the next boot does not have to work it out again — and so
+     it can travel to the other devices on the account. */
+  const rec = JSON.parse(pw.localStorage.getItem('focus_embers') || '{}');
+  check('and what it was holding at the time is written down',
+    Array.isArray(rec.grand) && OLD_OWN.every((id) => rec.grand.indexOf(id) >= 0),
+    JSON.stringify(rec.grand));
+  /* The other half: the rise is real for anything bought *after* it. Hearth is
+     42 now and was 20; this device never owned it, so it pays 42. */
+  $p('emb-spend-row').click();
+  await wait(150);
+  { const t = $p('emb-box').querySelector('[data-tab="looks"]'); if (t) t.click(); }
+  await wait(80);
+  const before = +$p('emb-box').dataset.have;
+  const hearth = $p('emb-box').querySelector('[data-light="hearth"]');
+  hearth.click();
+  await wait(80);
+  $p('confirm-yes').click();
+  await wait(150);
+  check('but anything bought after the rise pays the new price',
+    +$p('emb-box').dataset.have === before - 42,
+    `${$p('emb-box').dataset.have} was ${before}`);
+  /* And it does not sneak into the grandfathered list on the way — that list
+     is written once, at the moment the rise lands, and never grows. */
+  const rec2 = JSON.parse(pw.localStorage.getItem('focus_embers') || '{}');
+  check('and does not join the list of things that kept the old price',
+    (rec2.grand || []).indexOf('hearth') < 0, JSON.stringify(rec2.grand));
+  check('and nothing threw while all that happened', pErr.length === 0,
+    pErr.slice(0, 2).join(' | '));
+}
+
+/* ---- one puzzle a day, and the same one for everybody ----------------------
+
+   Three separate claims, and each of them fails differently:
+
+     * **The same for everybody.** The generators used `Math.random()`, so two
+       people comparing a sudoku were comparing two different grids. They take
+       a seeded stream now, keyed on the game, the difficulty and the date —
+       which means the check is that the *same* three strings give the same
+       grid twice and a *different* date gives a different one. If either half
+       of that fails, the feature is a lie.
+     * **One a day.** Today's edition is offered once. The archive is not
+       rationed, which is what makes the rule bearable rather than mean.
+     * **A day is Pakistani.** UTC+5, no daylight saving, so the boundary is a
+       fixed offset — and 18:59 UTC and 19:01 UTC on the same evening are two
+       different days, which is the only thing worth asserting about it.
+
+   In a window of its own: this seeds a played-calendar, and the arcade blocks
+   above assert on a fresh one. */
+{
+  /* **A door into the closure, opened for this one window.** Everything in
+     the app lives inside a single IIFE — which is the point of it — so a test
+     that wants to ask "would two people get the same grid" cannot reach the
+     generator from outside. The same trick the `look-*` tools use: the last
+     line of the bundle is `})();`, and putting a handful of names on `window`
+     just before it costs the shipped build nothing. */
+  const dailyHtml = withDoor(html, `window.__d = {pktNow, pktDay, pktNum, pktAt, pktDow,
+    pktLabel, pktUntilRoll, dailyGen, dailyState, sMake, WORDS, crossReleases,
+    crossReleaseDay, crossOnDay, DAILY_EPOCH, Sudoku, DCal, Wordle, dailyStreak,
+    dailyMark, dailyAdopt, dailyGet, DAILY_DONE};`);
+  const { window: dw, errors: dErr } = boot(dailyHtml, { focus_daily: JSON.stringify({}) });
+  await wait(500);
+  const $d = (id) => dw.document.getElementById(id);
+  const probe = (fn) => fn(dw.__d);
+
+  /* --- the clock --- */
+  const days = probe((d) => ({
+    today: d.pktNow(),
+    // 18:59 and 19:01 UTC are either side of Pakistani midnight
+    before: d.pktDay(Date.UTC(2026, 7, 26, 18, 59)),
+    after: d.pktDay(Date.UTC(2026, 7, 26, 19, 1)),
+    dow: d.pktDow('2026-08-23'),
+    roll: d.pktUntilRoll(Date.UTC(2026, 7, 26, 18, 0)),
+  }));
+  check('midnight in Pakistan is where one day becomes the next',
+    days.before === '2026-08-26' && days.after === '2026-08-27',
+    `${days.before} / ${days.after}`);
+  check('and the countdown to it is an hour at seven in the evening UTC',
+    days.roll === 3600000, `${days.roll}`);
+  check('a day knows what day of the week it is', days.dow === 0, `${days.dow}`);
+
+  /* --- the same puzzle, everywhere --- */
+  const same = probe((d) => {
+    const g = (k) => d.sMake('hard', d.dailyGen('sudoku', 'hard', k)).puz.join('');
+    const w = (k) => d.WORDS[d.dailyGen('wordle', '', k)() * d.WORDS.length | 0];
+    return {
+      twice: g('2026-08-20') === g('2026-08-20'),
+      moved: g('2026-08-20') !== g('2026-08-21'),
+      byDiff: g('2026-08-20') !== d.sMake('easy', d.dailyGen('sudoku', 'easy', '2026-08-20')).puz.join(''),
+      wordTwice: w('2026-08-20') === w('2026-08-20'),
+      wordMoved: w('2026-08-20') !== w('2026-08-21'),
+    };
+  });
+  check('the same day makes the same grid, every time it is asked', same.twice);
+  check('and the next day makes a different one', same.moved);
+  check('and so does the same day at another difficulty', same.byDiff);
+  check('the word of the day is the same word twice', same.wordTwice);
+  check('and a different word tomorrow', same.wordMoved);
+
+  /* --- the crossword's release schedule --- */
+  const sched = probe((d) => ({
+    mon: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-17')),
+    wed: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-19')),
+    fri: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-21')),
+    sun: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-23')),
+    // nothing at all before the day the schedule starts
+    before: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-16')),
+    // the first four fives are four consecutive days
+    fives: [0,1,2,3].map(n => d.crossReleaseDay(5, n)),
+    nines: [0,1,2].map(n => d.crossReleaseDay(9, n)),
+    fifteens: [0,1].map(n => d.crossReleaseDay(15, n)),
+    // and a day maps to a real puzzle in the bank
+    onMon: d.crossOnDay(5, '2026-08-17').i,
+    onTue: d.crossOnDay(5, '2026-08-18').i,
+  }));
+  check('five and seven come out every day', sched.mon.join(',') === '5,7', sched.mon.join(','));
+  check('the nine on Wednesday and Friday', sched.wed.join(',') === '5,7,9' && sched.fri.join(',') === '5,7,9',
+    `${sched.wed} / ${sched.fri}`);
+  check('the fifteen on Sunday', sched.sun.join(',') === '5,7,15', sched.sun.join(','));
+  check('and nothing before the day the schedule starts', sched.before.length === 0, sched.before.join(','));
+  check('the daily sizes run on consecutive days',
+    sched.fives.join(' ') === '2026-08-17 2026-08-18 2026-08-19 2026-08-20', sched.fives.join(' '));
+  check('the nines land on Wednesdays and Fridays',
+    sched.nines.join(' ') === '2026-08-19 2026-08-21 2026-08-26', sched.nines.join(' '));
+  check('and the fifteens a week apart, on Sundays',
+    sched.fifteens.join(' ') === '2026-08-23 2026-08-30', sched.fifteens.join(' '));
+  /* **The bank is append-only, and this is what says so.** A puzzle's date is
+     its position in its size's list; insert one in the middle and every date
+     after it moves, which rewrites history and orphans saved boards. If this
+     check ever fails, something was inserted rather than appended. */
+  check('and two different days are two different puzzles',
+    sched.onMon >= 0 && sched.onTue >= 0 && sched.onMon !== sched.onTue,
+    `${sched.onMon} / ${sched.onTue}`);
+
+  /* --- one a day --- */
+  dw.document.getElementById('arcade-open').click();
+  await wait(120);
+  [...dw.document.querySelectorAll('.pcard')].find((c) => c.dataset.game === 'sudoku').click();
+  await wait(400);
+  check('the calendar button is on a game that has editions',
+    !$d('ov-cal').classList.contains('hide'), $d('ov-cal').className);
+
+  /* Finish today's easy the short way — filling in eighty-one cells through
+     the DOM would be testing the keypad, which has its own checks. */
+  probe((d) => { d.Sudoku.newGame('easy', true); d.Sudoku.grid = d.Sudoku.sol.slice(); d.Sudoku.checkDone(); });
+  await wait(150);
+  check('finishing today’s puzzle marks the day',
+    probe((d) => d.dailyState('sudoku', 'easy', d.pktNow())) === 2,
+    `${probe((d) => d.dailyState('sudoku', 'easy', d.pktNow()))}`);
+
+  const solved = probe((d) => d.Sudoku.grid.join(''));
+  probe((d) => d.Sudoku.newGame('easy'));
+  await wait(150);
+  check('and pressing that difficulty again does not hand out another one',
+    probe((d) => d.Sudoku.grid.join('')) === solved, 'the board changed');
+  check('it opens the calendar instead, which is where the rest are',
+    !$d('dcal-overlay').classList.contains('hide'), $d('dcal-overlay').className);
+
+  /* --- the archive is open --- */
+  check('the calendar is that game’s, and says so',
+    /Sudoku/.test($d('dcal-title').textContent), $d('dcal-title').textContent);
+  check('with a key saying which colour is which difficulty',
+    /Easy/.test($d('dcal-keys').textContent) && /Hard/.test($d('dcal-keys').textContent)
+    && /finished/.test($d('dcal-keys').textContent),
+    $d('dcal-keys').textContent);
+  const cells = [...$d('dcal-grid').querySelectorAll('.dcal-cell[data-d]')];
+  check('a month of days, each with a dot per difficulty',
+    cells.length > 20 && cells.every((c) => c.querySelectorAll('.dcal-dot').length === 3
+      || c.classList.contains('future')),
+    `${cells.length} cells`);
+  const todayCell = cells.find((c) => c.classList.contains('today'));
+  check('today is marked, and its finished puzzle is filled in',
+    !!todayCell && todayCell.querySelectorAll('.dcal-dot.done').length === 1,
+    todayCell ? todayCell.innerHTML : 'no today');
+  /* Nothing before the day the arcade started having days: sudoku can make a
+     puzzle for any date there has ever been, which is not a reason to offer
+     one for a Tuesday in 1997. */
+  check('and days from before any of this existed offer nothing',
+    cells.filter((c) => c.dataset.d < '2026-08-17')
+      .every((c) => c.classList.contains('future') && !c.querySelector('.dcal-dot')),
+    'a day before the epoch had a puzzle on it');
+
+  /* Playing an older one from the calendar. Yesterday's easy has never been
+     touched, so it is a fresh grid rather than the one just solved. */
+  const yday = probe((d) => d.pktAt(d.pktNum(d.pktNow()) - 1));
+  probe((d) => { d.DCal.sel = yday; d.DCal.render(); });
+  await wait(120);
+  const play = [...$d('dcal-day').querySelectorAll('[data-play]')][0];
+  check('an older day offers its puzzles to play', !!play, $d('dcal-day').textContent.slice(0, 80));
+  play.click();
+  await wait(250);
+  check('and opening one leaves the calendar for the board',
+    $d('dcal-overlay').classList.contains('hide'));
+  check('which is that day’s puzzle, not today’s',
+    probe((d) => d.Sudoku.day) === yday && probe((d) => d.Sudoku.grid.join('')) !== solved,
+    `${probe((d) => d.Sudoku.day)} vs ${yday}`);
+  check('and the board says which day it is showing',
+    new RegExp(probe((d) => d.pktLabel(yday))).test($d('sdk-meta').textContent),
+    $d('sdk-meta').textContent);
+
+  /* **The banner's button has to say the true next thing.** It appears only on
+     a puzzle you just finished, so on the day's own edition "New puzzle" is a
+     promise the rule will not keep. */
+  probe((d) => { d.Sudoku.newGame('medium', true); d.Sudoku.grid = d.Sudoku.sol.slice(); d.Sudoku.checkDone(); });
+  await wait(150);
+  check('and the banner offers the archive once the day is spent',
+    /History/.test($d('sdk-again').textContent), $d('sdk-again').textContent);
+  $d('sdk-again').click();
+  await wait(150);
+  check('which is where it goes',
+    !$d('dcal-overlay').classList.contains('hide'), $d('dcal-overlay').className);
+  $d('dcal-close').click();
+  await wait(60);
+
+  /* --- the word grid, and the streak ------------------------------------
+
+     Two things that only exist once a word has actually been guessed.
+
+     The grid is the thing people screenshot. It has to be drawn from what was
+     saved rather than from the live game, because the whole point is that it
+     is still there tomorrow — so the record carries one string, five
+     characters a guess, and the calendar reads it back. It must say how close
+     each try was and never which word it was.
+
+     The streak counts days finished *on the day*, which is why yesterday's
+     puzzle played today does not move it. Playing the archive is welcome; it
+     is just not a streak. */
+  {
+    /* Guess it in three: two wrong words to put some colour in the grid, then
+       the answer. `submit` is the path the Enter key takes, so this is the real
+       one rather than a hand-written record. */
+    await probe((d) => d.Wordle.enter());
+    await wait(150);
+    const answer = probe((d) => d.Wordle.answer);
+    // two real words off the list, so `submit` accepts them
+    const misses = probe((d) => d.WORDS.filter((w) => w !== d.Wordle.answer).slice(0, 2));
+    const play = (word) => probe((d) => { d.Wordle.cur = word; d.Wordle.submit(); });
+    play(misses[0]); await wait(60);
+    play(misses[1]); await wait(60);
+    play(answer); await wait(200);
+    check('the word is guessed', probe((d) => d.Wordle.won === true && d.Wordle.done === true),
+      probe((d) => `${d.Wordle.won}/${d.Wordle.done}`));
+
+    /* One row of five per guess, and the last row all hits, because the last
+       guess was the answer. */
+    probe((d) => d.DCal.open('wordle'));
+    await wait(150);
+    const row = [...$d('dcal-day').querySelectorAll('.dcal-row')][0];
+    const art = $d('dcal-day').querySelector('.wdl-art');
+    check('and the calendar draws the grid it made',
+      !!art && art.querySelectorAll('.wdl-art-row').length === 3,
+      art ? `${art.querySelectorAll('.wdl-art-row').length} rows` : 'no grid');
+    check('five squares to a row', !!art
+      && [...art.querySelectorAll('.wdl-art-row')].every((r) => r.children.length === 5),
+      art ? [...art.querySelectorAll('.wdl-art-row')].map((r) => r.children.length).join(',') : '-');
+    const last = art && art.lastElementChild;
+    check('and the row that got it is all green',
+      !!last && [...last.children].every((i) => i.className === 'hit'),
+      last ? [...last.children].map((i) => i.className || '·').join(' ') : '-');
+    /* **The picture must not be the answer.** A grid that leaked letters would
+       be the one thing this feature must never do. */
+    check('with no letters anywhere in it',
+      !!art && !/[a-z]/i.test(art.textContent), art ? art.textContent : '-');
+    check('and the line above it says how it went',
+      !!row && /Found in 3\/6/.test(row.textContent), row ? row.textContent : '-');
+
+    /* --- streaks are for the day of release --- */
+    check('finishing today’s puzzle starts a streak',
+      probe((d) => d.dailyStreak('wordle', '')) === 1,
+      `${probe((d) => d.dailyStreak('wordle', ''))}`);
+    check('which the summary tiles lead with',
+      /streak/i.test($d('dcal-sum').textContent), $d('dcal-sum').textContent.slice(0, 60));
+    /* Two days of archive, filed the way playing an old one files it — no `d`
+       flag, because they were not finished on their day. The streak does not
+       move, and that is the rule. */
+    probe((d) => {
+      const y1 = d.pktAt(d.pktNum(d.pktNow()) - 1);
+      const y2 = d.pktAt(d.pktNum(d.pktNow()) - 2);
+      d.dailyMark('wordle', '', y1, d.DAILY_DONE, {g: 4, w: 1});
+      d.dailyMark('wordle', '', y2, d.DAILY_DONE, {g: 4, w: 1});
+    });
+    await wait(80);
+    check('but going back through the archive does not extend it',
+      probe((d) => d.dailyStreak('wordle', '')) === 1,
+      `${probe((d) => d.dailyStreak('wordle', ''))}`);
+    /* **And the yesterday that *was* done on its day does count** — otherwise
+       the check above would be passing on a streak that is simply broken.
+       It gets the flag the only way a past day ever can: another device that
+       played it on the day hands its record over, `d` and all, through the
+       account merge. Which also says `mergeDaily` is carrying the flag. */
+    probe((d) => {
+      const y1 = d.pktAt(d.pktNum(d.pktNow()) - 1);
+      const from = { 'wordle:': {} };
+      from['wordle:'][y1] = { s: 2, g: 4, w: 1, d: 1 };
+      d.dailyAdopt(from);
+    });
+    await wait(80);
+    check('while a day that was done on its own day does',
+      probe((d) => d.dailyStreak('wordle', '')) === 2,
+      `${probe((d) => d.dailyStreak('wordle', ''))}`);
+    /* --- and a second go at it changes nothing ---
+
+       "Look again" hands the board back, and every key pressed on it used to
+       overwrite the day: a word found in three, reopened and abandoned, became
+       a miss, and the grid people screenshot became whatever was last typed.
+       One puzzle, one score. The board is still playable; it just no longer
+       counts. */
+    const kept = probe((d) => JSON.stringify(d.dailyGet('wordle', '', d.pktNow())));
+    /* Play it again and *finish* it, differently — straight to the answer, one
+       guess, one green row. A replay that is merely started writes nothing
+       either way, so beating the day a second time is the case that tells the
+       rule apart from no rule at all. */
+    probe((d) => { d.Wordle.newGame(d.pktNow()); });
+    await wait(120);
+    play(answer);
+    await wait(200);
+    check('the second go really did finish, differently',
+      probe((d) => d.Wordle.done && d.Wordle.guesses.length === 1),
+      probe((d) => `${d.Wordle.done}/${d.Wordle.guesses.length}`));
+    check('playing the day again does not rewrite what happened',
+      probe((d) => JSON.stringify(d.dailyGet('wordle', '', d.pktNow()))) === kept,
+      probe((d) => JSON.stringify(d.dailyGet('wordle', '', d.pktNow()))));
+    probe((d) => d.DCal.open('wordle'));
+    await wait(150);
+    const still = $d('dcal-day').querySelector('.wdl-art');
+    check('and the grid on the calendar is still the one it drew',
+      !!still && still.querySelectorAll('.wdl-art-row').length === 3,
+      still ? `${still.querySelectorAll('.wdl-art-row').length} rows` : 'no grid');
+    /* **The grid stands where the edition's name would be**, rather than
+       under the row as a loose graphic. */
+    check('which sits inside the row, in place of its name',
+      !!still && still.closest('.dcal-row') !== null
+      && !$d('dcal-day').querySelector('.dcal-row b'),
+      still && still.closest('.dcal-row') ? 'in the row' : 'outside it');
+
+    $d('dcal-close').click();
+    await wait(60);
+  }
+
+  check('and nothing threw while all that happened', dErr.length === 0,
+    dErr.slice(0, 2).join(' | '));
+}
+
+/* ---- the wardrobe is bought, and tried on before it is ---------------------
+
+   Everything he wears used to be free and listed. It is bought now, which
+   changes three things and each of them is a way to get it wrong:
+
+     * the wardrobe holds only what you own, so a new person's rows are one
+       tile long rather than a wall of things they cannot use;
+     * the shop is where the rest is, and you can put something on *before*
+       paying for it — a hat you cannot see on him is a hat nobody buys;
+     * and nothing he has not bought may stay on him, which is what turns the
+       change into a migration nobody had to write: on this update everything
+       came off, and the rule that took it off is checked continuously rather
+       than run once behind a flag.
+
+   In a window of its own, with a purse, because buying spends embers and the
+   blocks above assert on the balance. */
+{
+  const { window: bw, errors: budErr } = boot(html, {
+    focus_embers: JSON.stringify({ have: 300, earned: 300, own: ['seaglass'], light: 'seaglass' }),
+    /* Wearing three things he has never bought — which is exactly what every
+       existing buddy looked like the moment the shop arrived. */
+    focus_sim: JSON.stringify({ focusMin: 25, breakMin: 5, repeat: 4, face: 'digital',
+      buddy: { b: 2, c: 3, e: 4, h: 5, a: 2, f: 1, o: 3 }, budAnim: 5, budShow: true, at: 9 }),
+  });
+  await wait(500);
+  const $b = (id) => bw.document.getElementById(id);
+  const shopTab = async (id) => {
+    const t = $b('emb-box').querySelector(`[data-tab="${id}"]`);
+    if (t) t.click();
+    await wait(70);
+  };
+
+  /* The migration, and it is not a migration — it is a rule. */
+  const worn = JSON.parse(bw.localStorage.getItem('focus_sim') || '{}');
+  check('anything he had not bought came off him',
+    worn.buddy && worn.buddy.h === 0 && worn.buddy.a === 0 && worn.buddy.f === 0
+    && worn.buddy.o === 0 && worn.buddy.e === 0,
+    JSON.stringify(worn.buddy));
+  /* **The antic is hidden, not forgotten — and that is the fix, not an
+     oversight.** `budAnimSaved()` already answers -1 for an antic he does not
+     own, so he is neither drawn doing it nor announced as doing it in a room:
+     the check below is what that looks like from outside. Writing -1 into the
+     record on top of that bought nothing and cost everything — an ownership
+     list that had not finished loading, or an account sync landing a beat
+     late, took the choice away for good. That is the "antics randomly reset"
+     report. The number stays; buying it back brings him back. */
+  check('but the antic he picked is kept rather than cleared',
+    (worn.budAnim | 0) === 5, `${worn.budAnim}`);
+  check('and with nothing to do, he is off the timer screen',
+    $b('bud-live').classList.contains('hide') && $b('bud-pause').classList.contains('hide'),
+    `${$b('bud-live').className} / ${$b('bud-pause').className}`);
+  /* His colours are his. They were never bought and never will be, so a wipe of
+     the wardrobe must not take them — losing the skin you picked because a shop
+     opened would read as the update having damaged something. */
+  check('but his colours are untouched, because colours are free',
+    worn.buddy && worn.buddy.b === 2 && worn.buddy.c === 3, JSON.stringify(worn.buddy));
+
+  $b('d-account').click();
+  await wait(160);
+  const rowOf = (k) => [...$b('bud-box').querySelectorAll(`[data-bud="${k}"]`)];
+  check('the wardrobe starts with only what he owns', rowOf('h').length === 1,
+    `${rowOf('h').length} hats`);
+
+  // the way through to the shop is the button on the wardrobe
+  $b('bud-shop').click();
+  await wait(200);
+  check('the wardrobe opens the shop on the wardrobe shelf',
+    !$b('shop-overlay').classList.contains('hide')
+    && !!$b('emb-box').querySelector('.bud-shop'),
+    $b('emb-box').querySelector('.shop-tab.on') ? $b('emb-box').querySelector('.shop-tab.on').textContent : 'no tab');
+  const tiles = (k) => [...$b('emb-box').querySelectorAll(`[data-shop="${k}"]`)];
+  check('and it holds every hat there is, not only the ones he owns',
+    tiles('h').length >= 12, `${tiles('h').length}`);
+  check('each one saying what it costs',
+    tiles('h').every((t) => /^\d+$/.test(t.querySelector('em').textContent)),
+    tiles('h').map((t) => t.querySelector('em').textContent).join(' '));
+
+  /* Trying one on. The whole point: it goes on him, on this screen, and nothing
+     has been bought or saved. */
+  const stage = () => $b('emb-box').querySelector('.bud-shop-stage').innerHTML;
+  const bare = stage();
+  /* The bandana: a plain enough hat that dyeing it is a colour rather than a
+     different object, which is the line `dye:1` draws — see budPart. */
+  const wizard = tiles('h').find((t) => +t.dataset.i === 10);
+  wizard.click();
+  await wait(120);
+  check('tapping one you have not bought puts it on him anyway', stage() !== bare,
+    'the preview did not change');
+  check('and says what it would cost, with a way out',
+    /Buy it for \d+/.test($b('emb-box').textContent) && !!$b('bud-try-off'),
+    $b('emb-box').textContent.slice(0, 0) + (($b('bud-try-buy') || {}).textContent || 'no buy button'));
+  check('while nothing has actually been bought',
+    ($b('emb-box').dataset.own || '').indexOf('bud-h10') < 0, $b('emb-box').dataset.own);
+  check('and nothing has been written down either',
+    (JSON.parse(bw.localStorage.getItem('focus_sim') || '{}').buddy || {}).h === 0,
+    bw.localStorage.getItem('focus_sim'));
+
+  // taking it off again leaves him as he was
+  $b('bud-try-off').click();
+  await wait(100);
+  check('taking it off puts him back', stage() === bare, 'he kept the hat');
+
+  // and buying it
+  wizard.click();
+  await wait(120);
+  const had = +$b('emb-box').dataset.have;
+  $b('bud-try-buy').click();
+  await wait(120);
+  check('buying asks first, like everything else that spends',
+    !$b('confirm').classList.contains('hide'), $b('confirm-title').textContent);
+  $b('confirm-no').click();
+  await wait(80);
+  check('and saying no costs nothing', +$b('emb-box').dataset.have === had,
+    `${$b('emb-box').dataset.have} was ${had}`);
+  $b('bud-try-buy').click();
+  await wait(80);
+  $b('confirm-yes').click();
+  await wait(160);
+  check('saying yes spends the embers', +$b('emb-box').dataset.have === had - 26,
+    `${$b('emb-box').dataset.have} was ${had}`);
+  check('and the hat is his', ($b('emb-box').dataset.own || '').indexOf('bud-h10') >= 0,
+    $b('emb-box').dataset.own);
+  check('and he is wearing it', $b('emb-box').querySelector('[data-shop="h"][data-i="10"]')
+    .classList.contains('on'),
+    $b('emb-box').querySelector('[data-shop="h"][data-i="10"]').className);
+
+  /* An antic, from its own shelf, at its own prices. */
+  await shopTab('antics');
+  const antics = [...$b('emb-box').querySelectorAll('[data-antic]')];
+  check('the antics are a shelf of their own', antics.length >= 8, `${antics.length}`);
+  /* **Nothing on this shelf is free.** He used to have the web-swing from the
+     first minute — the flashiest thing in the shop, given away, and therefore
+     the one item nobody would ever buy. Buying the first antic is what embers
+     are for now, and until then he stays off the timer screen entirely. */
+  check('nothing on the antic shelf is free',
+    antics.every((b) => !b.classList.contains('mine')),
+    antics.filter((b) => b.classList.contains('mine')).length + ' free');
+  check('and it reads cheapest first, so the first one is reachable',
+    antics.map((b) => +b.querySelector('em').textContent.replace(/\D+/g, ''))
+      .every((n, i, a) => i === 0 || a[i - 1] <= n),
+    antics.map((b) => b.querySelector('em').textContent).join(' '));
+  const hadA = +$b('emb-box').dataset.have;
+  antics.find((b) => +b.dataset.antic === 3).click();
+  await wait(80);
+  check('buying an antic asks as well', !$b('confirm').classList.contains('hide'),
+    $b('confirm-title').textContent);
+  $b('confirm-yes').click();
+  await wait(160);
+  check('it costs what the shelf said', +$b('emb-box').dataset.have === hadA - 70,
+    `${$b('emb-box').dataset.have} was ${hadA}`);
+  check('and it is his', ($b('emb-box').dataset.own || '').indexOf('bud-an3') >= 0,
+    $b('emb-box').dataset.own);
+  /* And the other half of keeping the number: buying back the one he had
+     already chosen puts it straight back on him, with nothing re-picked. */
+  antics.find((b) => +b.dataset.antic === 5).click();
+  await wait(80);
+  $b('confirm-yes').click();
+  await wait(160);
+
+  /* Back in the wardrobe, both purchases are simply there — and the antic is a
+     draft until Save, the same as everything else about him. */
+  $b('shop-close').click();
+  await wait(120);
+  $b('d-account').click();
+  await wait(160);
+  check('what you bought is in the wardrobe afterwards', rowOf('h').length === 2,
+    `${rowOf('h').length} hats`);
+  check('and the antics are there to choose, being the ones he owns',
+    [...$b('bud-box').querySelectorAll('[data-anim]')].length === 2,
+    `${[...$b('bud-box').querySelectorAll('[data-anim]')].length} antics`);
+  check('with the one he chose before the shop existed already back on him',
+    !!$b('bud-box').querySelector('[data-anim="5"].on'),
+    [...$b('bud-box').querySelectorAll('[data-anim]')].map((b) => b.className).join(' | '));
+  /* **The colour is behind a button now.** Every row having its palette on
+     screen at all times was thirteen swatches a row and a page you scrolled
+     past to reach the thing you wanted; it opens, is used, and closes. */
+  check('a colour is a drawer you open, not a row that is always there',
+    rowOf('hc').length === 0 && !!$b('bud-box').querySelector('[data-dye="h"]'),
+    `${rowOf('hc').length} swatches on screen`);
+  $b('bud-box').querySelector('[data-dye="h"]').click();
+  await wait(120);
+  check('and opening it offers the colours', rowOf('hc').length >= 8,
+    `${rowOf('hc').length} hat colours`);
+  /* Dyeing is free and instant, and index 0 is the colour it was drawn in — so
+     a part that has never been dyed draws exactly as it always did. */
+  const dyed = () => $b('bud-box').querySelector('.bud-stage').innerHTML;
+  const asMade = dyed();
+  rowOf('hc')[4].click();
+  await wait(80);
+  // 70 for the antic he did not have, 55 for the one he had already chosen
+  check('choosing a colour recolours him and costs nothing',
+    dyed() !== asMade && +$b('emb-box').dataset.have === hadA - 125,
+    $b('emb-box').dataset.have);
+  rowOf('hc')[0].click();
+  await wait(80);
+  check('and "as made" is exactly what it was before anybody touched it',
+    dyed() === asMade, 'the drawing did not come back');
+
+  /* **Leaving him unsaved is a three-answer question.** Save and go, throw the
+     changes away and go, or go back to dressing him. It used to be two, with
+     "Cancel" meaning *discard* — so the only way to say "I did not mean to
+     press Back" was the close box, and a close box is not an answer. */
+  rowOf('hc')[4].click();
+  await wait(80);
+  $b('acct-close').click();
+  await wait(140);
+  check('leaving him unsaved asks first', !$b('confirm').classList.contains('hide'),
+    $b('confirm-title').textContent);
+  check('and offers all three answers rather than two',
+    !$b('confirm-alt').classList.contains('hide')
+    && /Keep editing/.test($b('confirm-alt').textContent)
+    && /Discard/.test($b('confirm-no').textContent),
+    `${$b('confirm-alt').className} / ${$b('confirm-no').textContent}`);
+  $b('confirm-alt').click();
+  await wait(140);
+  check('and keeping on editing simply closes it, leaving the page open',
+    $b('confirm').classList.contains('hide')
+    && !$b('acct-overlay').classList.contains('hide'),
+    `${$b('confirm').className} / ${$b('acct-overlay').className}`);
+  /* The card is shared with every other confirm in the app, so it has to be
+     handed back the way they expect to find it — third button gone, No called
+     Cancel again. A dialog that remembers the last question it was asked
+     offers "Discard" over a light you are buying. */
+  check('with the card handed back the way everything else expects it',
+    $b('confirm-alt').classList.contains('hide')
+    && $b('confirm-no').textContent === 'Cancel',
+    `${$b('confirm-alt').className} / ${$b('confirm-no').textContent}`);
+  $b('acct-close').click();
+  await wait(140);
+  $b('confirm-no').click();
+  await wait(160);
+  check('while discarding drops the changes and goes',
+    $b('acct-overlay').classList.contains('hide'), $b('acct-overlay').className);
+
+  check('and nothing threw while all that happened', budErr.length === 0,
+    budErr.slice(0, 2).join(' | '));
+}
+
+/* **These three have bought a few antics.** Antics are things you buy now, and
+   the room checks below are about *which* antic each person is doing — so each
+   window needs more than the one everybody starts with. Seeded rather than
+   bought through the shop: what is under test here is the room, and paying for
+   a jetpack twelve hundred lines from the shop's own checks would be testing
+   the shop badly instead of the room well. `bud-an4` is the jetpack and
+   `bud-an7` the reader; see BUD_COST in 46-buddy.js. */
+const ROOM_EMBERS = JSON.stringify({
+  have: 400, earned: 400, own: ['seaglass', 'bud-an1', 'bud-an4', 'bud-an7'], light: 'seaglass',
+});
+const roomHtml = withDoor(html, 'window.__r = {Account, SYNC, Chat, friendTake, friendCard,'
+  + ' syncNormalise, syncCodeFor, syncAdoptAccount, friendFind, syncRender};');
+const { window: host, errors: hostErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
+const { window: guest, errors: guestErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 
 /* Both windows get a fixed random sequence from here on. A shared game deals
    from a shuffled bag, and the Scrabble block below has to find a real word in
@@ -2968,14 +3681,27 @@ $g('toggle-run').click();
 await wait(200);
 check('follower cannot drive the leader', $h('toggle-run').textContent === hostBefore, `${hostBefore} -> ${$h('toggle-run').textContent}`);
 
-// friends list
-$g('sync-code').value = hostCode;
-$g('sync-friend-name').value = 'Study buddy';
-$g('sync-add').click();
+/* **Friends are people now, not codes with a nickname typed over them.**
+   Keeping somebody you met in a room saves them under the username they sent
+   with their `hello`, and the row is a way into their profile. See
+   src/js/29a-friends.js. */
+$g('sync-people').querySelector('[data-keep]').click();
+await wait(60);
+check('keeping somebody from the room saves them',
+  JSON.parse(guest.localStorage.getItem('focus_sync')).friends.length === 1,
+  guest.localStorage.getItem('focus_sync'));
+check('and the row is a way into their profile',
+  !!$g('sync-friends').querySelector('[data-who]'), $g('sync-friends').innerHTML.slice(0, 120));
+check('with a code still on it while there is no username to show',
+  $g('sync-friends').textContent.includes(hostCode), $g('sync-friends').textContent.slice(0, 80));
+$g('sync-friends').querySelector('[data-who]').click();
+await wait(80);
+check('opening it opens the profile', !$g('prof-overlay').classList.contains('hide'),
+  $g('prof-overlay').className);
+check('which offers the two things you would do without looking',
+  !!$g('prof-join') && !!$g('prof-msg'), $g('prof-body').textContent.slice(0, 80));
+$g('prof-close').click();
 await wait(40);
-check('friend saved with a name', $g('sync-friends').textContent.includes('Study buddy'), $g('sync-friends').textContent.slice(0, 60));
-check('friend saved with the code', $g('sync-friends').textContent.includes(hostCode));
-check('friends persist', JSON.parse(guest.localStorage.getItem('focus_sync')).friends.length === 1);
 
 // --- confirms, keeping people, and noticing they've gone -------------------
 // Handing the clock over and removing somebody are both hard to undo in a room
@@ -3077,7 +3803,11 @@ check('nothing is relayed back to its sender twice',
 
   $h('chat-tabs').querySelector(`[data-thread="${theirCode}"]`).click();
   await wait(60);
-  check('an empty direct thread explains itself', /waits until you.re both open/.test($h('chat-log').textContent),
+  /* One sentence. It used to be a paragraph explaining how offline delivery
+     works, on an otherwise empty screen, which reads as an apology. */
+  check('an empty direct thread says so, briefly',
+    /Nothing yet/.test($h('chat-log').textContent)
+    && $h('chat-log').textContent.trim().length < 60,
     $h('chat-log').textContent.slice(0, 80));
 
   $h('chat-input').value = 'just between us';
@@ -3280,6 +4010,130 @@ check('one-off room does not overwrite your code', $h('sync-mycode').textContent
 await leaveRoom($h);
 await wait(100);
 
+/* --- a friend request, both halves of it ------------------------------------
+
+   **A code is a hash of a username**, so finding somebody is typing their name
+   — there is no directory and no lookup. What the request adds is consent and
+   a card: they agree to be on a list, and the exchange is what carries the
+   numbers a profile shows.
+
+   It travels as a message, down the path messages already use, and is lifted
+   out before it reaches any conversation. That is why there is no new endpoint
+   and nothing to deploy. See src/js/29a-friends.js. */
+{
+  const hostUser = 'hashir';
+  const guestUser = 'noor';
+  /* **Put everything back afterwards.** Signing in moves a device onto its
+     account's code, and the blocks below are keyed to the codes these two had
+     before — threads, the outbox, saved friends. Left changed, they fail for a
+     reason that has nothing to do with them. */
+  const was = [host, guest].map((w) => ({
+    w, code: w.__r.SYNC.myCode, acct: w.__r.SYNC.accountCode,
+    friends: w.__r.SYNC.friends.slice(),
+    out: JSON.parse(JSON.stringify(w.__r.Chat.out || {})),
+  }));
+  /* Both signed in, so both have a username to be found by — and the code each
+     device answers to becomes the account's, which is what makes a username an
+     address. See `syncAdoptAccount` in 29-sync.js. */
+  for (const [w, who] of [[host, hostUser], [guest, guestUser]]) {
+    w.__r.Account.token = 't'; w.__r.Account.username = who;
+    w.__r.syncAdoptAccount(who);
+  }
+  await wait(120);
+  /* Neither is in a room, which is the case that matters: a request has to
+     survive the other person being closed. Anything the peers cannot hand over
+     waits in the outbox, exactly as a message does. */
+  const clean = (w, code) => { w.__r.SYNC.friends = w.__r.SYNC.friends.filter((f) => f.code !== code); };
+  clean(host, guest.__r.SYNC.myCode);
+  clean(guest, host.__r.SYNC.myCode);
+
+  // The guest asks for the host by name.
+  $g('ft-user').value = hostUser;
+  $g('ft-ask').click();
+  await wait(150);
+  const asked = JSON.parse(guest.localStorage.getItem('focus_sync')).friends
+    .find((f) => f.u === hostUser);
+  check('asking by username files them under that name', !!asked, guest.localStorage.getItem('focus_sync'));
+  check('and at the address the name hashes to',
+    !!asked && asked.code === guest.__r.syncCodeFor(hostUser),
+    `${asked && asked.code} vs ${guest.__r.syncCodeFor(hostUser)}`);
+  check('shown as asked until they answer',
+    /asked/i.test($g('sync-friends').textContent), $g('sync-friends').textContent.slice(0, 80));
+
+  /* The host receives it. Delivery is the mail path and needs both apps
+     reachable, so this hands the item over directly — what is under test is
+     what happens to it, not the transport, which has its own checks. */
+  const item = (() => {
+    const f = guest.__r.SYNC.friends.find((x) => x.u === hostUser);
+    const q = (f && guest.__r.Chat.pending(f.code)) || [];
+    return q.length ? { text: q[q.length - 1].text, fromCode: guest.__r.SYNC.myCode } : null;
+  })();
+  /* The marker is U+0001 — a character nobody can type, so a real message can
+     never be mistaken for machinery and vanish out of a conversation. */
+  check('the request is queued as machinery, not as a message',
+    !!item && item.text.indexOf('\u0001fr:ask:') === 0,
+    item ? JSON.stringify(item.text.slice(0, 40)) : 'nothing queued');
+  host.__r.friendTake(item);
+  await wait(120);
+  check('it lands as a request rather than in a conversation',
+    /wants to be friends/i.test($h('ft-asks').textContent)
+    && !/fr:ask/.test($h('chat-log').textContent)
+    && !/fr:ask/.test(JSON.stringify(host.localStorage.getItem('focus_dm'))),
+    $h('ft-asks').textContent.slice(0, 60));
+  check('and names who is asking', /noor/.test($h('ft-asks').textContent),
+    $h('ft-asks').textContent.slice(0, 60));
+
+  // The host accepts; the reply carries their card back.
+  $h('ft-asks').querySelector('[data-yes]').click();
+  await wait(150);
+  check('accepting makes them a friend on this side',
+    /noor/.test($h('sync-friends').textContent), $h('sync-friends').textContent.slice(0, 80));
+  const back = (() => {
+    const f = host.__r.SYNC.friends.find((x) => x.u === guestUser);
+    const q = (f && host.__r.Chat.pending(f.code)) || [];
+    return q.length ? { text: q[q.length - 1].text, fromCode: host.__r.SYNC.myCode } : null;
+  })();
+  check('and sends an answer back', !!back && back.text.indexOf('\u0001fr:yes:') === 0,
+    back ? JSON.stringify(back.text.slice(0, 40)) : 'nothing queued');
+  guest.__r.friendTake(back);
+  await wait(120);
+  const now = JSON.parse(guest.localStorage.getItem('focus_sync')).friends
+    .find((f) => f.u === hostUser);
+  check('which settles it on the asking side too', !!now && now.ok === 1, JSON.stringify(now));
+
+  /* **The card is what a profile is.** There is no server here that knows what
+     anybody did, so the numbers arrive with the answer and the page says how
+     old they are rather than pretending to be live. */
+  check('and brings their numbers with it',
+    !!now && now.card && typeof now.card.hrs === 'number' && !!now.card.g,
+    JSON.stringify(now && now.card));
+  $g('sync-friends').querySelector('[data-who]').click();
+  await wait(120);
+  check('so the profile has something to show',
+    /focused/i.test($g('prof-body').textContent) && /sudoku/i.test($g('prof-body').textContent),
+    $g('prof-body').textContent.slice(0, 100));
+  check('and says how fresh it is', /as of/i.test($g('prof-body').textContent),
+    $g('prof-body').textContent.slice(0, 60));
+  $g('prof-close').click();
+  await wait(60);
+  // put the two back the way the blocks below expect them
+  for (const w of [host, guest]) { w.__r.Account.token = ''; w.__r.Account.username = ''; }
+  for (const s0 of was) {
+    s0.w.__r.SYNC.myCode = s0.code;
+    s0.w.__r.SYNC.accountCode = s0.acct;
+    s0.w.__r.SYNC.friends = s0.friends;
+    s0.w.__r.SYNC.asks = {};
+    s0.w.__r.Chat.out = s0.out;
+    s0.w.__r.Chat.saveOut();
+    /* **Put the page back too, not just the object.** `#sync-mycode` is written
+       by syncRender, so a window whose code was restored behind the page's back
+       still shows the account code — and the block below reads its address off
+       the page. */
+    s0.w.__r.syncRender();
+  }
+  await wait(80);
+}
+
 // --- messages that wait ------------------------------------------------------
 // There is no server, so a message to somebody who isn't in your room goes into
 // an outbox and is posted into their presence beacon the first moment both apps
@@ -3289,8 +4143,7 @@ await wait(100);
   const hostCodeNow = $h('sync-mycode').textContent;
   const guestCodeNow = $g('sync-mycode').textContent;
   $g('sync-code').value = hostCodeNow;
-  $g('sync-friend-name').value = 'Hashir';
-  $g('sync-add').click();
+  $g('sync-add-legacy').click();
   await wait(80);
 
   // leave, so neither is in a room — this is the whole point
@@ -3310,8 +4163,7 @@ await wait(100);
 
   // A friend who isn't running the app at all: nothing answers, so it waits.
   $g('sync-code').value = 'ZZ9WQ7';
-  $g('sync-friend-name').value = 'Nobody';
-  $g('sync-add').click();
+  $g('sync-add-legacy').click();
   await wait(80);
   $g('chat-tabs').querySelector('[data-thread="ZZ9WQ7"]').click();
   await wait(60);
@@ -4310,7 +5162,7 @@ await wait(80);
 
 // --- handing the timer over, and removing people ---------------------------
 // A third window, so a handover has somewhere to go and a witness to see it.
-const { window: third, errors: thirdErr } = boot(html);
+const { window: third, errors: thirdErr } = boot(html, { focus_embers: ROOM_EMBERS });
 await wait(300);
 const $t = (id) => third.document.getElementById(id);
 
@@ -4433,10 +5285,15 @@ check('relayed clock reaches the third device', /^\d{2}:\d{2}$/.test($t('clock')
      straight through and announce itself; it goes into `Buddy.draft` with the
      rest of him and the room is told once, on Save. A test that only clicks the
      antic is testing the preview. */
-  for (const [$w, i] of [[$g, 4], [$t, 7]]) {
+  /* The row holds what you own, so the button for antic 4 is not the fifth
+     button any more — it is the one whose `data-anim` says 4. */
+  /* The host takes one too. Nobody without an antic is drawn on anybody's
+     timer screen — there is nothing for them to be doing — so a host who has
+     not bought one is a host who is not in the room's picture. */
+  for (const [$w, i] of [[$h, 1], [$g, 4], [$t, 7]]) {
     $w('d-account').click();
     await wait(140);
-    $w('bud-box').querySelectorAll('[data-anim]')[i].click();
+    $w('bud-box').querySelector(`[data-anim="${i}"]`).click();
     await wait(120);
     check('choosing an antic is a draft, not a save', !$w('bud-save').disabled,
       `save ${$w('bud-save').disabled ? 'disabled' : 'offered'}`);
@@ -4589,7 +5446,8 @@ await wait(200);
   check('and a link to go and get it',
     !!$4('upd-box').querySelector('a[href="https://updates.test/get"]'));
   check('it says the data is safe, because that is the actual worry',
-    /sessions, embers/i.test($4('upd-box').textContent));
+    /nothing you have done is touched/i.test($4('upd-box').textContent),
+    $4('upd-box').textContent.slice(-80));
   check('and it remembers, so a restart does not need the network',
     /99\.9\.9/.test(w4.localStorage.getItem('focus_update') || ''),
     (w4.localStorage.getItem('focus_update') || '').slice(0, 60));

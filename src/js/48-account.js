@@ -75,6 +75,8 @@
       return {
         log: LOG,
         own: Embers.own,
+        // what was owned before the price rise, priced from the old list; see EMB_WAS
+        grand: Embers.grand || [],
         claimed: Embers.claimed,
         feats: Embers.feats,
         adjust: Embers.adjust,
@@ -88,6 +90,8 @@
            to travel under, and `gamesSnapshot` in 09-arcade-core.js. */
         quotes: CUSTOM_QUOTES,
         games: gamesSnapshot(),
+        // which dated puzzle you played, and how far — see 09b-daily.js
+        daily: dailySnapshot(),
         sim: {
           focusMin:S.focusMin, breakMin:S.breakMin, autoContinue:S.autoContinue,
           sound:S.sound, repeat:S.repeat, face:S.face,
@@ -105,6 +109,7 @@
       if(!snap) return;
       if(Array.isArray(snap.log)){ LOG.length = 0; for(const r of snap.log) LOG.push(r); saveLog(); }
       if(Array.isArray(snap.own)) Embers.own = snap.own.slice();
+      if(Array.isArray(snap.grand)) Embers.grand = snap.grand.slice();
       if(Array.isArray(snap.claimed)) Embers.claimed = snap.claimed.slice();
       if(snap.feats) Embers.feats = Object.assign({}, snap.feats);
       if(snap.adjust != null) Embers.adjust = Math.max(0, snap.adjust | 0);
@@ -114,6 +119,7 @@
       /* After `gone`, which both of these are filtered against. */
       try{ quotesAdopt(snap.quotes); }catch(e){}
       try{ gamesAdopt(snap.games); }catch(e){}
+      try{ dailyAdopt(snap.daily); }catch(e){}
       const sim = snap.sim || {};
       /* Only if it is genuinely newer than what this device last wrote, which
          is the same test the server makes. Otherwise signing in on an old phone
@@ -143,6 +149,10 @@
         }catch(e){}
       }
       try{ Embers.reconcile(); Embers.save(); Embers.paint(); Embers.render(); }catch(e){}
+      /* The account decides what is owned, so it also decides what he can be
+         wearing — signing into one that has bought less than this device had
+         takes those things off him. */
+      try{ budStrip(); }catch(e){}
       try{ faceApply(); }catch(e){}
       try{ tasksRender(); tasksRefresh(); }catch(e){}
       /* The antic may have changed under him, and `stage()` skips work when the
@@ -266,9 +276,7 @@
     signOut(){
       askConfirm(
         'Sign out of ' + this.username + '?',
-        'Everything on this device — your sessions, embers and anything you have '
-        + 'bought — is kept in your account and cleared from here. Signing back '
-        + 'in brings it all back.',
+        'Your history stays in the account and is cleared from this device.',
         'Sign out',
         ()=>Account._signOut());
     },
@@ -334,6 +342,10 @@
          same mistake in miniature. */
       S.buddy = budDefault();
       S.budAnim = 0; S.budShow = true;
+      /* Everything he was wearing was bought with the account's embers, so it
+         goes with them. `own` is emptied above; this is the wardrobe following
+         it rather than a second list to keep in step. */
+      try{ Buddy.draft = null; Buddy.anim = null; Buddy.tryOn = null; }catch(e){}
       /* **The rest of the profile goes with it.** The calendar, the checklist
          and the tombstones are as much "what this person has" as the hours are,
          and now that they ride on the account they have to leave with it. The
@@ -344,6 +356,8 @@
       GONE = []; try{ saveGone(); }catch(e){}
       CUSTOM_QUOTES = []; try{ saveQuotes(); }catch(e){}
       try{ gamesWipe(); }catch(e){}
+      // and the record of which dated puzzles were played with them
+      try{ dailyWipe(); }catch(e){}
       try{ renderQuotesList(); }catch(e){}
       /* `own` is empty now, so no bought light is valid any more. */
       Embers.light = 'seaglass';
@@ -445,10 +459,14 @@
           + '<button class="mini-btn" id="acc-sync"' + (this.busy ? ' disabled' : '') + '>Sync now</button>'
           + '<button class="mini-btn" id="acc-pass">Change password</button>'
           + '<button class="mini-btn" id="acc-out">Sign out</button></div>'
-          /* One line. It answers the only question people actually have —
-             does pressing this overwrite anything — and gets out of the way. */
-          + '<p class="acc-hint">Joins this device with your others. Nothing is '
-          + 'replaced. Runs on its own anyway.</p>'
+          /* **Say what "nothing is replaced" means, or it is only a promise.**
+             The fear is specific — that signing in on a new phone wipes the
+             months on the laptop — and "nothing is replaced" does not answer
+             it. Two lines do: the histories are put together, and where they
+             disagree about one session the fuller record wins. */
+          + '<p class="acc-hint">This device and your others are merged, never '
+          + 'replaced — where they disagree about a session, the fuller record '
+          + 'wins. It runs on its own; the button is only for not waiting.</p>'
           + '<div id="acc-pass-box"></div>';
         const a = $('acc-sync'); if(a) a.onclick = ()=>Account.sync(false);
         const b = $('acc-out'); if(b) b.onclick = ()=>Account.signOut();

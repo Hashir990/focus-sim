@@ -1,6 +1,6 @@
   /* ---------- init ---------- */
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
+  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
     /* Anything planned for today joins the checklist before the first render,
        so it is simply there rather than appearing a moment later. */
@@ -14,12 +14,20 @@
        and would derive a balance from an empty log. See reconcile() in
        37-embers.js and 47-merge.js. */
     try{ Embers.reconcile(); Embers.save(); }catch(e){}
+    /* **Nothing stays on him that he does not own.** After `Embers.load()`, so
+       there is something to check against, and before the first paint, so he is
+       never drawn in a hat he has to buy back. See `budStrip` in 46-buddy.js. */
+    try{ budStrip(); }catch(e){}
     /* **One account, one room code — settled here, where the load order cannot
        matter.** `syncLoad()` and `Account.load()` are both in the `Promise.all`
        above and neither can see the other's result, so a signed-in device could
        come up on whatever code it happened to have saved rather than the
        account's. Mail is addressed to a code; two devices on two codes is half
        the post going to an address nobody reads. */
+    /* **The day turns over on its own.** A timer to the next Pakistani
+       midnight, re-armed each time and on every wake, so a phone that slept
+       through it still catches up. See 09b-daily.js. */
+    try{ dailyRollStart(); }catch(e){}
     try{ syncAdoptAccount(Account.token ? Account.username : ''); }catch(e){}
     try{ faceApply(); }catch(e){}
     /* **Draw the shelves again now everything is loaded.** `ambLoad()` renders

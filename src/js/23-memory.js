@@ -3,7 +3,7 @@
     key:'arcade_memory', built:false, loaded:false,
     SYMBOLS:['✦','❍','▲','■','✚','◆','☾','✿'],
     cards:[], matched:[], flipped:[], moves:0, elapsed:0,
-    done:false, busy:false, tick:null,
+    done:false, busy:false, tick:null, day:'',
 
     async enter(){
       if(!this.loaded){
@@ -13,6 +13,7 @@
           this.matched = Array.isArray(d.matched) && d.matched.length===16
             ? d.matched : new Array(16).fill(false);
           this.moves = d.moves||0; this.elapsed = d.elapsed||0; this.done = !!d.done;
+          this.day = d.day || pktNow();
         }
         this.loaded = true;
       }
@@ -26,10 +27,16 @@
     },
     leave(){ this.stop(); this.persist(); },
 
-    _new(){
+    /* Dated like the rest of the arcade, so two people get the same layout —
+       see 09b-daily.js. (Memory is switched off at the bottom of this file;
+       this is here so that turning it back on turns on a daily rather than a
+       thing that needs converting into one.) */
+    _new(day){
+      this.day = day || pktNow();
+      const rnd = dailyGen('memory', '', this.day);
       const deck = this.SYMBOLS.concat(this.SYMBOLS);
       for(let i=deck.length-1;i>0;i--){
-        const j = Math.random()*(i+1)|0;
+        const j = rnd()*(i+1)|0;
         const t = deck[i]; deck[i] = deck[j]; deck[j] = t;
       }
       this.cards = deck;
@@ -37,8 +44,8 @@
       this.flipped = []; this.moves = 0; this.elapsed = 0;
       this.done = false; this.busy = false;
     },
-    newGame(){
-      this.stop(); this._new(); this.persist(); this.render();
+    newGame(day){
+      this.stop(); this._new(day); this.persist(); this.render();
       $('mem-banner').classList.add('hide');
       this.run();
     },
@@ -90,6 +97,7 @@
         this.persist(); this.render();
         if(this.matched.every(Boolean)){
           this.done = true; this.stop(); this.persist();
+          dailyMark("memory", "", this.day, DAILY_DONE);
           chime(false); buzz(120);
           showBanner('mem-banner', 'All matched.', this._summary());
         }
@@ -119,7 +127,7 @@
     persist(){
       writeGame(this.key, {
         cards:this.cards, matched:this.matched, moves:this.moves,
-        elapsed:this.elapsed, done:this.done
+        elapsed:this.elapsed, done:this.done, day:this.day
       });
     },
     forget(){ this.loaded = false; this.cards = []; }
@@ -130,6 +138,12 @@
   const MEMORY_ENABLED = false;
 
   forgetGame(Memory.key, ()=>Memory.forget());
+
+  if(MEMORY_ENABLED) registerDaily('memory', {
+    title:'Memory',
+    diffs:[{k:'', n:'Board'}],
+    open(day){ Memory.newGame(day); },
+  });
 
   if(MEMORY_ENABLED) registerGame('memory', {
     el:'game-memory', title:'Memory', progEl:'prog-memory', game:()=>Memory,

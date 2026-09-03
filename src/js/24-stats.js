@@ -185,17 +185,27 @@
   /* Shop is its own page now, so this opens it rather than opening Your focus
      and jumping to the middle of it. The jump was the tell: a page that needs
      a shortcut to its own halfway point is two pages. */
-  const shopOpen = ()=>{
+  const shopOpen = (tab)=>{
     closeDrawer();
     const ov = $('shop-overlay');
     if(!ov) return;
+    /* Opened from the wardrobe's own button, it opens *on* the wardrobe. A shop
+       with five shelves that always opens on the first one is a shop you have
+       to navigate twice. */
+    if(tab){ try{ Embers.tab = tab; }catch(e){} }
     ov.classList.remove('hide');
     try{ Embers.render(); }catch(e){}
     try{ faceRender(); }catch(e){}
   };
   if($('emb-spend-row')) $('emb-spend-row').onclick = shopOpen;
   if($('emb-chip')) $('emb-chip').onclick = shopOpen;
-  if($('shop-close')) $('shop-close').onclick = ()=>{ const o = $('shop-overlay'); if(o) o.classList.add('hide'); };
+  /* Leaving the shop takes off whatever was being tried but not bought: it
+     was never his, and finding it still on him on the next screen would read as
+     having bought it by accident. */
+  if($('shop-close')) $('shop-close').onclick = ()=>{
+    const o = $('shop-overlay'); if(o) o.classList.add('hide');
+    try{ if(Buddy.tryOn){ Buddy.tryOn = null; Buddy.render(); Buddy.stage(); } }catch(e){}
+  };
   /* The corner button is wired in 48-account.js, with the page it opens. */
   $('stats-close').onclick = ()=>Stats.close();
 

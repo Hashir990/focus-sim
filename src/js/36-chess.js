@@ -605,7 +605,11 @@
     reset(){ syncGameSend(Chess.key, {a:'again'}); },
     resetNote:'The board goes back to the opening and you swap colours.',
     async progress(){
-      if(!syncActive()) return 'Room<span>needs a room</span>';
+      /* **Nothing.** The group heading above these four already says "needs a
+         room", and the card's own chip says how many people — three ways of
+         saying the same thing, stacked on top of each other in the same
+         corner. An empty status collapses; see `.pcard .prog:empty`. */
+      if(!syncActive()) return '';
       const g = Chess.view && Chess.view.game;
       if(g && !g.over) return Chess.myTurn() ? 'You<span>your move</span>' : 'Them<span>their move</span>';
       const saved = Object.keys(Chess.saved).filter(c=>!Chess.saved[c].over).length;
