@@ -38,6 +38,74 @@
     }catch(e){}
   }
 
+  /* ---------- clearing rows ----------
+
+     **A game noise, not a timer noise.** Lines used to land on `chime`, which
+     is the sound a focus block makes when it ends — so finishing a row in the
+     arcade sounded exactly like your session finishing, and more than once that
+     is a genuine double-take. This is deliberately arcade instead: a triangle
+     wave, notes a third of the length, running up rather than resolving down.
+
+     One, two or three rows get a short rise. Four gets a longer run with the
+     octave on top and a low note underneath it, because a tetris should be
+     audibly the thing you were digging for. */
+  function tetrisTone(rows){
+    if(!S.sound) return;
+    try{
+      audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+      if(audio.state === 'suspended') audio.resume();
+      const big = rows >= 4;
+      const notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5]
+                  : rows === 3 ? [523.25, 659.25, 830.61]
+                  : rows === 2 ? [523.25, 698.46]
+                  : [587.33, 880];
+      const gap = big ? 0.062 : 0.055;
+      notes.forEach((f, i)=>{
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = 'triangle'; o.frequency.value = f;
+        const t = audio.currentTime + i * gap;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(big ? 0.16 : 0.11, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? 0.34 : 0.2));
+        o.connect(g).connect(audio.destination);
+        o.start(t); o.stop(t + 0.4);
+      });
+      if(!big) return;
+      /* The floor dropping out from under it. Sine, low, and short enough to
+         be felt rather than heard as a note of its own. */
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'sine';
+      const t = audio.currentTime;
+      o.frequency.setValueAtTime(160, t);
+      o.frequency.exponentialRampToValueAtTime(52, t + 0.4);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.2, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      o.connect(g).connect(audio.destination);
+      o.start(t); o.stop(t + 0.55);
+    }catch(e){}
+  }
+
+  /* A piece landing. Barely a sound at all — it happens once or twice a second
+     and anything with a pitch to it becomes maddening. */
+  function tetrisLock(){
+    if(!S.sound) return;
+    try{
+      audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+      if(audio.state === 'suspended') audio.resume();
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'square';
+      const t = audio.currentTime;
+      o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(110, t + 0.05);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.035, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      o.connect(g).connect(audio.destination);
+      o.start(t); o.stop(t + 0.1);
+    }catch(e){}
+  }
+
   /* Pause and resume. One note each, a fifth apart and the right way round —
      down to pause, up to carry on — so you can tell which happened without
      looking. Quieter and shorter than `blip`, because this is a confirmation of

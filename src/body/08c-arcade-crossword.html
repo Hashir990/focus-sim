@@ -3,6 +3,9 @@
       <div class="game-top">
         <span class="gname">Crossword</span>
         <span class="meta" id="cw-meta"></span>
+        <!-- Days in a row, painted by `dailyStreakPaint` in 09b-daily.js.
+             Hidden at zero: a streak of none is not a thing to announce. -->
+        <span class="streak hide" id="cw-streak"></span>
         <button class="mini-btn on" id="cw-dir" title="Switch typing direction (space)">Across →</button>
         <button class="mini-btn" id="cw-list">History</button>
       </div>
@@ -31,6 +34,9 @@
       </div>
       <div class="kbd cw-kbd" id="cw-kbd"></div>
       <div class="cw-clues" id="cw-clues"></div>
+      <!-- What happens when you put it down. People close a puzzle and wonder,
+           and the answer is good news, so it should not be a secret. -->
+      <p class="game-note">Letters are kept as you go. Close it while you are signed in and the grid goes with you to your other devices.</p>
 
       <!-- pick a puzzle. Hold one to start it over. -->
       <div class="banner hide" id="cw-banner"><h3>Filled in.</h3><p id="cw-win-sub"></p><button class="mini-btn" id="cw-again">Next</button></div>

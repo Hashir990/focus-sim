@@ -11,6 +11,10 @@
 .pcard:active{transform:scale(.99)}
 .pcard .emoji{font-size:26px; width:46px; height:46px; flex:0 0 auto; display:grid; place-items:center;
   border-radius:13px; background:var(--track)}
+/* Tetris draws its piece rather than borrowing a shading glyph from the font.
+   Filled with the text colour so it sits at the same weight as the characters
+   the other cards use. */
+.pcard .emoji svg{ width:25px; height:25px; fill:currentColor; display:block }
 .pcard h3{
   font-size:16.5px; font-weight:600; margin-bottom:3px;
   display:flex; align-items:baseline; gap:7px;
@@ -85,3 +89,34 @@
 .diffs .mini-btn{padding:8px 11px}
 .sdk-ctrl{display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:360px; margin:2px auto 12px; width:100%}
 
+
+
+/* ---- who is in this one ----
+   Whoever in the room has this game open, on the card itself. It answers the
+   question the shelf is for — "is anybody on something?" — where you are
+   already looking, rather than in a list of names somewhere else.
+
+   Top-right, away from the title and the progress line, and small enough that a
+   card with nobody on it is not visibly missing anything. */
+.pcard{ position:relative }
+.pcard-who{
+  position:absolute; top:7px; right:9px;
+  display:flex; align-items:center; gap:2px;
+  pointer-events:none;
+}
+.pcard-who i{
+  width:22px; height:22px; display:block; border-radius:50%;
+  background:color-mix(in srgb, var(--accent) 16%, var(--bg2));
+  box-shadow:0 0 0 1.5px var(--bg2);
+  overflow:hidden;
+}
+/* Buddies off: their initial instead, so the card still says somebody is here. */
+.pcard-who i.initial{
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; color:var(--accent);
+}
+.pcard-who i svg{ display:block; width:100%; height:100% }
+.pcard-who em{
+  font-style:normal; font-size:10.5px; font-weight:600; color:var(--muted);
+  margin-left:2px;
+}

@@ -1,0 +1,59 @@
+    <!-- tetris -->
+    <div class="game hide" id="game-tetris">
+      <div class="game-top">
+        <span class="gname">Tetris</span>
+        <span class="meta" id="tet-meta"></span>
+        <button class="mini-btn" id="tet-new">New</button>
+      </div>
+
+      <div class="tet-wrap">
+        <!-- The count-in on resuming is made on demand and put in here; see
+             `_countIn`. It cannot live in the markup because `build()` clears
+             this element's contents to lay out the squares. -->
+        <div class="tet" id="tet-grid"></div>
+        <!-- What is coming and what is put aside. Both are the whole reason to
+             plan more than one piece ahead. -->
+        <div class="tet-side">
+          <p class="tet-lab">Next</p>
+          <div class="tet-minis" id="tet-next"></div>
+          <p class="tet-lab">Hold</p>
+          <div class="tet-minis" id="tet-hold"></div>
+          <p class="tet-lv" id="tet-level"></p>
+          <p class="tet-lv" id="tet-best"></p>
+          <!-- Under the score rather than up in the header: it was one of four
+               things crowding the top bar, and it is the one you reach for
+               without looking. Drawn as the symbol, at a size a thumb can
+               find. -->
+          <button class="tet-pause" id="tet-pause" aria-label="Pause">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="4" width="4" height="16" rx="1.4"></rect>
+              <rect x="14" y="4" width="4" height="16" rx="1.4"></rect>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- On a phone there is no keyboard, and a swipe is a poor way to nudge a
+           piece one column at the last second. Buttons, then. -->
+      <!-- A cross, not a list. Down sits under Rotate because they are the two
+           you alternate between, and a hand that has found one has found the
+           other. Drop is bottom-right, away from Down: it is the one that ends
+           your turn, and it should not be next to the one you press twenty
+           times a piece. -->
+      <div class="tet-pad">
+        <button class="mini-btn" id="tet-left" aria-label="Left">←</button>
+        <button class="mini-btn" id="tet-rot" aria-label="Rotate">⟳</button>
+        <button class="mini-btn" id="tet-right" aria-label="Right">→</button>
+        <button class="mini-btn" id="tet-hold-btn" aria-label="Hold">Hold</button>
+        <button class="mini-btn" id="tet-down" aria-label="Soft drop">↓</button>
+        <!-- Named rather than drawn: ↓ and ⤓ are the same button at this size,
+             and one of them ends your turn. -->
+        <button class="mini-btn" id="tet-drop" aria-label="Hard drop">Drop</button>
+      </div>
+
+      <div class="banner hide" id="tet-banner">
+        <h3 id="tet-win-title">Stack topped out.</h3>
+        <p id="tet-win-sub"></p>
+        <button class="mini-btn" id="tet-again">New game</button>
+      </div>
+    </div>

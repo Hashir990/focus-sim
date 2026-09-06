@@ -1,0 +1,169 @@
+/* ---- tetris ----
+   The board is a plain grid of squares; a piece is those squares wearing a
+   colour class. Nothing is absolutely placed and nothing animates between
+   cells — at this size a tile sliding one column reads as a stutter rather
+   than as movement, which is the opposite of what it does in 2048. */
+.tet-wrap{ display:flex; gap:12px; align-items:flex-start; justify-content:center }
+
+.tet{
+  display:grid; grid-template-columns:repeat(10, 1fr); gap:2px;
+  width:min(58vw, 260px); aspect-ratio:1/2;
+  padding:6px; border-radius:12px;
+  background:var(--track); border:1px solid var(--line);
+}
+.tet{ position:relative }
+.tet i{ border-radius:3px; background:color-mix(in srgb, var(--muted) 10%, transparent) }
+.tet i.on{ background:var(--pc); box-shadow:inset 0 -2px 0 rgba(0,0,0,.22) }
+/* The landing spot: the outline of the piece, not the piece. */
+.tet i.ghost{
+  background:transparent;
+  border:1.5px solid color-mix(in srgb, var(--pc) 55%, transparent);
+}
+
+/* One hue per shape, the conventional ones — people who play this already know
+   that the long one is cyan and the square is yellow, and disagreeing with that
+   costs recognition for nothing. */
+.pI{ --pc:#3fc4d6 } .pO{ --pc:#e2c231 } .pT{ --pc:#a86fd6 }
+.pS{ --pc:#5cc46a } .pZ{ --pc:#d9564f }
+.pJ{ --pc:#4a7fd6 } .pL{ --pc:#dd9243 }
+
+/* Paused: the board is put away. A stopped board is still the puzzle, and
+   leaving it up means the pause is only a pause of the clock. The squares go
+   and the reason takes their place. */
+.tet.away > i{ visibility:hidden }
+.tet.away::after{
+  content:'Paused';
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:14px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+}
+
+/* ---- clearing ----
+   A band where the rows were, laid over the board rather than held back from
+   it: the model has already dropped everything into place, so an interrupted
+   animation cannot leave the board wrong. Row fractions, so the overlay never
+   needs to know how big a cell is. */
+.tet-zap{
+  position:absolute; left:6px; right:6px; pointer-events:none; border-radius:4px;
+  top:calc(6px + (100% - 12px) * var(--y0) / 20);
+  height:calc((100% - 12px) / 20);
+  background:#fff;
+  animation:tetZap .4s ease-out forwards;
+}
+@keyframes tetZap{
+  0%{ opacity:.85; transform:scaleX(1) }
+  35%{ opacity:.6 }
+  100%{ opacity:0; transform:scaleX(1.06) }
+}
+/* Four at once earns gold, a longer burn and a shimmer across it. */
+.tet-zap.big{
+  background:linear-gradient(90deg, #ffd167, #fff6d8 45%, #ffd167);
+  box-shadow:0 0 22px 6px rgba(255,209,103,.55);
+  animation:tetZapBig .9s ease-out forwards;
+}
+@keyframes tetZapBig{
+  0%{ opacity:0; transform:scaleX(.2) }
+  18%{ opacity:1; transform:scaleX(1) }
+  55%{ opacity:.9 }
+  100%{ opacity:0; transform:scaleX(1.12) }
+}
+/* and the whole well answers */
+.tet.tetris{ animation:tetShake .5s ease-out }
+@keyframes tetShake{
+  0%{ box-shadow:0 0 0 0 rgba(255,209,103,0); transform:translateY(0) }
+  20%{ box-shadow:0 0 30px 4px rgba(255,209,103,.5); transform:translateY(2px) }
+  45%{ transform:translateY(-1px) }
+  100%{ box-shadow:0 0 0 0 rgba(255,209,103,0); transform:translateY(0) }
+}
+/* The count-in on the way back. Big, dimming the board behind it, and
+   unmissable: the whole point is that you get three seconds' notice before a
+   piece starts falling again. */
+.tet-count{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none; z-index:2; border-radius:12px;
+  background:color-mix(in srgb, var(--bg) 72%, transparent);
+}
+.tet-count b{
+  font-size:clamp(52px, 20vw, 86px); font-weight:800; line-height:1;
+  color:var(--accent); text-shadow:0 0 26px color-mix(in srgb, var(--accent) 55%, transparent);
+  animation:tetCount 1s ease-out;
+}
+@keyframes tetCount{
+  0%{ opacity:0; transform:scale(1.45) }
+  18%{ opacity:1; transform:scale(1) }
+  100%{ opacity:.75; transform:scale(.97) }
+}
+@media (prefers-reduced-motion:reduce){ .tet-count b{ animation:none } }
+
+.tet-word{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+  font-size:clamp(20px, 7vw, 34px); font-weight:800; letter-spacing:.14em;
+  color:#fff6d8; text-shadow:0 0 18px rgba(255,209,103,.9);
+  animation:tetWord 1s ease-out forwards;
+}
+@keyframes tetWord{
+  0%{ opacity:0; transform:scale(.7) }
+  22%{ opacity:1; transform:scale(1.06) }
+  60%{ opacity:1; transform:scale(1) }
+  100%{ opacity:0; transform:scale(1.02) }
+}
+@media (prefers-reduced-motion:reduce){
+  .tet-zap, .tet-word{ animation:none; opacity:0 }
+  .tet.tetris{ animation:none }
+}
+
+.tet-side{ display:flex; flex-direction:column; gap:4px; min-width:76px }
+.tet-lab{
+  font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); margin:2px 0 0;
+}
+.tet-minis{ display:flex; flex-direction:column; gap:4px; min-height:18px }
+/* A fixed tile with the piece's own grid centred in it. Drawing every shape on
+   the same 4x4 put the O in a corner and the I against an edge — which is
+   exactly where they sit inside their rotation boxes, and reads as broken. */
+.tet-mini{
+  display:flex; align-items:center; justify-content:center;
+  height:42px; padding:4px; border-radius:8px;
+  background:var(--card); border:1px solid var(--line);
+}
+.tet-mini-in{ display:grid; grid-template-columns:repeat(var(--w), 9px); gap:2px }
+.tet-mini-in i{ height:9px; border-radius:2px }
+.tet-mini-in i.on{ background:var(--pc) }
+.tet-lv{ font-size:11.5px; color:var(--muted); margin:6px 0 0 }
+
+/* Pause, under the score. It was a word in the header competing with New, the
+   title and the running total; here it is the only thing in its part of the
+   panel and is drawn big enough to hit without aiming. */
+.tet-pause{
+  margin-top:12px; width:56px; height:56px; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:16px; cursor:pointer;
+  background:var(--card); border:1px solid var(--line); color:var(--muted);
+  transition:color .15s, border-color .15s, background .15s;
+}
+.tet-pause svg{ width:26px; height:26px; fill:currentColor }
+.tet-pause:hover, .tet-pause:focus-visible{ color:var(--text); border-color:var(--muted) }
+/* Paused is a state, not a press — it stays lit until you come back. */
+.tet-pause.on{
+  color:var(--accent); border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.tet-pad{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:7px;
+  max-width:330px; margin:12px auto 0;
+}
+.tet-pad .mini-btn{ height:44px; font-size:16px }
+/* Drop is the one that ends your turn. It sits apart from Down in the grid;
+   this makes it read apart as well. */
+#tet-drop{ color:var(--muted) }
+
+/* Narrow phones: the previews go under the board rather than squeezing it. */
+@media (max-width:380px){
+  .tet-wrap{ flex-direction:column; align-items:center }
+  .tet{ width:min(86vw, 300px) }
+  .tet-side{ flex-direction:row; align-items:center; gap:10px; min-width:0; flex-wrap:wrap }
+  .tet-minis{ flex-direction:row }
+  .tet-lv{ margin:0 }
+  .tet-pause{ margin:0 0 0 auto; width:48px; height:48px }
+}

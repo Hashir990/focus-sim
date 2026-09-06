@@ -299,6 +299,74 @@ BANNED |= set("""
 bendis boner
 """.split())
 
+# 2026-09-04, read off this run's fill. `beth` is the second letter of the
+# Hebrew alphabet and is the same thing as the bare Greek letters already
+# banned — `beta`, `theta`, `omega` and the rest. `crore` is the South Asian
+# ten million: ordinary for the people who use it, but regional in exactly the
+# way `giro` and `lev` are, and not a word a solver in a British or American
+# grid assembles from crossings. `sol` is the solfege syllable and the Roman
+# sun god, the `bel` tier — a dictionary word met only inside a system nobody
+# is thinking about. `gen` glosses as British informal for information and sits
+# beside `wally` and `giro`.
+#
+# `idris` and `ali` were read in the same pass and kept: both already carry
+# hand clues in cross-phrases.py and extra-answers.py, as Elba and as the
+# boxer, and both are the first-rank proper nouns the bank already allows.
+# `abs`, `mba`, `ecg` and `amd` are kept too — initials a solver says out loud,
+# the `dna`/`fbi` tier — and `abs` is clued as the muscles rather than as the
+# plastic its gloss leads with.
+BANNED |= set("""
+beth crore sol gen
+""".split())
+
+# Second pass over the rebuild of those grids. `midget` is the crude tier and
+# the clearest case in it: whatever the dictionary says, the word is a slur
+# against people with dwarfism before it is anything else, and it joins `cock`,
+# `twat` and `fag`. `ovule` is the technical botany tier that `sepal`, `stamen`
+# and `testa` are already in — a gloss ("small or immature ovum") no solver
+# reaches for. Both sat in nines built this run.
+#
+# `stan`, `nocap`, `pele` and `peele` were read in the same pass and kept: all
+# four already carry hand clues in extra-answers.py and cross-phrases.py, which
+# `--clues` cannot see. `tom` is kept despite a gloss that leads with the male
+# turkey — the `cob`-as-swan trap — and is clued as the cat.
+BANNED |= set("""
+midget ovule
+""".split())
+
+# `atp` was banned in a third pass on 2026-09-04 and the ban was taken straight
+# back out. It is genuinely the same tier as `wta` — the men's tennis tour to
+# `wta`'s women's, hand-clued two lines apart in extra-answers.py — but `wta`
+# was banned on the express grounds that it "sat only in grids built this run,
+# so pruning cost nothing already shipped", and `atp` is the opposite case:
+# `--prune` took two shipped 15x15s and five nines with it, and a fifteen is
+# stochastic enough that there is no promise of getting them back. So `atp`
+# joins `roe` and `pta` on the list of words kept only because shipped puzzles
+# hold them, and it is the obvious candidate the day the bank is next cleared.
+#
+# `cfo`, `bbc`, `sms`, `atm` and `npc` came through the same fill and are kept
+# on their merits — initials a solver says out loud, the `dna`/`fbi` tier.
+
+# Read off the regenerated nines the same day. `perverted` has an ordinary
+# "distorted" sense — perverting the course of justice — but the word a solver
+# hears is the sexual one, and that is the tier `lewd`, `bosom` and `arousal`
+# are already in. It sat only in a nine built this run.
+#
+# Kept from the same fill: `troy`, `wren`, `sod` and `lass`. `troy` is the
+# first-rank city rather than the weight system its gloss leads with, `wren` is
+# a garden bird a solver names on sight and is nothing like `erne`, `sod` is
+# clued as the piece of turf, and `lass` is standard rather than the `wally`
+# tier of regional slang.
+BANNED |= set("""
+perverted
+""".split())
+
+# `lei` and `swami` were read off the same nines and are the `aloha`/`agha`
+# tier the list has excluded before. Both sit in shipped 15x15s, so they join
+# `atp`, `roe` and `pta` as words kept only for what dropping them would cost —
+# checked against the bank rather than assumed, which is the whole lesson of
+# the `atp` note above.
+
 # Fifth pass. `silva` is a written account of a region's forest trees — the
 # `bethel`/`rudd`/`imaret` tier, a dictionary entry with no life outside one.
 #
@@ -466,21 +534,66 @@ BANNED |= set("""
 dyke
 """.split())
 
-# Read off the 2026-09-03 fill. `eisner` is a bare surname — no solver reaches
-# it from crossings; `lulu` is a proper name far more often than the "remarkable
-# thing" noun; `kip` is British slang for a nap and Lao money, the same tier as
-# `wally` and `tam` above. All three were single-use and new this run.
+# Read off the 2026-09-03 fill. `lulu` is a proper name far more often than the
+# "remarkable thing" noun; `kip` is British slang for a nap and Lao money, the
+# same tier as `wally` and `tam` above.
+#
+# `eisner` was banned here as "a bare surname" and has been taken back out. That
+# reason does not survive contact with the bank: `travolta`, `uma`, `halle`,
+# `bohr`, `faraday`, `vermeer` and `linnaeus` are all shipped, all bare names,
+# and all carry hand-written clues. A name is not the problem — an unclued name
+# is. See the NAMES block below.
 BANNED |= set("""
-eisner lulu kip
+lulu kip
 """.split())
 
-# Second pass over the same run, off the puzzles that replaced the three above.
-# `caine` is another bare surname, exactly the `eisner` case; `oui` is a bare
-# foreign word with no English sense, the tier of `dolce` and `aloha` already
-# banned. Both single-use and new this run.
+# Second pass over the same run, off the puzzles that replaced the two above.
+# `oui` is a bare foreign word with no English sense, the tier of `dolce` and
+# `aloha` already banned. `caine` was banned alongside it and has been taken back
+# out for the same reason as `eisner`.
 BANNED |= set("""
-caine oui
+oui
 """.split())
+
+# Turned up in a trial fill while tuning LONG_WHOLE, not in a shipped grid, but
+# banned on sight — it is the `pee` tier and there is no reason to wait for it
+# to land in a real puzzle first.
+BANNED |= set("""
+piss
+""".split())
+
+# Off the regenerated 9x9s, once LONG_WHOLE pushed the fill onto longer entries
+# and it reached further into the pool to pay for them. `lambda` goes with
+# `beta`, `zeta`, `gamma` and `delta` already banned above; `lakh` is a unit of
+# Indian numbering no general solver reaches for; `dory` is a fish or a small
+# boat, the `cisco` tier. `aldrin` and `linklater` were in this block and have
+# been taken out — see NAMES below.
+BANNED |= set("""
+lambda lakh dory
+""".split())
+
+# Real people are answers, not contraband.
+#
+# Raising LONG_WHOLE pushed the fill onto eight- and nine-letter entries, and a
+# lot of nine-letter vocabulary is proper nouns, so surnames started arriving:
+# `eisner`, `caine`, `aldrin`, `linklater`, `linnaeus`. Four of them were banned
+# on sight before anyone noticed that `linnaeus` — which arrived the same way —
+# was not, because it already had a clue in extra-answers.py.
+#
+# That is the whole distinction, and it is about the clue rather than the answer.
+# A name with a clue is a fair entry: `travolta` and `halle` and `bohr` have been
+# shipping for weeks. A name without one falls through to a WordNet gloss, which
+# for a person is either nothing or an encyclopedia line, and *that* is what makes
+# it unsolvable. Banning was fixing the symptom at the cost of the answer.
+#
+# So names get clued, in the house form the bank already uses — role, first name,
+# and the one work or fact a solver will have met: "Director Richard of Boyhood".
+# Their clues are in tools/cross-clues.py with the rest. Nothing here needs to
+# list them; this block exists to stop the next run banning them again.
+#
+# What still gets banned is unchanged and has nothing to do with names: crude
+# answers, bare Greek letters, foreign words with no English sense, and technical
+# or dialect words no general solver reaches for.
 
 
 

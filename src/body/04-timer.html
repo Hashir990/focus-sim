@@ -1,6 +1,18 @@
     <!-- ============ TIMER ============ -->
     <section class="view hide" id="timer">
       <div class="sync-band hide" id="sync-band"></div>
+
+      <!-- ============ HOW TODAY IS GOING ============
+           Asked once on the first open of a day and never again, answered or
+           not. It sits above the timer rather than over it: worth a moment,
+           not worth blocking on. See 17b-mood.js. -->
+      <div class="mood-ask hide" id="mood-ask">
+        <div class="mood-ask-top">
+          <p>How's today going?</p>
+          <button class="sync-x" id="mood-skip" aria-label="Not now">×</button>
+        </div>
+        <div id="mood-ask-row"></div>
+      </div>
       <div class="cycle" id="cycle"></div>
 
       <div class="dial-wrap">

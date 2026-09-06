@@ -632,6 +632,15 @@ of them run in the sandbox.
   compares versions, so every installed copy would have ignored it. `D:\Focus`
   is the only authority on the version; check there before naming a number,
   and never push a sandbox `package.json` over it.
+- **The friend code hash exists twice and neither copy throws when it is
+  wrong.** `syncCodeFor` in `29-sync.js` and `codeForName` in
+  `server/accounts.js` must agree exactly — same alphabet
+  (`'23456789ABCDEFGHJKMNPQRSTUVWXYZ'`, not a plausible-looking one), same
+  seed, same multiply. A drift does not fail: `/account/who` simply answers
+  with the wrong person's name, or with nobody, and the app believes it. The
+  alphabet was wrong the first time the endpoint was written, which is why
+  `accounts-test.mjs` now reads the client's copy out of the source and
+  compares the two that actually ship rather than restating either.
 - **jsdom windows must be closed before `process.exit()`.** `pretendToBeVisual`
   gives each one a rAF loop that never stops, and exiting under it aborts libuv
   on Windows — *"Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file
@@ -1205,6 +1214,428 @@ main timer screen.** That is the only outstanding request.
 ## 9. Log
 
 Newest first. One line each.
+
+- **2026-09-06 (7)** — **Seven checks failed on a release run and not one was a
+  regression.** They were all cross-window: a guest joining, a promotion, a room
+  filling to three, a timer handed over. Every one of them sleeps for a
+  hand-picked number of milliseconds and then asserts, and those numbers were
+  picked on a fast idle container. On a laptop — or on the same machine while it
+  is building the bundle — the message has not arrived yet and a working feature
+  reports as broken. That is worse than useless: a suite that cries wolf gets
+  its failures explained away, which is the only way a real one gets through.
+  **Two fixes, at two levels.** `until(fn)` polls for the thing instead of
+  sleeping for a number, and the seven that actually failed now use it — a
+  passing run gets *faster*, because it stops sleeping through time it does not
+  need, and a real failure still fails, it just takes the ceiling to do it.
+  And because there are 119 more sites of the same shape, the machine is now
+  measured once at startup — a short CPU loop against the number it takes where
+  these pauses were tuned — and every `wait` is scaled by it, clamped to 4x.
+  `FOCUS_TEST_SLOW=2` forces it, which is how you reproduce somebody else's
+  flake; the run prints the multiplier when it is not 1.
+  Verified at 1x and at a forced 2x: 1057/1057 both ways.
+
+- **2026-09-06 (6)** — **One cause under four "puzzle bugs": nothing ever said
+  a save had failed.**
+  Boards not surviving a difficulty switch, a crossword losing its letters on
+  close, a sudoku opening with no clues, games "constantly stopping working" —
+  four reports, each chased as a game bug, none of them one. `localStorage`
+  throws when it is full; `KV.set` caught it and returned, `writeGame` caught it
+  again, and a store that had stopped accepting writes was indistinguishable
+  from one that was working right up to the moment a board came back empty.
+  None of it could be reproduced here, and that was the evidence: the sandbox's
+  store is empty and always accepts.
+  **Three rules now.** A read storage cannot answer falls back to what this
+  session wrote — `GAME_SAVES` is the newest copy there is, so one sitting is
+  safe from anything a disk does, which is what "at least save during the open
+  instance" means. A write that fails gets one retry after `KV.pinch` throws out
+  the oldest sudoku boards (they rebuild from their day; a puzzle's letters are
+  the only thing that cannot, so they go last). And a write that still fails
+  says so, once, pointing at **Storage** in the menu — which reports whether the
+  store accepts a byte right now, how much is in it and the biggest keys.
+  Anybody can read that, because anybody can be the one it is happening to.
+  **And the vault on the way out.** `Account.sync(true)` now runs on `pagehide`,
+  on the tab going hidden, and every five minutes — a save on this device is one
+  disk, and the vault is the copy that survives the disk.
+  *Test note:* the storage block has to run **last**. Put before the crossword UI
+  checks it moved them off the puzzle they expect; a block that writes storage
+  keys is not order-independent however careful it is about putting them back.
+
+- **2026-09-06 (5)** — **Three silent failures, which is why none of them could
+  be reproduced from a clean start.**
+  A sudoku turned up with no clues in it at all and a crossword size button did
+  nothing, and neither could be made to happen here — because in both cases the
+  code's answer to "that did not work" was to say nothing and carry on.
+  **A shelf entry is handed straight to the player**, so one bad write is a grid
+  with no clues and no way back. `_sane()` is the gate: eighty-one squares, a
+  full solution, and at least seventeen clues — the real floor, since no sudoku
+  with fewer has a single answer, which makes anything under it a corrupt save
+  rather than a hard one. Refused on the way *in* to the shelf and again on the
+  way out, and a failing entry is deleted rather than left to be found again on
+  the next open. That is the difference between a bad day and a game that is
+  broken every time you come back to it.
+  **`Cross.load` returned quietly when its index was not in the bank**, so a
+  size button could leave the old puzzle on screen, look pressed, and say
+  nothing — "the smaller sizes keep stopping working". It returns a boolean now
+  and `setSize` tries where you were, then today's, then the size's first
+  puzzle, and only then says it cannot.
+  **And `writeGame` swallowed every storage error.** A full disk, storage
+  switched off, a database gone bad: all three looked exactly like working right
+  up to the restart, where an hour of play was simply not there. Reported, of
+  course, as "it does not save". It now says so once per session — once, because
+  a toast on every keystroke of a game that cannot save is its own kind of
+  broken.
+  **The Tetris question moved to New.** It was on the reset item in the hold
+  menu, which is where every other game's reset lives and is not where anybody
+  presses; New sat beside the score throwing games away in one silent tap. New
+  stops the board and asks — and does not ask about a board nobody has touched.
+
+- **2026-09-06 (4)** — **A blank button, a shelf in no order, and a board that
+  kept falling while you read the question.**
+  **There is no global `.hide{display:none}` in this app**, on purpose — every
+  component hides its own things. The price of that is that a component which
+  hides something has to *have* the rule, and the confirm card did not:
+  `askConfirm` toggled `hide` on `#confirm-alt` and nothing was listening, so
+  every two-answer dialog carried a blank pill beside Cancel. An empty button is
+  worse than a wrong one — it reads as a control whose label failed to load, and
+  people press it to find out. One rule, and a check on the computed style of
+  both shapes of the dialog.
+  **Cheapest first, on every shelf.** Looks, sounds, clock faces and all six
+  wardrobe rows were in the order the entries happened to be written, which is
+  no order at all to the person paying. `embByPrice` sorts a copy — these
+  catalogues are read from elsewhere and sorting one in place would reorder the
+  thing itself — and ties hold their catalogue position so nothing reshuffles
+  between two items at the same price, and the free one stays at the front.
+  **The wordle grid is always six rows.** It stopped where the word was found,
+  so a lucky first guess drew one row and a six-guess grind drew six — and on a
+  calendar the eye compares heights before it reads anything, which made the
+  best possible day look like the worst. The spare tries are drawn hollow.
+  **Reset stops the clock before asking.** A confirm over a running game asks
+  you to decide while the thing you are deciding about carries on happening: in
+  Tetris the piece kept falling behind the dialog, so reading the question cost
+  you the board whichever answer you gave. `def.beforeReset` is the hook, Tetris
+  is the only game with a clock that needs it, and saying no leaves it paused —
+  resuming counts you in, which is what that count-in is for.
+  **The apron takes no colour**, with the denim jacket, lab coat, blazer and
+  dungarees.
+
+- **2026-09-06 (3)** — **"Open on today" was right for the shelf and wrong for
+  the difficulty buttons.**
+  Yesterday's change made both puzzle games open on the newest edition, which
+  was the fix asked for. It also went through the difficulty and size buttons,
+  and those are not the same act: half a Tuesday hard, a look at easy and back,
+  and hard was today's empty grid with the clock at zero. **The board was never
+  deleted** — it sat on its own shelf under its own day the whole time — but
+  nothing could reach it again, and from a chair that is the same thing. Both
+  games now keep a `seen` map, size or difficulty to the day you last had open
+  there, and a button hands that grid back with its letters and its clock.
+  Landing on an older one sets `_chose`, so coming in from the shelf afterwards
+  does not undo the choice.
+  **And the reason the crossword looked broken.** `_migrate` carries a record
+  forward onto the grid now at its index if two thirds of its letters agree —
+  the right test for "same puzzle, keep the work", and far too weak for a `done`
+  flag. A record wrongly carrying that flag opens the board full of letters,
+  under the win banner, with `type()` refusing every key, which nobody reads as
+  a stale save: they read it as the game being broken, and report that they
+  cannot enter or choose anything. The flag now survives only on an exact match
+  with the solution; everything else comes through as work in progress.
+  **`_where(size)`** replaces `_firstUnfinished` as what a size switch opens:
+  where you were, then today's edition *even if it is done*, and only then the
+  newest unfinished. Finishing today's should not drop you into the archive —
+  that is what put people on the oldest 15x15 without asking.
+  Four new checks, each confirmed to go red when its guard is removed.
+
+- **2026-09-06 (2)** — **The five new hairstyles cost something now, and a lab
+  coat stays white.**
+  **A row of prices shorter than its list of parts is silent.** `BUD_COST.r` had
+  six entries and `BUD_HAIR` eleven, so the five hairstyles added last batch all
+  showed a bare `0` in the shop — which reads as an option that is broken, not
+  as one that is free. The two tables are deliberately kept apart so an art
+  change never touches the economy; the price of that separation is exactly this
+  failure, so the smoke test now walks every row and fails on any part after
+  index 0 with no price. Bowl 18, Mohawk 32, Space buns 30, Afro 34,
+  Pigtails 26.
+  **Colour belongs to the coats that are a shape, not to the ones that are a
+  uniform.** `dye:1` was on nearly all of them, which offered a magenta lab coat
+  and a lime denim jacket — at this size a lab coat *is* the white and denim
+  *is* the blue, and recolouring one leaves a garment nobody can name. Denim
+  jacket, lab coat, blazer and dungarees lose the dial; capes, puffers,
+  cardigans, ponchos and the rest keep it. The wardrobe already read the flag
+  off the part, so dropping it takes the swatch row with it.
+
+- **2026-09-06** — **Puzzles open on today, sudoku gets a Reveal, and the five
+  new heads come up off the ears.**
+  **The shelf opens on today.** Both sudoku and the crossword waited for the
+  board you were on to be *finished* before moving on, so one abandoned in April
+  was still the front door in September — the archive had quietly become the
+  default. They now open on the newest edition and the archive is reached
+  through History and the calendar, which is the right way round. Nothing is
+  lost: sudoku stashes the old grid on its shelf and the crossword keeps every
+  puzzle's letters under its own fingerprint. `_chose` is the exception — set
+  when you pick an older day by hand, cleared when the app closes, so a break
+  and back returns you to the same grid and tomorrow returns you to tomorrow's.
+  **A red cross belongs to one square.** `input()` cleared the whole of `wrong`,
+  so a check that found four mistakes showed them until you touched anything and
+  then showed none. Only the answered square's mark goes now.
+  **Sudoku has Reveal**, which the crossword has had since it shipped. The
+  square is filled from the solution and locked afterwards, like a given one —
+  writing the check for that found that `input()` guarded `given` and not
+  revealed, so you could type over the answer you had just been handed. The
+  count rides on the calendar record as `h`.
+  **Boards save on the way out.** A phone killing the app and a lid closing skip
+  every button there is, so the last minutes of a crossword only survived by
+  luck of the ten-second beat. `Arcade._stow()` on `pagehide` and on the tab
+  going hidden. Both puzzles now say so in a line under the grid, because
+  "what happens if I just close this" is a real worry with a good answer.
+  **The nearest wave is sharp.** Blurring all three layers equally is what made
+  the tide look low-quality — it reads as an out-of-focus photograph rather than
+  as distance. The front crest carries no blur at all; the two behind it are
+  softened by a little and by more, and that difference is the depth.
+  **Magma is not all one size.** Nine shapes at one width is one shape drawn
+  nine times and the eye finds the repeat. Every third is half-size and every
+  fifth two thirds and faster, with the count up to eleven to keep the ground
+  covered.
+  **Five snowflakes, and the pellets are back.** One flake repeated is one
+  flake, however good it is. Classic, star, dendrite, plate and needle by
+  `nth-child`, and every seventh particle is a plain round dot again — real snow
+  is mostly those, and dropping them is what made the field feel sparse.
+  **The five new hairstyles were all sitting one to three units too low**, each
+  drawn on its own circle instead of the skull's, so every head wore a crescent
+  of bare scalp on top. Invisible in a list of hairstyles, obvious on a face.
+  `tools/look-hair.mjs` is new and draws the row over the skull with the crown,
+  brow and equator marked; that is the check, and §6 now carries the rule.
+
+- **2026-09-05 (3)** — **Waves that are waves, flakes with arms, and the
+  faces moved to the shelf.**
+  **The tide, fourth attempt.** Bright bands were smears; hard dark rules were a
+  barcode; fields of soft ellipses were horizontal smudges. All three failed the
+  same way — they were built out of *horizontal shapes*, and the one thing a
+  wave is not is horizontal. Each layer is now a tiled SVG of the actual thing:
+  a scalloped line, a lit edge where the water turns over, a body fading away
+  under it. The scallops inside a tile are deliberately uneven (only the first
+  and last amplitudes match, which is what keeps the seam smooth) because evenly
+  spaced ones tile into something that reads as knitting. Three layers, getting
+  wider, darker and slower towards the bottom — that difference in scale is the
+  whole of the perspective — and they travel **down**, because the shore is the
+  bottom of the screen. Two smoke-test checks pin the coupling nothing else
+  connects: tile height in `background-size` against travel in `@keyframes`.
+  **Magma is big again.** Nine shapes at 2.3 opacity and a width floored at
+  66vw, so the dark ground barely shows through instead of pellets crossing it.
+  **Snowflakes have arms.** Crossed bars gave six of them but at 8px each arm is
+  a pixel of blur. The paint stays `var(--c)` — a look has to be able to dye the
+  snow — and the *shape* is now an SVG mask, which carries no colour and so
+  freezes nothing. Six spokes, four pairs of branches, a disc in the middle, and
+  `--s` raised to 13–30px so there is room to see any of it.
+  **Five hairstyles thrown away and redone.** Cropped/Bob/Afro/Quiff/Braids were
+  five hair-shaped domes: at the size he is drawn, the silhouette is nearly all
+  of it, and five outlines that differ only in shading are one style five times.
+  Bowl cut, Mohawk, Space buns, Afro, Pigtails — each recognisable as a black
+  shape with the light off. Same two rules as the first set.
+  **The "who is playing what" marks moved off the room list and onto the arcade
+  picker**, on the card for the game they are in. The room list is for who is
+  here; the shelf is where you decide what to open, so that is where knowing
+  someone is already in there changes what you do. `Arcade._faces()` in
+  09-arcade-core.js, fed by `syncInGame()`.
+  **Tetris pauses when you go back to the shelf**, not only when a session
+  starts — `leave()` sets the flag, `enter()` counts you back in.
+  **The Tetris card is a T-piece** rather than a stand-in glyph.
+  *Also learned:* `vfxApply()` hands the pane an empty kind while the timer is
+  on its setup screen, so every look tool was photographing weather that was
+  never painted. `look-beach.mjs` now sets `S.mode = 'focus'` first. An effect
+  that "renders nothing" is worth checking for this before the CSS is blamed.
+
+- **2026-09-05 (2)** — **Dark water, five more heads, and who is playing what.**
+  **The tide is dark lines now.** The crests were lit, in the horizon's orange,
+  and spread over thirty-odd pixels each — at that width it is not a line, it is
+  a smear, and a screenful read as a blurred photograph rather than as water.
+  Look at the real thing: a sunset lights the *water*, and what you see on it
+  are the troughs, dark against the light. Each band is a few pixels wide with a
+  1.5px feather; the background does the lighting and these only interrupt it.
+  Generated from a table rather than typed, so the stops stay exact.
+  **Five more hairstyles**, chosen to be different *silhouettes* rather than
+  different textures — at the size he is drawn the outline is nearly all of it,
+  and two styles differing only in shading are one style twice. Cropped, Bob,
+  Afro, Quiff, Braids. Each keeps the two rules the first set set: the sides
+  wrap past the widest point so no crescent of scalp shows at the corners, and
+  nothing crosses y=23.5 in the middle, which is what leaves a forehead.
+  **The room says who is playing what.** A room is four people on their own
+  screens, and the list said who was there and nothing about what they were
+  doing — so the answer to "is anyone up for chess" was to open chess and find
+  out. It rides on the heartbeat, which is the only regular thing a guest sends.
+  The glyph is the picker's own, because the mark beside a name should be the
+  mark on the card you would tap to join them. **"Following" went** while doing
+  it: it appeared on every non-leader row, said the same thing each time, and
+  was the first thing to squeeze a name down to "S...".
+  **Tetris: opening the board no longer un-pauses it.** `enter()` set
+  `paused = false`, which threw away every reason the game had been stopped — a
+  focus block paused it, and reopening the arcade mid-block had it running
+  behind the timer again. The rule is the timer's now: stopped during a block,
+  counted back in at any other time, because a break is what this is *for*. And
+  a paused board is **put away** rather than left up: half the game is working
+  out where the next piece goes, and a stopped board is that puzzle with the
+  clock switched off.
+  Also: the mood row is smaller, and in scale with the cards under it.
+
+- **2026-09-05** — **A sunset, a mutual unfriend, and one emoji a day.**
+  **Beach is a sunset now, and dark.** It used to be the one *light* look, which
+  was the wrong idea twice over: a cream ground meant `--card`, `--line` and
+  `--track` had to be inverted for it alone, so every rule reaching past the
+  tokens for a white wash needed a beach-shaped exception beside it — and a
+  focus app is mostly used in the evening, where a sheet of daylight is not what
+  anybody wants. Violet overhead, magenta through the middle, a narrow band of
+  hot orange on the horizon, and the crests catch the sky rather than staying
+  blue. The tide stayed; the palms went with the daylight (blurred trunks
+  against a dark sky read as blots), and with them every light-mode override.
+  **Removing a friend removes it for both.** It was one-sided: you took somebody
+  off your list and stayed on theirs, still shown as a friend, still able to
+  walk into your room without knocking — two lists that happen to agree most of
+  the time is not a friends list. `friendRemove` sends `fr:bye` down the same
+  path a message takes, and the far side removes quietly (`quiet`), because two
+  apps politely un-friending each other forever is not a conversation.
+  **One emoji a day** — new `17b-mood.js`. A number out of five is a judgement
+  and invites you to argue with it; a face is a shrug you can give on the way
+  past, and the point is not measurement but that in three months the calendar
+  shows a *shape*. Asked once on the first open of a day and never again, answer
+  or no answer (a wave-away is stored as `''`, which is why the merge lets a
+  real face beat one). Changeable from the day panel, and picking the one
+  already there clears it — otherwise there is no way back to an empty square.
+  On the calendar the face sits **bottom-right alone**, because it is the one
+  thing on a square you read rather than count; the note, event and task marks
+  moved into a **row in the top-left**, and the date stays centred — the first
+  attempt moved the date to the top-left as well, which traded one collision for
+  another. `.mood` names an emoji font stack explicitly, or the browser draws
+  its monochrome fallback and a face becomes a smudge.
+
+- **2026-09-03 (4)** — **A door on the room, and Tetris you can put down.**
+  **A room code is not an introduction.** It gets read out, forwarded, passed on
+  by somebody you gave it to — and whoever ended up with it simply *appeared* in
+  the room, named in the roster, in the chat, watching the timer. Somebody the
+  host does not know is now held at the door: connected, because there is no
+  other way to ask, and nothing else. The room chat says so in its own voice
+  (`Chat.note`, drawn as a note rather than as something a person said), and the
+  leader lets them in or does not. **Friends are never held** — being on the list
+  is the introduction, and making people knock to enter a friend's room would be
+  friction for the case that does not need it. `syncNeedsLetIn` is the whole
+  rule; `syncBroadcast` skips anyone still waiting, so *every* kind of message is
+  covered rather than each caller having to remember.
+  Writing the test for that found the leak it was meant to prevent: the host sent
+  the roster and the timer state on **socket open**, which is before `hello` and
+  therefore before it has any idea who this is — so somebody held at the door got
+  the whole room anyway. Both go through `syncGreet` now, called when a peer is
+  actually let in.
+  **Tetris**: a focus block starting pauses the board (the arcade is for breaks,
+  and a piece falling behind a block is a stack you did not build); resuming
+  counts you in over three seconds, because unpausing used to drop you into a
+  piece you had stopped thinking about, and nothing moves while the numbers are
+  up; and Down sits under Rotate on the pad, with Drop moved away from it — it is
+  the one that ends your turn and should not be beside the one you press twenty
+  times a piece.
+  **The profile is a focus profile again.** "Day streak" was the sudoku streak,
+  which is a fine number and is not what anybody reading a focus profile assumes
+  it means; it is days in a row with a block finished. Plus the two free-play
+  bests (Tetris, 2048) and how many things you have bought — the free look is not
+  counted, or a brand new account shows a 1.
+
+- **2026-09-03 (3)** — **Tetris at speed, and a code you have to earn.**
+  **A new piece hangs for 220ms before gravity takes it.** By level eight a row
+  is 130ms and by twelve it is 80 — less time than it takes to decide where a
+  piece goes, let alone move it there, so at speed the game stopped being about
+  placing pieces and became about whether you could react at all. Input works
+  throughout, so the beat is *for* moving rather than a wait to sit through, and
+  a hard drop cuts through it. It does not scale with level: the point is that
+  there is always time to start the move. Whatever of the tick is left when the
+  beat ends is handed to gravity, because swallowing it whole is a free frame at
+  level one and a missed row at twelve.
+  **The bag is ten**: one of every shape plus three drawn again. The seven are
+  the guarantee — every shape in every bag, so no shape is ever more than
+  nineteen pieces away — and the three spares are what stop the tail being
+  deducible, which a plain seven-bag gives away entirely. The test pins the
+  drought bound, which is the thing a player actually feels, rather than the
+  bag, which is only how it is kept.
+  **Clearing rows has its own sound.** It was on `chime`, which is what a focus
+  block plays when it ends — so finishing a row in the arcade sounded exactly
+  like your session finishing. `tetrisTone` is arcade instead: triangle wave,
+  short, running up rather than resolving down, with a longer run and a low
+  drop under it for four. `tetrisLock` is a barely-there tick for a piece
+  landing.
+  **Pause moved out of the header** — it was one of four things crowding the top
+  bar — and is now a 56px glyph under Best, lit while paused.
+  **And the friend box shows a code only once the account is found.** Showing it
+  as you type made that box a machine for turning any string into a working
+  address, which is a directory; this app does not have one and should not grow
+  one by accident. It asks `/account/who` first, and the code is then a
+  confirmation rather than a lookup. No server, no opinion — the box says
+  nothing and Add still works.
+
+- **2026-09-03 (2)** — **Tetris earns its clears; chat is ordered by who
+  actually spoke.**
+  Tetris: **the speed follows the score**, not the line count — forty singles
+  used to reach the same speed as ten tetrises for a quarter of the points,
+  which made the two ways of playing feel identical. Level n starts at
+  `400*n*(n+1)`. **One next piece** rather than three (a column of previews
+  taller than the information in it), and the previews are **drawn at the
+  shape's own size and centred** — on a fixed 4x4 the O sat in a corner and the
+  I hugged an edge, which is exactly where they live inside their rotation
+  boxes and reads as broken. **And four rows at once now looks like it**: a gold
+  band per row, a pulse across the well, and the word said out loud.
+  Two bugs came out of building that effect, both found by *looking* at it.
+  `_clear` spliced rows as it walked, so every removal shifted the rest down and
+  it reported the same index once per row cleared — four rows came back as
+  `[21,21,21,21]` and the tetris flashed as one. Fixing it by removing from the
+  bottom up was still wrong, because putting a blank row back after each splice
+  shifts everything again: it took out two real rows and two innocent ones. It
+  is find-them-all, then remove, then pad, and the smoke test pins both.
+  **Typing a username shows the code it makes**, in the add box and nowhere
+  else. A code is a hash of the name, so this needs nothing and nobody — but a
+  screen that turns names into codes on demand is a directory, and this app does
+  not have one. Once typing settles it asks `/account/who` whether that name is
+  a real account; no answer still lets you send, because somebody may sign up
+  tomorrow.
+  **Chat: whoever spoke last sits next to the room.** The order was whoever
+  happened to be about, then the friends list — no relation to who you are
+  talking to, so a reply could be four tabs along behind people who have never
+  written to you. Unread outranks read, then most recent. **And a name in the
+  room opens that person's thread**: room lines now carry the sender's code,
+  because matching a name against the current roster answers this right up until
+  they leave, which is exactly when you want to write to them.
+
+- **2026-09-03** — **Tetris, streaks that mean something, and friends that
+  follow the account.**
+  **Tetris** is in the solo arcade, free play with a best score — `22a-tetris.js`,
+  `08h-arcade-tetris.html`, `36-tetris.css`. Two things in it are done properly
+  rather than approximately, because both are invisible in a screenshot and
+  both are what separate Tetris from something shaped like it: the **seven-bag**
+  (one of every piece, shuffled, dealt out before the next bag is made, so an I
+  is never twenty pieces away) and the **SRS kick tables**, written out in full
+  — a plausible invented table plays subtly, maddeningly wrong. Hold, ghost,
+  lock delay, on-screen pad for phones. The smoke test checks the bag and the
+  kicks directly, and both go red when removed.
+  **A streak day is now the whole day.** Sudoku wants all three difficulties and
+  the crossword wants every size that came out — two on a Tuesday, three on a
+  Wednesday, the fifteen as well on a Sunday. It was the best of three (or four)
+  separate streaks, so a long run of easy sudokus read as a long run of sudoku
+  and the number meant nothing. `dailyStreak(game, diffs, on)` takes a list now;
+  `dailyDay` decides a single day and `dailyStreakOf(game)` reads the game's own
+  registration so the board, the calendar and a friend's profile cannot
+  disagree. The number appears on the game screen as a fire chip, and the
+  calendar says in one sentence what it counts — a number whose rule is invisible
+  is one people either mistrust or misread.
+  **Friends travel with the account.** `friends` is in the snapshot, with
+  `mergeFriends` byte-identical in `47-merge.js` and `server/accounts.js`.
+  Identity only: settled beats pending (a friendship is not undone by the phone
+  that never heard the answer), and **cards do not travel** — a card is what
+  somebody handed *that* device, and giving a stale one to a phone that has
+  never met them would be the app inventing a profile.
+  **And a code can be turned back into a name.** New `/account/who` on the
+  accounts Worker: it holds every username, so it hashes them and matches.
+  `codeForName` there must stay identical to `syncCodeFor` in `29-sync.js` — the
+  alphabet was wrong the first time it was written, and a drift does not throw,
+  it answers with the wrong person. `accounts-test.mjs` now reads the client's
+  hash out of the source and compares the two that actually ship.
+  **Needs a deploy**: `npm run accounts:deploy`. Until then `friendResolve`
+  fails quietly and a bare code stays a bare code, which is what it was before.
+  Also: the room buttons stopped crushing each other (both have a floor now and
+  the row wraps before either is squeezed), and `sync-me` lost the negative
+  margin that pulled it up into them.
 
 - **2026-08-27 (4)** — **Focus together is about people now, and a streak is
   about the day.** The overlay opened on a six-letter code and a nickname you

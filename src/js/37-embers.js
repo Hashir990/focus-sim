@@ -68,7 +68,12 @@
      /* `fxn` still asks for plenty; the kind's `cap` is what actually decides,
         and it is there because these carry a blur each. Thickness past that
         comes from opacity, which is free. */
-     fxn:6, fxo:2.3, fxs:.4,
+     /* **Bigger, and more of them.** At four tenths these were specks crossing
+        an empty screen — the look read as pellets drifting through the dark
+        rather than as lava, which is bright cracks in a crust and is therefore
+        mostly *bright*. Nine of them at nine tenths, with a floor in the CSS
+        that ties the size to the screen; see the magma rule in 31-vfx.css. */
+     fxn:11, fxo:2.3, fxs:.9,
      /* One black in ten. The rest is orange taken across its whole range —
         yellow-hot through to a deep burnt red — because what carries the look is
         the *variation* within the orange, not the contrast against black. A
@@ -80,13 +85,14 @@
      accent:'#ff8fd0', fx:'bokeh', fxc:'#ffa6dc', fxc2:'#ff62b4', fxm:1},
     {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:70,
      accent:'#f28cae', fx:'petals', fxc:'#ffd3e0', fxc2:'#e8608f', fxm:1},
-    /* The one light look on the shelf, and the only one whose weather has to be
-       *darker* than the ground to be seen at all — pale motes on cream are
-       nothing. Deep sand and sea blue, drifting like glare off water. See the
-       light-mode note in 30-embers.css: this palette carries --card, --line and
-       --track as well, because those three assume a dark room everywhere else. */
-    {id:'beach', name:'Beach', note:'Sand and sea, with a tide', cost:70,
-     accent:'#2f9fd0', fx:'bokeh', fxc:'#2f9fd0', fxc2:'#c98f2b', fxm:1},
+    /* **A sunset, and it used to be daylight.** This was the one light look on
+       the shelf, which meant --card, --line and --track had to be inverted for
+       it alone and every rule reaching past the tokens needed a beach-shaped
+       exception beside it. A focus app is mostly used in the evening anyway.
+       Now it is dark like the rest, the exceptions are gone, and the motes are
+       the warm glare coming off water under a low sun. See 30-embers.css. */
+    {id:'beach', name:'Beach', note:'A sunset, and a tide coming in', cost:70,
+     accent:'#ff9d4d', fx:'bokeh', fxc:'#ffb36b', fxc2:'#e28cb4', fxm:1},
     {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:85,
      accent:'#ff7ab8', fx:'fw', fxc:'#ffe066', fxc2:'#ff7ab8', fxm:1,
      // weighted towards the yellows, with the pinks and blues between them
@@ -156,6 +162,17 @@
     const s = embSound(id);
     if(!s) return id === 'off';
     return s.cost === 0 || Embers.own.indexOf(EMB_SND + id) >= 0;
+  }
+
+  /** A shelf, cheapest first. Ties hold their catalogue order so nothing
+      reshuffles between two things that cost the same, and so the free one — a
+      shelf's starting look, its starting face — stays at the front where it
+      belongs. Written as a copy: these catalogues are read from elsewhere and
+      sorting one in place would reorder the thing itself. */
+  function embByPrice(list){
+    return list.slice().map((x, i)=>[x, i])
+      .sort((a, b)=>((a[0].cost || 0) - (b[0].cost || 0)) || (a[1] - b[1]))
+      .map(x=>x[0]);
   }
 
   const Embers = {
@@ -496,7 +513,7 @@
            sound replaces the look rather than extinguishing it, and that is
            also plainer about what actually happens. */
         + pane('looks', '<p class="emb-head">Looks <em>one at a time</em></p>'
-        + '<div class="emb-lights">' + EMB_LIGHTS.map(l=>{
+        + '<div class="emb-lights">' + embByPrice(EMB_LIGHTS).map(l=>{
             const mine = this.own.indexOf(l.id) >= 0;
             let on = this.light === l.id;
             try{ if(AMB.id !== 'off') on = false; }catch(e){}
@@ -514,7 +531,7 @@
               + '<span>' + esc(l.note) + '</span></button>';
           }).join('') + '</div>')
         + pane('sounds', '<p class="emb-head">Sounds <em>with their own colours</em></p>'
-        + '<div class="emb-lights">' + EMB_SOUNDS.map(sd=>{
+        + '<div class="emb-lights">' + embByPrice(EMB_SOUNDS).map(sd=>{
             const mine = embHasSound(sd.id);
             let on = false;
             try{ on = mine && AMB.id === sd.id; }catch(e){}
@@ -533,7 +550,7 @@
            this only draws it, and the tiles carry `data-face-pick` so the same
            click handler serves the shelf and the menu. */
         + pane('faces', '<p class="emb-head">Clock faces <em>how the time itself is drawn</em></p>'
-        + '<div class="emb-lights">' + FACES.map(f=>{
+        + '<div class="emb-lights">' + embByPrice(FACES).map(f=>{
             const mine = faceHas(f.id);
             const on = mine && faceOk(S.face) === f.id;
             const afford = this.have >= f.cost;

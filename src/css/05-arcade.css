@@ -125,3 +125,10 @@ body.vfx-on .overlay{
 /* No italics in here. The banner headings inherit a serif italic from
    09-banner-toast.css, which is right on the timer and wrong on a game. */
 #overlay .banner h3{ font-family:inherit; font-style:normal; font-weight:600; font-size:19px }
+
+/* The line under a puzzle saying what happens when you close it. Quiet enough
+   to be read once and then ignored, which is what a reassurance is for. */
+.game-note{
+  margin:10px auto 2px; max-width:420px; text-align:center;
+  font-size:12px; line-height:1.5; color:var(--muted); opacity:.85;
+}

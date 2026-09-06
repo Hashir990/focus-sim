@@ -267,16 +267,65 @@
 }
 
 /* ---- snow ----
-   Bigger and softer than a dot, with a bright middle, coming down slowly. */
+   Six-armed flakes in five cuts, plus the small round pellets. */
+/* **The shape is a mask; the colour stays a custom property.**
+
+   This began as a radial gradient fading to nothing at three quarters of its
+   width, which at eight pixels is a smudge — pleasant, and not snow. Crossed
+   bars made arms but no branches, and the arms landed under two pixels wide.
+
+   So: the paint is still `var(--c)`, which is what lets a look dye the snow,
+   and the flake is cut out of it by an SVG mask — a mask carries no colour, so
+   nothing is frozen by drawing it as an image.
+
+   **Five cuts, not one.** A field of one flake repeated is a field of one
+   flake, however good the flake: the eye finds the copy long before it counts
+   the arms. Classic, star, dendrite, plate and needle, handed out by
+   `nth-child`, and every seventh particle is a plain round pellet instead —
+   the soft dots this effect started as. Real snow is mostly those, with the
+   cut-crystal ones catching the light here and there, and losing them was
+   what made the field feel sparse. */
 .vfx[data-fx="snow"] b{
   width:var(--s); height:var(--s);
   left:var(--x); top:-10vh;
-  background:radial-gradient(circle at 50% 50%,
-    var(--c) 0 34%,
-    color-mix(in srgb, var(--c) 55%, transparent) 48%,
-    color-mix(in srgb, var(--c) 14%, transparent) 66%, transparent 76%);
-  filter:blur(.4px);
+  background:
+    radial-gradient(circle at 50% 42%, #fff 0 30%, transparent 62%),
+    var(--c);
+  -webkit-mask-size:100% 100%; mask-size:100% 100%;
+  -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+  filter:blur(.15px) drop-shadow(0 0 1px rgba(255,255,255,.35));
   animation:vfxSnow var(--t) linear var(--d) infinite;
+}
+.vfx[data-fx="snow"] b:nth-child(7n+1){
+  -webkit-mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.4 12 1.6M21.01 17.2 2.99 6.8M2.99 17.2 21.01 6.8'/></g><g fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 18.45 9.46 20.23M12 18.45 14.54 20.23M6.42 15.22 3.61 13.91M6.42 15.22 6.15 18.31M6.42 8.78 6.15 5.69M6.42 8.78 3.61 10.09M12 5.55 14.54 3.77M12 5.55 9.46 3.77M17.58 8.78 20.39 10.09M17.58 8.78 17.85 5.69M17.58 15.22 17.85 18.31M17.58 15.22 20.39 13.91M12 20.84 10.2 22.1M12 20.84 13.8 22.1M4.34 16.42 2.35 15.49M4.34 16.42 4.15 18.61M4.34 7.58 4.15 5.39M4.34 7.58 2.35 8.51M12 3.16 13.8 1.9M12 3.16 10.2 1.9M19.66 7.58 21.65 8.51M19.66 7.58 19.85 5.39M19.66 16.42 19.85 18.61M19.66 16.42 21.65 15.49'/></g><circle cx='12' cy='12' r='2.6' fill='%23000'/></svg>");
+  mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.4 12 1.6M21.01 17.2 2.99 6.8M2.99 17.2 21.01 6.8'/></g><g fill='none' stroke='%23000' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 18.45 9.46 20.23M12 18.45 14.54 20.23M6.42 15.22 3.61 13.91M6.42 15.22 6.15 18.31M6.42 8.78 6.15 5.69M6.42 8.78 3.61 10.09M12 5.55 14.54 3.77M12 5.55 9.46 3.77M17.58 8.78 20.39 10.09M17.58 8.78 17.85 5.69M17.58 15.22 17.85 18.31M17.58 15.22 20.39 13.91M12 20.84 10.2 22.1M12 20.84 13.8 22.1M4.34 16.42 2.35 15.49M4.34 16.42 4.15 18.61M4.34 7.58 4.15 5.39M4.34 7.58 2.35 8.51M12 3.16 13.8 1.9M12 3.16 10.2 1.9M19.66 7.58 21.65 8.51M19.66 7.58 19.85 5.39M19.66 16.42 19.85 18.61M19.66 16.42 21.65 15.49'/></g><circle cx='12' cy='12' r='2.6' fill='%23000'/></svg>");
+}
+.vfx[data-fx="snow"] b:nth-child(7n+2){
+  -webkit-mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.6 12 2.4M20.31 16.8 3.69 7.2M3.69 16.8 20.31 7.2'/></g><g fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.78 9.72 24.3M12 21.78 14.28 24.3M3.53 16.89 0.21 16.18M3.53 16.89 2.48 20.12M3.53 7.11 2.48 3.88M3.53 7.11 0.21 7.82M12 2.22 14.28 -0.3M12 2.22 9.72 -0.3M20.47 7.11 23.79 7.82M20.47 7.11 21.52 3.88M20.47 16.89 21.52 20.12M20.47 16.89 23.79 16.18'/></g><circle cx='12' cy='12' r='3.2' fill='%23000'/></svg>");
+  mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.6 12 2.4M20.31 16.8 3.69 7.2M3.69 16.8 20.31 7.2'/></g><g fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.78 9.72 24.3M12 21.78 14.28 24.3M3.53 16.89 0.21 16.18M3.53 16.89 2.48 20.12M3.53 7.11 2.48 3.88M3.53 7.11 0.21 7.82M12 2.22 14.28 -0.3M12 2.22 9.72 -0.3M20.47 7.11 23.79 7.82M20.47 7.11 21.52 3.88M20.47 16.89 21.52 20.12M20.47 16.89 23.79 16.18'/></g><circle cx='12' cy='12' r='3.2' fill='%23000'/></svg>");
+}
+.vfx[data-fx="snow"] b:nth-child(7n+3){
+  -webkit-mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.8 12 1.2M21.35 17.4 2.65 6.6M2.65 17.4 21.35 6.6'/></g><g fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 16.37 9.87 17.86M12 16.37 14.13 17.86M8.22 14.18 5.86 13.09M8.22 14.18 7.99 16.77M8.22 9.82 7.99 7.23M8.22 9.82 5.86 10.91M12 7.63 14.13 6.14M12 7.63 9.87 6.14M15.78 9.82 18.14 10.91M15.78 9.82 16.01 7.23M15.78 14.18 16.01 16.77M15.78 14.18 18.14 13.09M12 18.86 9.3 20.76M12 18.86 14.7 20.76M6.06 15.43 3.06 14.04M6.06 15.43 5.77 18.72M6.06 8.57 5.77 5.28M6.06 8.57 3.06 9.96M12 5.14 14.7 3.24M12 5.14 9.3 3.24M17.94 8.57 20.94 9.96M17.94 8.57 18.23 5.28M17.94 15.43 18.23 18.72M17.94 15.43 20.94 14.04M12 21.15 10.03 22.53M12 21.15 13.97 22.53M4.07 16.58 1.9 15.56M4.07 16.58 3.86 18.97M4.07 7.42 3.86 5.03M4.07 7.42 1.9 8.44M12 2.85 13.97 1.47M12 2.85 10.03 1.47M19.93 7.42 22.1 8.44M19.93 7.42 20.14 5.03M19.93 16.58 20.14 18.97M19.93 16.58 22.1 15.56'/></g><circle cx='12' cy='12' r='1.7' fill='%23000'/></svg>");
+  mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.8 12 1.2M21.35 17.4 2.65 6.6M2.65 17.4 21.35 6.6'/></g><g fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 16.37 9.87 17.86M12 16.37 14.13 17.86M8.22 14.18 5.86 13.09M8.22 14.18 7.99 16.77M8.22 9.82 7.99 7.23M8.22 9.82 5.86 10.91M12 7.63 14.13 6.14M12 7.63 9.87 6.14M15.78 9.82 18.14 10.91M15.78 9.82 16.01 7.23M15.78 14.18 16.01 16.77M15.78 14.18 18.14 13.09M12 18.86 9.3 20.76M12 18.86 14.7 20.76M6.06 15.43 3.06 14.04M6.06 15.43 5.77 18.72M6.06 8.57 5.77 5.28M6.06 8.57 3.06 9.96M12 5.14 14.7 3.24M12 5.14 9.3 3.24M17.94 8.57 20.94 9.96M17.94 8.57 18.23 5.28M17.94 15.43 18.23 18.72M17.94 15.43 20.94 14.04M12 21.15 10.03 22.53M12 21.15 13.97 22.53M4.07 16.58 1.9 15.56M4.07 16.58 3.86 18.97M4.07 7.42 3.86 5.03M4.07 7.42 1.9 8.44M12 2.85 13.97 1.47M12 2.85 10.03 1.47M19.93 7.42 22.1 8.44M19.93 7.42 20.14 5.03M19.93 16.58 20.14 18.97M19.93 16.58 22.1 15.56'/></g><circle cx='12' cy='12' r='1.7' fill='%23000'/></svg>");
+}
+.vfx[data-fx="snow"] b:nth-child(7n+4){
+  -webkit-mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M12 18.4 6.46 15.2 6.46 8.8 12 5.6 17.54 8.8 17.54 15.2Z'/></g><g fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.6 12 1.4M21.18 17.3 2.82 6.7M2.82 17.3 21.18 6.7'/></g><g fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.36 10.16 22.9M12 21.36 13.84 22.9M3.89 16.68 1.64 15.86M3.89 16.68 3.48 19.04M3.89 7.32 3.48 4.96M3.89 7.32 1.64 8.14M12 2.64 13.84 1.1M12 2.64 10.16 1.1M20.11 7.32 22.36 8.14M20.11 7.32 20.52 4.96M20.11 16.68 20.52 19.04M20.11 16.68 22.36 15.86'/></g><circle cx='12' cy='12' r='2.2' fill='%23000'/></svg>");
+  mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M12 18.4 6.46 15.2 6.46 8.8 12 5.6 17.54 8.8 17.54 15.2Z'/></g><g fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22.6 12 1.4M21.18 17.3 2.82 6.7M2.82 17.3 21.18 6.7'/></g><g fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.36 10.16 22.9M12 21.36 13.84 22.9M3.89 16.68 1.64 15.86M3.89 16.68 3.48 19.04M3.89 7.32 3.48 4.96M3.89 7.32 1.64 8.14M12 2.64 13.84 1.1M12 2.64 10.16 1.1M20.11 7.32 22.36 8.14M20.11 7.32 20.52 4.96M20.11 16.68 20.52 19.04M20.11 16.68 22.36 15.86'/></g><circle cx='12' cy='12' r='2.2' fill='%23000'/></svg>");
+}
+.vfx[data-fx="snow"] b:nth-child(7n+5){
+  -webkit-mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M12 23 12 1M21.53 17.5 2.47 6.5M2.47 17.5 21.53 6.5'/></g><path d='M12 15.1 9.32 13.55 9.32 10.45 12 8.9 14.68 10.45 14.68 13.55Z' fill='%23000'/></svg>");
+  mask-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M12 23 12 1M21.53 17.5 2.47 6.5M2.47 17.5 21.53 6.5'/></g><path d='M12 15.1 9.32 13.55 9.32 10.45 12 8.9 14.68 10.45 14.68 13.55Z' fill='%23000'/></svg>");
+}
+/* The pellets. No mask at all — a round particle is a round particle, and
+   masking a circle out of a square only costs a decode. Small, because these
+   are the far ones, and a touch softer than a cut flake. */
+.vfx[data-fx="snow"] b:nth-child(7n+6),
+.vfx[data-fx="snow"] b:nth-child(7n){
+  width:calc(var(--s) * .3); height:calc(var(--s) * .3);
+  border-radius:50%;
+  background:radial-gradient(circle at 50% 38%, #fff 0 34%, var(--c) 74%);
+  -webkit-mask-image:none; mask-image:none;
+  filter:blur(.35px);
 }
 @keyframes vfxSnow{
   0%{ transform:translate3d(0,0,0) rotate(0deg); opacity:0 }
@@ -309,12 +358,37 @@
   filter:blur(clamp(9px, calc(var(--w) / 14), 26px));
   animation:vfxAcross var(--t) linear var(--d) infinite;
 }
+/* **Magma is mostly bright, so its shapes have to be mostly of the screen.**
+   Lava is bright cracks in a dark crust, which means it is mostly bright. At
+   four tenths these were specks crossing an empty screen and the look read as
+   pellets drifting through the dark. Two thirds of the viewport each, and half
+   again as tall in proportion, so what shows between them is crust rather than
+   background. */
+body[data-light="magma"] .vfx[data-fx="smoke"] b{
+  --w:max(var(--s), 66vw);
+  height:calc(var(--w) * .54);
+}
+/* **Not all one size.** Nine shapes at one width is one shape drawn nine times,
+   and the eye finds the repeat — the field breathes as a single sheet. A
+   couple of smaller ones scattered through gives lava the range of scales it
+   actually has: broad sheets with brighter, faster fragments riding over them.
+   `--w` is what both the width and the height are worked out from, so shrinking
+   it keeps the proportion and only changes the size. */
+body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(3n){
+  --w:max(calc(var(--s) * .5), 33vw);
+}
+body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
+  --w:max(calc(var(--s) * .68), 45vw);
+  animation-duration:calc(var(--t) * .78);
+}
+
 /* And on a genuinely wide window, more of them and a shorter run — density is
    the thing that makes it lava rather than weather, and density is count over
    distance. Both halves are needed: twice as many over twice the gap is the
    same picture. */
 @media (min-aspect-ratio:16/10) and (min-width:1100px){
   .vfx[data-fx="smoke"] b{ --w:max(var(--s), 20vw) }
+  body[data-light="magma"] .vfx[data-fx="smoke"] b{ --w:max(var(--s), 78vw) }
   .vfx[data-fx="smoke"] b:nth-child(2n){ animation-duration:calc(var(--t) * .72) }
   .vfx[data-fx="smoke"] b:nth-child(3n){ top:calc(var(--y) + 22%) }
   .vfx[data-fx="smoke"] b:nth-child(4n){ top:calc(var(--y) - 18%) }

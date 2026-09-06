@@ -100,6 +100,7 @@
       for(const g of this.guesses){ const st=wScore(g,this.answer); for(let i=0;i<5;i++){ const ch=g[i], s=st[i]; const rank={x:0,y:1,g:2}; if(!best[ch]||rank[s]>rank[best[ch]]) best[ch]=s; } }
       for(const ch in this.keys){ this.keys[ch].className='key'; if(best[ch]) this.keys[ch].classList.add(best[ch]); }
       $('wdl-meta').textContent = this.done ? (this.won?'Solved':'Missed') : (this.guesses.length+'/6');
+      dailyStreakPaint('wdl-streak', 'wordle');
     },
     // justWon is only true on the guess that ends the game, so re-opening a
     // finished board doesn't fire the confetti again.
@@ -151,7 +152,15 @@
     art(rec){
       const p = rec && rec.p;
       if(typeof p !== 'string' || p.length < 5) return '';
+      /* **All six rows, always.** It used to stop where the word was found, so
+         a lucky first guess drew one row and a six-guess grind drew six — and
+         the short one read as a *worse* day, because on a calendar the eye
+         compares heights before it reads anything. The tries you did not need
+         are the whole point of finding it in one, so they are drawn: empty, and
+         dimmer than an unfilled square, which is what says "spare" rather than
+         "wrong". */
       let out = '<div class="wdl-art" aria-hidden="true">';
+      const rows = Math.min(6, Math.max(1, Math.ceil(p.length / 5)));
       for(let i = 0; i + 5 <= p.length; i += 5){
         out += '<div class="wdl-art-row">';
         for(let k = 0; k < 5; k++){
@@ -159,6 +168,9 @@
           out += '<i class="' + (c === 'g' ? 'hit' : c === 'y' ? 'near' : '') + '"></i>';
         }
         out += '</div>';
+      }
+      for(let r = rows; r < 6; r++){
+        out += '<div class="wdl-art-row spare"><i></i><i></i><i></i><i></i><i></i></div>';
       }
       return out + '</div>';
     },

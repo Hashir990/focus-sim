@@ -7,9 +7,19 @@
     const el=$('toast'); el.textContent=msg; el.classList.add('show');
     clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),1500);
   }
+  /** **Storage first, then this session's own memory.**
+
+      A read that comes back empty used to mean "no such game", and a game told
+      that builds a fresh board. But empty is also what a store that has stopped
+      accepting writes says, and what a store says about a save an account
+      adopt has just cleared out from under it — so the board somebody was
+      playing a moment ago was rebuilt from nothing, which is read as the game
+      erasing progress, because that is what it is. `GAME_SAVES` holds what this
+      session has written and is the newest copy there is; falling back to it
+      makes one sitting safe from anything storage does. */
   async function readGame(key){
     try{ const r=await KV.get(key); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
-    return null;
+    return gameSaved(key);
   }
 
   /* ---------------- saved games, and how they reach an account ----------------
@@ -43,7 +53,8 @@
   /** Every single-player save, in the order they were added. Two-player games
       are not here: a game of Scrabble belongs to a room, not to a person. */
   const GAME_KEYS = ['arcade_sudoku', 'arcade_wordle', 'arcade_2048',
-                     'arcade_memory', 'arcade_cross', 'focus_chess'];
+                     'arcade_memory', 'arcade_cross', 'focus_chess',
+                     'arcade_tetris'];
 
   async function gamesLoad(){
     try{
@@ -62,16 +73,70 @@
   /** Save a game, and remember when. Everything that used to call
       `KV.set(this.key, JSON.stringify(x))` calls this instead - a save that
       skips it is a save the account never hears about. */
+  /* **A save that fails has to say so.** Both writes swallowed everything, so
+     a full disk, a browser with storage switched off, or a database that has
+     gone bad all looked exactly like working — right up to the restart, where
+     the board people had been playing for an hour was simply not there. They
+     report that as "it does not save", which is true and gives nobody anything
+     to go on. Said once per session, because a toast on every keystroke of a
+     game that cannot be saved is its own kind of broken. */
+  let saveBroke = false;
   function writeGame(key, v){
+    /* **The in-memory copy first, and unconditionally.** Whatever storage does
+       next, the board you are playing has to survive going back to the shelf
+       and coming in again — that is one session, and it should never depend on
+       a disk. `GAME_SAVES` is what every game reads on re-entry. */
     GAME_SAVES[key] = v;
     GAME_AT[key] = Date.now();
-    try{ KV.set(key, JSON.stringify(v)); }catch(e){}
+    try{
+      const p = KV.set(key, JSON.stringify(v));
+      if(p && p.then) p.then(ok=>{ if(!ok) gameSaveFailed(); }, ()=>gameSaveFailed());
+    }catch(e){ gameSaveFailed(); }
     try{ KV.set(GAME_AT_KEY, JSON.stringify(GAME_AT)); }catch(e){}
   }
+  function gameSaveFailed(){
+    if(saveBroke) return;
+    saveBroke = true;
+    /* Once. A toast on every keystroke of a game that cannot be saved is its
+       own kind of broken, and the drawer carries the detail — see storageLine
+       in 42-dev.js. */
+    try{ toast('This device has stopped saving \u2014 see Storage in the menu'); }catch(e){}
+  }
+
+  /** **Free room, so a full store is a hiccup and not the end of the game.**
+      Handed to `KV.set` as `KV.pinch`; it is called only after a write has
+      already failed. Everything dropped here can be rebuilt: a sudoku board
+      comes back from its day, and a puzzle's letters are the only thing that
+      cannot — so those are the last to go and older ones go first. */
+  KV.pinch = function(){
+    let freed = false;
+    try{
+      const raw = localStorage.getItem('arcade_sudoku');
+      const d = raw ? JSON.parse(raw) : null;
+      if(d && d.boards){
+        const days = Object.keys(d.boards).sort();       // 'YYYY-MM-DD|diff' sorts by date
+        while(days.length > 12){
+          delete d.boards[days.shift()];
+          freed = true;
+        }
+        if(freed) localStorage.setItem('arcade_sudoku', JSON.stringify(d));
+      }
+    }catch(e){ freed = false; }
+    return freed;
+  };
 
   function forgetGame(key, fn){ GAME_FORGET[key] = fn; }
 
   /** What `Account.snapshot()` carries: `{key: {at, v}}`, one per save. */
+  /** One game's save, as this device last wrote it, without waiting on storage.
+      `readGame` is the honest read and is async; this is the same answer for
+      anything that has to be synchronous — `Account.snapshot()` and the profile
+      card, both of which are built in one pass. */
+  function gameSaved(key){
+    const v = GAME_SAVES[key];
+    return (v && typeof v === 'object') ? v : null;
+  }
+
   function gamesSnapshot(){
     const out = {};
     for(const k of GAME_KEYS){
@@ -145,6 +210,13 @@
       label:'Reset ' + (def.title || id).toLowerCase(),
       danger:true,
       run(){
+        /* **Stop the clock before asking.** A confirm over a game that is still
+           running asks you to decide while the thing you are deciding about
+           carries on happening — in Tetris the piece keeps falling behind the
+           dialog, so reading the question costs you the board whichever answer
+           you give. Games with a clock say so with `beforeReset`; the rest do
+           nothing and are unaffected. */
+        try{ if(def.beforeReset) def.beforeReset(); }catch(e){}
         askConfirm('Start ' + (def.title || id) + ' again?',
           def.resetNote || 'Whatever is on the board now is lost.',
           'Reset',
@@ -152,6 +224,24 @@
       },
     }];
   }
+
+  /* Registered once, outside the object, because the listeners outlive any one
+     game and there is nothing to take them down. */
+  window.addEventListener('pagehide', ()=>{ try{ Arcade._stow(); }catch(e){} });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden'){ try{ Arcade._stow(); }catch(e){} }
+  });
+  /* **And up to the account, on the way out and every so often.** A save on
+     this device is one disk; the vault is the copy that survives the disk. The
+     window closing is the moment it matters most and the moment there is least
+     time, so it goes on `pagehide` as well as on a slow timer — five minutes,
+     which is often enough that nothing much is ever at risk and rare enough
+     that it is not a background chatter. */
+  window.addEventListener('pagehide', ()=>{ try{ Account.sync(true); }catch(e){} });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden'){ try{ Account.sync(true); }catch(e){} }
+  });
+  setInterval(()=>{ try{ if(!document.hidden) Account.sync(true); }catch(e){} }, 5 * 60 * 1000);
 
   const Arcade = {
     open:false, active:null,
@@ -174,6 +264,16 @@
       if(!def) return;
       try{ const g = def.game(); if(g && g.leave) g.leave(); }catch(e){}
     },
+    /** **Put the open board down without leaving it.** A phone killing the app
+        and a laptop lid closing both skip every button this app has, so the
+        last few minutes of a crossword only survived because the clock happens
+        to save on its ten-second beat. This is the same `leave()` the Back
+        button calls, on the two events a shutdown does still fire. */
+    _stow(){
+      const def = this.active && GAMES[this.active];
+      if(!def) return;
+      try{ const g = def.game(); if(g && g.persist) g.persist(); }catch(e){}
+    },
     async pick(g){ this.active=g; await this._showGame(g); },
     _picker(){
       this.active=null;
@@ -189,6 +289,46 @@
         if(!el || !def.progress) continue;
         try{ el.innerHTML = await def.progress(); }
         catch(e){ el.innerHTML = 'New<span>tap to start</span>'; }
+      }
+      this._faces();
+    },
+    /* **Whoever is in the room, on the game they are in.**
+
+       This started life as a glyph beside each name in Focus together, which
+       answers the question backwards: you do not read down a list of people
+       wondering what each is doing, you look at the shelf wondering whether
+       anybody is on something. So it is here instead — their actual faces, on
+       the card — and the answer to "is anyone up for chess" is on the chess
+       card where you were already looking.
+
+       Two at most, and a count past that: four buddies on a card is a crowd,
+       and the useful fact is *somebody*, not exactly who. */
+    _faces(){
+      for(const id in GAMES){
+        const def = GAMES[id], card = $(def.progEl);
+        if(!card) continue;
+        const host = card.parentNode;
+        if(!host) continue;
+        let box = host.querySelector('.pcard-who');
+        let who = [];
+        try{ who = syncInGame(id); }catch(e){}
+        if(!who.length){ if(box) box.remove(); continue; }
+        if(!box){
+          box = document.createElement('span');
+          box.className = 'pcard-who';
+          host.appendChild(box);
+        }
+        const show = who.slice(0, 2);
+        let out = '';
+        try{
+          out = Buddy.shown()
+            ? show.map(p=>'<i title="' + esc(p.name) + '">' + budSvg(p.buddy, 22) + '</i>').join('')
+            : show.map(p=>'<i class="initial" title="' + esc(p.name) + '">'
+                + esc((p.name || '?').slice(0, 1).toUpperCase()) + '</i>').join('');
+        }catch(e){ out = ''; }
+        if(who.length > show.length) out += '<em>+' + (who.length - show.length) + '</em>';
+        box.innerHTML = out;
+        box.title = who.map(p=>p.name).join(', ') + ' here';
       }
     },
     async _showGame(g){

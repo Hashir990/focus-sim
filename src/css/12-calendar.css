@@ -35,8 +35,13 @@
 
 /* ---- notes ----
    A dot marks days with something written on them; a filled ring means several. */
+/* **The small marks share the top-left; the face owns the bottom-right.**
+   They were scattered one to a corner, which meant a day with a note, an event
+   and a task had three unrelated specks around its edges and no way to read
+   them as a set. They are a row now, in reading order, and the corner they
+   vacated is where the day's face goes. */
 .cal-cell .note-dot{
-  position:absolute; top:4px; right:4px;
+  position:absolute; top:4px; left:4px;
   width:4px; height:4px; border-radius:50%;
   background:var(--accent); opacity:.85;
 }
@@ -77,16 +82,22 @@
    a pattern of light rather than as a wall of dots. */
 .cal-cell{ --ev:#8fb8ff; --todo:var(--accent) }
 .cal-cell .ev-dot, .cal-cell .todo-dot{
-  position:absolute; width:5px; height:5px; border-radius:50%; bottom:4px;
+  position:absolute; width:5px; height:5px; border-radius:50%; top:4px;
 }
+/* Second and third in the row. The note dot is first and is smaller, so these
+   are offset past it rather than starting at the edge. */
 .cal-cell .ev-dot{
-  left:5px; background:var(--ev);
+  left:11px; background:var(--ev);
   box-shadow:0 0 5px var(--ev), 0 0 10px color-mix(in srgb, var(--ev) 55%, transparent);
 }
 .cal-cell .todo-dot{
-  right:5px; background:var(--todo);
+  left:19px; background:var(--todo);
   box-shadow:0 0 5px var(--todo), 0 0 11px color-mix(in srgb, var(--todo) 60%, transparent);
 }
+/* Without a note there is nothing to make room for. */
+.cal-cell:not(.noted) .ev-dot{ left:4px }
+.cal-cell:not(.noted):not(.ev) .todo-dot{ left:4px }
+.cal-cell.noted:not(.ev) .todo-dot{ left:11px }
 /* the whole square lifts a little when something is owed on it */
 .cal-cell.todo{ border-color:color-mix(in srgb, var(--accent) 45%, var(--line)) }
 .cal-cell.ev{ box-shadow:inset 0 0 0 1px color-mix(in srgb, #8fb8ff 30%, transparent) }
@@ -209,9 +220,9 @@
    them — but the session bar goes, along with the room it needs */
 [data-adding="1"] .cal-cell .lvl{ display:none }
 [data-adding="1"] .cal-cell .ev-dot,
-[data-adding="1"] .cal-cell .todo-dot{ width:3px; height:3px; bottom:2px }
+[data-adding="1"] .cal-cell .todo-dot{ width:3px; height:3px; top:2px }
 [data-adding="1"] .cal-cell .ev-dot{ left:2px }
-[data-adding="1"] .cal-cell .todo-dot{ right:2px }
+[data-adding="1"] .cal-cell .todo-dot{ left:8px; right:auto }
 [data-adding="1"] .cal-cell .note-dot{ display:none }
 [data-adding="1"] .cal-detail h4{ margin-bottom:6px; font-size:15px }
 [data-adding="1"] .cal-detail{ margin-top:10px }
@@ -235,3 +246,59 @@
 [data-dense="2"] .plan-row{ padding:7px 10px; margin-bottom:5px; border-radius:11px }
 [data-dense="2"] .plan-mid b{ font-size:13px }
 [data-dense="2"] .cal-plan-head{ margin-bottom:6px }
+
+/* ---- how the day went ----
+   The faces, in the once-a-day prompt and on the day panel. Sized for a thumb:
+   this is the one control in the app whose whole point is being answerable
+   without looking, and a 30px target is not that. */
+.mood-row{ display:flex; gap:6px; flex-wrap:wrap }
+.mood-pick{
+  flex:1 1 0; min-width:38px; height:40px; padding:0;
+  font-size:19px; line-height:1; cursor:pointer;
+  border-radius:12px; border:1px solid var(--line); background:var(--card);
+  transition:transform .12s, border-color .12s, background .12s;
+}
+.mood-pick:hover, .mood-pick:focus-visible{ border-color:var(--muted); transform:translateY(-1px) }
+.mood-pick.on{
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 20%, transparent);
+  transform:translateY(-1px);
+}
+/* The prompt's row is a touch larger than the calendar's, and no more: it was
+   a slab across the top of the screen, out of scale with the cards under it. */
+.mood-row.big .mood-pick{ height:44px; font-size:21px }
+
+/* The prompt. Above the dial, and dismissible — an app that keeps asking is one
+   you learn to tap past without reading. */
+.mood-ask{
+  margin:0 0 10px; padding:9px 11px 10px;
+  border-radius:14px; border:1px solid var(--line); background:var(--card);
+}
+.mood-ask.hide{ display:none }
+.mood-ask-top{ display:flex; align-items:center; gap:8px; margin:0 0 7px }
+.mood-ask-top p{ flex:1; margin:0; font-size:12.5px; color:var(--text) }
+
+/* ---- the mark on a day ----
+   **Bottom right, alone.** Everything else a day can carry — the session bar,
+   the note dot, the event and the task — is a small mark, and they now share
+   the top-left corner in a row. The face is large and is the one thing on the
+   square you read rather than count, so it gets a corner to itself. */
+.cal-cell .mood{
+  position:absolute; right:2px; bottom:1px;
+  font-size:13px; line-height:1; pointer-events:none;
+  /* **Named explicitly, or it comes out as an outline.** The app's own stack
+     has partial coverage of these code points, so the browser draws its
+     monochrome fallback rather than reaching the colour font — which at this
+     size reads as a smudge rather than a face. */
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",
+              "Twemoji Mozilla",sans-serif;
+}
+[data-dense="1"] .cal-cell .mood{ font-size:11.5px }
+[data-dense="2"] .cal-cell .mood{ font-size:10px; right:1px; bottom:0 }
+[data-adding="1"] .cal-cell .mood{ display:none }
+/* **The number stays in the middle.** Moving it to the top-left to make room
+   put it under the marks that had just been moved there, which is a collision
+   traded for a collision. Centre is the one place on the square nothing else
+   claims: marks top-left, face bottom-right, session bar bottom-centre. It
+   only lifts a little, so the bar and the face are not touching it. */
+.cal-cell.has-mood{ padding-bottom:7px }

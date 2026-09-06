@@ -49,6 +49,15 @@ const html = splice(
       {code:'PW7ZLB', u:'noor', name:'noor', asked:Date.now()},
       {code:'HD3RXC', name:'HD3RXC'},
     ];
+    /* A room with three in it, each on something different, so the marks can be
+       seen beside the names. */
+    SYNC.mode = 'hosting'; SYNC.selfId = 'me'; SYNC.leaderId = 'me'; SYNC.code = 'MKQJ4T';
+    SYNC.conns = {p1:{}, p2:{}};
+    SYNC.roster = {p1:'Sam', p2:'Noor'};
+    SYNC.codes = {p1:'MKQJ4T', p2:'PW7ZLB'};
+    SYNC.games = {p1:'chess', p2:'crossword'};
+    SYNC.buddies = {p1:{b:3,c:1,e:9,r:2,h:6,a:5,o:4}, p2:{b:1,c:2,e:4,r:7}};
+    SYNC.anims = {p1:2, p2:0};
     SYNC.online = {MKQJ4T:true, PW7ZLB:false};
     SYNC.inRoom = {MKQJ4T:true};
     SYNC.asks = {QQ2BVN:{code:'QQ2BVN', u:'ayaan', card:null, at:Date.now()}};
@@ -56,6 +65,11 @@ const html = splice(
     syncRender();
   };
   window.__prof = (c) => profOpen(c);
+  window.__typing = (name) => {
+    const box = document.getElementById('ft-user');
+    box.value = name;
+    friendCodeHint(name);
+  };
 `);
 const tmp = join(root, 'look', '_ft.html');
 writeFileSync(tmp, html);
@@ -72,6 +86,11 @@ const shoot = async (label, sel) => {
 await page.evaluate(() => window.__ft());
 await page.waitForTimeout(400);
 await shoot('focus together', '#sync-overlay');
+await page.evaluate(() => window.__typing('noor'));
+await page.waitForTimeout(250);
+await shoot('the code a name makes', '#sync-overlay');
+await page.evaluate(() => window.__typing(''));
+await page.waitForTimeout(120);
 await page.evaluate(() => window.__prof('MKQJ4T'));
 await page.waitForTimeout(300);
 await shoot('a friend’s profile', '#prof-overlay');

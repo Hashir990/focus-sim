@@ -292,6 +292,75 @@
      from the output as a stored quantity — `embersFrom` is called on the merged
      result, so the balance is a consequence of the merge rather than an input
      to it. */
+  /* **Friends travel with the account, but their cards do not.**
+
+     The list is who you know; a card is what somebody handed you the last time
+     you were in touch, and handing a stale one to a device that has never met
+     them would be the app inventing a profile. So only the identity crosses —
+     code, username, whether it is settled — and the numbers arrive the next
+     time you actually meet. See 29a-friends.js.
+
+     Union by code. Settled beats pending, because two devices disagreeing about
+     whether somebody accepted should land on yes: a friendship is not undone by
+     an old phone that never heard the answer. Otherwise the later `at` wins,
+     and a name is kept from whichever side has one. */
+  function mergeFriends(a, b){
+    const A = Array.isArray(a) ? a : [], B = Array.isArray(b) ? b : [];
+    const out = Object.create(null), order = [];
+    for(const f of A.concat(B)){
+      if(!f || typeof f !== 'object') continue;
+      const code = String(f.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+      if(code.length < 4) continue;
+      const one = {
+        code,
+        u: String(f.u || '').slice(0, 20),
+        name: String(f.name || '').slice(0, 24),
+        ok: f.ok ? 1 : 0,
+        asked: Number(f.asked) || 0,
+        at: Number(f.at) || 0,
+      };
+      const had = out[code];
+      if(!had){ out[code] = one; order.push(code); continue; }
+      const win = one.ok && !had.ok ? one
+                : had.ok && !one.ok ? had
+                : one.at > had.at ? one : had;
+      const lose = win === one ? had : one;
+      out[code] = {
+        code,
+        u: win.u || lose.u,
+        name: win.name || lose.name,
+        ok: (win.ok || lose.ok) ? 1 : 0,
+        asked: Math.max(win.asked, lose.asked),
+        at: Math.max(win.at, lose.at),
+      };
+    }
+    /* Capped, because this rides in every sync and a list nobody can have is
+       not worth carrying. */
+    return order.slice(0, 300).map(c=>out[c]);
+  }
+
+  /* **How each day went, one emoji a day.**
+
+     Union by day. Where two devices disagree, the one that says something wins:
+     a day can hold an empty string, which means "asked, and waved away", and
+     that is mostly the absence of an answer — losing a real face to it would be
+     the wrong way round. See 17b-mood.js. */
+  function mergeMood(a, b){
+    const A = (a && typeof a === 'object') ? a : {};
+    const B = (b && typeof b === 'object') ? b : {};
+    const out = {};
+    for(const src of [A, B]){
+      for(const k in src){
+        if(!Object.prototype.hasOwnProperty.call(src, k)) continue;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue;
+        const v = src[k];
+        if(typeof v !== 'string') continue;
+        if(!(k in out) || (!out[k] && v)) out[k] = v.slice(0, 8);
+      }
+    }
+    return out;
+  }
+
   function mergeSnapshots(local, remote){
     const A = local || {}, B = remote || {};
     /* Both sides' deletions, settled before either list is built — a thing
@@ -317,6 +386,10 @@
       /* Which dated puzzle you started and which you finished — see
          `mergeDaily` above and 09b-daily.js. */
       daily: mergeDaily(A.daily, B.daily),
+      // who you know, without their cards — see mergeFriends above
+      friends: mergeFriends(A.friends, B.friends),
+      // one emoji a day — see mergeMood above
+      mood: mergeMood(A.mood, B.mood),
       sim: mergeSim(A.sim, B.sim),
     };
   }

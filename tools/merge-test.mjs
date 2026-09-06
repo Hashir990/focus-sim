@@ -18,10 +18,10 @@ const src = readFileSync(join(R, '47-merge.js'), 'utf8');
 
 const api = new Function(src + `
   return {mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, MERGE_PER, mergeDaily,
-          mergeById, mergeGone, mergeGames};
+          mergeById, mergeGone, mergeGames, mergeFriends, mergeMood};
 `)();
 const { mergeLog, mergeSet, mergeFeats, mergeSim, mergeSnapshots, embersFrom, mergeDaily,
-        mergeById, mergeGone, mergeGames } = api;
+        mergeById, mergeGone, mergeGames, mergeFriends, mergeMood } = api;
 
 let pass = 0;
 const fails = [];
@@ -251,6 +251,77 @@ console.log('\nthe plan and the checklist');
   check('and one deleted anywhere is deleted everywhere',
     mergeSnapshots(A, del).quotes.length === 0
     && mergeSnapshots(del, A).quotes.length === 0);
+}
+
+/* ---------- friends ----------
+
+   The list is who you know, and it now travels with the account, so two
+   devices have to agree about it without either one losing somebody. */
+{
+  const f = (code, x) => Object.assign({ code, u: '', name: '', ok: 0, asked: 0, at: 0 }, x);
+  const codes = (l) => l.map((x) => x.code).sort().join(',');
+
+  check('friends from both devices end up in one list',
+    codes(mergeFriends([f('AAAA11')], [f('BBBB22')])) === 'AAAA11,BBBB22',
+    JSON.stringify(mergeFriends([f('AAAA11')], [f('BBBB22')])));
+
+  /* **Settled beats pending, whichever side is newer.** One phone saw them
+     accept and another never heard; a friendship is not undone by the device
+     that missed the answer, even when that device wrote to the list later. */
+  const yes = f('AAAA11', { ok: 1, u: 'sam', at: 100 });
+  const pending = f('AAAA11', { asked: 900, at: 900 });
+  check('accepted wins over still-asking, even from the older device',
+    mergeFriends([yes], [pending])[0].ok === 1
+    && mergeFriends([pending], [yes])[0].ok === 1,
+    JSON.stringify(mergeFriends([pending], [yes])));
+  check('and the name survives from whichever side had one',
+    mergeFriends([pending], [yes])[0].u === 'sam',
+    JSON.stringify(mergeFriends([pending], [yes])[0]));
+
+  /* **Cards do not travel.** A card is what somebody handed *that* device; a
+     phone that has never met them must not be given a profile to show. */
+  const withCard = f('AAAA11', { ok: 1, card: { u: 'sam', hrs: 40 } });
+  check('but their card is left behind', !('card' in mergeFriends([withCard], [])[0]),
+    JSON.stringify(mergeFriends([withCard], [])[0]));
+
+  check('rubbish in the list is dropped rather than carried',
+    mergeFriends([null, { code: 'X' }, 'nope', f('CCCC33')], []).length === 1,
+    JSON.stringify(mergeFriends([null, { code: 'X' }, 'nope', f('CCCC33')], [])));
+
+  /* It rides in every sync, so it cannot be unbounded. */
+  const many = [];
+  for (let i = 0; i < 400; i++) many.push(f('Z' + String(i).padStart(5, '0')));
+  check('and the list is capped', mergeFriends(many, []).length === 300,
+    `${mergeFriends(many, []).length}`);
+
+  check('the whole snapshot carries them',
+    mergeSnapshots({ friends: [f('AAAA11')] }, { friends: [f('BBBB22')] }).friends.length === 2);
+}
+
+/* ---------- how each day went ----------
+   A day can hold an empty string, which means "asked, and waved away". That is
+   mostly the absence of an answer, so where two devices disagree the one that
+   says something wins — losing a real face to a shrug would be the wrong way
+   round. */
+{
+  const A = { '2026-09-01': '\u{1F642}', '2026-09-02': '' };
+  const B = { '2026-09-02': '\u{1F614}', '2026-09-03': '\u{1F634}' };
+  const m = mergeMood(A, B);
+  check('days from both devices are kept',
+    Object.keys(m).sort().join(',') === '2026-09-01,2026-09-02,2026-09-03',
+    JSON.stringify(m));
+  check('and a real answer beats a shrug, whichever side it came from',
+    mergeMood(A, B)['2026-09-02'] === '\u{1F614}'
+    && mergeMood(B, A)['2026-09-02'] === '\u{1F614}',
+    JSON.stringify([mergeMood(A, B), mergeMood(B, A)]));
+  check('a shrug on its own survives, so the day is not asked about again',
+    mergeMood({ '2026-09-05': '' }, {})['2026-09-05'] === '',
+    JSON.stringify(mergeMood({ '2026-09-05': '' }, {})));
+  check('and anything that is not a day is dropped',
+    Object.keys(mergeMood({ nope: 'x', '2026-9-1': 'y' }, {})).length === 0,
+    JSON.stringify(mergeMood({ nope: 'x', '2026-9-1': 'y' }, {})));
+  check('the whole snapshot carries it',
+    mergeSnapshots({ mood: A }, { mood: B }).mood['2026-09-03'] === '\u{1F634}');
 }
 
 console.log('\n' + pass + '/' + (pass + fails.length) + ' merge checks passed');

@@ -92,6 +92,12 @@
         games: gamesSnapshot(),
         // which dated puzzle you played, and how far — see 09b-daily.js
         daily: dailySnapshot(),
+        /* Who you know. Identity only, never their cards — see `mergeFriends`
+           in 47-merge.js for why. Signing in on a new phone used to hand you
+           your hours back beside an empty friends list. */
+        friends: friendsSnapshot(),
+        // one emoji a day — see 17b-mood.js
+        mood: moodSnapshot(),
         sim: {
           focusMin:S.focusMin, breakMin:S.breakMin, autoContinue:S.autoContinue,
           sound:S.sound, repeat:S.repeat, face:S.face,
@@ -120,6 +126,8 @@
       try{ quotesAdopt(snap.quotes); }catch(e){}
       try{ gamesAdopt(snap.games); }catch(e){}
       try{ dailyAdopt(snap.daily); }catch(e){}
+      try{ friendsAdopt(snap.friends); }catch(e){}
+      try{ moodAdopt(snap.mood); }catch(e){}
       const sim = snap.sim || {};
       /* Only if it is genuinely newer than what this device last wrote, which
          is the same test the server makes. Otherwise signing in on an old phone

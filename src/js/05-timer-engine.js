@@ -50,6 +50,12 @@
        the elapsed time so far, which the accrual reads as no progress and
        ignores, so pausing cannot open a second record. */
     if(S.mode==='focus') logProgress(Math.max(0, S.total - S.remaining));
+    /* **The arcade is for breaks, so a block starting stops the game.**
+       A board left running behind a focus block is a piece falling while you
+       are supposed to be elsewhere, and you come back to a stack you did not
+       build. Only focus: rest *is* the break, and pausing the thing somebody
+       opened the break to play would be perverse. */
+    if(S.mode==='focus'){ try{ Tetris.pause(true); }catch(e){} }
     ding(true);            // up a fifth: carrying on
     acquireWake();
     ambStart();

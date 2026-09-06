@@ -428,6 +428,33 @@ def segmentations(n, lo=MIN_RUN):
 # because past eleven letters the pool is the phrase list and nothing else.
 _LEN_WANT = {3: 1, 4: 5, 5: 6, 6: 6, 7: 6, 8: 5, 9: 3, 10: 2, 11: 2}
 
+# How much `seg_weight` wants a long run left uncut at 9x9, which is the only
+# lever that puts eight- and nine-letter answers in a nine-by-nine. It competes
+# against 5 for a two-part split and 1 for 3+3+3, and a 9-run has six
+# segmentations, so this number is most of the mass.
+#
+# Measured 2026-09-03, six puzzles per sample at a 110s budget, counting answers
+# over seven letters. The shipped bank before this change held 4 in 896 nine-by-
+# nine entries, 0.16 a puzzle:
+#
+#   LONG_WHOLE=1 (the old behaviour) ... 0.16/puzzle
+#   LONG_WHOLE=12 ...................... 1.00/puzzle, 6 closed
+#   LONG_WHOLE=25 ...................... 2.00/puzzle, 6 closed
+#   LONG_WHOLE=60 ...................... 2.83, 2.50, 1.67 over three samples
+#   LONG_WHOLE=150 ..................... 3.00/puzzle, but 6 closed then 1
+#   LONG_WHOLE=400 ..................... 3.00/puzzle, 3 closed — throughput halves
+#
+# The yield saturates around 3 a puzzle because that is as many long slots as a
+# 9x9 shape has room for; past 150 the extra weight only costs fills. 150 looked
+# best on one sample and then made a single puzzle on the next, so the knee is
+# not where one run suggests. 60 is the value with margin under the cliff, and
+# it never once returned a run with no long answer in it at all.
+#
+# This does nothing to 5x5 or 7x7 — the `n >= 8` guard cannot fire when the
+# longest possible run is 7 — and nothing to 15x15, which returns from the
+# `n > 9` branch above. Both were re-run to confirm, and both still close.
+LONG_WHOLE = 60
+
 
 def seg_weight(seg, n):
     """Bigger grids need a different bias, so this branches on n.
@@ -448,7 +475,18 @@ def seg_weight(seg, n):
             w *= _LEN_WANT.get(length, 1)
         return max(1, w // (3 ** (len(seg) - 1)))
     if len(seg) == 1:
-        return 1                           # one word spanning the line
+        # Leaving a run whole is the only way a 9x9 ever gets an eight- or
+        # nine-letter answer, and this used to return 1 — the lowest weight on
+        # offer, below even 3+3+3. That is why the bank held four answers over
+        # seven letters in 896 nine-by-nine entries. The pool is nowhere near
+        # the constraint: 1,512 eights and 1,165 nines against 565 threes.
+        #
+        # Only long runs are promoted. A whole run of 3-7 stays at 1, because
+        # at those lengths "don't cut" is not buying a long answer, it is just
+        # a coarser grid. The 15x15 is untouched and returns above: the block
+        # at LONG_SLOTS records eight measured attempts to lengthen it, none of
+        # which closed, and that finding stands.
+        return LONG_WHOLE if n >= 8 else 1
     if min(seg) == MIN_RUN and len(seg) > 2:
         return 1                           # 3+3+3 and friends
     return 5

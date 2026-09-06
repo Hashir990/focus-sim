@@ -78,6 +78,13 @@
     hostSeen:0,                              // follower: when the host last spoke
     online:{},                               // friend code -> around? from the last probe
     inRoom:{},                               // friend code -> hosting a room right now?
+    /* Which game each peer has open, by peer id. Travels on the heartbeat and
+       in `hello`, and rides back out in the roster. */
+    games:{},
+    /* Peers connected but not in the room yet: `id -> {name, code, at}`. See
+       the waiting-room note above `syncAdmit`. On the joining side, `held` is
+       true while you are the one outside. */
+    waiting:{}, held:false,
     probing:false, probePeer:null,
     beacon:null, beaconOn:false,             // "I'm around" — see syncBeacon()
     posting:false, mailTimer:null,           // see syncMailRun()
@@ -399,8 +406,15 @@
   }
 
   function syncSend(conn, msg){ try{ conn.send(msg); }catch(e){} }
+  /** **Nothing reaches somebody still at the door.** They are connected, which
+      is the only way they could have asked, and that is all: no roster, no
+      state, no chat. Skipping them here makes that true for every kind of
+      message at once, rather than each caller having to remember. */
   function syncBroadcast(msg, exceptId){
-    for(const id in SYNC.conns) if(id !== exceptId) syncSend(SYNC.conns[id], msg);
+    for(const id in SYNC.conns){
+      if(id === exceptId || SYNC.waiting[id]) continue;
+      syncSend(SYNC.conns[id], msg);
+    }
   }
 
   /** Called by the timer engine on every change. No-op unless we hold the timer. */
@@ -411,10 +425,15 @@
     syncBroadcast(m);
   }
 
+  /** Which game this device has open, or '' for none. */
+  function syncMyGame(){
+    try{ return (Arcade.open && Arcade.active) ? String(Arcade.active) : ''; }catch(e){ return ''; }
+  }
   function syncRosterMsg(){
-    const list = [{id:SYNC.selfId, name:SYNC.name || 'Host', code:SYNC.myCode, buddy:budSaved(), anim:budAnimSaved()}];
+    const list = [{id:SYNC.selfId, name:SYNC.name || 'Host', code:SYNC.myCode,
+      buddy:budSaved(), anim:budAnimSaved(), g:syncMyGame()}];
     for(const id in SYNC.roster) list.push({id, name:SYNC.roster[id], code:SYNC.codes[id] || '',
-      buddy:SYNC.buddies[id] || null, anim:(SYNC.anims[id] | 0)});
+      buddy:SYNC.buddies[id] || null, anim:(SYNC.anims[id] | 0), g:SYNC.games[id] || ''});
     return {t:'roster', leaderId:SYNC.leaderId, list};
   }
 
@@ -473,7 +492,8 @@
     const conn = SYNC.conns[id];
     if(conn) try{ conn.close(); }catch(e){}
     const wasLeader = SYNC.leaderId === id;
-    delete SYNC.conns[id]; delete SYNC.roster[id];
+    delete SYNC.conns[id]; delete SYNC.roster[id]; delete SYNC.waiting[id];
+    delete SYNC.games[id];
     delete SYNC.codes[id]; delete SYNC.seen[id];
     delete SYNC.buddies[id]; delete SYNC.anims[id];
     if(wasLeader) SYNC.leaderId = SYNC.selfId;
@@ -488,7 +508,7 @@
     if(syncIsLeader()) syncBroadcastState();
     // The ping carries who we are as well as the fact that we're alive. A `hello`
     // that goes missing would otherwise leave us anonymous for the whole session.
-    else syncBroadcast({t:'ping', name:SYNC.name, code:SYNC.myCode});
+    else syncBroadcast({t:'ping', name:SYNC.name, code:SYNC.myCode, g:syncMyGame()});
     syncSweep();
   }
 
@@ -601,7 +621,8 @@
     const conn = SYNC.conns[id];
     const wasLeader = SYNC.leaderId === id;
     setTimeout(()=>{ try{ conn.close(); }catch(e){} }, 60);
-    delete SYNC.conns[id]; delete SYNC.roster[id];
+    delete SYNC.conns[id]; delete SYNC.roster[id]; delete SYNC.waiting[id];
+    delete SYNC.games[id];
     if(wasLeader) SYNC.leaderId = SYNC.selfId;   // never leave the room leaderless
     syncBroadcast(syncRosterMsg());
     if(wasLeader) syncBroadcastState();
@@ -657,28 +678,19 @@
       /* The card goes with the greeting. Being in a room with somebody is the
          moment their profile is worth refreshing, and it costs one small object
          on a connection that is already open. See 29a-friends.js. */
-      syncSend(conn, {t:'hello', name:SYNC.name, code:SYNC.myCode,
+      syncSend(conn, {t:'hello', name:SYNC.name, code:SYNC.myCode, g:syncMyGame(),
         buddy:budSaved(), anim:budAnimSaved(), card:(function(){
           try{ return friendCard(); }catch(e){ return null; } })()});
       quotesBroadcast();
       // somebody just came within reach; anything queued for them can go now
       try{ syncMailRun(); }catch(e){}
-      if(syncIsHost()){
-        syncSend(conn, syncRosterMsg());
-        /* **Somebody arriving has to be put on the right screen, and the host
-           is not always the one holding the timer.** This sent the state only
-           when the host *was* the leader, so after a hand-over a new arrival
-           got a roster and nothing else — and sat on whatever screen they were
-           already on while the room was somewhere else entirely. The host
-           relays every state it sees anyway; keeping the last one costs a
-           reference and answers the question for whoever turns up next.
+      /* **Nothing about the room goes out here.**
 
-           It matters most in the case Hashir hit: the leader back on the main
-           menu. Without this a joiner never hears "setup" and is left running a
-           timer nobody else is on. */
-        const first = syncIsLeader() ? syncStateMsg() : SYNC.lastState;
-        if(first) syncSend(conn, first);
-      }
+         The roster and the timer state used to be sent the moment a socket
+         opened — which is before `hello`, and therefore before the host has any
+         idea who this is. Somebody held at the door got the whole room anyway:
+         who was in it, and what the timer was doing. It is sent on `hello`
+         now, to peers who are actually let in. See `syncGreet`. */
       const moved = SYNC.moving;
       SYNC.moving = '';
       syncSetStatus(moved ? 'Now in ' + moved + '’s room'
@@ -696,6 +708,14 @@
           SYNC.roster[conn.peer] = m.name || SYNC.roster[conn.peer] || 'Someone';
           if(m.code) SYNC.codes[conn.peer] = syncNormalise(m.code);
         }
+        /* What they have open. A heartbeat is the only regular thing a guest
+           sends, so it is where this belongs — a message of its own for
+           something that changes a few times a break would be a message of its
+           own for nothing. */
+        const wasIn = SYNC.games[conn.peer] || '';
+        const nowIn = typeof m.g === 'string' ? m.g.slice(0, 16) : '';
+        SYNC.games[conn.peer] = nowIn;
+        if(syncIsHost() && wasIn !== nowIn){ syncBroadcast(syncRosterMsg()); syncRender(); }
         // only tell the room when this actually told us something new
         if(syncIsHost() && !named && SYNC.roster[conn.peer]){
           syncBroadcast(syncRosterMsg());
@@ -706,14 +726,62 @@
       }
 
       if(m.t === 'hello'){
+        const code = typeof m.code === 'string' ? syncNormalise(m.code) : '';
+        try{ if(m.card && code) friendSawCard(code, m.card); }catch(e){}
+        /* **Somebody we do not know waits outside.** Not in the roster, so no
+           broadcast reaches them and nothing about them reaches the room except
+           that they are there. See `syncNeedsLetIn`. */
+        if(syncIsHost() && !SYNC.roster[conn.peer] && syncNeedsLetIn(code)){
+          if(!SYNC.waiting[conn.peer]){
+            SYNC.waiting[conn.peer] = {
+              name:(m.name || 'Someone'), code,
+              buddy:(m.buddy ? budClean(m.buddy) : null), anim:(m.anim | 0),
+              at:Date.now(),
+            };
+            try{ chatNote((m.name || 'Someone') + ' is waiting to be let in'); }catch(e){}
+            try{ if(!chatQuietHours()){ blip(); buzz(14); } }catch(e){}
+          }
+          try{ syncSend(conn, {t:'wait'}); }catch(e){}
+          syncRender();
+          return;
+        }
         SYNC.roster[conn.peer] = m.name || 'Someone';
-        if(typeof m.code === 'string') SYNC.codes[conn.peer] = syncNormalise(m.code);
+        if(code) SYNC.codes[conn.peer] = code;
         // who they look like, kept beside who they are
         if(m.buddy) SYNC.buddies[conn.peer] = budClean(m.buddy);
         SYNC.anims[conn.peer] = m.anim | 0;
-        try{ if(m.card && m.code) friendSawCard(m.code, m.card); }catch(e){}
-        if(syncIsHost()){ syncBroadcast(syncRosterMsg()); syncGameRosterChanged(); }
+        if(typeof m.g === 'string') SYNC.games[conn.peer] = m.g.slice(0, 16);
+        if(syncIsHost()){
+          syncGreet(conn);
+          syncBroadcast(syncRosterMsg());
+          syncGameRosterChanged();
+        }
         syncRender();
+      }
+
+      /* ---- the door, from both sides ---- */
+      else if(m.t === 'wait'){
+        /* We are the one outside. Nothing is wrong and nothing is broken; say
+           so plainly rather than leaving "Connecting..." up for a minute. */
+        SYNC.held = true;
+        syncSetStatus('Waiting to be let in\u2026');
+        syncRender();
+      }
+      else if(m.t === 'letin'){
+        /* From the host to us: we are in. From the leader to the host: let that
+           person in. `m.id` is what tells the two apart. */
+        if(m.id){ if(syncIsHost()) syncAdmit(m.id); return; }
+        SYNC.held = false;
+        syncSetStatus('You were let in');
+        syncRender();
+      }
+      else if(m.t === 'refuse'){
+        if(syncIsHost() && m.id) syncRefuse(m.id);
+      }
+      else if(m.t === 'refused'){
+        SYNC.held = false;
+        syncLeave(true);
+        syncSetStatus('They did not let you in');
       }
 
       /* Somebody redressed their buddy mid-session. Relayed by the host for
@@ -840,7 +908,7 @@
          disappearing. See syncLeave(). */
       if(SYNC.leaving || conn.__superseded || SYNC.conns[conn.peer] !== conn){ syncRender(); return; }
       delete SYNC.conns[conn.peer];
-      delete SYNC.roster[conn.peer];
+      delete SYNC.roster[conn.peer]; delete SYNC.waiting[conn.peer];
       delete SYNC.codes[conn.peer];
       delete SYNC.seen[conn.peer];
       if(syncIsHost()){
@@ -1045,6 +1113,7 @@
     for(const id in conns) syncSend(conns[id], {t:'bye'});
     for(const id in conns){ try{ conns[id].close(); }catch(e){} }
     SYNC.conns = {}; SYNC.roster = {}; SYNC.codes = {}; SYNC.buddies = {}; SYNC.remoteList = null;
+    SYNC.waiting = {}; SYNC.held = false; SYNC.games = {};
     SYNC.seen = {}; SYNC.hostSeen = 0;
     try{ if(SYNC.peer) SYNC.peer.destroy(); }catch(e){}
     SYNC.peer = null;
@@ -1080,7 +1149,11 @@
       if(!had){ SYNC.friends.push({code, name:(name||'').trim() || code}); syncSave(); syncRender(); }
     }
   }
+  /* The old entry point, kept because the room's rows and a few other places
+     call it. It goes through `friendRemove` in 29a-friends.js now, so removing
+     somebody takes you off their list as well — a friendship is one thing. */
   function syncRemoveFriend(code){
+    try{ friendRemove(code); return; }catch(e){}
     SYNC.friends = SYNC.friends.filter(f=>f.code !== syncNormalise(code));
     syncSave(); syncRender();
   }
@@ -1383,27 +1456,136 @@
          be lost — a peer that reconnected while its own sends were failing came
          back connected but nameless, and vanished from the list while being very
          much in the room. Who is here is who is connected. */
-      const list = [{id:SYNC.selfId, name:SYNC.name || 'You', code:SYNC.myCode, me:true, buddy:budSaved(), anim:budAnimSaved()}];
+      const list = [{id:SYNC.selfId, name:SYNC.name || 'You', code:SYNC.myCode, me:true,
+        buddy:budSaved(), anim:budAnimSaved(), g:syncMyGame()}];
       for(const id in SYNC.conns){
         if(id === SYNC.selfId) continue;
+        if(SYNC.waiting[id]) continue;         // still at the door; not in the room
         list.push({id, name:SYNC.roster[id] || 'Someone', code:SYNC.codes[id]||'', me:false,
-          buddy:SYNC.buddies[id] || null, anim:(SYNC.anims[id] | 0)});
+          buddy:SYNC.buddies[id] || null, anim:(SYNC.anims[id] | 0), g:SYNC.games[id] || ''});
       }
       return list.map(p=>Object.assign(p, {leader:p.id === SYNC.leaderId}));
     }
     if(SYNC.remoteList){
       return SYNC.remoteList.map(p=>({
         id:p.id, name:p.name || 'Someone', code:p.code || '', buddy:p.buddy || null,
-        anim:(p.anim | 0),
+        anim:(p.anim | 0), g:p.g || '',
+        /* Our own row comes from the roster like everybody else's, but the host
+           only hears what we are playing on the next heartbeat — so read it
+           locally rather than waiting a beat to see ourselves move. */
         leader:p.id === SYNC.leaderId, me:p.id === SYNC.selfId,
-      }));
+      })).map(p=>p.me ? Object.assign(p, {g:syncMyGame()}) : p);
     }
     return [];
   }
 
   function syncIsFriend(code){ return !!code && SYNC.friends.some(f=>f.code === code); }
 
+  /* **Who is playing what belongs on the game, not on the person.**
+
+     This was a glyph beside each name in the room list, which answered the
+     question backwards: you do not look down a list of people wondering what
+     each is doing, you look at the shelf wondering whether anyone is on
+     something. So it moved to the picker — their faces on the card — and the
+     list went back to being a list of people. `syncInGame` is what the arcade
+     asks; the wire is unchanged. See `Arcade._faces` in 09-arcade-core.js. */
+  function syncInGame(id){
+    if(!syncActive()) return [];
+    return syncPeople().filter(p=>!p.me && p.g === id);
+  }
+
+  /* ================= THE WAITING ROOM =================
+
+     **A code is not an introduction.**
+
+     A room code is six characters and it gets passed around: read out, put in a
+     message, forwarded by somebody you told it to. That is fine for a friend
+     and it is the whole problem for a stranger, who arrived in the room and was
+     simply *there* — named in the roster, in the chat, watching the timer.
+
+     So somebody the host does not know is held at the door. They are connected
+     (there is no other way to ask) but they are not in the roster, they get no
+     state and no chat, and the room is told that somebody is waiting. The
+     leader lets them in or does not.
+
+     **Friends are not held.** Being on the host's friends list *is* the
+     introduction, and making people knock every time they join a friend's room
+     would be friction for the case that does not need it. `syncNeedsLetIn`
+     below is the whole rule.
+
+     The host decides, because the host holds the connections. The *leader*
+     presses the button, because the leader is whoever is running the room at
+     that moment; when they are not the same person the host relays it. */
+  function syncNeedsLetIn(code){
+    if(!syncIsHost()) return false;
+    const f = SYNC.friends.find(x=>x.code === syncNormalise(code || ''));
+    return !(f && f.ok);
+  }
+  function syncWaitingList(){
+    return Object.keys(SYNC.waiting).map(id=>Object.assign({id}, SYNC.waiting[id]));
+  }
+  /** **What a new arrival is told, once they are actually in.**
+
+      Who is here, and what the timer is doing. The state matters and is easy to
+      get wrong: it used to be sent only when the host *was* the leader, so after
+      a hand-over a new arrival got a roster and nothing else, and sat on
+      whatever screen they were already on while the room was somewhere else.
+      The host relays every state it sees, so keeping the last one answers the
+      question for whoever turns up next. Without it a joiner never hears
+      "setup" and is left running a timer nobody else is on. */
+  function syncGreet(conn){
+    if(!conn || !syncIsHost()) return;
+    syncSend(conn, syncRosterMsg());
+    const first = syncIsLeader() ? syncStateMsg() : SYNC.lastState;
+    if(first) syncSend(conn, first);
+  }
+
+  /** Let somebody in: they join the roster, hear the room, and are announced. */
+  function syncAdmit(id){
+    if(!SYNC.waiting[id]) return;
+    const who = SYNC.waiting[id];
+    delete SYNC.waiting[id];
+    if(!syncIsHost()){
+      /* The leader is not the host, so the host is the one holding the socket.
+         Ask it to do the letting in. */
+      syncBroadcast({t:'letin', id});
+      return;
+    }
+    SYNC.roster[id] = who.name || 'Someone';
+    if(who.code) SYNC.codes[id] = who.code;
+    if(who.buddy) SYNC.buddies[id] = who.buddy;
+    SYNC.anims[id] = who.anim | 0;
+    const conn = SYNC.conns[id];
+    if(conn){
+      syncSend(conn, {t:'letin'});
+      syncGreet(conn);
+    }
+    syncBroadcast(syncRosterMsg());
+    syncGameRosterChanged();
+    try{ chatNote((who.name || 'Someone') + ' was let in'); }catch(e){}
+    syncRender();
+  }
+  /** Turn somebody away. The connection goes; the code still works, so this is
+      "not now" rather than a ban — which is the honest strength for a thing with
+      no accounts behind it. */
+  function syncRefuse(id){
+    const who = SYNC.waiting[id];
+    delete SYNC.waiting[id];
+    if(!syncIsHost()){ syncBroadcast({t:'refuse', id}); syncRender(); return; }
+    const conn = SYNC.conns[id];
+    if(conn){
+      try{ syncSend(conn, {t:'refused'}); }catch(e){}
+      setTimeout(()=>{ try{ conn.close(); }catch(e){} }, 120);
+    }
+    try{ chatNote((who && who.name ? who.name : 'Someone') + ' was not let in'); }catch(e){}
+    syncRender();
+  }
+
   function syncRender(){
+    /* The shelf shows who is on what, so it has to hear about the room even
+       when Focus together is not the screen you are looking at. Cheap and
+       idempotent; it does nothing at all when the picker is closed. */
+    try{ if(Arcade.open && !Arcade.active) Arcade._faces(); }catch(e){}
     if(!$('sync-body')) return;
 
     const codeEl = $('sync-mycode');
@@ -1416,10 +1598,13 @@
     if(st){
       // Say whose room it is, not just its code — a code is not a person.
       const whose = SYNC.hostName ? SYNC.hostName + '’s room' : (SYNC.code || '');
-      st.textContent = SYNC.mode === 'hosting'
+      /* Waiting at the door is its own state, and saying "In Sam's room" while
+         you are demonstrably not is worse than saying nothing. */
+      st.textContent = SYNC.held ? 'Waiting to be let in'
+        : SYNC.mode === 'hosting'
         ? 'Hosting '+(SYNC.code||'')
         : SYNC.mode === 'joined' ? 'In '+whose+' · '+(SYNC.code||'') : 'Not connected';
-      st.className = 'sync-state' + (syncActive() ? ' on' : '');
+      st.className = 'sync-state' + (SYNC.held ? ' wait' : syncActive() ? ' on' : '');
     }
 
     const people2 = syncPeople();
@@ -1437,12 +1622,43 @@
 
     const people = syncPeople();
     const canManage = syncIsLeader();
+    /* ---- anybody at the door ----
+
+       **Whoever runs the room answers the door.** Only they get this panel,
+       because only the host is holding the connection and only the leader has
+       any business deciding. Everybody else in the room hears about it in the
+       room chat, which is where the room's news goes and is enough: a follower
+       being shown a decision they cannot take is a worse kind of nothing than
+       not being shown it. */
+    const dbox = $('sync-door');
+    if(dbox){
+      const at = (syncActive() && syncIsLeader()) ? syncWaitingList() : [];
+      dbox.classList.toggle('hide', !at.length);
+      dbox.innerHTML = at.map(w=>
+        '<div class="ft-wait"><b>' + esc(w.name || 'Someone') + '</b>'
+        + '<span>wants to come in</span>'
+        + '<button class="mini-btn" data-letin="' + esc(w.id) + '">Let in</button>'
+        + '<button class="sync-x" data-refuse="' + esc(w.id) + '" aria-label="Not now">×</button>'
+        + '</div>').join('');
+      dbox.querySelectorAll('[data-letin]').forEach(b=>{
+        b.onclick = ()=>syncAdmit(b.dataset.letin);
+      });
+      dbox.querySelectorAll('[data-refuse]').forEach(b=>{
+        b.onclick = ()=>syncRefuse(b.dataset.refuse);
+      });
+    }
+
     const pbox = $('sync-people');
     if(pbox){
       pbox.classList.toggle('hide', !syncActive());
       pbox.innerHTML = people.length
         ? '<p class="q-sec">In this room</p>' + people.map(p=>{
-            const tag = p.leader ? '<em>holds the timer</em>' : '<em>following</em>';
+            /* **Only the leader gets a tag.** "Following" appeared on every
+               other row, said the same thing each time, and was the first
+               thing to squeeze a name to "S..." once the game mark arrived.
+               Who holds the timer is the fact worth a label; everybody else
+               not holding it is what the absence of one means. */
+            const tag = p.leader ? '<em>holds the timer</em>' : '';
             // Only the timer holder gets the controls, and never against itself.
             const acts = (canManage && !p.me)
               ? '<button class="mini-btn" data-lead="'+esc(p.id)+'">Give timer</button>'
@@ -1463,7 +1679,7 @@
             const pose = Buddy.shown() ? budAnimKey(p.anim) : '';
             return '<div class="sync-person'+(p.leader?' lead':'')+'">'
               + (Buddy.shown() ? '<span class="sync-bud bud-mini-'+pose+'">' + budSvg(p.buddy, 30) + '</span>' : '')
-              + '<span>'+esc(p.name)+(p.me?' <i>(you)</i>':'')+'</span>'
+              + '<span class="sync-who">'+esc(p.name)+(p.me?' <i>(you)</i>':'')+'</span>'
               + tag + keep + acts + '</div>';
           }).join('')
         : '<p class="cal-empty">Nobody else yet. Share your code.</p>';
@@ -1630,6 +1846,9 @@
     syncBeacon();               // from here on, friends can see you're around
     syncCheckOnline();
     syncMailRun();
+    /* Anybody still showing as a bare code gets a name put to them, once. The
+       list re-renders itself as each answer lands; see friendResolveAll. */
+    try{ friendResolveAll(); }catch(e){}
   }
 
   /* Once you have friends, the beacon comes up at startup rather than waiting
@@ -1718,7 +1937,17 @@
   $('sync-join').onclick = ()=>syncJoin($('sync-code').value);
   /* Adding somebody is typing their username — the code is a hash of it, so
      there is nothing to look up. See `friendAsk` in 29a-friends.js. */
-  const askGo = ()=>{ friendAsk($('ft-user').value); $('ft-user').value=''; };
+  const askGo = ()=>{
+    friendAsk($('ft-user').value);
+    $('ft-user').value = '';
+    friendCodeHint('');
+  };
+  /* Typing a name shows the code it makes. Only here, only while adding
+     somebody — see `friendCodeHint` in 29a-friends.js for why that limit is
+     the whole point. */
+  if($('ft-user')) $('ft-user').addEventListener('input', ()=>{
+    friendCodeHint($('ft-user').value);
+  });
   if($('sync-add-legacy')) $('sync-add-legacy').onclick = ()=>{
     syncAddFriend($('sync-code').value);
     $('sync-code').value = '';

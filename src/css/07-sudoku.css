@@ -35,3 +35,12 @@
 .numpad button.util.on{color:#08111a; background:var(--accent); border-color:var(--accent)}
 .numpad button .cnt{display:block; font-size:9px; color:var(--muted); margin-top:1px}
 
+
+/* A square Reveal filled in. It reads as fixed, like a given one, but not as
+   *yours*: half-weight and tinted, so a finished grid still shows where you
+   asked for help. Same idea as the crossword's revealed letters. */
+.cell.shown{
+  color:color-mix(in srgb, var(--accent) 55%, var(--text));
+  font-weight:600; cursor:default;
+  background:color-mix(in srgb, var(--accent) 7%, var(--bg2));
+}

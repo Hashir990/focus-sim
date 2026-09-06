@@ -1,6 +1,6 @@
   /* ---------- init ---------- */
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
+  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
     /* Anything planned for today joins the checklist before the first render,
        so it is simply there rather than appearing a moment later. */
@@ -42,6 +42,10 @@
        never needed the network and still does not. */
     try{ Account.render(); Account.sync(true); }catch(e){}
     try{ Embers.render(); }catch(e){}
+    /* **The once-a-day ask, after everything is loaded.** Before the load it
+       would not know whether today had already been answered and would ask a
+       second time on every restart. See 17b-mood.js. */
+    try{ moodAsk(); }catch(e){}
     render();
     /* Last, so the first thing it does cannot race the layers it switches off.
        See 49-rest.js: a timer left running for half an hour behind another

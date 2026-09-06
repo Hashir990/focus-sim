@@ -111,6 +111,26 @@
    picture people screenshot, and the one result that says how a puzzle went
    without giving away the answer. Under its row rather than in it, because at
    five columns wide it is a block, not a value. */
+/* Days in a row, on the game screen. Warm rather than the accent colour: it is
+   a reward, not a control, and it should not compete with the buttons beside
+   it. `flex:0 0 auto` because the meta line beside it is elastic and would
+   otherwise squeeze this to nothing. */
+.game-top .streak{
+  flex:0 0 auto; font-size:12px; font-weight:600; letter-spacing:.02em;
+  padding:3px 9px; border-radius:20px; white-space:nowrap;
+  color:#e8a33d; background:color-mix(in srgb, #e8a33d 15%, transparent);
+  border:1px solid color-mix(in srgb, #e8a33d 32%, transparent);
+}
+.game-top .streak.hide{ display:none }
+
+/* What the streak actually asks of you, under the tiles that show it. The rule
+   is not guessable — "3" could mean three puzzles, three days, or three of
+   anything — and a number nobody understands is a number nobody trusts. */
+.dcal-rule{
+  font-size:11.5px; line-height:1.5; color:var(--muted);
+  margin:-2px 0 12px;
+}
+
 /* The share grid, which sits in the row where the edition's name would be.
    One line per try actually taken, so a word found in three is three lines
    tall and the row shrinks to match — the shape is part of the result. */
@@ -131,3 +151,11 @@
 .dcal-row.art > .dcal-dot{ margin-top:4px }
 .dcal-row.art > span, .dcal-row.art .mini-btn{ align-self:center }
 [data-dense="2"] .wdl-art i{ width:11px; height:11px }
+
+/* The tries that were not needed. Fainter than an unguessed square and left
+   hollow, so six rows always read as six and a word found in one reads as the
+   good day it was. */
+.wdl-art-row.spare i{
+  background:transparent;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--muted) 20%, transparent);
+}

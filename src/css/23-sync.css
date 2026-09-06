@@ -9,7 +9,25 @@
   border-color:var(--accent); color:var(--text);
   background:color-mix(in srgb, var(--accent) 16%, transparent);
 }
+/* Held at the door: connected, and not in. Amber rather than the accent, so
+   it does not read as "you are in" at a glance. */
+.sync-state.wait{
+  border-color:#e8a33d; color:#e8a33d;
+  background:color-mix(in srgb, #e8a33d 14%, transparent);
+}
 .sync-status{ font-size:12.5px; color:var(--muted); min-height:1.2em; margin-bottom:12px }
+
+/* Somebody waiting to be let in. Same shape as a friend request, because it is
+   the same kind of thing: a person, and a decision only you can make. */
+.ft-door{ margin:4px 0 12px }
+.ft-door.hide{ display:none }
+.ft-wait{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+  padding:11px 13px; margin-bottom:7px; border-radius:12px;
+  background:var(--card); border:1px solid #e8a33d;
+}
+.ft-wait b{ font-size:13.5px; color:var(--text) }
+.ft-wait span{ flex:1 1 auto; font-size:11.5px; color:var(--muted) }
 
 .sync-mine{ display:flex; align-items:center; gap:9px; margin:10px 0 9px }
 .sync-mine code{
@@ -18,8 +36,16 @@
   background:var(--track); border-radius:12px; padding:11px 14px; text-align:center;
 }
 
+/* **Two buttons that must not squash each other.** The primary was `flex:1`
+   with a 150px floor and the secondary had no floor at all, so on a narrow
+   screen "One-off room" was crushed to a sliver of wrapped text while the
+   primary kept its width. Both get a floor now, and the row wraps to two full
+   -width buttons before either is squeezed. */
 .sync-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap }
-.sync-actions .primary{ flex:1; height:46px; font-size:14px; min-width:150px }
+.sync-actions .primary{
+  flex:1 1 190px; height:46px; font-size:14px; min-width:0;
+}
+.sync-actions .mini-btn{ flex:0 1 auto; min-width:118px; white-space:nowrap }
 .sync-actions .hide{ display:none }
 
 .sync-join{ display:flex; gap:8px; margin-top:9px }
@@ -29,13 +55,24 @@
 .sync-people{ margin:4px 0 16px }
 .sync-people.hide{ display:none }
 .sync-person{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  display:flex; align-items:center; gap:9px;
   background:var(--card); border:1px solid var(--line); border-radius:12px;
-  padding:10px 13px; margin-bottom:7px; font-size:13.5px;
+  padding:10px 12px; margin-bottom:7px; font-size:13.5px;
 }
+/* **The name gets the room, and everything else keeps its size.** A flex row of
+   things that can all shrink shrinks all of them, which is how a name became
+   "S..." next to a button with space to spare. The name is the one part that
+   may truncate, so it is the only one allowed to. */
+.sync-person .sync-who{
+  flex:1 1 auto; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;
+}
+.sync-person .sync-bud{ flex:0 0 auto }
+.sync-person > .mini-btn, .sync-person > .sync-x, .sync-person > .sync-kept{ flex:0 0 auto }
 .sync-person.lead{ border-color:var(--accent) }
 .sync-person em{ font-style:normal; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
 .sync-person.lead em{ color:var(--accent) }
+
 
 .sync-friend{
   display:flex; align-items:center; gap:9px;
@@ -96,7 +133,25 @@
 }
 .sync-dot.on{ background:#4fe0c8; opacity:1; box-shadow:0 0 0 3px rgba(79,224,200,.16) }
 
-.sync-me{ font-size:11.5px; color:var(--muted); opacity:.75; margin:-4px 0 10px }
+/* The code a typed name makes. Quiet — it is a reassurance, not an instruction
+   — but the code itself is the thing being checked, so that part is legible. */
+.ft-hint{
+  display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  font-size:11.5px; color:var(--muted); margin:7px 0 2px;
+}
+.ft-hint.hide{ display:none }
+.ft-hint code{
+  font-family:'Space Grotesk',monospace; font-size:13px; font-weight:600;
+  letter-spacing:.16em; color:var(--accent);
+  background:var(--track); border-radius:7px; padding:3px 8px;
+}
+.ft-hint em{
+  font-style:normal; font-size:11px; letter-spacing:.06em;
+  color:var(--muted); opacity:.85;
+}
+.ft-hint em.yes{ color:#4fae62; opacity:1 }
+
+.sync-me{ font-size:11.5px; color:var(--muted); opacity:.75; margin:9px 0 10px }
 
 /* Around and hosting are different facts, so they read differently. */
 .sync-tag{

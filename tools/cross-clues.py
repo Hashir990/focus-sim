@@ -3242,3 +3242,263 @@ CLUES.update({
     'tidal': 'Rising and falling with the sea',
     'tree': 'Oak or ash, say',
 })
+
+# The 9x9s regenerated after LONG_WHOLE was raised, so this block is mostly the
+# long answers the change was made to produce — TREASURER, HAMBURGER, ABUNDANCE,
+# PETROLEUM, COMBINING, DOCUMENT — plus the short fill that came with them. The
+# glosses were the usual first-sense misses: DRAW came out as "steep" (as tea),
+# OTHER as "very unusual", SEE as "imagine", STEEP as the bare "of a slope".
+CLUES.update({
+    'abundance': 'A great plenty',
+    'allege': 'Claim without proof',
+    'aspire': 'Aim high',
+    'combining': 'Bringing together',
+    'demon': 'Evil spirit',
+    'document': 'Paper you file away',
+    'draw': 'Neither side wins',
+    'giant': 'Enormous',
+    'hamburger': 'Patty in a bun',
+    'lord': 'Peer who sits in the upper house',
+    'lure': 'Tempt into a trap',
+    'other': 'The remaining one',
+    'petroleum': 'Crude oil',
+    'see': 'Take in with the eyes',
+    'sonic': 'To do with sound',
+    'steep': 'Sharply sloping',
+    'sue': 'Take to court',
+    'treasurer': 'Club officer who keeps the accounts',
+})
+
+# The names that arrived once LONG_WHOLE pushed the 9x9 fill onto longer entries.
+# All four were briefly banned for being names, which was the wrong call: the
+# bank already ships travolta, uma, halle, bohr, faraday, vermeer and linnaeus,
+# every one a bare name carrying a hand-written clue. Clued here in the same
+# form — role, first name, and the one work a solver will actually have met.
+CLUES.update({
+    'aldrin': 'Buzz, second man to walk on the moon',
+    'caine': 'Actor Michael of The Italian Job',
+    'eisner': 'Michael who ran Disney for two decades',
+    'linklater': 'Director Richard of Boyhood',
+})
+
+# First batch off tools/cw-missing.py, which lists ordinary dictionary words the
+# fill cannot reach because WordNet has no usable gloss for them. There are 5,359
+# of those, 4,421 with no WordNet entry at all — it stores lemmas, so CHILDREN,
+# AIRPORTS and DOWNLOAD are simply absent while `child`, `airport` and the verb
+# `download` are present. Nothing is wrong with the words; the database was
+# written for another purpose.
+#
+# A hand-written clue admits a word to the pool on its own (the `hand` merge in
+# word_bank), so this block is not decoration — every entry here is a word the
+# fill could not previously use. Weighted to eight and nine letters because that
+# is where the pool is thinnest and where LONG_WHOLE now sends the 9x9 fill.
+CLUES.update({
+    # 9
+    'apartment': 'Flat, in American English',
+    'arguments': 'Rows and disputes',
+    'astronomy': 'Study of the stars',
+    'bathrooms': 'Rooms you wash in',
+    'batteries': 'They power the torch',
+    'birthdays': 'Yearly celebrations',
+    'bracelets': 'Wrist jewellery',
+    'buildings': 'Blocks and offices',
+    'calendars': 'Wall charts of the months',
+    'campaigns': 'Drives for votes',
+    'cellphone': 'Mobile in your pocket',
+    'centuries': 'Hundred-year spans',
+    'chemicals': 'Substances in the lab',
+    'cocktails': 'Mixed drinks',
+    'companies': 'Firms and businesses',
+    'computers': 'Machines with keyboards',
+    'copyright': 'Legal hold on a work',
+    'countries': 'Nations of the world',
+    'creatures': 'Living things',
+    'criminals': 'Lawbreakers',
+    'crossword': 'The puzzle you are doing',
+    'customers': 'Shoppers being served',
+    'dashboard': 'Where the speedometer sits',
+    'daughters': 'Female children',
+    'deadlines': 'Dates you must finish by',
+    'decisions': 'Choices made',
+    'democracy': 'Rule by the people',
+    'documents': 'Papers on file',
+    'elections': 'Votes for office',
+    'elephants': 'Big grey animals with trunks',
+    'employees': 'Staff on the payroll',
+    'engineers': 'They design and build things',
+    'envelopes': 'Letters go inside them',
+    'equations': 'Sums with an equals sign',
+    'equipment': 'Gear and kit',
+    'everybody': 'The whole crowd',
+    'exercises': 'Workouts',
+    'factories': 'Where goods get made',
+    'festivals': 'Music weekends',
+    'financial': 'To do with money',
+    'fireplace': 'Where the logs burn',
+    'fireworks': 'Bonfire night bangs',
+    'footsteps': 'Sounds of walking',
+    'fountains': 'Water features',
+    'furniture': 'Tables and chairs',
+    'galleries': 'Where paintings hang',
+    # 8
+    'airplane': 'Craft with wings',
+    'airports': 'Where planes land',
+    'aquarium': 'Fish tank',
+    'baseball': 'American bat and ball game',
+    'basement': 'Room below ground',
+    'bedrooms': 'Where you sleep',
+    'blankets': 'They keep the bed warm',
+    'brothers': 'Male siblings',
+    'calories': 'What the diet counts',
+    'chickens': 'Farmyard birds',
+    'children': 'Youngsters',
+    'churches': 'Places of worship',
+    'costumes': 'Dressing-up outfits',
+    'curtains': 'They cover the window',
+    'diamonds': 'Hardest gems',
+    'dolphins': 'Clever sea mammals',
+    'doorbell': 'Press it to be let in',
+    'download': 'Pull a file off the net',
+    'drawings': 'Pencil sketches',
+    'earrings': 'Jewellery for the lobes',
+    'enormous': 'Absolutely huge',
+    'evenings': 'Times after dusk',
+    'everyone': 'All the people present',
+    'examples': 'Cases that illustrate',
+})
+
+# The 9x9 regenerated against the widened pool, to check the batch above
+# actually reaches the fill. ENJOYABLE came from it.
+CLUES.update({
+    'aboard': 'On the ship',
+    'aerospace': 'The rocket and aircraft trade',
+    'beast': 'Savage creature',
+    'brat': 'Spoilt child',
+    'enjoyable': 'A pleasure to do',
+    'herbal': 'Made from plants, as tea',
+    'jet': 'Fast plane',
+    'nod': 'Tip the head in agreement',
+    'use': 'Put to work',
+})
+
+# 2026-09-04. Hand-written for the answers `--clues` still had running on a
+# WordNet gloss. The usual pattern held: the gloss gives a sense no solver
+# means. `abandoned` led with "unrestrained and uninhibited", `tread` with
+# "mate with", `wet` with "very drunk", `rat` with the strikebreaker, `toast`
+# with "person in desperate straits", `nook` with the interior angle of two
+# walls, and `melon` with a truncated botany entry. Each is clued below at the
+# sense an ordinary solver arrives at.
+CLUES.update({
+    'abandoned': 'Left behind and never returned to',
+    'amuse': 'Give a laugh to',
+    'ancient': 'From thousands of years ago',
+    'angry': 'Cross, and letting it show',
+    'award': 'Prize handed over on a stage',
+    'bass': 'The deepest voice in the choir',
+    'bonanza': 'A sudden run of good luck',
+    'brie': 'Soft French cheese with a white rind',
+    'clams': 'Shellfish dug out of the sand',
+    'clerk': 'Keeps the records in an office',
+    'cough': 'What a tickly throat makes you do',
+    'crowd': 'The lot of people at a concert',
+    'czar': 'Old ruler of Russia',
+    'deserted': 'Empty of the people who used to be there',
+    'education': 'What school is meant to give you',
+    'eight': 'The number of legs on a spider',
+    'elastic': 'Stretches and springs back',
+    'enigma': 'A puzzle nobody has cracked',
+    'existence': 'The fact of being here at all',
+    'facing': 'Turned towards',
+    'frontal': 'Head-on, as an assault',
+    'gene': 'Bit of DNA that decides a trait',
+    'hair': 'What a comb is for',
+    'hash': 'Chop food up small',
+    'isolation': 'Being kept well away from everyone',
+    'lark': 'A bit of harmless fun',
+    'lass': 'A young woman, up north',
+    'lease': 'Rent out for a fixed term',
+    'leech': 'Blood-sucking worm once used by doctors',
+    'loner': 'Someone who prefers their own company',
+    'mandatory': 'Not optional',
+    'matte': 'Flat, not glossy',
+    'melon': 'Big sweet fruit with seeds in the middle',
+    'midnight': 'When the day rolls over',
+    'nook': 'Snug little corner',
+    'observing': 'Watching closely',
+    'pan': 'Sweep the camera across',
+    'plant': 'Put in the ground and water',
+    'rat': 'One who informs on the others',
+    'relay': 'Race where you hand over a baton',
+    'royal': 'Belonging to the king or queen',
+    'rule': 'Govern a country',
+    'scan': 'Read through quickly',
+    'seam': 'Line where two pieces of cloth join',
+    'sect': 'Breakaway religious group',
+    'span': 'Reach right across',
+    'speak': 'Say words out loud',
+    'streaming': 'Watching without downloading first',
+    'taped': 'Got on the recorder',
+    'thus': 'In this way, formally',
+    'tiff': 'A small falling-out',
+    'time': 'What a clock tells you',
+    'times': 'Multiplied by',
+    'toast': 'Bread under the grill',
+    'tread': 'Step down on',
+    'trek': 'A long hard journey on foot',
+    'wet': 'Soaked through',
+})
+
+# 2026-09-05 run: the twenty-two answers the day's six new grids brought in
+# without a hand clue. Glosses were wrong in the usual way — VILLA came out as
+# a Mexican revolutionary, KENT as an American woodcut painter, CROSS as an
+# organism, PORE as directing one's attention.
+CLUES.update({
+    'acidic': 'Sharp and sour, like a lemon',
+    'alloy': 'Brass or bronze, for one',
+    'angst': 'Deep unfocused anxiety',
+    'brief': 'Not lasting long',
+    'carpenter': 'Tradesman who works in wood',
+    'clap': 'Applaud',
+    'cross': 'Mildly annoyed',
+    'discourse': 'A formal talk on a subject',
+    'drain': 'Empty of liquid',
+    'dryer': 'Machine that tumbles wet laundry',
+    'kent': 'The garden of England',
+    'lesbian': 'Gay woman',
+    'naked': 'Wearing nothing',
+    'pore': 'Tiny opening in the skin',
+    'scope': 'The extent of what something covers',
+    'taco': 'Folded Mexican shell with a filling',
+    'taste': 'What the tongue reports',
+    'tear': 'Rip along a seam',
+    'tomb': 'Where the dead are laid',
+    'valid': 'Holding up to scrutiny',
+    'villa': 'Large house with grounds',
+    'wad': 'Thick fold of banknotes',
+})
+
+# 2026-09-06 run. Eighteen answers from the day's six new puzzles that were
+# still riding a WordNet gloss. The glosses were the usual trouble: ARMORED
+# came out as "used of animals", SCANT as "limit in quality or quantity" (the
+# verb, not the adjective anyone means), BADGE as "any feature regarded as a
+# sign of status", IDIOT as "person of subnormal intelligence".
+CLUES.update({
+    'algebra':   'Maths with x and y in it',
+    'amenities': 'Comforts a hotel lists in its brochure',
+    'armored':   'Plated against attack, like a tank',
+    'badge':     'Pin that shows who you are',
+    'cathedral': "The bishop's church",
+    'editing':   'Cutting and tidying a draft',
+    'electoral': 'To do with voting',
+    'idiot':     'Complete fool',
+    'instantly': 'Straight away',
+    'lip':       'Rim of a cup',
+    'maximal':   'As big as it can get',
+    'phase':     'One stage of several',
+    'repeating': 'Saying it again',
+    'scant':     'Barely enough',
+    'scene':     'One part of a play',
+    'site':      'Where a building goes',
+    'strict':    'Allowing no bending of the rules',
+    'toy':       'Something a child plays with',
+})

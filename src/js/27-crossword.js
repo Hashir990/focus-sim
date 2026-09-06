@@ -46,6 +46,12 @@
     /* Which release day the open puzzle belongs to. The bank index is where it
        lives; this is what it is *called*. See the schedule in 09b-daily.js. */
     day:'',
+    /* Whether an older edition was opened by hand this run; see enter(). */
+    _chose:false,
+    /* Where you were at each size, by fingerprint and day. Switching size and
+       switching back has to put the same grid in front of you, letters, clock
+       and all — see `_where`. */
+    seen:{},
 
     /* ---- coming and going ---- */
     async enter(){
@@ -57,6 +63,7 @@
           // Where you were is remembered by fingerprint too, for the same
           // reason: `idx` alone would reopen whatever has since moved into
           // that slot. The number is only a fallback for saves from before.
+          this.seen = (d.seen && typeof d.seen === 'object') ? d.seen : {};
           this.idx = -1;
           if(d.key) this.idx = this._find(d.key);
           if(this.idx < 0 && typeof d.idx === 'number' && !d.key) this.idx = d.idx;
@@ -65,14 +72,21 @@
       }
       let pick = null;
       if(this.idx < 0 || !CROSS_GRIDS[this.idx]){
-        pick = this._firstUnfinished(this.size);
+        pick = this._where(this.size);
         this.idx = pick.i;
       }
       this.load(this.idx, pick ? pick.day : '');
-      /* Finished the one you were on and today's edition of that size is out
-         and untouched — so open today's. Same rule the other games follow, and
-         the same exception: a grid with letters in it is never taken away. */
-      if(this.done && crossReleases(this.size, pktNow())
+      /* **The shelf opens on today.** This used to wait for the puzzle you were
+         on to be *finished*, so one abandoned in April was still the one waiting
+         in September and the archive had quietly become the front door. Every
+         grid's letters live in `progress` under its own fingerprint, so moving
+         on loses nothing and History puts it straight back.
+
+         The exception is a day you chose yourself: `_chose` is set by History
+         and by the calendar and lives only as long as the app is open, so a
+         break and back returns you to the same grid and tomorrow returns you
+         to tomorrow's. */
+      if(!this._chose && crossReleases(this.size, pktNow())
          && !dailyPlayed('crossword', String(this.size))){
         const t = crossOnDay(this.size, pktNow());
         if(t.i >= 0 && t.i !== this.idx) this.load(t.i, pktNow());
@@ -149,6 +163,22 @@
         }
         if(filled && agree * 3 < filled * 2) continue;
         if(Array.isArray(rec.g) && rec.g.some(i=>rec.u[i] !== sol[i])) continue;
+        /* **A record that says "finished" has to *be* finished.** Two thirds of
+           the letters agreeing is the right test for "this is probably the same
+           puzzle, keep the work"; it is far too weak for a flag that locks the
+           board. A `done` record carried onto a grid it did not come from opens
+           full of letters, under the win banner, refusing every key — which is
+           not read as a stale save, it is read as the game being broken. So the
+           flag survives only on an exact match with the solution, and otherwise
+           the record comes through as work in progress. */
+        if(rec.done){
+          let exact = true;
+          for(let i=0;i<sol.length;i++){
+            if(sol[i] === '#') continue;
+            if(rec.u[i] !== sol[i]){ exact = false; break; }
+          }
+          if(!exact){ const c = {}; for(const f in rec) c[f] = rec[f]; delete c.done; out[crossKey(g)] = c; continue; }
+        }
         out[crossKey(g)] = rec;
       }
       return out;
@@ -180,9 +210,15 @@
       return {i: list.length ? list[0] : 0, day: d0};
     },
 
+    /** **Returns whether it actually loaded.** It used to return quietly when
+        the index was not in the bank, which meant a size button could do
+        nothing at all: the puzzle you were on stayed on screen, the button
+        looked pressed, and nothing said why. A save pointing at a puzzle the
+        bank no longer has is ordinary — the bank grows and records are keyed by
+        fingerprint — so the caller has to be able to try somewhere else. */
     load(i, day){
       const g = CROSS_GRIDS[i];
-      if(!g) return;
+      if(!g) return false;
       this.stop();
       this.idx = i;
       this.day = day || this._dayOf(i);
@@ -212,6 +248,8 @@
       this.sel = first ? first.cells[0][0]*n + first.cells[0][1] : -1;
       this.dir = 'across';
 
+      if(!this.seen) this.seen = {};
+      this.seen[this.size] = {k:this._fp(i), day:this.day};
       this.built = false;                 // the shape changed; rebuild the grid
       this.build();
       this.render();
@@ -224,6 +262,7 @@
          state forward, so re-opening a finished one cannot un-finish it. */
       if(this.day) dailyMark('crossword', String(this.size),
         this.day, this.done ? DAILY_DONE : DAILY_STARTED);
+      return true;
     },
 
     /* **Nothing here can be started over any more.**
@@ -240,6 +279,7 @@
       for(let k = days.length - 1; k >= 0; k--){
         const t = crossOnDay(this.size, days[k]);
         if(t.i >= 0 && !this._isDone(t.i) && !(t.i === this.idx && days[k] === this.day)){
+          this._chose = (days[k] !== pktNow());
           this.load(t.i, days[k]);
           this.run();
           return;
@@ -248,11 +288,50 @@
       try{ dailyCalOpen('crossword'); }catch(e){}
     },
 
+    /** **The grid to put in front of you at a size.**
+
+        Where you were, first — switching size and switching back has to hand
+        the same puzzle back with its letters and its clock, and it did not:
+        `setSize` went to `_firstUnfinished`, which is "the newest one you have
+        not finished", which is a different puzzle the moment you finish one.
+        Half a 7x7, a look at the 15x15 and back, and the half was gone. It was
+        never deleted — it was still filed under its own fingerprint — but you
+        could not get back to it, which from a chair is the same thing.
+
+        Then today's edition, even if it is done: finishing today's should not
+        drop you into the archive. Only then the newest unfinished. */
+    _where(size){
+      const s = this.seen && this.seen[size];
+      if(s && s.k){
+        const i = this._find(s.k);
+        if(i >= 0 && crossRows(CROSS_GRIDS[i]).length === size){
+          return {i, day: s.day || this._dayOf(i)};
+        }
+      }
+      const t = crossOnDay(size, pktNow());
+      if(t.i >= 0) return {i:t.i, day:pktNow()};
+      return this._firstUnfinished(size);
+    },
+
     setSize(size){
       if(this.size === size) return;
       this.persist();
-      const pick = this._firstUnfinished(size);
-      this.load(pick.i, pick.day);
+      const pick = this._where(size);
+      /* Going back to an older grid is a choice, and `enter()` must not undo it
+         by moving you to today the next time you come in from the shelf. */
+      this._chose = pick.day !== pktNow();
+      /* Every way of choosing one, in order, until one of them is really in the
+         bank. Falling through to the size's first puzzle is a poor answer and a
+         far better one than a button that does nothing. */
+      if(!this.load(pick.i, pick.day)){
+        const t = crossOnDay(size, pktNow());
+        const list = this._at(size);
+        if(!(t.i >= 0 && this.load(t.i, pktNow()))
+           && !(list.length && this.load(list[0], ''))){
+          toast('No ' + size + '\u00d7' + size + ' to open');
+          return;
+        }
+      }
       if(!this.done) this.run();
     },
 
@@ -611,6 +690,7 @@
       if(hBtn) hBtn.disabled = this.done;
 
       $('cw-meta').textContent = this._label();
+      dailyStreakPaint('cw-streak', 'crossword');
       document.querySelectorAll('#cw-size .mini-btn')
         .forEach(b=>b.classList.toggle('on', +b.dataset.s === this.size));
     },
@@ -648,6 +728,7 @@
       }
       writeGame(this.key, {
         size:this.size, idx:this.idx, key:this._fp(this.idx), p:this.progress,
+        seen:this.seen,
       });
       /* **The calendar's record goes down with the board.** It used to be
          written on the clock's ten-second beat, which meant a puzzle put down
@@ -667,6 +748,7 @@
        the next `enter()` do it. */
     forget(){
       this.loaded = false;
+      this.seen = {};
       this.progress = {};
       this.puz = null;
       this.built = false;
@@ -696,7 +778,10 @@
      rhythm a newspaper uses — see CROSS_WHEN in 09b-daily.js. */
   registerDaily('crossword', {
     title:'Crossword',
-    diffs:[{k:'5', n:'5×5'}, {k:'7', n:'7×7'}, {k:'9', n:'9×9'}, {k:'15', n:'15×15'}],
+    diffs:CROSS_SIZES.map(n=>({k:String(n), n:n + '×' + n})),
+    /* Not every size comes out every day, and a day with nothing published is
+       not a missed day. Anything asking this game for a streak reads this. */
+    on:(day, k)=>crossReleases(+k, day),
     /* Not every size comes out every day, so the calendar asks before it draws
        a dot — an empty Tuesday under "9×9" is the schedule, not a gap. */
     on(day, diff){ return crossReleases(+diff, day); },
@@ -710,11 +795,14 @@
       const done = all.filter(r=>r.s === 2);
       const clues = done.reduce((n,r)=>n + (r.n || 0), 0);
       const noHint = done.filter(r=>!r.h).length;
-      /* Each size keeps its own streak, on its own schedule — a 9×9 comes out
-         on Wednesday and Friday, so the days between are not misses. The
-         longest of the four is the one worth showing. */
-      const run = [5, 7, 9, 15].reduce((b, n)=>Math.max(b,
-        dailyStreak('crossword', String(n), (day, k)=>crossReleases(+k, day))), 0);
+      /* **A streak day is every crossword that came out that day.** Two on a
+         Tuesday, three on a Wednesday, and the fifteen as well on a Sunday —
+         `crossReleases` is what decides, so a day nothing is published on is
+         skipped rather than counted as a miss. It used to be the best of four
+         separate streaks, which meant a long run of 5×5s read as a long run
+         of crosswords. */
+      const run = dailyStreak('crossword', CROSS_SIZES.map(String),
+        (day, k)=>crossReleases(+k, day));
       return [
         {v:String(run), n:'day streak'},
         {v:String(done.length), n:'filled in'},
@@ -726,6 +814,7 @@
       const t = crossOnDay(size, day);
       if(t.i < 0){ toast('No ' + size + '×' + size + ' on ' + pktLabel(day)); return; }
       Cross.size = size;
+      Cross._chose = true;              // picked by hand; see enter()
       Cross.load(t.i, day);
       if(!Cross.done) Cross.run();
     },

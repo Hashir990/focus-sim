@@ -230,6 +230,76 @@
      b:'<path d="M16.3 23.1q-4.4 12.2-2.4 25.8 4.8 1.6 8.6.6-3.2-13-.4-25.4z" fill="#c9a24a"/>'
        + '<path d="M47.7 23.1q4.4 12.2 2.4 25.8-4.8 1.6-8.6.6 3.2-13 .4-25.4z" fill="#c9a24a"/>'
        + '<path d="M17.3 26.9q-2.2 10.2-1 20M46.7 26.9q2.2 10.2 1 20" stroke="#9c7a26" stroke-width="1.3" fill="none" stroke-linecap="round"/>', box:'11 8 42 44'},
+
+    /* ---- the second set ----
+
+       **A hairstyle at this size is its outline.** The first attempt at these
+       was Cropped, Bob, Quiff and Braids: four sensible haircuts that, blurred
+       down to forty pixels, were four slightly different domes. If you cannot
+       name it from the silhouette alone it is not a style here, it is shading.
+
+       So each of these is one idea you could recognise as a black shape """ + D + """ a
+       fin, two orbs, a bowl, a halo, two bunches out at the sides. They still
+       keep the rules the first set set: the sides wrap past the widest point of
+       the head so no crescent of scalp shows at the corners, and nothing
+       crosses y=23.5 in the middle, which is what leaves a forehead rather than
+       a hat.
+
+       **And a third rule, which all five of these broke.** Every one was drawn
+       on its own circle rather than on the skull's, so each crown landed one to
+       three units *below* y=11 and every head wore a crescent of bare scalp on
+       top. It is invisible in a list of hairstyles and obvious the moment one
+       is on a face. `tools/look-hair.mjs` draws the row over the skull with the
+       crown, brow and equator marked; a style whose own crown sits under the
+       red line is wrong, whatever it looks like on its own. Caps use the
+       skull's arc verbatim — `M15.72 29A16.4 16.4 0 1 1 48.28 29` — and
+       anything that stands off the head is measured from y=11, not from
+       wherever the shape happened to look balanced. */
+
+    /* A straight line all the way round, which is the whole joke. The fringe is
+       flat and the sides drop past the corner of the head, so the outline is a
+       bowl and reads as one instantly. */
+    {n:'Bowl cut', dye:1, s:'<path d="M15.72 29A16.4 16.4 0 1 1 48.28 29l-.9 2.6q-2.2-7.6-7.4-8.3H24q-5.2.7-7.4 8.3z" fill="#3b2a1b"/>'
+       + '<path d="M21.6 15.6q10.4-4.8 20.8 0" stroke="#54402c" stroke-width="1.4" fill="none" opacity=".5" stroke-linecap="round"/>', box:'13 9 38 24'},
+
+    /* A fin, and nothing else. The sides are not bare """ + D + """ they are stubble, two
+       faint arcs following the skull, which is what stops the head reading as
+       *bald with a thing on it*. */
+    {n:'Mohawk', dye:1, s:'<path d="M17.2 26.4a15 15 0 0 1 6.6-11" stroke="#2a1f17" stroke-width="3" fill="none" opacity=".42" stroke-linecap="round"/>'
+       + '<path d="M46.8 26.4a15 15 0 0 0-6.6-11" stroke="#2a1f17" stroke-width="3" fill="none" opacity=".42" stroke-linecap="round"/>'
+       + '<path d="M24 15.8q-.9-7 2.6-11.2L27.4 1.8 29 5.2 30.6.6 32.2 4.4 33.8 1.2 35.2 5 36.6 2.2 37.4 4.6q3.5 4.2 2.6 11.2-3.7 3.6-8 3.6t-8-3.6z" fill="#2a1f17"/>'
+       + '<path d="M29.6 5.4 30.6 1l1.2 4.2M33.6 5.6 34.6 2l1 3.4" fill="#463327" opacity=".7"/>', box:'15 0 34 30'},
+
+    /* Two orbs on top. They sit high and wide apart, so the outline is three
+       circles and could not be anything else. */
+    {n:'Space buns', dye:1, s:'<path d="M15.72 29A16.4 16.4 0 1 1 48.28 29q-2.8 1.5-5.1-.4-3.3-4.6-11.18-4.6t-11.18 4.6q-2.3 1.9-5.1.4z" fill="#2f2438"/>'
+       + '<circle cx="20.4" cy="8.2" r="6.4" fill="#2f2438"/><circle cx="43.6" cy="8.2" r="6.4" fill="#2f2438"/>'
+       + '<path d="M16.2 12.4q4.2 2.3 8.4 0v2.7q-4.2 2.3-8.4 0z" fill="#574566"/>'
+       + '<path d="M39.4 12.4q4.2 2.3 8.4 0v2.7q-4.2 2.3-8.4 0z" fill="#574566"/>'
+       + '<circle cx="18.4" cy="5.8" r="1.7" fill="#574566" opacity=".8"/>'
+       + '<circle cx="41.6" cy="5.8" r="1.7" fill="#574566" opacity=".8"/>', box:'12 0 40 32'},
+
+    /* A halo, and it has to be *wide* """ + D + """ the shape is the whole point, and an afro
+       that only clears the head by a few pixels is a hat. The circles set into
+       its edge keep the outline uneven the whole way round; a smooth one reads
+       as a helmet. */
+    {n:'Afro', dye:1, s:'<path d="M32 .8q17.8 0 20.4 15.4 1.4 8.4-3.4 13.8-3.6-1.4-5.8-4.6-4.2-5.6-11.2-5.6t-11.2 5.6q-2.2 3.2-5.8 4.6-4.8-5.4-3.4-13.8Q14.2.8 32 .8z" fill="#241a12"/>'
+       + '<circle cx="13.4" cy="17.6" r="7" fill="#241a12"/><circle cx="50.6" cy="17.6" r="7" fill="#241a12"/>'
+       + '<circle cx="19.2" cy="6.6" r="6.6" fill="#241a12"/><circle cx="44.8" cy="6.6" r="6.6" fill="#241a12"/>'
+       + '<circle cx="32" cy="2.6" r="7.2" fill="#241a12"/>'
+       + '<circle cx="24.8" cy="9.4" r="2.6" fill="#4c3624" opacity=".8"/>'
+       + '<circle cx="39.6" cy="8" r="2.8" fill="#4c3624" opacity=".8"/>'
+       + '<circle cx="16.6" cy="19.4" r="2.2" fill="#4c3624" opacity=".65"/>', box:'5 -6 54 40'},
+
+    /* Two bunches, out past the ears rather than down the back """ + D + """ which is what
+       makes this a different shape from the ponytail and not a second one. */
+    {n:'Pigtails', dye:1, s:'<path d="M15.72 29A16.4 16.4 0 1 1 48.28 29q-3.2 1.3-6.3-1.5-3.4-4.7-9.98-4.7t-9.98 4.7Q18.92 30.3 15.72 29z" fill="#7a4a22"/>'
+       + '<path d="M32 22.4V12" stroke="#5a3414" stroke-width="1.1" fill="none" opacity=".6" stroke-linecap="round"/>',
+     b:'<ellipse cx="11.4" cy="25.4" rx="7" ry="7.8" fill="#7a4a22"/>'
+       + '<ellipse cx="52.6" cy="25.4" rx="7" ry="7.8" fill="#7a4a22"/>'
+       + '<path d="M16.6 20.6q4 1.2 4 5-3.6 1.6-6.2-1z" fill="#5a3414"/>'
+       + '<path d="M47.4 20.6q-4 1.2-4 5 3.6 1.6 6.2-1z" fill="#5a3414"/>'
+       + '<path d="M8 22.6q3.4 3.2 3 7.6M56 22.6q-3.4 3.2-3 7.6" stroke="#5a3414" stroke-width="1.2" fill="none" opacity=".7" stroke-linecap="round"/>', box:'3 8 58 28'},
   ];
 
   /* A dash, for the "none" options. Drawn rather than typed so the row is all
@@ -608,6 +678,15 @@
      what a drawing looks like when nobody rendered it. Keep anything that is
      not itself the panel outline inside x 21.5..42.5 below y=49, and give
      strokes round caps so the ends do not add half a width of corner. */
+  /* **Not everything takes a colour.** `dye:1` is what puts a swatch row under a
+     coat, and it used to be on nearly all of them — which meant a lab coat in
+     magenta and a denim jacket in lime. Those are not that coat any more: at
+     this size a lab coat *is* the white and denim *is* the blue, and recolouring
+     one leaves a shape nobody can name. So the dial belongs to the garments
+     that are a shape rather than a uniform — a cape, a scarf, a puffer, a
+     cardigan — and the ones whose colour is half their identity keep the one
+     they were drawn in. `dyeable` in the wardrobe reads this flag, so dropping
+     it takes the swatch row away with it. */
   const BUD_OUTER = [
     {n:'Bare', s:'', box:'0 0 24 24', none:1},
     /* Pullover, so it closes at the front, and the hood is the point of it —
@@ -626,7 +705,7 @@
     /* Denim: the lapels are the only hard lines on it, and they are meant to
        be — a revere is a fold. Everything else curves. */
     // denim jacket
-    {n:'Denim jacket', dye:1, s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f6ea8"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f6ea8"/>'
+    {n:'Denim jacket', s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f6ea8"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f6ea8"/>'
        + '<path d="M29.6 43.4q1.4 3 1 5.6-4-1.6-7.2-4.2 3.2-.8 6.2-1.4z" fill="#2d5280"/>'
        + '<path d="M34.4 43.4q-1.4 3-1 5.6 4-1.6 7.2-4.2-3.2-.8-6.2-1.4z" fill="#2d5280"/>'
        + '<path d="M21.8 47.6q3.2.9 6.4 0 .3 3-3.2 3.7-3.5-.7-3.2-3.7z" fill="#35608f"/>'
@@ -650,14 +729,14 @@
        + '<path class="bud-cape" d="M27 39.6q-8 7-9.4 19 14.4 3.6 28.8 0-1.4-12-9.4-19z" fill="#a82a4c"/>',
      box:'6 36 52 27'},
     // lab coat
-    {n:'Lab coat', dye:1, s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#eef2f7"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#eef2f7"/>'
+    {n:'Lab coat', s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#eef2f7"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#eef2f7"/>'
        + '<path d="M29.6 43.4q1.4 3.2 1 6-4.2-1.8-7.6-4.6 3.4-.8 6.6-1.4z" fill="#dbe3ee"/>'
        + '<path d="M34.4 43.4q-1.4 3.2-1 6 4.2-1.8 7.6-4.6-3.4-.8-6.6-1.4z" fill="#dbe3ee"/>'
        + '<path d="M21.6 47.8q3 .8 6 0 .3 3.4-3 4.2-3.3-.8-3-4.2z" fill="#dbe3ee"/>'
        + '<path d="M24.6 46.6v3.2" stroke="#2f6fd0" stroke-width="1.4" fill="none" stroke-linecap="round"/>'
        + '<circle cx="33.8" cy="52" r="1.1" fill="#c4cede"/>', box:'17 41 30 17'},
     // blazer
-    {n:'Blazer', dye:1, s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f4d6b"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f4d6b"/>'
+    {n:'Blazer', s:'<path d="M28 36a9 9 0 0 0-9 9v1a9 9 0 0 0 9 9h2.6v-6z" fill="#3f4d6b"/><path d="M36 36a9 9 0 0 1 9 9v1a9 9 0 0 1-9 9h-2.6v-6z" fill="#3f4d6b"/>'
        + '<path d="M29.6 43.4q1.5 3.4 1 6.4-4.4-1.9-8-4.9 3.6-.9 7-1.5z" fill="#57678c"/>'
        + '<path d="M34.4 43.4q-1.5 3.4-1 6.4 4.4-1.9 8-4.9-3.6-.9-7-1.5z" fill="#57678c"/>'
        + '<path d="M22 48.6q2.6.7 5.2 0-.4 2.4-2.6 2.8-2.2-.4-2.6-2.8z" fill="#e01b24"/>'
@@ -689,7 +768,7 @@
        over the shoulder rather than straight up, because straight up on a round
        body reads as two sticks. */
     // dungarees
-    {n:'Dungarees', dye:1, s:'<path d="M19 45.6q13 3.2 26 0a9 9 0 0 1-9 9.4h-8a9 9 0 0 1-9-9.4z" fill="#3f6ea8"/>'
+    {n:'Dungarees', s:'<path d="M19 45.6q13 3.2 26 0a9 9 0 0 1-9 9.4h-8a9 9 0 0 1-9-9.4z" fill="#3f6ea8"/>'
        + '<path d="M26.4 41.2h11.2v5.6q-5.6 1.6-11.2 0z" fill="#3f6ea8"/>'
        + '<path d="M27 41.4q-1-3.4.4-5.2M37 41.4q1-3.4-.4-5.2" stroke="#3f6ea8" stroke-width="2.7" fill="none" stroke-linecap="round"/>'
        + '<circle cx="27.6" cy="41.8" r="1.15" fill="#d8b04a"/>'
@@ -721,7 +800,7 @@
        + '<path d="M22.6 39.4q9.4 2.4 18.8 0" stroke="#5b7a48" stroke-width="1.3" fill="none" stroke-linecap="round"/>',
      box:'17 34 30 23'},
     // apron
-    {n:'Apron', dye:1, s:'<path d="M27.2 40.6h9.6v5.4q-4.8 1.4-9.6 0z" fill="#f2e0c4"/>'
+    {n:'Apron', s:'<path d="M27.2 40.6h9.6v5.4q-4.8 1.4-9.6 0z" fill="#f2e0c4"/>'
        + '<path d="M21.4 45.8q10.6 2.8 21.2 0a9 9 0 0 1-8.6 9.2h-4a9 9 0 0 1-8.6-9.2z" fill="#f2e0c4"/>'
        + '<path d="M27.6 40.8q4.4-4.4 8.8 0" stroke="#f2e0c4" stroke-width="1.8" fill="none" stroke-linecap="round"/>'
        + '<path d="M21.8 46.6q-2.6 1.4-3.2 3.4M42.2 46.6q2.6 1.4 3.2 3.4" stroke="#f2e0c4" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
@@ -1213,7 +1292,11 @@
      for the length of a session, and it should feel like it cost something. */
   const BUD_COST = {
     e:  [0, 12, 14, 12, 16, 18, 16, 20, 22, 26, 24, 28, 26],
-    r:  [0, 16, 22, 24, 20, 28],
+    /* Six through ten are the second set of hairstyles. They arrived without
+       prices for one release and every one of them showed a bare `0` in the
+       shop — an option that looks broken rather than free. A row shorter than
+       its list is now a failing check; see tools/smoke-test.mjs. */
+    r:  [0, 16, 22, 24, 20, 28, 18, 32, 30, 34, 26],
     h:  [0, 18, 16, 24, 30, 34, 20, 32, 38, 30, 26, 22, 44],
     f:  [0, 26, 22, 28, 48, 30, 34, 20, 24, 38],
     a:  [0, 14, 16, 20, 24, 22, 26, 22, 28],
@@ -1453,8 +1536,14 @@
           for(let i = 1; i < list.length; i++) if(!budOwns(r.id, i)) left.push(i);
           return '<p class="emb-head">' + r.name
             + ' <em>' + (left.length ? left.length + ' to go' : 'all yours') + '</em></p>'
+            /* **Cheapest first.** A shelf in list order is in the order the
+               drawings happened to be written, which is no order at all to the
+               person paying. Ties keep their index order, so the shelf does not
+               reshuffle itself between two things that cost the same. */
             + '<div class="bud-tiles">'
-            + [...Array(list.length).keys()].slice(1).map(i=>budShopTile(r, list, i, v)).join('')
+            + [...Array(list.length).keys()].slice(1)
+                .sort((a, b)=>(budCost(r.id, a) - budCost(r.id, b)) || (a - b))
+                .map(i=>budShopTile(r, list, i, v)).join('')
             + '</div>';
         }).join('')
       + '</div>';

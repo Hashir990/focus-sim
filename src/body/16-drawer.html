@@ -80,6 +80,14 @@
     <!-- Only ever visible in a build that has somewhere to check. See
          41-update.js: with no update URL stamped in, this stays empty. -->
     <div id="upd-box" class="hide"></div>
+    <!-- **What storage is actually doing.** Filled by `storageLine` in
+         42-dev.js. A store that has stopped accepting writes looks exactly like
+         one that is working until a board comes back empty, and three separate
+         puzzle bugs were chased before that was the answer — so it says so
+         here, in numbers, rather than being something only a developer can
+         find out. -->
+    <button class="toggle" id="d-storage"><span class="dot"></span>Storage</button>
+    <p class="drawer-note" id="storage-note"></p>
     <button class="drawer-reset" id="d-reset">Reset progress</button>
     <input type="file" id="import-file" accept="application/json,.json" hidden />
     <!-- **This line has to tell the truth.** It has always said the data stays

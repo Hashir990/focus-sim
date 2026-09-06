@@ -15,6 +15,14 @@
 .confirm-card p{ font-size:13.5px; line-height:1.55; color:var(--muted); margin:0 0 16px; }
 .confirm-card p:empty{ display:none; margin:0 0 10px; }
 .confirm-acts{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
+/* **The third button has to actually go away.** There is no global
+   `.hide{display:none}` in this app — every component hides its own things,
+   which is deliberate and is exactly what was missed here: `askConfirm`
+   toggles `hide` on `#confirm-alt` and nothing was listening, so every
+   two-answer dialog carried a blank pill to the left of Cancel. An empty
+   button is worse than a wrong one: it looks like a control whose label
+   failed to load, and people press it to find out. */
+.confirm-acts .hide{ display:none }
 .confirm-acts .primary{ padding:9px 16px; font-size:13.5px; width:auto; }
 
 /* The ring that fills while you hold. Without it a long press is

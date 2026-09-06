@@ -3,6 +3,9 @@
       <div class="game-top">
         <span class="gname">Word guess</span>
         <span class="meta" id="wdl-meta"></span>
+        <!-- Days in a row, painted by `dailyStreakPaint` in 09b-daily.js.
+             Hidden at zero: a streak of none is not a thing to announce. -->
+        <span class="streak hide" id="wdl-streak"></span>
         <button class="mini-btn" id="wdl-new">New</button>
       </div>
       <div class="wdl" id="wdl-board"></div>

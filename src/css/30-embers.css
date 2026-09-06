@@ -318,16 +318,25 @@ body[data-light="spiderman"] .phase-name,
 body[data-light="spiderman"] .clock,
 body[data-light="spiderman"] .subline{ color:#fff }
 
-/* ---- Beach: the one light look ----
-   Every other palette here changes four colours and trusts the rest of the app,
-   because the rest of the app assumes a dark room. This one cannot: --card,
-   --line and --track are white at low alpha everywhere else, and white on cream
-   is nothing at all. So those three are inverted here, and that is what makes a
-   light theme possible without a second copy of every stylesheet.
+/* ---- Beach: a sunset ----
 
-   --text is a warm near-black rather than a true one: on sand a pure black
-   reads as a hole punched in the page. The accent is a burnt orange dark enough
-   to carry white label text on a button, which a bright yellow could not. */
+   **It used to be the one light look, and that was the wrong idea twice over.**
+   A cream ground meant --card, --line and --track had to be inverted here and
+   nowhere else, so every rule in the app that reached past the tokens for a
+   white wash needed a beach-shaped exception beside it. And a focus app is
+   mostly used in the evening; a sheet of daylight is not what anybody wants at
+   nine at night.
+
+   So it is a sunset now, and dark like everything else: the exceptions are gone
+   and it inherits the shared surfaces. The palette is read off the sky in that
+   order — deep violet overhead, magenta through the middle, and a band of hot
+   orange sitting on the horizon. The accent is that orange, which is the one
+   colour in the picture bright enough to carry white label text.
+
+   Two things had to go with the light theme: the palms, which were scenery for
+   a midday beach and read as blots against a dark sky, and every `body[data-
+   light="beach"]` override of a surface colour. The tide stayed — it is the
+   reason anybody picks this look. */
 body[data-light="beach"],
 #app[data-light="beach"],
 body[data-light="beach"] #overlay,
@@ -337,156 +346,145 @@ body[data-light="beach"] #stats-overlay,
 body[data-light="beach"] #ach-overlay,
 body[data-light="beach"] #sync-overlay,
 body[data-light="beach"] #drawer{
-  /* Blue text on sand, which is the ask — but "light blue" and "readable on
-     yellow" pull against each other, so the text is the darkest blue that still
-     reads as blue rather than as navy, and the accent above it is the bright
-     one. Sand and sea are both turned up: the ground was a cream that read as
-     paper, and the blue was pale enough to be a suggestion. */
-  --accent:#2f9fd0; --glow:rgba(250,206,104,.58);
-  --bg:#f7e2a8; --bg2:#6cc0e6; --text:#063748; --muted:#164457;
-  --card:rgba(6,55,72,.07); --line:rgba(6,55,72,.20);
-  --track:rgba(6,55,72,.13);
+  --accent:#ff9d4d; --glow:rgba(255,124,150,.42);
+  --bg:#1a1030; --bg2:#3d1f4d; --text:#f6e9f2; --muted:#a98fb8;
 }
 
-/* Sand for most of the screen, sea only along the top. The shared `.app` rule
-   runs the gradient to 62%, which on a light palette put blue across the whole
-   lower half — and every muted label down there sat on it and vanished. Pulling
-   the stop up to 44% and lifting the centre out of frame leaves a band of sea
-   at the top and sand everywhere the interface actually is. */
+/* The sky, top to bottom: violet, magenta, and the orange sitting on the water.
+   The horizon band is narrow on purpose — widen it and the whole screen goes
+   orange, and the interface is read against this. */
 body[data-light="beach"] .app{
-  /* Two layers. The sea itself is the first: a continuous body of water lying
-     over the lower part of the screen, because the moving crests are only
-     highlights and on their own they were stripes of blue with sand showing
-     through the troughs. Water is not a set of lines on a beach — it is a
-     surface, and the crests belong on top of it.
-     Kept pale on purpose: everything down there is read against it. */
-  /* No blue up top. `--bg2` is the sea colour and the shared `.app` rule puts it
-     at the head of the gradient, which on this look hung a blue haze over the
-     menu bar — sky, apparently, but on a screen whose sea is at the *bottom* it
-     just read as a stray glow. The top is warm sand now, and the only blue is
-     the water, which comes in low and fades up into it over a long way. */
   background:
     linear-gradient(180deg,
-      rgba(124,198,236,0) 40%, rgba(124,198,236,.38) 56%,
-      rgba(110,188,230,.78) 74%, rgba(88,170,218,.94) 100%),
-    radial-gradient(150% 62% at 50% -18%, #fdf2d6 0%, var(--bg) 52%);
+      #1a1030 0%,
+      #351a48 22%,
+      #6b2b5e 44%,
+      #a83c62 58%,
+      #d4653f 67%,
+      #f0954a 72%,
+      #8a4668 79%,
+      #422045 90%,
+      #24123a 100%),
+    radial-gradient(120% 40% at 50% 70%, rgba(255,170,90,.55) 0%, transparent 70%);
 }
 
 /* ---- the tide ----
-   The blue in the ground is a gradient, and gradients do not move. So the wave
-   is a second layer that slides over it: `transform` only, which the compositor
-   handles without repainting anything — the one sort of full-screen motion this
-   app can afford, and the reason this is not a `background-position` animation.
 
-   Taller than the screen at both ends so sliding it never exposes an edge, and
-   absolutely placed because `.app` is a flex row and an `::after` in the flow
-   would become a flex item sitting beside the stage. Stops with everything else
-   when the window is hidden (`body.away`, see 39-dial-glow.js). */
-/* ---- the palms ----
-   Off under every other look, like the corner webs. Sat in the sand band above
-   the water line and behind everything (`z-index:0`, the stage is 1), so the
-   interface reads over them rather than through them.
+   **Water, not lines across a screen.**
 
-   The blur is a plain `filter`, which is rasterised once for a layer that never
-   changes — the expensive one is `backdrop-filter`, which recomputes over
-   anything moving beneath it. Six pixels, well under the twenty the smoke test
-   allows. Greens are muted and low-alpha: at full strength they stopped being
-   scenery and became foliage growing out of the transport buttons. */
-/* **A container that neither clips nor scales.** It is the whole viewport, and
-   each palm inside places itself with `left`/`bottom` and carries its own width
-   in pixels. Nothing here has an aspect ratio to fight over, which is exactly
-   what went wrong when this was one wide SVG being `slice`d: on a wide screen
-   slice scales to cover the width, so a 1900 x 100 band showed a tenth of its
-   own viewBox and the trees came out as stumps. */
-.beach-palms{ display:none }
-body[data-light="beach"] .beach-palms{
-  display:block; position:fixed; inset:0;
-  z-index:0; pointer-events:none;
-  /* One static blur over the lot, rasterised once. Small trees therefore read
-     softer than big ones, which is the right way round for distance. */
-  filter:blur(3.5px);
-  opacity:.44;
-}
-.palm{ position:absolute; overflow:visible; transform:translateX(-50%) }
-/* Further back: paler, and lighter greens, so distance is not carried by size
-   alone. */
-.palm.far{ opacity:.7 }
-.palm-trunk{ fill:#8a6236; stroke:none }
-.palm.far .palm-trunk{ fill:#9a7448 }
-/* Rings across the trunk. Thin and low-contrast — under this much blur anything
-   stronger becomes a ladder of dark bars rather than texture. */
-.palm-seg{ fill:none; stroke:#5f4222; stroke-width:1.1; opacity:.45; stroke-linecap:round }
-.palm-leaf{ fill:#3f8a4a; stroke:none }
-.palm.far .palm-leaf{ fill:#5da96a }
+   Three goes at this were wrong in three ways. Bright bands, which at thirty
+   pixels of fade each were smears rather than crests; then hard dark rules,
+   crisp and reading as a barcode; then fields of soft ellipses, which blurred
+   into horizontal smudges. All three shared the same fault — they were made of
+   *horizontal shapes*, and the one thing a wave is not is horizontal.
 
-/* ---- the water ----
-   **The frame holds the mask; the children hold the motion.** These were two
-   pseudo-elements that carried both, and a mask travels with the transform of
-   the element it is written on — so the horizon crept up the screen all cycle
-   and jumped back at the loop. Seamless waves under a fade that was anything
-   but, which is exactly what a video looping looks like. The frame below never
-   moves and owns the fade; the two children never carry a mask and only slide.
+   So each layer is now a tiled SVG of the actual thing: a scalloped line, a lit
+   edge along its top where the water turns over, and a body that fades away
+   underneath it. Alternating quadratics (`Q` then a run of `T`) give a curve
+   whose slope matches at the tile seam, so the field repeats without a join.
 
-   **Irregular crests, not a repeating gradient.** `repeating-linear-gradient`
-   is evenly spaced by definition and the eye locks onto the period at once.
-   Each layer is one long gradient with crests at uneven intervals, widths and
-   strengths, tiled by `background-size`. Both ends of a tile sit at the trough
-   value so the join is invisible, and each layer travels exactly one tile per
-   cycle — change a `background-size` and its keyframe must change with it.
+   The nearest layer carries no blur at all and the two behind it are softened
+   by a little and by more. Blurring all three equally is what made this look
+   low-quality: it reads as an out-of-focus photograph instead of as distance.
 
-   Transform only. Animating `background-position` would repaint a full-screen
-   gradient every frame, which is the thing this app does not do. */
+   The scallops in a tile are deliberately uneven — eight of them, at widths
+   and depths that vary, with only the first and last matched so the seam stays
+   smooth. Evenly spaced ones tile into something that reads as knitting.
+
+   Three of them, at wavelengths and speeds that do not divide each other, and
+   getting wider, darker and slower towards the bottom — that difference in
+   scale is the whole of the perspective. They travel **down**, because the
+   shore is the bottom of the screen and water coming in comes towards you.
+
+   **Nothing above the light.** The bright band of the sky sits at 67-72%, and a
+   wave crossing it is a wave in the sky. The mask starts under it.
+
+   `transform` only, which the compositor handles without repainting anything —
+   the one sort of full-screen motion this app can afford, and the reason this
+   is not a `background-position` animation. Each layer travels exactly one tile
+   per cycle, so the last frame is the first: change a `background-size` and its
+   keyframe has to change with it. */
 body[data-light="beach"] .beach-sea{
   display:block; position:fixed; inset:0; z-index:0; pointer-events:none;
   overflow:hidden;
-  /* A long fade, so the sea has a horizon rather than a border. */
   -webkit-mask-image:linear-gradient(180deg,
-    transparent 30%, rgba(0,0,0,.18) 48%, rgba(0,0,0,.62) 66%, #000 84%, #000 100%);
+    transparent 68%, rgba(0,0,0,.3) 75%, rgba(0,0,0,.75) 85%, #000 93%, #000 100%);
   mask-image:linear-gradient(180deg,
-    transparent 30%, rgba(0,0,0,.18) 48%, rgba(0,0,0,.62) 66%, #000 84%, #000 100%);
+    transparent 68%, rgba(0,0,0,.3) 75%, rgba(0,0,0,.75) 85%, #000 93%, #000 100%);
 }
 .beach-sea{ display:none }
 .beach-wave{
-  position:absolute; left:-8%; right:-8%; top:-680px; bottom:-680px;
+  position:absolute; left:-10%; right:-10%; top:-720px; bottom:-720px;
   display:block; background-repeat:repeat;
   animation-timing-function:linear; animation-iteration-count:infinite;
 }
-/* the near set: brighter, wider, slower */
-.beach-wave-near{
-  background-image:linear-gradient(179.4deg, rgba(142,216,248,0.1) 0px, rgba(142,216,248,0.1) 51px, rgba(142,216,248,0.534) 85px, rgba(142,216,248,0.1) 119px, rgba(142,216,248,0.1) 142px, rgba(142,216,248,0.407) 152px, rgba(142,216,248,0.1) 163px, rgba(142,216,248,0.1) 230px, rgba(142,216,248,0.425) 256px, rgba(142,216,248,0.1) 282px, rgba(142,216,248,0.1) 320px, rgba(142,216,248,0.545) 333px, rgba(142,216,248,0.1) 345px, rgba(142,216,248,0.1) 410px, rgba(142,216,248,0.537) 442px, rgba(142,216,248,0.1) 473px, rgba(142,216,248,0.1) 560px);
-  background-size:100% 560px;
-  animation-name:beach-tide; animation-duration:26s;
-}
-/* the far set: paler, tighter, and started part-way in so the two are never in
-   step — where a crest of one crosses a trough of the other a wave arrives and
-   then goes, which is the whole effect */
-.beach-wave-far{
-  background-image:linear-gradient(180.6deg, rgba(112,198,238,0.08) 0px, rgba(112,198,238,0.08) 31px, rgba(112,198,238,0.289) 45px, rgba(112,198,238,0.08) 59px, rgba(112,198,238,0.08) 80px, rgba(112,198,238,0.392) 97px, rgba(112,198,238,0.08) 113px, rgba(112,198,238,0.08) 121px, rgba(112,198,238,0.404) 157px, rgba(112,198,238,0.08) 192px, rgba(112,198,238,0.08) 217px, rgba(112,198,238,0.416) 231px, rgba(112,198,238,0.08) 245px, rgba(112,198,238,0.08) 286px, rgba(112,198,238,0.289) 304px, rgba(112,198,238,0.08) 323px, rgba(112,198,238,0.08) 332px, rgba(112,198,238,0.270) 360px, rgba(112,198,238,0.08) 387px, rgba(112,198,238,0.08) 420px);
-  background-size:100% 420px;
-  animation-name:beach-swell; animation-duration:24s; animation-delay:-9s;
-}
-/* One whole tile each, so the last frame is the first frame. */
-@keyframes beach-tide{
-  from{ transform:translateY(0) }
-  to{ transform:translateY(-560px) }
-}
-@keyframes beach-swell{
-  from{ transform:translateY(0) }
-  to{ transform:translateY(-420px) }
-}
-body.away .beach-wave{ animation-play-state:paused }
 
-/* The handful of places that reach past the tokens for a white wash. Each is a
-   hover or a raised surface that is meant to lift *away* from the ground; on a
-   pale ground it has to go the other way or it does nothing. Scoped to beach so
-   no dark look is touched. */
-body[data-light="beach"] .drawer-item:hover,
-body[data-light="beach"] .drawer-backdrop{ background:rgba(60,40,15,.07); }
-body[data-light="beach"] .drawer.open{ box-shadow:24px 0 60px rgba(60,40,15,.22); }
-/* Overlay veils darken the page everywhere else; here they would put the room
-   back into night, so the veil is a warm haze instead. */
-body[data-light="beach"] .overlay,
-body[data-light="beach"] .sheet-back{ background:rgba(247,226,168,.88); }
+/* Nearest: the widest crests, the brightest edge, and the slowest — a swell
+   this size takes its time. */
+.beach-wave-near{
+  background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 130' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgba(22,10,38,.62)'/><stop offset='.45' stop-color='rgba(22,10,38,.20)'/><stop offset='1' stop-color='rgba(22,10,38,0)'/></linearGradient></defs><path d='M0 40 Q22 23 44 40 Q75 50 106 40 Q129 19 152 40 Q183 53 214 40 Q236 32 258 40 Q286 59 314 40 Q335 28 356 40 Q378 57 400 40 L400 130 L0 130Z' fill='url(%23g)'/><path d='M0 40 Q22 23 44 40 Q75 50 106 40 Q129 19 152 40 Q183 53 214 40 Q236 32 258 40 Q286 59 314 40 Q335 28 356 40 Q378 57 400 40' fill='none' stroke='rgba(255,214,180,.52)' stroke-width='3.0' stroke-linecap='round'/></svg>");
+  background-size:96% 138px;
+  /* **No blur on this one.** Everything blurred equally reads as a photograph
+     out of focus rather than as distance. The crest nearest you is the one your
+     eye checks for sharpness, so it is drawn clean and the two behind it are
+     softened — that difference *is* the depth. */
+  filter:none;
+  animation-name:beach-tide-near; animation-duration:11s;
+}
+/* The middle set, half a tile out of step with both of the others. Where its
+   crest crosses another's trough a wave arrives and then goes, which is most of
+   what makes the field look alive. */
+.beach-wave-mid{
+  background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 92' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgba(30,14,48,.42)'/><stop offset='.45' stop-color='rgba(30,14,48,.13)'/><stop offset='1' stop-color='rgba(30,14,48,0)'/></linearGradient></defs><path d='M0 34 Q26 21 52 34 Q75 42 98 34 Q127 18 156 34 Q179 44 202 34 Q232 20 262 34 Q282 41 302 34 Q327 23 352 34 Q376 47 400 34 L400 92 L0 92Z' fill='url(%23g)'/><path d='M0 34 Q26 21 52 34 Q75 42 98 34 Q127 18 156 34 Q179 44 202 34 Q232 20 262 34 Q282 41 302 34 Q327 23 352 34 Q376 47 400 34' fill='none' stroke='rgba(255,198,160,.30)' stroke-width='2.2' stroke-linecap='round'/></svg>");
+  background-size:67% 100px;
+  background-position:37% 0;
+  filter:blur(1px);
+  animation-name:beach-tide-mid; animation-duration:8.6s;
+  animation-delay:-3.1s;
+}
+/* Furthest out: small, tight and pale, near enough to the horizon that it is
+   texture rather than shape. */
+.beach-wave-far{
+  background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 62' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='rgba(40,20,62,.26)'/><stop offset='.45' stop-color='rgba(40,20,62,.08)'/><stop offset='1' stop-color='rgba(40,20,62,0)'/></linearGradient></defs><path d='M0 26 Q24 17 48 26 Q75 32 102 26 Q125 15 148 26 Q177 33 206 26 Q230 21 254 26 Q281 36 308 26 Q330 18 352 26 Q376 35 400 26 L400 62 L0 62Z' fill='url(%23g)'/><path d='M0 26 Q24 17 48 26 Q75 32 102 26 Q125 15 148 26 Q177 33 206 26 Q230 21 254 26 Q281 36 308 26 Q330 18 352 26 Q376 35 400 26' fill='none' stroke='rgba(255,188,156,.19)' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-size:45% 66px;
+  background-position:13% 0;
+  filter:blur(1.8px);
+  animation-name:beach-tide-far; animation-duration:6.6s;
+  animation-delay:-1.7s;
+}
+/* Where it lands. Not a fourth wave — one soft band low on the screen that
+   swells and slides back, which is what the wash looks like from a distance and
+   costs one element that never moves. */
+.beach-wave-foam{
+  position:absolute; left:-8%; right:-8%; bottom:0; height:30vh;
+  display:block;
+  background:radial-gradient(ellipse 78% 44% at 50% 100%,
+    rgba(255,214,180,.26) 0%, rgba(255,190,150,.11) 42%, transparent 74%);
+  filter:blur(8px);
+  animation:beach-foam 9s ease-in-out infinite;
+}
+@keyframes beach-foam{
+  0%,100%{ transform:translateY(6%) scaleX(1); opacity:.55 }
+  50%{ transform:translateY(-3%) scaleX(1.08); opacity:1 }
+}
+/* One whole tile each, downward, so the last frame is the first frame. */
+@keyframes beach-tide-near{
+  from{ transform:translateY(-138px) } to{ transform:translateY(0) }
+}
+@keyframes beach-tide-mid{
+  from{ transform:translateY(-100px) } to{ transform:translateY(0) }
+}
+@keyframes beach-tide-far{
+  from{ transform:translateY(-66px) } to{ transform:translateY(0) }
+}
+body.away .beach-wave,
+body.away .beach-wave-foam{ animation-play-state:paused }
+
+/* The palms are gone with the daylight: blurred trunks against a sunset read as
+   blots rather than as trees, and the sky is the picture now. The markup still
+   ships (see the beach block in the body) and simply never shows. */
+.beach-palms{ display:none !important }
+
 body[data-amb="rain"],
 #app[data-amb="rain"],
 body[data-amb="rain"] #overlay,

@@ -78,6 +78,21 @@
           if(c.events){ cell.classList.add('ev'); const e=document.createElement('span'); e.className='ev-dot'; cell.appendChild(e); }
           if(c.left){ cell.classList.add('todo'); const t=document.createElement('span'); t.className='todo-dot'; cell.appendChild(t); }
         }catch(e){}
+        /* **How the day went, bottom right.** The marks above are things to
+           count and share the top-left; this is the one thing on the square you
+           *read*, so it gets the far corner and the date moves aside for it.
+           See 17b-mood.js. */
+        try{
+          const face = moodOf(key);
+          if(face){
+            cell.classList.add('has-mood');
+            const m = document.createElement('span');
+            m.className = 'mood';
+            m.textContent = face;
+            m.title = moodName(face);
+            cell.appendChild(m);
+          }
+        }catch(e){}
         grid.appendChild(cell);
       }
       $('cal-sessions').textContent=mSessions;
@@ -111,6 +126,19 @@
       try{ load += planOn(this.sel).length; }catch(e){}
       ov.dataset.dense = load>=6 ? '2' : load>=3 ? '1' : '0';
       box.innerHTML='<h4>'+esc(label)+'</h4>';
+      /* **Changing your mind is a tap.** The prompt asks once; this is the way
+         back, and the only way to clear a day (tap the face that is already on
+         it). Not offered for a day that has not happened: a mood is a report,
+         not a plan. */
+      try{
+        if(this.sel <= dayKey(Date.now())){
+          const mw = document.createElement('div');
+          mw.className = 'cal-mood';
+          mw.innerHTML = '<p class="q-sec">How it went</p>' + moodRow(this.sel);
+          box.appendChild(mw);
+          moodWire(mw, ()=>Cal.render());
+        }
+      }catch(e){}
       /* What is planned comes first, whether or not anything was done. A day in
          the future has nothing else on it, and a day in the past reads better
          as "this is what it was for" before "this is what happened". */

@@ -30,6 +30,9 @@
     <div class="ft-room hide" id="ft-room">
       <div class="sync-state" id="sync-state">Not connected</div>
       <p class="sync-status" id="sync-status"></p>
+      <!-- Anybody held at the door. Above the room's own list, because it is
+           the one thing on this page waiting on somebody. -->
+      <div class="ft-door hide" id="sync-door"></div>
       <div class="sync-people hide" id="sync-people"></div>
       <button class="sync-leave hide" id="sync-leave">
         <span>Leave the room</span>
@@ -50,6 +53,9 @@
              placeholder="Their username" autocomplete="off" spellcheck="false" />
       <button class="mini-btn" id="ft-ask">Add</button>
     </div>
+    <!-- The code that name makes, worked out as you type. It is a hash of the
+         username, so this needs nothing and nobody: see `friendCodeHint`. -->
+    <p class="ft-hint hide" id="ft-hint"></p>
     <div id="sync-friends"></div>
 
     <!-- Starting one. Under the people, because most of the time you are here

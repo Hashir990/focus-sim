@@ -90,7 +90,10 @@
              v:{s:[11, 22, 'px'], t:[13, 24, 's'], o:[.28, .62],
                 x1:[-12, 12, 'vw'], x2:[-16, 16, 'vw'], x3:[-10, 10, 'vw'],
                 dx:[-18, 18, 'vw'], r:[-540, 540, 'deg']}},
-    snow:   {n:24, v:{s:[5, 13, 'px'], t:[13, 26, 's'], o:[.35, .8],
+    /* Flakes are drawn with arms and branches now (31-vfx.css), and an arm
+       on an eight-pixel flake is one pixel of blur. Bigger, and fewer of
+       them, so the window is not a whiteout. */
+    snow:   {n:22, v:{s:[13, 30, 'px'], t:[13, 26, 's'], o:[.4, .85],
                       dx:[-14, 14, 'vw'], r:[-180, 180, 'deg']}},
     // y1..y3 are the wander across; smoke that travels in a straight line is a bar
     /* `pal` here is opt-in and does nothing on its own: a look without an

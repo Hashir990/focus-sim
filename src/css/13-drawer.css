@@ -133,3 +133,12 @@ body.vfx-on .drawer{
 }
 /* A button, not a link — it restarts the app rather than going anywhere. */
 button.upd-get{ border:none; cursor:pointer; font-family:inherit }
+
+/* The storage line. Small and quiet when everything is fine, and loud when it
+   is not — this is the one message that explains a game losing your work. */
+.drawer-note{
+  margin:8px 2px 4px; font-size:11.5px; line-height:1.5; color:var(--muted);
+}
+.drawer-note.bad{
+  color:#ff9d9d; font-weight:600;
+}

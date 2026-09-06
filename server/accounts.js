@@ -205,6 +205,75 @@ function mergeDaily(a, b){
   return out;
 }
 
+/* **Friends travel with the account, but their cards do not.**
+
+   The list is who you know; a card is what somebody handed you the last time
+   you were in touch, and handing a stale one to a device that has never met
+   them would be the app inventing a profile. So only the identity crosses —
+   code, username, whether it is settled — and the numbers arrive the next
+   time you actually meet. See 29a-friends.js.
+
+   Union by code. Settled beats pending, because two devices disagreeing about
+   whether somebody accepted should land on yes: a friendship is not undone by
+   an old phone that never heard the answer. Otherwise the later `at` wins,
+   and a name is kept from whichever side has one. */
+function mergeFriends(a, b){
+  const A = Array.isArray(a) ? a : [], B = Array.isArray(b) ? b : [];
+  const out = Object.create(null), order = [];
+  for(const f of A.concat(B)){
+    if(!f || typeof f !== 'object') continue;
+    const code = String(f.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if(code.length < 4) continue;
+    const one = {
+      code,
+      u: String(f.u || '').slice(0, 20),
+      name: String(f.name || '').slice(0, 24),
+      ok: f.ok ? 1 : 0,
+      asked: Number(f.asked) || 0,
+      at: Number(f.at) || 0,
+    };
+    const had = out[code];
+    if(!had){ out[code] = one; order.push(code); continue; }
+    const win = one.ok && !had.ok ? one
+              : had.ok && !one.ok ? had
+              : one.at > had.at ? one : had;
+    const lose = win === one ? had : one;
+    out[code] = {
+      code,
+      u: win.u || lose.u,
+      name: win.name || lose.name,
+      ok: (win.ok || lose.ok) ? 1 : 0,
+      asked: Math.max(win.asked, lose.asked),
+      at: Math.max(win.at, lose.at),
+    };
+  }
+  /* Capped, because this rides in every sync and a list nobody can have is
+     not worth carrying. */
+  return order.slice(0, 300).map(c=>out[c]);
+}
+
+/* **How each day went, one emoji a day.**
+
+   Union by day. Where two devices disagree, the one that says something wins:
+   a day can hold an empty string, which means "asked, and waved away", and
+   that is mostly the absence of an answer — losing a real face to it would be
+   the wrong way round. See 17b-mood.js. */
+function mergeMood(a, b){
+  const A = (a && typeof a === 'object') ? a : {};
+  const B = (b && typeof b === 'object') ? b : {};
+  const out = {};
+  for(const src of [A, B]){
+    for(const k in src){
+      if(!Object.prototype.hasOwnProperty.call(src, k)) continue;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue;
+      const v = src[k];
+      if(typeof v !== 'string') continue;
+      if(!(k in out) || (!out[k] && v)) out[k] = v.slice(0, 8);
+    }
+  }
+  return out;
+}
+
 function mergeSnapshots(local, remote) {
   const A = local || {}, B = remote || {};
   const gone = mergeGone(A.gone, B.gone);
@@ -235,7 +304,11 @@ function mergeSnapshots(local, remote) {
     gone,
     quotes: mergeById(A.quotes, B.quotes, gone),
     games: mergeGames(A.games, B.games),
+    // who you know, without their cards — see mergeFriends above
+    friends: mergeFriends(A.friends, B.friends),
     daily: mergeDaily(A.daily, B.daily),
+    // one emoji a day — see mergeMood above
+    mood: mergeMood(A.mood, B.mood),
     sim: mergeSim(A.sim, B.sim),
   };
 }
@@ -610,6 +683,46 @@ async function accountGone(db, b) {
   return json({ ok: true, gone: true });
 }
 
+/* ---------- a code, turned back into a name ----------
+
+   A friend code is `syncCodeFor(username)` — an FNV-1a hash, deterministic
+   and one-way, so no device can reverse it. This can: it holds every username,
+   so it hashes them and looks for the match.
+
+   **The hash below must stay identical to `syncCodeFor` in 29-sync.js.** Change
+   the alphabet, the seed or the multiply on either side and every friend code
+   in the world moves; this endpoint would go quietly wrong rather than fail,
+   answering with the wrong person's name.
+
+   What it discloses is the username that the code was made out of in the first
+   place, to somebody who already has the code. Nothing else about the account
+   is readable here, and a code nobody owns is answered the same way as one that
+   is simply not found. */
+const WHO_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+export function codeForName(name) {
+  const s = String(name || '').toLowerCase();
+  let a = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) a = Math.imul(a ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  let out = '';
+  for (let i = 0; i < 6; i++) {
+    out += WHO_ALPHABET[a % WHO_ALPHABET.length];
+    a = Math.floor(a / WHO_ALPHABET.length) + 0x9e37;
+  }
+  return out;
+}
+async function accountWho(db, b) {
+  const want = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (want.length < 4) return json({ ok: true, name: '' });
+  /* Every username, hashed. It is a small table and this is a cheap loop; if it
+     ever stops being either, the fix is a `code` column written at sign-up and
+     backfilled, not a cleverer scan. */
+  const rows = await db.prepare('SELECT username FROM accounts').all();
+  for (const r of (rows && rows.results) || []) {
+    if (codeForName(r.username) === want) return json({ ok: true, name: r.username });
+  }
+  return json({ ok: true, name: '' });
+}
+
 /* ---------- the vault ---------- */
 async function vaultGet(db, b) {
   const id = await whoIs(db, b.token);
@@ -678,6 +791,7 @@ export default {
       if (path === '/account/password') return await accountPassword(env.DB, body);
       if (path === '/account/forgot') return await accountForgot(env.DB, body, ip, env);
       if (path === '/account/gone') return await accountGone(env.DB, body);
+      if (path === '/account/who') return await accountWho(env.DB, body);
       if (path === '/vault/get') return await vaultGet(env.DB, body);
       if (path === '/vault/put') return await vaultPut(env.DB, body);
     } catch (e) {

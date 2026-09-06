@@ -77,7 +77,59 @@ const check = (label, ok, detail = '') => {
   checks.push({ label, ok, detail });
   log(`${ok ? '✓' : '✗'} ${label}${detail && !ok ? ' — ' + detail : ''}`);
 };
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/* **Every pause in here was measured on one machine.**
+
+   Nearly every check that talks to a second window sleeps for a hand-picked
+   number of milliseconds and then asserts. Those numbers were picked on a fast
+   idle container; on a laptop on battery, or one busy building the bundle at
+   the same time, the message has not arrived yet and a perfectly good feature
+   reports as broken. Seven checks failed that way on a release run and not one
+   of them was a regression — which is worse than useless, because a suite that
+   cries wolf gets its failures explained away.
+
+   So the machine is measured once and every pause is scaled to it. A short
+   CPU-bound loop against the number the same loop takes on the machine these
+   pauses were tuned on; clamped, because the answer to a truly pathological
+   machine is not a suite that runs for an hour. `FOCUS_TEST_SLOW=2` forces it,
+   for reproducing somebody else's flake. */
+const SLOW = (() => {
+  const forced = Number(process.env.FOCUS_TEST_SLOW || 0);
+  if (forced > 0) return Math.min(8, forced);
+  const REF = 13;                       // ms for the loop below, where these numbers were picked
+  let best = Infinity;
+  for (let r = 0; r < 3; r++) {
+    const t0 = Date.now();
+    let x = 0;
+    for (let i = 0; i < 6e6; i++) x += i % 7;
+    best = Math.min(best, Date.now() - t0);
+  }
+  return Math.min(4, Math.max(1, (best || REF) / REF));
+})();
+const wait = (ms) => new Promise((r) => setTimeout(r, Math.round(ms * SLOW)));
+/** **Wait for the thing, not for a number.**
+
+    Every check that talks to a second window used to sleep for a hand-picked
+    number of milliseconds and then assert. That number was picked on one
+    machine: on a slower one — a laptop on battery, a machine also building the
+    bundle — the message has not arrived yet and a perfectly good feature
+    reports as broken. Seven checks failed that way on a release run and not one
+    of them was a regression.
+
+    So: poll until it is true, up to a generous ceiling, and carry on the moment
+    it is. A passing run gets *faster*, because it stops sleeping through time
+    it does not need, and a real failure still fails — it just takes the ceiling
+    to do it. Returns whether it came true, so a caller can say so. */
+const until = async (fn, ms = 6000, step = 25) => {
+  ms = Math.round(ms * SLOW);
+  const end = Date.now() + ms;
+  for (;;) {
+    let ok = false;
+    try { ok = !!fn(); } catch (e) { ok = false; }
+    if (ok) return true;
+    if (Date.now() >= end) return false;
+    await wait(step);
+  }
+};
 
 /* `seed` is written into localStorage before the app's own script runs, the
    same trick tools/dev-build.mjs uses. Some things — a balance of embers, a
@@ -387,7 +439,23 @@ function withDoor(src, code){
   return src.slice(0, at) + '\n' + code + '\n' + src.slice(at);
 }
 
-const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet};'), {
+const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet, Tetris, Sudoku,'
+  + ' crossOnDay, crossAtSize, crossRows, CROSS_GRIDS,'
+  + ' arcade: {writeGame, readGame}, kv: KV,'
+  + ' dialogs: {askConfirm, closeConfirm}, arcadeReset: arcadeResetItems,'
+  + ' wordleArt: (r) => dailyDef("wordle").art(r),'
+  + ' shelfPrices: () => ({looks: embByPrice(EMB_LIGHTS), sounds: embByPrice(EMB_SOUNDS),'
+  + '   faces: embByPrice(FACES)}),'
+  + ' wardrobePrices: () => Object.fromEntries(BUD_ROWS.map(r => [r.name,'
+  + '   [...Array(r.list().length).keys()].slice(1)'
+  + '     .sort((a, b) => (budCost(r.id, a) - budCost(r.id, b)) || (a - b))'
+  + '     .map(i => budCost(r.id, i))])),'
+  + ' budRows: () => BUD_ROWS.map(r => { const L = r.list(), c = BUD_COST[r.id] || [];'
+  + '   return {name: r.name, parts: L.length, costs: c.length,'
+  + '     zeros: L.map((p, i) => i && !c[i] ? (p.n || i) : 0).filter(Boolean)}; }),'
+  + ' budDyed: () => BUD_OUTER.filter(p => p.dye).map(p => p.n),'
+  + ' startTimer: start, pauseTimer: pause, Cal, moodOf, moodAsk,'
+  + ' today: () => dayKey(Date.now())};'), {
   focus_embers: JSON.stringify({ have: 200, earned: 200, own: ['seaglass'], light: 'seaglass' }),
 });
 const $ = (id) => window.document.getElementById(id);
@@ -458,6 +526,303 @@ check('no two @keyframes share a name', (() => {
   for (const n of names) { if (seen.has(n)) dupes.add(n); seen.add(n); }
   return [...dupes].join(', ');
 })());
+
+/* ---- switching size, and coming back --------------------------------------
+
+   "Open on today" was right for arriving at the shelf and wrong for the
+   difficulty buttons: those went to today's edition too, so half a Tuesday
+   hard, a look at easy and back, and hard was today's empty grid with the clock
+   at zero. The board was never deleted — it sat on its own shelf under its own
+   day — but nothing could reach it again, which from a chair is the same thing.
+   Both games remember where you were per size or difficulty now. */
+{
+  const C = window.__m.Cross, now = window.__m.pktNow();
+  const back = () => [C.size, C.day, C.user.filter(Boolean).length, C.elapsed].join('/');
+  const older = window.__m.crossOnDay(7, '2026-09-03');
+  C._chose = true;
+  C.load(older.i, '2026-09-03');
+  C.select(0); ['A', 'B', 'C'].forEach((ch) => C.type(ch));
+  C.elapsed = 321; C.persist();
+  const was = back();
+  C.setSize(15);
+  check('switching size leaves the older grid alone',
+    C.day === now && C.user.filter(Boolean).length === 0, back());
+  C.setSize(7);
+  check('and switching back hands it over with its letters and its clock',
+    back() === was, back() + ' vs ' + was);
+  C.enter();
+  check('coming in from the shelf does not undo that choice',
+    back() === was, back() + ' vs ' + was);
+  /* Put it back on today's 7x7: the checks further down expect a fresh board,
+     and this block has deliberately left it somewhere else. */
+  C._chose = false; C.seen = {};
+  C.load(window.__m.crossOnDay(7, now).i, now);
+}
+{
+  /* A `done` flag carried onto a grid the record did not come from opens the
+     board full of letters, under the win banner, refusing every key — read as
+     the game being broken, not as a stale save. Two thirds of letters agreeing
+     is the right test for keeping the work and much too weak for the flag. */
+  const C = window.__m.Cross;
+  const g = window.__m.CROSS_GRIDS[window.__m.crossAtSize(15)[0]];
+  const sol = window.__m.crossRows(g).join('').toUpperCase();
+  const near = sol.replace(/#/g, '.').split('');
+  for (let i = 0, n = 0; i < near.length && n < 3; i++) {
+    if (near[i] !== '.') { near[i] = near[i] === 'A' ? 'B' : 'A'; n++; }
+  }
+  const p = {}; p[String(window.__m.crossAtSize(15)[0])] = { u: near.join(''), secs: 800, done: true };
+  const out = C._migrate(p);
+  const rec = out[Object.keys(out)[0]];
+  check('a migrated record that is not actually solved loses the flag',
+    !!rec && !rec.done, JSON.stringify(rec && { done: rec.done, secs: rec.secs }));
+  check('but keeps the work it carried',
+    !!rec && rec.secs === 800 && rec.u.length === near.length);
+  const exact = {}; exact[String(window.__m.crossAtSize(15)[0])] = { u: sol.replace(/#/g, '.'), secs: 800, done: true };
+  const kept = C._migrate(exact);
+  check('and one that really is solved keeps it',
+    !!kept[Object.keys(kept)[0]].done);
+}
+{
+  const S = window.__m.Sudoku;
+  S.build();                       // render() needs the cells it makes
+  S.newGame('hard', true, '2026-09-02');
+  S.sel = S.given.indexOf(false); S.input(5); S.elapsed = 200; S.persist();
+  const was = [S.diff, S.day, S.elapsed, S.grid.filter(Boolean).length].join('/');
+  S.newGame('easy');
+  check('a difficulty button does not drag the other grid to today',
+    S.diff === 'easy' && S.day === window.__m.pktNow(), S.diff + '/' + S.day);
+  S.newGame('hard');
+  check('and going back to a difficulty returns the grid and the clock',
+    [S.diff, S.day, S.elapsed, S.grid.filter(Boolean).length].join('/') === was,
+    [S.diff, S.day, S.elapsed].join('/') + ' vs ' + was);
+  S._chose = false; S.seen = {};
+  S.newGame('medium', true, window.__m.pktNow());
+}
+
+/* ---- a board that is not a puzzle, and a button that does nothing ---------
+
+   Two silent failures, reported as "why is this happening" and "it keeps
+   stopping working". A shelf entry is handed straight to the player, so one bad
+   write is a grid with no clues in it and no way back; and `load` returned
+   quietly when its index was not in the bank, so a size button could leave the
+   old puzzle on screen and say nothing. Both now refuse rather than hand over.
+   Seventeen clues is the real floor for a sudoku — no grid with fewer has one
+   answer — so anything under it is a corrupt save, not a hard one. */
+{
+  const S = window.__m.Sudoku, now = window.__m.pktNow();
+  S.newGame('easy', true, now);
+  const slot = now + '|easy';
+  const good = S.boards[slot];
+  check('a real board is kept', !!good && S._sane(good),
+    good ? String(good.given.filter(Boolean).length) + ' clues' : 'nothing on the shelf');
+  S.boards[slot] = { grid: new Array(81).fill(0), sol: good.sol.slice(),
+    given: new Array(81).fill(false), notes: [], elapsed: 0, done: false };
+  S.day = ''; S.diff = '';
+  check('a board with no clues is refused', S._take(now, 'easy') === false);
+  check('and dropped, so it is not found again', !S.boards[slot],
+    Object.keys(S.boards).join(', '));
+  S.newGame('easy', true, now);
+  check('and the day comes back as a real puzzle',
+    S.given.filter(Boolean).length >= 17, String(S.given.filter(Boolean).length));
+}
+{
+  const C = window.__m.Cross;
+  check('loading a puzzle that is not in the bank says so',
+    C.load(999999, '') === false);
+  const before = [C.size, C.idx].join('/');
+  C.setSize(C.size === 5 ? 7 : 5);
+  check('and a size button always lands somewhere',
+    [C.size, C.idx].join('/') !== before && !!C.puz, [C.size, C.idx].join('/'));
+  C.seen = {}; C._chose = false;
+}
+{
+  /* The button people actually press is New, not the reset buried in the hold
+     menu, so New is the one that stops the board and asks. */
+  const T = window.__m.Tetris;
+  T.newGame(); T.paused = false; T.score = 120;
+  window.document.getElementById('tet-new').click();   // the button, not the method
+  check('New stops the board before asking', T.paused === true, String(T.paused));
+  check('and it does ask',
+    !window.document.getElementById('confirm').classList.contains('hide'));
+  window.__m.dialogs.closeConfirm();
+  T.newGame(); T.paused = false; T.score = 0; T.lines = 0;
+  T.grid = T.grid.map(() => '');
+  window.document.getElementById('tet-new').click();
+  check('but an untouched board is not worth a question',
+    window.document.getElementById('confirm').classList.contains('hide'));
+}
+
+/* ---- the dialog's third button, and the shelf's order ---------------------
+
+   There is no global `.hide{display:none}` in this app on purpose; the price is
+   that a component which hides its own things has to *have* the rule. This one
+   did not, so `askConfirm` toggled `hide` on `#confirm-alt` and nothing
+   listened: every two-answer dialog carried a blank pill beside Cancel. An
+   empty button reads as a control whose label failed to load, and people press
+   it to find out what it does. */
+{
+  const D = window.__m.dialogs;
+  D.askConfirm('Buy the thing?', 'Two answers, not three.', 'Spend 52', () => {});
+  const alt = window.document.getElementById('confirm-alt');
+  check('a two-answer dialog shows two buttons',
+    window.getComputedStyle(alt).display === 'none',
+    window.getComputedStyle(alt).display);
+  D.askConfirm('Three ways out?', '', 'Save', () => {},
+    { alt: { label: 'Discard', run: () => {} } });
+  check('and a three-answer one shows the third, with a label on it',
+    window.getComputedStyle(alt).display !== 'none' && alt.textContent === 'Discard',
+    window.getComputedStyle(alt).display + ' "' + alt.textContent + '"');
+  D.closeConfirm();
+}
+{
+  /* Cheapest first on every shelf. List order is the order the drawings were
+     written in, which is no order at all to the person paying. */
+  const shelves = window.__m.shelfPrices();
+  for (const [name, list] of Object.entries(shelves)) {
+    const costs = list.map((x) => x.cost || 0);
+    check(`the ${name} shelf runs cheapest first`,
+      list.length > 1 && costs.every((c, i) => i === 0 || costs[i - 1] <= c),
+      costs.join(', '));
+    check(`and nothing fell off the ${name} shelf on the way`,
+      list.length === shelves[name].length && new Set(list.map((x) => x.id)).size === list.length);
+  }
+  const rows = window.__m.wardrobePrices();
+  for (const [name, costs] of Object.entries(rows)) {
+    check(`the ${name.toLowerCase()} row runs cheapest first`,
+      costs.every((c, i) => i === 0 || costs[i - 1] <= c), costs.join(', '));
+  }
+}
+{
+  /* Six rows whatever happened. Stopping where the word was found made a lucky
+     first guess draw one row and a six-guess grind draw six, and on a calendar
+     the eye compares heights before it reads anything. */
+  const art = window.__m.wordleArt;
+  const rows = (p) => (art({ s: 2, p }).match(/wdl-art-row/g) || []).length;
+  check('a word found in one still draws six rows', rows('ggggg') === 6, String(rows('ggggg')));
+  check('and the spare ones are marked as spare',
+    (art({ s: 2, p: 'ggggg' }).match(/spare/g) || []).length === 5,
+    art({ s: 2, p: 'ggggg' }));
+  check('a six-guess game draws six and no more',
+    rows('xxxxx'.repeat(5) + 'ggggg') === 6, String(rows('xxxxx'.repeat(5) + 'ggggg')));
+}
+{
+  /* A confirm over a running game asks you to decide while the thing you are
+     deciding about carries on happening. */
+  const T = window.__m.Tetris;
+  T.newGame(); T.paused = false;
+  window.__m.arcadeReset('tetris').forEach((it) => it.run());
+  check('asking to reset Tetris stops the board first', T.paused === true, String(T.paused));
+  window.__m.dialogs.closeConfirm();
+}
+
+/* ---- everything on the shelf has a price --------------------------------
+
+   `BUD_COST` is one row per part list, in the same order, and the two are kept
+   apart on purpose so an art change never touches the economy. The cost of that
+   is exactly this: five hairstyles shipped with the list eleven long and the
+   price row six, so the last five showed a bare `0` in the shop — an option
+   that reads as broken rather than as free. Index 0 is "none" and is free in
+   every row; everything after it has to cost something. */
+{
+  const rows = window.__m.budRows();
+  for (const r of rows) {
+    check(`every ${r.name.toLowerCase()} has a price`,
+      r.costs === r.parts && r.zeros.length === 0,
+      `${r.parts} parts, ${r.costs} prices, unpriced: ${r.zeros.join(', ') || 'none'}`);
+  }
+}
+
+/* A coat whose colour is half of what it is does not get a colour dial: a lab
+   coat in magenta and denim in lime are not that coat any more. The wardrobe
+   reads `dye` off the part, so this is the whole of the rule. */
+{
+  const dyed = window.__m.budDyed();
+  const fixed = ['Denim jacket', 'Lab coat', 'Blazer', 'Dungarees', 'Hi-vis vest'];
+  check('the coats that are a uniform take no colour',
+    fixed.every((n) => dyed.indexOf(n) < 0), dyed.join(', '));
+  check('and the ones that are just a shape still do',
+    ['Cape', 'Puffer', 'Cardigan', 'Poncho'].every((n) => dyed.indexOf(n) >= 0),
+    dyed.join(', '));
+}
+
+/* ---- a puzzle put down, and picked up again -------------------------------
+
+   Two rules that both look like nothing and both went wrong once. A red cross
+   belongs to one square: clearing the whole of `wrong` on any keypress wiped
+   every other mark the moment you touched anything. And the shelf opens on
+   today: waiting for a board to be *finished* before moving on meant one
+   abandoned in April was still the front door in September. */
+{
+  const S = window.__m.Sudoku, now = window.__m.pktNow();
+  S.grid = new Array(81).fill(0);
+  S.sol = new Array(81).fill(0).map((v, i) => (i % 9) + 1);
+  S.given = new Array(81).fill(false);
+  S.notes = new Array(81).fill(0).map(() => []);
+  S.shown = []; S.done = false; S.day = now; S.diff = 'medium';
+  S.build();                       // render() needs the cells it makes
+  S.wrong = [0, 1, 2];
+  S.sel = 1; S.input(9);
+  check('answering a square clears its own red cross',
+    S.wrong && S.wrong.join(',') === '0,2', JSON.stringify(S.wrong));
+  S.sel = 0; S.erase();
+  check('and erasing one clears that square\u2019s',
+    S.wrong && S.wrong.join(',') === '2', JSON.stringify(S.wrong));
+  S.sel = 2; S.reveal();
+  check('Reveal fills the square in from the solution',
+    S.grid[2] === S.sol[2], S.grid[2] + ' vs ' + S.sol[2]);
+  check('marks it as given rather than typed',
+    S.shown.indexOf(2) >= 0 && S.wrong === null, JSON.stringify([S.shown, S.wrong]));
+  const before = S.grid[2];
+  S.sel = 2; S.input(4); S.erase();
+  check('and a revealed square cannot be typed over',
+    S.grid[2] === before, S.grid[2] + ' vs ' + before);
+}
+{
+  /* An old day left open, nobody having chosen it: coming back is today. The
+     grid has to be a real one — the shelf refuses anything that is not a
+     puzzle now, and a hand-made board of eighty-one blanks is not one. */
+  const S = window.__m.Sudoku, now = window.__m.pktNow();
+  S.boards = {}; S._chose = true;
+  S.newGame('medium', true, '2026-01-02');
+  S.done = false; S._chose = false;
+  S.enter();
+  check('the shelf opens on today, not on an abandoned grid',
+    S.day === now, S.day + ' vs ' + now);
+  check('and the abandoned one is kept, not thrown away',
+    !!S.boards['2026-01-02|' + S.diff], Object.keys(S.boards).join(', '));
+  S.day = '2026-01-02'; S._chose = true;
+  S.enter();
+  check('but a day chosen by hand stays put for the run',
+    S.day === '2026-01-02', S.day);
+}
+
+/* ---- the tide tiles exactly ----------------------------------------------
+
+   Each wave layer is one tiled SVG travelling exactly one tile per cycle, so
+   the last frame of the animation is the first and the field never jumps. The
+   distance lives in a `@keyframes` and the tile height lives in a
+   `background-size`, several dozen lines apart, and nothing connects them: edit
+   one and the sea twitches once every cycle, which is easy to see and very hard
+   to attribute. Three layers, and a middle one that has gone missing before. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const tileOf = (cls) => {
+    const m = css.match(new RegExp('\\.beach-wave-' + cls + '\\{[^}]*background-size:[^;]*?\\s([\\d.]+)px'));
+    return m ? Number(m[1]) : null;
+  };
+  const travelOf = (cls) => {
+    const m = css.match(new RegExp('@keyframes beach-tide-' + cls + '\\{[^}]*translateY\\(-([\\d.]+)px\\)'));
+    return m ? Number(m[1]) : null;
+  };
+  for (const cls of ['near', 'mid', 'far']) {
+    const tile = tileOf(cls), travel = travelOf(cls);
+    check(`the ${cls} wave travels exactly one tile`,
+      tile !== null && tile === travel, `tile ${tile}, travel ${travel}`);
+  }
+  check('and all three layers are actually in the page',
+    ['far', 'mid', 'near'].every((c) => !!window.document.querySelector('.beach-wave-' + c)),
+    [...window.document.querySelectorAll('.beach-wave')].map((n) => n.className).join(' | '));
+}
 
 /* ---- the swing, as three invariants --------------------------------------
 
@@ -1626,9 +1991,9 @@ check('and the way in sits above the transport, not under the note',
       && kids.indexOf($('arcade-open')) < kids.indexOf($('rest-extra'));
   })());
 const pcards = [...window.document.querySelectorAll('.pcard')];
-check('arcade has eight games', pcards.length === 8, `${pcards.length} cards`);
+check('arcade has nine games', pcards.length === 9, `${pcards.length} cards`);
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g]), Object.keys(byGame).join(','));
 check('memory is disconnected', !byGame.memory);
 
 /* ---- the setup screen ----
@@ -1678,7 +2043,7 @@ check('every shared game is marked as needing a room',
   ['hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g].classList.contains('needs-room') && byGame[g].querySelector('.tag')));
 check('chess says it takes two', byGame.chess.querySelector('.tag').textContent === '2',
   byGame.chess.querySelector('.tag').textContent);
-check('and no solo game is', ['sudoku', 'wordle', 'g2048', 'crossword'].every((g) => !byGame[g].classList.contains('needs-room')));
+check('and no solo game is', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword'].every((g) => !byGame[g].classList.contains('needs-room')));
 
 /* **Said once, not three times in the same corner.** The group heading above
    these four says "needs a room", the card's own chip says how many people, and
@@ -1727,6 +2092,263 @@ for (const ch of 'crane') window.document.dispatchEvent(new window.KeyboardEvent
 window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
 await wait(150);
 check('wordle registered the typed guess', /^[1-6]\/6$|Solved|Missed/.test($('wdl-meta').textContent.trim()), $('wdl-meta').textContent);
+
+/* ---- tetris ----
+
+   Two things separate this from something merely shaped like Tetris, and both
+   are invisible in a screenshot:
+
+     * **the seven-bag.** Pieces are not random. Each bag holds one of every
+       shape, shuffled, and is emptied before the next is made — so an I can
+       never be twenty pieces away and planning is a skill rather than a hope.
+     * **the kicks.** A rotation that would overlap something is nudged and
+       retried in the standard order, which is what lets a piece turn in a
+       notch. Without a kick table it simply refuses, and the game feels stiff
+       in a way nobody can quite name.
+
+   Both are checked here because both would go quietly wrong. */
+byGame.tetris.click();
+await wait(300);
+{
+  const T = window.__m.Tetris;
+  check('tetris board built', $('tet-grid').children.length === 200,
+    `${$('tet-grid').children.length} cells`);
+  T.newGame();
+  await wait(80);
+  check('and it starts with a piece on it and more coming',
+    !!T.piece && T.queue.length >= 3, `${T.piece && T.piece.k} / ${T.queue.length}`);
+  /* **Visible from the first frame.** It used to spawn in the two hidden rows,
+     so for the first two drops the only thing on screen was a ghost with
+     nothing casting it. */
+  const drawn = () => [...$('tet-grid').children].filter((c) => /\bon\b/.test(c.className)).length;
+  check('the piece can be seen as soon as it appears', drawn() === 4, `${drawn()} squares`);
+
+  /* The bag is ten: one of every shape, plus three of them again, shuffled.
+     The seven are the guarantee — every shape turns up in every bag, so no
+     drought can run long — and the three spares are what stop the tail of a
+     bag being deducible, which a plain seven-bag gives away entirely. */
+  const seen = [];
+  for (let i = 0; i < 60; i++) { seen.push(T.piece.k); T._spawn(); }
+  const whole = (a) => new Set(a).size === 7;
+  check('every shape turns up in every bag of ten',
+    [0, 10, 20, 30, 40, 50].every((i) => whole(seen.slice(i, i + 10))),
+    seen.join(''));
+  /* **What that buys is a bounded drought.** Every shape appears in every bag
+     of ten, so the furthest two sightings can be is first-of-one-bag to
+     last-of-the-next: nineteen apart, eighteen other pieces in between. That
+     is the promise a player actually feels; the bag is only how it is kept. */
+  const gaps = {};
+  let worst = 0;
+  seen.forEach((k, i) => {
+    if (gaps[k] !== undefined) worst = Math.max(worst, i - gaps[k]);
+    gaps[k] = i;
+  });
+  check('so no shape is ever more than eighteen pieces away', worst <= 19, `${worst}`);
+  /* And it is not a fixed cycle: three of the ten are drawn again, so the same
+     bag position is not the same shape every time. */
+  const firsts = [0, 10, 20, 30, 40, 50].map((i) => seen[i]);
+  check('and the bags are not all the same bag', new Set(firsts).size > 1,
+    firsts.join(''));
+
+  /* The kick. One square placed exactly where the turned T wants to go, so
+     turning on the spot fails and the table's next offer — one to the left —
+     is what succeeds. */
+  T.newGame();
+  T.grid[12 * 10 + 5] = 'L';
+  T.piece = { k: 'T', r: 0, x: 4, y: 10 };
+  check('a piece can be turned where there is room', T._fits(T.piece));
+  check('and turning on the spot into something solid is refused',
+    !T._fits({ k: 'T', r: 1, x: 4, y: 10 }));
+  const turned = T.rotate(1);
+  check('so it steps aside and turns anyway',
+    turned && T.piece.r === 1 && T.piece.x === 3 && T._fits(T.piece),
+    JSON.stringify(T.piece));
+
+  /* A full row goes, the rows above come down, and it is worth something. */
+  T.newGame();
+  for (let x = 0; x < 9; x++) T.grid[21 * 10 + x] = 'J';
+  T.grid[20 * 10 + 3] = 'S';                       // a square that must fall a row
+  T.piece = { k: 'I', r: 1, x: 7, y: 2 };
+  const score0 = T.score;
+  T.hardDrop();
+  await wait(60);
+  check('a full row is taken away', T.lines === 1, `${T.lines} lines`);
+  check('and what was above it comes down one', T.grid[21 * 10 + 3] === 'S',
+    `${T.grid[21 * 10 + 3]} / ${T.grid[20 * 10 + 3]}`);
+  check('and it is worth points', T.score > score0, `${score0} -> ${T.score}`);
+
+  /* **A new piece hangs before gravity takes it.**
+
+     By level eight a row takes 130ms and by twelve it is 80 — less time than it
+     takes to decide where a piece goes, let alone move it there. Without this
+     the game stops being about placing pieces at all. The beat is fixed rather
+     than scaled by level, because the whole point is that there is always
+     enough time to *start* the move. */
+  {
+    T.newGame();
+    await wait(60);
+    /* A named piece, not whatever the bag deals: the O does not turn at all
+       (quite correctly), so a random draw makes the rotation check a coin
+       toss rather than a check. */
+    T._spawn('T');
+    const y0 = T.piece.y;
+    T.score = 200000;                              // top speed: a row every 50ms
+    T.last = Date.now() - 150;                     // 150ms of it, spent hanging
+    T._step();
+    check('a new piece does not fall while it hangs', T.piece.y === y0,
+      `${y0} -> ${T.piece.y}`);
+    /* And the hang is *for* moving, not a wait to sit through. */
+    const x0 = T.piece.x;
+    check('but it can still be moved during it', T._move(-1, 0) && T.piece.x === x0 - 1,
+      `${x0} -> ${T.piece.x}`);
+    check('and turned', T.rotate(1) && T.piece.r === 1, `${T.piece.r}`);
+    T.last = Date.now() - 400;                     // past the beat now
+    T._step();
+    check('and once the beat is over it falls again', T.piece.y > y0,
+      `${y0} -> ${T.piece.y}`);
+    /* A hard drop is a decision already made, so it cuts straight through. */
+    T.newGame();
+    await wait(60);
+    T.hardDrop();
+    check('a hard drop goes through the hang rather than waiting it out',
+      !!T.piece && T.lines === 0 && T.grid.some((c) => c), 'nothing landed');
+    T.score = 0;
+  }
+
+  /* **The speed follows the score, not the line count.** Forty singles used to
+     take you to the same speed as ten tetrises for a quarter of the points,
+     which made the two ways of playing feel identical. Level n starts at
+     400·n·(n+1). */
+  {
+    const at = (v) => { T.score = v; return T.level(); };
+    check('a fresh board is level one', at(0) === 1 && at(799) === 1, `${at(0)}/${at(799)}`);
+    check('one tetris is worth a level', at(800) === 2, `${at(800)}`);
+    check('and the rungs stretch out after that',
+      at(2400) === 3 && at(4800) === 4 && at(8000) === 5,
+      `${at(2400)}/${at(4800)}/${at(8000)}`);
+    check('and it stops where the drop table does', at(1e9) === 17, `${at(1e9)}`);
+    T.score = 0;
+  }
+
+  /* **Which rows were full is not the same as where they were removed.**
+     Taking a row out drops everything above it, so a single pass that splices
+     as it goes reports the same index once per row cleared — four rows came
+     back as [21,21,21,21], and the tetris flashed as one row. This is that
+     bug, pinned. */
+  {
+    T.newGame();
+    for (const y of [18, 19, 20, 21]) for (let x = 0; x < 10; x++) T.grid[y * 10 + x] = 'J';
+    const n = T._clear();
+    check('four full rows are four rows', n === 4, `${n}`);
+    check('and each is named once, at where it actually was',
+      JSON.stringify(T.went) === '[18,19,20,21]', JSON.stringify(T.went));
+    check('and the board is empty afterwards',
+      T.grid.every((c) => !c), T.grid.filter((c) => c).length + ' left');
+
+    /* Rows with a gap between them clear too, and keep their own places. */
+    T.newGame();
+    for (const y of [17, 21]) for (let x = 0; x < 10; x++) T.grid[y * 10 + x] = 'L';
+    T.grid[19 * 10 + 4] = 'S';                    // a lone square between them
+    T._clear();
+    check('rows that are not touching each other keep their own places',
+      JSON.stringify(T.went) === '[17,21]', JSON.stringify(T.went));
+    check('and what was between them survives, one row lower',
+      T.grid[20 * 10 + 4] === 'S', `${T.grid[20 * 10 + 4]}`);
+  }
+
+  /* **Nowhere to put the next piece is how it ends** — not a height rule. */
+  T.newGame();
+  for (let i = 0; i < T.grid.length; i++) T.grid[i] = 'L';
+  T._spawn();
+  await wait(60);
+  check('a stack with no room left ends the game', T.done === true && !T.piece,
+    `${T.done} / ${!!T.piece}`);
+  check('and it says so', !$('tet-banner').classList.contains('hide'),
+    $('tet-banner').className);
+
+  /* **Pausing stops it; resuming counts you in first.**
+
+     Unpausing used to drop you straight into a piece you had stopped thinking
+     about, which at level ten is a piece already halfway down. So a resume gets
+     three seconds and a pause gets none: one is a decision you just made, the
+     other is a thing about to happen to you. Nothing moves during the count,
+     or the grace would be a free go at rearranging the board. */
+  T.newGame();
+  T.pause(true);
+  check('pausing stops the clock', T.tick === null && T.paused === true,
+    `${T.tick} / ${T.paused}`);
+  T.pause(false);
+  check('resuming does not start it straight away',
+    T.tick === null && T.count === 3, `${T.tick} / ${T.count}`);
+  check('it counts you in, on the board', !!$('tet-count')
+    && /3/.test($('tet-count').textContent), $('tet-count') ? $('tet-count').textContent : 'no count');
+  const frozen = T.piece && { x: T.piece.x, r: T.piece.r };
+  T._move(-1, 0); T.rotate(1); T.hardDrop();
+  check('and nothing moves while the numbers are up',
+    !!T.piece && T.piece.x === frozen.x && T.piece.r === frozen.r,
+    JSON.stringify(T.piece));
+  await wait(3300);
+  check('then it starts', T.tick !== null && T.count === 0 && !$('tet-count'),
+    `${T.tick} / ${T.count}`);
+
+  /* A focus block starting takes the board away, because the arcade is for
+     breaks and a piece falling behind a block is a stack you did not build. */
+  T.pause(false);
+  window.__m.startTimer();
+  await wait(60);
+  check('starting a focus block pauses the game', T.paused === true && T.tick === null,
+    `${T.paused} / ${T.tick}`);
+  window.__m.pauseTimer();
+  await wait(40);
+
+  /* **Opening the board does not un-pause it.** `enter()` used to set
+     `paused = false`, which threw away every reason the game had been stopped:
+     a focus block paused it, and reopening the arcade mid-block — to look
+     something up — had it running behind the timer again. The rule is the
+     timer's: stopped during a block, counted back in at any other time. */
+  window.__m.startTimer();
+  await wait(60);
+  T.leave();
+  await T.enter();
+  await wait(80);
+  check('reopening it during a focus block leaves it stopped',
+    T.paused === true && T.tick === null, `${T.paused} / ${T.tick}`);
+  /* **And a paused board is put away.** Half the game is working out where the
+     next piece goes; a stopped board is that puzzle with the clock off. */
+  check('and the board is put away rather than left up',
+    $('tet-grid').classList.contains('away'), $('tet-grid').className);
+
+  window.__m.pauseTimer();
+  await wait(60);
+
+  /* **Going back to the shelf puts it down.** Leaving only stopped the clock,
+     so the board came back exactly as it was with no sign that time had passed
+     — and returning to a piece mid-fall you last saw ten minutes ago is the
+     same surprise as never having paused. */
+  T.pause(false);
+  await wait(3300);
+  check('a running board really is running', T.tick !== null && !T.paused,
+    `${T.tick} / ${T.paused}`);
+  T.leave();
+  check('and going back to the shelf pauses it', T.paused === true && T.tick === null,
+    `${T.paused} / ${T.tick}`);
+
+  await T.enter();
+  await wait(80);
+  check('but out of a block it counts you back in on its own',
+    T.count === 3 && T.paused === false, `${T.count} / ${T.paused}`);
+  check('and the board comes back for the count-in',
+    !$('tet-grid').classList.contains('away'), $('tet-grid').className);
+  await wait(3300);
+  check('and then simply runs', T.tick !== null && T.count === 0,
+    `${T.tick} / ${T.count}`);
+
+  T.pause(true);
+  T.pause(false);
+  T.leave();
+  check('and leaving the arcade stops the count-in too',
+    T.tick === null && T.count === 0 && !$('tet-count'), `${T.tick} / ${T.count}`);
+}
 
 // 2048
 byGame.g2048.click();
@@ -2412,6 +3034,62 @@ click('q-back');
 click('d-history'); await wait(80);
 check('calendar opens', !$('cal-overlay').classList.contains('hide'));
 check('calendar grid built', $('cal-grid').children.length > 0);
+
+/* ---- how the day went ----------------------------------------------------
+
+   One emoji a day. A number out of five is a judgement and invites you to argue
+   with it; a face is a shrug you can give on the way past, and the point is
+   that in three months the calendar shows a shape rather than that anything is
+   measured. */
+{
+  const today = window.__m.today();
+  const row = $('cal-detail').querySelector('.mood-row');
+  check('the day panel offers a face for the day', !!row,
+    $('cal-detail').textContent.slice(0, 80));
+  const faces = [...row.querySelectorAll('[data-mood]')];
+  check('with a few to choose from, not a scale', faces.length === 6,
+    `${faces.length}`);
+  const picked = faces[1].dataset.mood;
+  faces[1].click();
+  await wait(80);
+  check('picking one records it against that day',
+    window.__m.moodOf(today) === picked,
+    `${window.__m.moodOf(today)}`);
+
+  /* **Bottom right, and alone.** Everything else a day carries is a small mark
+     to be counted; this is the one thing on the square you read. */
+  const cell = [...$('cal-grid').querySelectorAll('.cal-cell')]
+    .find((c) => c.classList.contains('today'));
+  check('and the day wears it on the calendar',
+    !!cell && !!cell.querySelector('.mood')
+    && cell.querySelector('.mood').textContent === picked,
+    cell ? cell.innerHTML.slice(0, 120) : 'no today');
+
+  /* Choosing the one already there clears it: there is no other way back to an
+     empty square, and being stuck with yesterday's face is worse than none. */
+  /* Re-queried, because picking one re-renders the panel and the nodes above
+     are no longer in the document. An attribute selector would do it, except
+     the value is an emoji and that is a needless fight with the parser. */
+  const again = [...$('cal-detail').querySelectorAll('[data-mood]')]
+    .find((b) => b.dataset.mood === picked);
+  check('the row comes back with the chosen one marked',
+    !!again && again.classList.contains('on'), again ? again.className : 'not found');
+  again.click();
+  await wait(80);
+  check('choosing it again takes it off', window.__m.moodOf(today) === '',
+    JSON.stringify(window.__m.moodOf(today)));
+
+  /* A mood is a report, not a plan, so a day that has not happened is not
+     asked about. */
+  window.__m.Cal.sel = '2099-01-01';
+  window.__m.Cal.render();
+  await wait(60);
+  check('a day in the future is not asked about',
+    !$('cal-detail').querySelector('.mood-row'), $('cal-detail').textContent.slice(0, 60));
+  window.__m.Cal.sel = today;
+  window.__m.Cal.render();
+  await wait(60);
+}
 click('cal-close');
 
 click('d-stats'); await wait(80);
@@ -3055,7 +3733,7 @@ if (nextDay) {
   const dailyHtml = withDoor(html, `window.__d = {pktNow, pktDay, pktNum, pktAt, pktDow,
     pktLabel, pktUntilRoll, dailyGen, dailyState, sMake, WORDS, crossReleases,
     crossReleaseDay, crossOnDay, DAILY_EPOCH, Sudoku, DCal, Wordle, dailyStreak,
-    dailyMark, dailyAdopt, dailyGet, DAILY_DONE};`);
+    dailyMark, dailyAdopt, dailyGet, dailyDayCount, DAILY_DONE};`);
   const { window: dw, errors: dErr } = boot(dailyHtml, { focus_daily: JSON.stringify({}) });
   await wait(500);
   const $d = (id) => dw.document.getElementById(id);
@@ -3210,6 +3888,44 @@ if (nextDay) {
   $d('dcal-close').click();
   await wait(60);
 
+  /* --- a streak day is the whole day -------------------------------------
+
+     Easy and medium are done at this point and hard is not, which is exactly
+     the case the rule exists for: two puzzles solved is not a day cleared.
+     It used to be the best of three separate streaks, so a long run of easies
+     read as a long run of sudoku and the number meant nothing. */
+  {
+    const streak = () => probe((d) => d.dailyStreak('sudoku', ['easy', 'medium', 'hard']));
+    check('two of the three difficulties is not a streak day', streak() === 0, `${streak()}`);
+    probe((d) => { d.Sudoku.newGame('hard', true); d.Sudoku.grid = d.Sudoku.sol.slice(); d.Sudoku.checkDone(); });
+    await wait(150);
+    check('and finishing the third makes it one', streak() === 1, `${streak()}`);
+    /* And it says so on the board, which is the only place you see it while
+       actually playing. Hidden at zero, so it is never a scoreboard for not
+       having played. */
+    probe((d) => d.Sudoku.render());
+    await wait(80);
+    const chip = $d('sdk-streak');
+    check('the board wears the streak', !chip.classList.contains('hide')
+      && /\u{1F525}\s*1/u.test(chip.textContent), chip.textContent + ' / ' + chip.className);
+    /* **The schedule decides what "every" means.** The crossword publishes two
+       sizes on a Tuesday and three on a Wednesday, so a day nothing came out on
+       is skipped rather than counted as a miss, and a Wednesday needs the 9x9
+       as well. This is the part a single-difficulty game cannot exercise. */
+    const cw = probe((d) => {
+      const on = (day, k) => d.crossReleases(+k, day);
+      const wed = '2026-08-19', tue = '2026-08-18';
+      return {
+        wedNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, wed)[1],
+        tueNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, tue)[1],
+        sunNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, '2026-08-23')[1],
+      };
+    });
+    check('a Tuesday asks for two crosswords, a Wednesday three',
+      cw.tueNeeds === 2 && cw.wedNeeds === 3, JSON.stringify(cw));
+    check('and a Sunday three, the fifteen among them', cw.sunNeeds === 3, `${cw.sunNeeds}`);
+  }
+
   /* --- the word grid, and the streak ------------------------------------
 
      Two things that only exist once a word has actually been guessed.
@@ -3239,19 +3955,23 @@ if (nextDay) {
     check('the word is guessed', probe((d) => d.Wordle.won === true && d.Wordle.done === true),
       probe((d) => `${d.Wordle.won}/${d.Wordle.done}`));
 
-    /* One row of five per guess, and the last row all hits, because the last
-       guess was the answer. */
+    /* One row of five per guess, six rows in all — the tries that were not
+       needed are drawn empty and marked `spare`, so a word found in one does
+       not read as a worse day than one found in six. The last *played* row is
+       all hits, because the last guess was the answer. */
     probe((d) => d.DCal.open('wordle'));
     await wait(150);
     const row = [...$d('dcal-day').querySelectorAll('.dcal-row')][0];
     const art = $d('dcal-day').querySelector('.wdl-art');
+    const played = art ? [...art.querySelectorAll('.wdl-art-row:not(.spare)')] : [];
     check('and the calendar draws the grid it made',
-      !!art && art.querySelectorAll('.wdl-art-row').length === 3,
-      art ? `${art.querySelectorAll('.wdl-art-row').length} rows` : 'no grid');
+      !!art && played.length === 3
+      && art.querySelectorAll('.wdl-art-row').length === 6,
+      art ? `${played.length} played of ${art.querySelectorAll('.wdl-art-row').length}` : 'no grid');
     check('five squares to a row', !!art
       && [...art.querySelectorAll('.wdl-art-row')].every((r) => r.children.length === 5),
       art ? [...art.querySelectorAll('.wdl-art-row')].map((r) => r.children.length).join(',') : '-');
-    const last = art && art.lastElementChild;
+    const last = played[played.length - 1];
     check('and the row that got it is all green',
       !!last && [...last.children].every((i) => i.className === 'hit'),
       last ? [...last.children].map((i) => i.className || '·').join(' ') : '-');
@@ -3322,8 +4042,9 @@ if (nextDay) {
     await wait(150);
     const still = $d('dcal-day').querySelector('.wdl-art');
     check('and the grid on the calendar is still the one it drew',
-      !!still && still.querySelectorAll('.wdl-art-row').length === 3,
-      still ? `${still.querySelectorAll('.wdl-art-row').length} rows` : 'no grid');
+      !!still && still.querySelectorAll('.wdl-art-row:not(.spare)').length === 3
+      && still.querySelectorAll('.wdl-art-row').length === 6,
+      still ? `${still.querySelectorAll('.wdl-art-row:not(.spare)').length} played` : 'no grid');
     /* **The grid stands where the edition's name would be**, rather than
        under the row as a loose graphic. */
     check('which sits inside the row, in place of its name',
@@ -3588,9 +4309,33 @@ const ROOM_EMBERS = JSON.stringify({
   have: 400, earned: 400, own: ['seaglass', 'bud-an1', 'bud-an4', 'bud-an7'], light: 'seaglass',
 });
 const roomHtml = withDoor(html, 'window.__r = {Account, SYNC, Chat, friendTake, friendCard,'
-  + ' syncNormalise, syncCodeFor, syncAdoptAccount, friendFind, syncRender};');
+  + ' syncNormalise, syncCodeFor, syncAdoptAccount, friendFind, syncRender, syncLeave,'
+  + ' Arcade, syncInGame, Buddy,'
+  + ' friendRemove};');
 const { window: host, errors: hostErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 const { window: guest, errors: guestErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
+
+/* **Rooms in these blocks are between people who already know each other.**
+
+   A room code gets passed around, so somebody the host does not know is held at
+   the door rather than simply appearing in the room — see `syncNeedsLetIn`. A
+   friend is not held: being on the list is the introduction. Every block below
+   is about what happens *in* a room, so the people in it are made mutual
+   friends first; the door has its own block, where nobody is. */
+const beFriends = (...wins) => {
+  for (const a of wins) {
+    for (const b of wins) {
+      if (a === b) continue;
+      const code = b.document.getElementById('sync-mycode').textContent;
+      if (!code || code.length < 4) continue;
+      if(!a.__r || !a.__r.SYNC) continue;
+      const list = a.__r.SYNC.friends;
+      if (!list.some((f) => f.code === code)) {
+        list.push({ code, u: 'them', name: 'Them', ok: 1, at: Date.now() });
+      }
+    }
+  }
+};
 
 /* Both windows get a fixed random sequence from here on. A shared game deals
    from a shuffled bag, and the Scrabble block below has to find a real word in
@@ -3624,17 +4369,67 @@ const hostCode = $h('sync-mycode').textContent;
 check('hosting starts', $h('sync-state').textContent.includes('Hosting'), $h('sync-state').textContent);
 check('leave button appears while connected', !$h('sync-leave').classList.contains('hide'));
 
-// guest joins by code
 $g('sync-name').value = 'Friend';
 $g('sync-name').dispatchEvent(new guest.Event('input'));
 $g('d-sync').click();
+beFriends(host, guest);
+
+// guest joins by code
 $g('sync-code').value = hostCode;
 $g('sync-join').click();
-await wait(250);
+await until(() => /Hashir/.test($g('sync-state').textContent));
 // The joiner is told whose room it is, not just its code — a code is not a person.
 check('guest connects to the host', $g('sync-state').textContent.includes(hostCode), $g('sync-state').textContent);
 check('and is told whose room it is', /Hashir/.test($g('sync-state').textContent), $g('sync-state').textContent);
 check('host sees the guest by name', $h('sync-people').textContent.includes('Friend'), $h('sync-people').textContent.slice(0, 60));
+
+/* **Who is playing what belongs on the game, not on the person.**
+
+   This started as a glyph beside each name in the room list, which answers the
+   question backwards: you do not read down a list of people wondering what each
+   is doing, you look at the shelf wondering whether anybody is on something. So
+   it is on the picker card now — their faces, on the game — and the room list
+   went back to being a list of people. The wire is unchanged; only where it is
+   drawn moved. */
+{
+  /* The *host's* window. `window` is the first one booted and has a picker of
+     its own, which is not the one in this room. */
+  const faces = () => [...host.document.querySelectorAll('.pcard-who i')];
+  const cardOf = (id) => [...host.document.querySelectorAll('.pcard')]
+    .find((c) => c.dataset.game === id);
+  const picker = () => host.document.querySelector('.picker').innerHTML.slice(0, 140);
+
+  $h('sync-close').click();
+  await wait(60);
+  $h('arcade-open').click();
+  await wait(140);
+  check('nobody in a game puts nobody on the shelf', faces().length === 0, picker());
+
+  await openGame(guest, $g, 'hangman');
+  await wait(2400);                            // a heartbeat is 2s; see SYNC_BEAT
+  check('somebody in a game shows up on that game\u2019s card',
+    !!cardOf('hangman').querySelector('.pcard-who i'),
+    cardOf('hangman').innerHTML.slice(0, 200));
+  /* On *that* card and no other, or it says nothing at all. */
+  check('and on no other card', faces().length === 1, `${faces().length}`);
+  check('with their name on it', /Friend/.test(
+    (cardOf('hangman').querySelector('.pcard-who') || {}).title || ''),
+    (cardOf('hangman').querySelector('.pcard-who') || {}).title);
+  /* The room list is a list of people again. */
+  check('and nothing is added to the room list',
+    $h('sync-people').querySelectorAll('.sync-game').length === 0,
+    $h('sync-people').innerHTML.slice(0, 100));
+
+  $g('ov-back').click();
+  $g('ov-back').click();
+  await wait(2400);
+  check('and they leave the card when they leave the game',
+    faces().length === 0, picker());
+  $h('ov-back').click();
+  await wait(60);
+  $h('d-sync').click();
+  await wait(60);
+}
 
 /* The buddy travels with the `hello` that opens a connection, so by the time
    somebody is in the list they are also wearing their own face. Five indexes
@@ -3685,6 +4480,14 @@ check('follower cannot drive the leader', $h('toggle-run').textContent === hostB
    Keeping somebody you met in a room saves them under the username they sent
    with their `hello`, and the row is a way into their profile. See
    src/js/29a-friends.js. */
+/* `beFriends` above put the host on this list so that joining did not have to
+   go through the door. Take them off again: this is the check for *keeping*
+   somebody, and there is nothing to keep about a friend. */
+guest.__r.SYNC.friends = [];
+guest.__r.syncRender();
+await wait(40);
+check('somebody in the room you do not know can be kept',
+  !!$g('sync-people').querySelector('[data-keep]'), $g('sync-people').textContent.slice(0, 80));
 $g('sync-people').querySelector('[data-keep]').click();
 await wait(60);
 check('keeping somebody from the room saves them',
@@ -3721,8 +4524,14 @@ $h('confirm-no').click();
 await wait(150);
 check('cancelling leaves them in the room', $h('sync-people').querySelectorAll('.sync-person').length === 2);
 
-// Anyone in the room can be kept, because `hello` carries their own code —
-// the peer id most of them are using is a throwaway.
+/* Anyone in the room can be kept, because `hello` carries their own code —
+   the peer id most of them are using is a throwaway. `beFriends` put them on
+   this list so joining did not go through the door; take them off again, or
+   there is nothing here to keep. */
+const hostFriendsWere = host.__r.SYNC.friends.slice();
+host.__r.SYNC.friends = [];
+host.__r.syncRender();
+await wait(40);
 const keepBtn = $h('sync-people').querySelector('[data-keep]');
 check('anyone in the room can be saved as a friend', !!keepBtn, $h('sync-people').textContent);
 if (keepBtn) {
@@ -3733,6 +4542,104 @@ if (keepBtn) {
   await wait(120);
   check('saving from the room adds a friend', JSON.parse(host.localStorage.getItem('focus_sync')).friends.some((f) => f.code === theirCode));
   check('and they are marked as kept', /friend/.test($h('sync-people').textContent), $h('sync-people').textContent);
+}
+
+/* ---- the door ----------------------------------------------------------
+
+   A room code is six characters and it travels: read out, forwarded, put in a
+   message by somebody you gave it to. That is fine for a friend and it is the
+   whole problem for a stranger, who used to arrive and simply *be* there —
+   named in the roster, in the chat, watching the timer.
+
+   So somebody the host does not know is held: connected, because there is no
+   other way to ask, and nothing more. The friendship was just cleared above, so
+   the third window is a stranger to this host and this is the real path. */
+{
+  /* A window of its own: everybody else in this file has been introduced by
+     now, and the whole point of the door is somebody who has not been. */
+  const { window: outsider } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
+  await wait(320);
+  const $t2 = (id) => outsider.document.getElementById(id);
+  $t2('sync-name').value = 'Stranger';
+  $t2('sync-name').dispatchEvent(new outsider.Event('input'));
+  $t2('d-sync').click();
+  $t2('sync-code').value = hostCode;
+  $t2('sync-join').click();
+  await wait(500);
+
+  check('somebody the host does not know is held at the door',
+    $h('sync-door').querySelectorAll('.ft-wait').length === 1,
+    $h('sync-door').textContent.slice(0, 80));
+  check('and is named there', /Stranger/.test($h('sync-door').textContent),
+    $h('sync-door').textContent.slice(0, 80));
+  /* **Held means held.** Not in the roster, so nothing the room sends reaches
+     them: no state, no chat, no list of who is here. */
+  check('they are not in the room', !/Stranger/.test($h('sync-people').textContent),
+    $h('sync-people').textContent.slice(0, 90));
+  check('and they know it rather than sitting on "connecting"',
+    /waiting to be let in/i.test($t2('sync-state').textContent),
+    $t2('sync-state').textContent);
+
+  /* The room is told, in the room's own voice — nobody said it, so it is drawn
+     as a note rather than as something a person typed. */
+  check('the room chat says somebody is waiting',
+    /Stranger is waiting to be let in/.test($h('chat-log').textContent)
+    || host.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text)),
+    JSON.stringify(host.__r.Chat.log.slice(-2)));
+  check('and it reaches everybody already in the room, not just the host',
+    guest.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text)),
+    JSON.stringify(guest.__r.Chat.log.slice(-2)));
+
+  /* **Held means nothing reaches them.** Connected is the only way they could
+     have asked; it must not also mean they can watch. */
+  check('the room does not appear on their screen',
+    $t2('sync-people').querySelectorAll('.sync-person').length === 0,
+    $t2('sync-people').textContent.slice(0, 80));
+  host.__r.Chat.thread = 'room';
+  host.__r.Chat.send('said while somebody is at the door');
+  await wait(280);
+  check('and what is said in the room does not reach them',
+    !outsider.__r.Chat.log.some((l) => /at the door/.test(l.text)),
+    JSON.stringify(outsider.__r.Chat.log.map((l) => l.text)));
+  check('though it does reach everybody who is in it',
+    guest.__r.Chat.log.some((l) => /at the door/.test(l.text)),
+    JSON.stringify(guest.__r.Chat.log.slice(-1)));
+
+  /* Only whoever is running the room decides. */
+  check('the leader is offered the decision',
+    !!$h('sync-door').querySelector('[data-letin]'));
+  /* **A follower is told, and not asked.** They heard it in the chat above;
+     showing them a decision they cannot take would be a worse kind of nothing
+     than showing them none. */
+  check('and a follower is not offered a decision they cannot take',
+    !$g('sync-door').querySelector('[data-letin]')
+    && $g('sync-door').classList.contains('hide'),
+    $g('sync-door').className + ' ' + $g('sync-door').textContent.slice(0, 60));
+
+  $h('sync-door').querySelector('[data-letin]').click();
+  await wait(500);
+  check('letting them in puts them in the room',
+    /Stranger/.test($h('sync-people').textContent),
+    $h('sync-people').textContent.slice(0, 100));
+  check('the door is empty again', $h('sync-door').classList.contains('hide'),
+    $h('sync-door').className);
+  check('and they can see the room they are in',
+    $t2('sync-people').querySelectorAll('.sync-person').length >= 2,
+    `${$t2('sync-people').querySelectorAll('.sync-person').length}`);
+  check('and the room is told they were let in',
+    host.__r.Chat.log.some((l) => l.sys && /was let in/.test(l.text)),
+    JSON.stringify(host.__r.Chat.log.slice(-2)));
+
+  /* Put it back the way the blocks below expect it. The room log especially:
+     the notes this block generated, and the line sent past the door, would
+     otherwise turn up in the chat block as messages nobody sent. */
+  for (const w of [host, guest]) { w.__r.Chat.log = []; w.__r.Chat.unread = 0; w.__r.Chat.render(); }
+  host.__r.SYNC.friends = hostFriendsWere;
+  outsider.__r.syncLeave(true);
+  await wait(250);
+  outsider.close();
+  host.__r.syncRender();
+  await wait(60);
 }
 
 // Presence is a probe, not a subscription: reach for the code and see if
@@ -3751,7 +4658,10 @@ $h('chat-btn').click();
 await wait(80);
 check('the sheet opens', !$h('chat').classList.contains('hide'));
 check('it names who is here', /Friend/.test($h('chat-who').textContent), $h('chat-who').textContent);
-check('an empty room says so rather than showing nothing', /Nothing said yet/.test($h('chat-log').textContent));
+check('an empty room says so rather than showing nothing',
+  /Nothing said yet/.test($h('chat-log').textContent)
+  || host.__r.Chat.log.every((l) => l.sys),
+  $h('chat-log').textContent.slice(0, 80));
 
 $h('chat-input').value = 'shall we do another block';
 $h('chat-form').dispatchEvent(new host.Event('submit', { cancelable: true, bubbles: true }));
@@ -3822,6 +4732,71 @@ check('nothing is relayed back to its sender twice',
   $h('chat-tabs').querySelector('[data-thread="room"]').click();
   await wait(40);
   check('the room thread is unaffected', !/just between us/.test($h('chat-log').textContent));
+
+  /* **A name in the room is a way through to that person.**
+     The room tells you who said a thing; without an address on the line there
+     is no way to turn that into writing back to them. */
+  const named = [...$h('chat-log').querySelectorAll('[data-who]')];
+  check('a name in the room is a button', named.length > 0,
+    $h('chat-log').innerHTML.slice(0, 160));
+  check('and it carries their code, not their name',
+    named.every((b) => /^[2-9A-HJ-NP-Z]{6}$/.test(b.dataset.who)),
+    named.map((b) => b.dataset.who).join(','));
+  /* **The address is on the line, not worked out from the roster.** Matching a
+     name against who is currently in the room answers this too, right up until
+     they leave — which is exactly when you want to write to them. */
+  /* The room's own notes have no author, quite rightly — nobody wrote them. */
+  check('the line itself remembers who wrote it',
+    host.__r.Chat.log.filter((l) => !l.mine && !l.sys).every((l) => !!l.code),
+    JSON.stringify(host.__r.Chat.log.filter((l) => !l.mine && !l.sys).map((l) => l.code)));
+  check('so a name still opens a thread once they have left the room',
+    host.__r.Chat._codeOf({ code: 'ZZ9WQ7', name: 'somebody long gone' }) === 'ZZ9WQ7',
+    host.__r.Chat._codeOf({ code: 'ZZ9WQ7', name: 'somebody long gone' }));
+  check('and a name with no address behind it is left as plain text',
+    host.__r.Chat._codeOf({ name: 'somebody long gone' }) === '',
+    JSON.stringify(host.__r.Chat._codeOf({ name: 'somebody long gone' })));
+  named[0].click();
+  await wait(80);
+  check('tapping it opens their own thread',
+    $h('chat-tabs').querySelector('.chat-tab.on').dataset.thread === theirCode,
+    $h('chat-tabs').querySelector('.chat-tab.on').dataset.thread);
+  /* Your own lines are not buttons: there is nobody to open. */
+  check('but your own name is not one',
+    [...$h('chat-log').querySelectorAll('.chat-line.mine [data-who]')].length === 0);
+
+  /* **Whoever spoke last sits next to the room.** The order used to be whoever
+     happened to be about, then the friends list — an order with no relation to
+     who you are actually talking to. */
+  $h('chat-tabs').querySelector('[data-thread="room"]').click();
+  await wait(40);
+  /* **The stale thread is the one the old order put first.** Whoever is in the
+     room heads the base list, so making *them* the ancient one is what forces
+     the sort to do something: pass this and the tabs are genuinely ordered by
+     recency rather than happening to look it. */
+  host.__r.Chat.dm.ZZ9WQ7 = [{ id: 'x1', name: 'Newer', text: 'just now', at: 9e12 }];
+  host.__r.Chat.dm[theirCode] = [{ id: 'x2', name: 'Older', text: 'ages ago', at: 1000 }];
+  host.__r.Chat.render();
+  await wait(60);
+  const order = tabs($h);
+  check('the room is still first', order[0] === 'room', order.join(','));
+  check('and the newest correspondent is next to it', order[1] === 'ZZ9WQ7',
+    order.join(','));
+  check('with the one nobody has written in for ages below it',
+    order.indexOf(theirCode) > order.indexOf('ZZ9WQ7'), order.join(','));
+  // put the newer message back where the checks below expect to find it
+  host.__r.Chat.dm[theirCode] = [{ id: 'x2', name: 'Older', text: 'ages ago', at: 9e12 }];
+  /* An unread thread outranks a read one however old it is, because it is the
+     one waiting on you. */
+  host.__r.Chat.dm.ZZ9WQ7 = [{ id: 'x1', name: 'Older', text: 'ages ago', at: 1000 }];
+  host.__r.Chat.dmUnread.ZZ9WQ7 = 1;
+  host.__r.Chat.render();
+  await wait(60);
+  check('unless something is unread, which goes above everything',
+    tabs($h)[1] === 'ZZ9WQ7', tabs($h).join(','));
+  delete host.__r.Chat.dmUnread.ZZ9WQ7;
+  delete host.__r.Chat.dm.ZZ9WQ7;
+  host.__r.Chat.render();
+  await wait(40);
 }
 
 // it opens over whatever you were doing, rather than replacing it
@@ -4116,6 +5091,42 @@ await wait(100);
     $g('prof-body').textContent.slice(0, 60));
   $g('prof-close').click();
   await wait(60);
+
+  /* **A friendship is one thing, so removing it removes it for both.**
+
+     It used to be one-sided: you took somebody off your list and stayed on
+     theirs, still shown as a friend, still able to walk into your room without
+     knocking. That is not a friends list, it is two lists that happen to agree
+     most of the time. */
+  const hostSideCode = host.__r.SYNC.myCode;
+  check('both sides think they are friends to begin with',
+    !!host.__r.friendFind(guest.__r.SYNC.myCode)
+    && !!guest.__r.friendFind(hostSideCode),
+    `${!!host.__r.friendFind(guest.__r.SYNC.myCode)} / ${!!guest.__r.friendFind(hostSideCode)}`);
+  const guestSideCode = guest.__r.SYNC.myCode;
+  host.__r.friendRemove(guestSideCode);
+  await wait(200);
+  check('removing them takes them off your list',
+    !host.__r.friendFind(guestSideCode));
+  /* It goes the way every friend message goes: over the peer if they are
+     reachable, into the mailbox if not. Neither window is connected here, so
+     it is queued — delivered by hand, exactly as the request and the answer
+     above were. */
+  const bye = (host.__r.Chat.pending(guestSideCode) || [])
+    .find((m) => m.text.indexOf('\u0001fr:bye') === 0);
+  check('and sends them word of it', !!bye,
+    JSON.stringify((host.__r.Chat.pending(guestSideCode) || []).map((m) => m.text.slice(0, 12))));
+  guest.__r.friendTake({ text: bye.text, fromCode: hostSideCode });
+  await wait(150);
+  check('which takes you off their list too', !guest.__r.friendFind(hostSideCode),
+    JSON.stringify(guest.__r.SYNC.friends.map((f) => f.code)));
+  /* **And it does not bounce back.** The far side removes quietly; two apps
+     politely un-friending each other forever is not a conversation. */
+  check('without the far side sending one back',
+    !(guest.__r.Chat.pending(hostSideCode) || [])
+      .some((m) => m.text.indexOf('\u0001fr:bye') === 0),
+    JSON.stringify((guest.__r.Chat.pending(hostSideCode) || []).map((m) => m.text.slice(0, 12))));
+
   // put the two back the way the blocks below expect them
   for (const w of [host, guest]) { w.__r.Account.token = ''; w.__r.Account.username = ''; }
   for (const s0 of was) {
@@ -5114,14 +6125,15 @@ await fast($h, 'a6', 'a7'); await fast($g, 'g6', 'g5');
 sqOf($h, 'a7').click();
 await wait(60);
 sqOf($h, 'b8').click();
-await wait(120);
+await until(() => shown(host, 'ch-promo'));
 check('a promoting tap asks what to make it', shown(host, 'ch-promo'));
 check('and offers all four', $h('ch-promo-row').querySelectorAll('[data-p]').length === 4,
   `${$h('ch-promo-row').querySelectorAll('[data-p]').length}`);
 check('the pawn has not moved while you decide',
   !!sqOf($h, 'a7').querySelector('.ch-p'));
 $h('ch-promo-row').querySelector('[data-p="q"]').click();
-await wait(300);
+await until(() => /axb8=Q/.test($h('ch-moves').textContent)
+  && /axb8=Q/.test($g('ch-moves').textContent));
 check('choosing makes the move', /axb8=Q/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
 check('and there is a new queen on the board',
   sqOf($h, 'b8').querySelector('.ch-p').textContent === '♕',
@@ -5162,7 +6174,7 @@ await wait(80);
 
 // --- handing the timer over, and removing people ---------------------------
 // A third window, so a handover has somewhere to go and a witness to see it.
-const { window: third, errors: thirdErr } = boot(html, { focus_embers: ROOM_EMBERS });
+const { window: third, errors: thirdErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 await wait(300);
 const $t = (id) => third.document.getElementById(id);
 
@@ -5174,10 +6186,14 @@ for (const [w, $w, nm] of [[guest, $g, 'Friend'], [third, $t, 'Third']]) {
   $w('sync-name').value = nm;
   $w('sync-name').dispatchEvent(new w.Event('input'));
   $w('d-sync').click();
+}
+// all three know each other, so nobody waits at the door — see beFriends
+beFriends(host, guest, third);
+for (const [w, $w] of [[guest, $g], [third, $t]]) {
   $w('sync-code').value = roomCode;
   $w('sync-join').click();
 }
-await wait(400);
+await until(() => $h('sync-people').querySelectorAll('.sync-person').length === 3);
 check('three in the room', $h('sync-people').querySelectorAll('.sync-person').length === 3, `${$h('sync-people').querySelectorAll('.sync-person').length}`);
 check('host holds the timer to begin with', /You[\s\S]*holds the timer/.test($h('sync-people').innerHTML) || $h('sync-people').querySelector('.sync-person.lead')?.textContent.includes('you'), $h('sync-people').querySelector('.sync-person.lead')?.textContent);
 check('only the holder sees management buttons', $h('sync-people').querySelectorAll('[data-lead]').length === 2 && $g('sync-people').querySelectorAll('[data-lead]').length === 0, `host ${$h('sync-people').querySelectorAll('[data-lead]').length} / guest ${$g('sync-people').querySelectorAll('[data-lead]').length}`);
@@ -5206,8 +6222,10 @@ $h('sync-people').querySelectorAll('[data-lead]')[0].click();
 await wait(60);
 check('handing over asks first, even in a full room', !$h('confirm').classList.contains('hide'));
 $h('confirm-yes').click();
-await wait(1800);
+await until(() => /Hosting/.test($g('sync-state').textContent) && !!$g('sync-mycode').textContent);
 const guestCode = $g('sync-mycode').textContent;
+await until(() => $h('sync-state').textContent.includes(guestCode)
+  && $t('sync-state').textContent.includes(guestCode), 8000);
 check('guest now holds the timer', /You hold the timer/.test($g('sync-band').textContent) || $g('sync-people').querySelector('.sync-person.lead')?.textContent.includes('(you)'), $g('sync-people').querySelector('.sync-person.lead')?.textContent);
 /* The room follows the timer. It has to: a room is the host's peer, so leaving
    the two in different places meant the person who had handed the clock over
@@ -5510,6 +6528,47 @@ await wait(200);
     !!$6('upd-check') && e6.length === 0, e6.slice(0, 1).join(''));
 }
 
+/* ---- a session's work does not depend on a disk ---------------------------
+
+   Every layer caught and discarded storage errors, so a store that had stopped
+   accepting writes was indistinguishable from one that was working — until a
+   board came back empty an hour later. Three puzzle bugs were chased before
+   that was the answer, and none of them was a puzzle bug. Two rules now: a read
+   that storage cannot answer falls back to what this session wrote, and a write
+   that fails says so. */
+{
+  const A = window.__m.arcade;
+  A.writeGame('probe_game', { hello: 'world', n: 7 });
+  const stored = window.localStorage.getItem('probe_game');
+  check('a save reaches storage', !!stored && JSON.parse(stored).n === 7, String(stored));
+  window.localStorage.removeItem('probe_game');
+  const back = await A.readGame('probe_game');
+  check('and a read storage cannot answer falls back to this session',
+    !!back && back.n === 7, JSON.stringify(back));
+}
+{
+  /* A full store is a hiccup, not the end: `KV.pinch` throws out what can be
+     rebuilt from its day and the write is tried again. */
+  const KV = window.__m.kv;
+  const keep = window.localStorage.getItem('arcade_sudoku');
+  const d = { boards: {} };
+  for (let i = 1; i <= 20; i++) d.boards[`2026-01-${String(i).padStart(2, '0')}|easy`] = { grid: [] };
+  window.localStorage.setItem('arcade_sudoku', JSON.stringify(d));
+  const freed = KV.pinch();
+  const after = JSON.parse(window.localStorage.getItem('arcade_sudoku'));
+  check('a full store frees room from the oldest boards',
+    freed === true && Object.keys(after.boards).length === 12,
+    Object.keys(after.boards).length + ' left');
+  check('and the ones it keeps are the newest',
+    !after.boards['2026-01-01|easy'] && !!after.boards['2026-01-20|easy'],
+    Object.keys(after.boards).slice(0, 2).join(', '));
+  check('storage reports what is in it',
+    KV.report().total > 0 && Array.isArray(KV.report().rows));
+  /* Put the real save back: the checks after this one play sudoku. */
+  if (keep === null) window.localStorage.removeItem('arcade_sudoku');
+  else window.localStorage.setItem('arcade_sudoku', keep);
+}
+
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
 log('');
@@ -5521,7 +6580,8 @@ if (allErrors.length) {
 }
 
 const failed = checks.filter((c) => !c.ok);
-log(`\n${checks.length - failed.length}/${checks.length} checks passed`);
+log(`\n${checks.length - failed.length}/${checks.length} checks passed`
+  + (SLOW > 1.05 ? `  (pauses \u00d7${SLOW.toFixed(1)} for this machine)` : ''));
 
 /* Shut the windows before leaving, and leave on the next tick so libuv has an
    iteration to finish closing what they held. Exiting straight from here with

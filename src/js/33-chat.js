@@ -150,6 +150,14 @@
         if(b) Chat.openThread(b.dataset.thread);
       };
 
+      /* A name in the room is a way through to that person. Delegated, because
+         the log is rewritten on every render and rebinding each line would be
+         a handler per message for as long as the room lasts. */
+      $('chat-log').onclick = e=>{
+        const b = e.target.closest('[data-who]');
+        if(b && b.dataset.who) Chat.openThread(b.dataset.who);
+      };
+
       $('chat-pop').onclick = ()=>{
         const key = $('chat-pop').dataset.thread;
         this._popHide(true);
@@ -193,6 +201,15 @@
     _idFor(code){
       const p = this._people().find(x=>x.code === code);
       return p ? p.id : null;
+    },
+    /** The code behind a room line. Lines written since this existed carry one;
+        older ones are matched back by name against whoever is in the room,
+        which is the best that can be done and is right whenever they are still
+        here to be written to. */
+    _codeOf(m){
+      if(m.code) return m.code;
+      const here = this._people().find(p=>p.name === m.name);
+      return here ? here.code : '';
     },
 
     show(){
@@ -247,6 +264,29 @@
       }
 
       $('chat-input').value = '';
+      this.render();
+      this._toBottom();
+    },
+
+    /* **The room saying something, rather than a person.**
+
+       Somebody arriving at the door is news the whole room should have, and the
+       room already has a place where news goes. So it is a chat line, sent by
+       the host like any other, marked `sys` so it is drawn as a note rather
+       than as something a person said — nobody wrote it and it should not look
+       like they did. Host only: two devices both announcing the same arrival
+       would say it twice. */
+    note(text){
+      const t = String(text || '').trim().slice(0, 200);
+      if(!t || !syncActive()) return;
+      const msg = {
+        t:'say',
+        id:'n' + Date.now() + '_' + (Math.random()*1e4|0),
+        name:'', from:SYNC.selfId, fromCode:'', to:null,
+        sys:1, text:t, at:Date.now(),
+      };
+      this._add('room', msg, false);
+      syncBroadcast(msg);
       this.render();
       this._toBottom();
     },
@@ -327,6 +367,16 @@
         id:m.id, name:m.name || 'Someone', text:String(m.text).slice(0, 300),
         at:m.at || Date.now(), mine:!!mine,
       };
+      // the room's own voice — see `note`
+      if(m.sys) line.sys = 1;
+      /* **Who said it, not just what they are called.** A name in the room is
+         a label; a code is an address, and without one there is no way to turn
+         "Sam said something" into "write to Sam". Only on room lines, because a
+         direct thread already knows whose it is. */
+      if(key === 'room' && !mine && m.fromCode){
+        const c = syncNormalise(m.fromCode);
+        if(c) line.code = c;
+      }
       if(key === 'room'){
         this.log.push(line);
         if(this.log.length > CHAT_MAX) this.log.splice(0, this.log.length - CHAT_MAX);
@@ -398,6 +448,30 @@
       const codes = this._people().map(p=>p.code);
       for(const f of (SYNC.friends || [])) if(codes.indexOf(f.code) < 0) codes.push(f.code);
       for(const c of Object.keys(this.dm)) if(codes.indexOf(c) < 0) codes.push(c);
+      /* **Whoever spoke last sits next to the room.**
+
+         The order used to be whoever happened to be in the room, then the
+         friends list, then anybody else — which is to say, an order with no
+         relation to who you are actually talking to. A reply that arrived while
+         you were elsewhere could be four tabs along, behind people who have
+         never sent you anything.
+
+         An unread thread outranks a read one, then it is simply the most recent
+         message. Threads nobody has written in keep their old order underneath,
+         so the list does not reshuffle itself for no reason. */
+      const lastAt = (c)=>{
+        const l = this.dm[c];
+        return (l && l.length) ? (l[l.length - 1].at || 0) : 0;
+      };
+      const rank = {};
+      codes.forEach((c, i)=>{ rank[c] = i; });
+      codes.sort((a, b)=>{
+        const ua = (this.dmUnread[a] || 0) > 0, ub = (this.dmUnread[b] || 0) > 0;
+        if(ua !== ub) return ua ? -1 : 1;
+        const la = lastAt(a), lb = lastAt(b);
+        if(la !== lb) return lb - la;
+        return rank[a] - rank[b];
+      });
       $('chat-tabs').innerHTML =
         ['room'].concat(codes).map(k=>{
           const n = k === 'room' ? this.unread : (this.dmUnread[k] || 0);
@@ -440,8 +514,19 @@
           const time = new Date(m.at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
           // Only name a line when the speaker changes; a wall of repeated names
           // is harder to read than the messages themselves.
+          /* In the room, a name is a way through to that person. Elsewhere —
+             and for anybody we have no address for — it is just a label. */
+          /* The room's own notes have no speaker and no bubble: they are not
+             something anybody said. */
+          if(m.sys){
+            last = '';
+            return '<div class="chat-note">'+esc(m.text)+'</div>';
+          }
+          const who = this.thread === 'room' ? this._codeOf(m) : '';
           const head = (m.mine || m.name === last) ? ''
-            : '<span class="chat-name">'+esc(m.name)+'</span>';
+            : who
+              ? '<button class="chat-name link" data-who="'+esc(who)+'">'+esc(m.name)+'</button>'
+              : '<span class="chat-name">'+esc(m.name)+'</span>';
           last = m.name;
           return '<div class="chat-line'+(m.mine?' mine':'')+(m.waiting?' waiting':'')+'">'
             + head
@@ -472,6 +557,7 @@
   function chatDelivered(code, ids){ Chat.delivered(code, ids); }
   function chatReceiveMail(items){ return Chat.receiveMail(items); }
   function chatSendRaw(code, text){ return Chat.sendRaw(code, text); }
+  function chatNote(text){ try{ Chat.note(text); }catch(e){} }
   /** Open the sheet on one person's thread — what a profile's Message goes to. */
   function chatOpenWith(code){
     const c = syncNormalise(code);

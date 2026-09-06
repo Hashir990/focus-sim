@@ -11,7 +11,7 @@
  *   node server/accounts-test.mjs
  */
 import { readFileSync } from 'node:fs';
-import worker from './accounts.js';
+import worker, { codeForName } from './accounts.js';
 
 let pass = 0;
 const fails = [];
@@ -92,6 +92,12 @@ function fakeDB() {
       return { changes: 1 };
     }
 
+    /* Every username, for the code-to-name lookup. Returned in the `.all()`
+       shape D1 uses: `{results: [...]}`. */
+    if (s.startsWith('SELECT username FROM accounts')) {
+      return { results: [...accounts.values()].map((r) => ({ username: r.username })) };
+    }
+
     throw new Error('the stub has no answer for: ' + s);
   };
 
@@ -103,8 +109,14 @@ function fakeDB() {
           return {
             async first() { return run(sql, args).first; },
             async run() { return run(sql, args); },
+            async all() { return run(sql, args); },
           };
         },
+        /* D1 lets a statement with no placeholders skip `bind` entirely, and
+           the lookup does — so the stub has to as well, or it would pass a
+           query the real thing rejects and fail one the real thing runs. */
+        async all() { return run(sql, []); },
+        async first() { return run(sql, []).first; },
       };
     },
   };
@@ -443,6 +455,39 @@ console.log('\npasswords');
     return (DB._throttle.get('forgot:em:' + em) || {}).n >= 5;
   })());
   MAIL = null;
+}
+
+/* ---------- a code turned back into a name ----------
+
+   **The hash exists twice and must agree.** `codeForName` in accounts.js and
+   `syncCodeFor` in src/js/29-sync.js are the same function written out twice,
+   and a code is derived from a username, so a drift in either does not throw —
+   it quietly answers with somebody else's name, or with nobody. The client's
+   copy is read out of the source here rather than restated, so the check
+   compares the two that actually ship.
+
+   The alphabet was wrong the first time this endpoint was written, which is
+   exactly the failure this catches. */
+{
+  const src = readFileSync(new URL('../src/js/29-sync.js', import.meta.url), 'utf8');
+  const alpha = (src.match(/SYNC_ALPHABET\s*=\s*'([^']+)'/) || [])[1];
+  const body = (src.match(/function syncCodeFor\(name\)\{([\s\S]*?)\n  \}/) || [])[1];
+  ok('the client hash was found in the source', !!alpha && !!body, `${alpha} / ${!!body}`);
+  const clientCode = new Function('SYNC_ALPHABET', 'name', body + '\n');
+  const names = ['hashir', 'sam', 'noor', 'a', 'zz9', 'a-very-long-username'];
+  const same = names.every((n) => clientCode(alpha, n) === codeForName(n));
+  ok('the server derives the same code from a name as the app does', same,
+    names.map((n) => `${n}:${clientCode(alpha, n)}/${codeForName(n)}`).join(' '));
+
+  const r = await call('/account/who', { code: codeForName('whoami') });
+  ok('a code nobody owns resolves to nothing', r.body.ok === true && !r.body.name,
+    JSON.stringify(r.body));
+  await call('/account/new', { email: 'who@x.co', username: 'whoami', password: 'correct horse b' });
+  const r2 = await call('/account/who', { code: codeForName('whoami') });
+  ok('and a real one comes back as the username', r2.body.name === 'whoami', JSON.stringify(r2.body));
+  const r3 = await call('/account/who', { code: 'X' });
+  ok('a code too short to be one is refused quietly', r3.body.ok === true && !r3.body.name,
+    JSON.stringify(r3.body));
 }
 
 console.log('\n' + pass + '/' + (pass + fails.length) + ' account checks passed');

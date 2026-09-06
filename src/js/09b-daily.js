@@ -256,14 +256,47 @@
 
      `on(day)` is the game's own "does this come out today", so a size that
      publishes twice a week is judged on its own two days. */
-  function dailyStreak(game, diff, on){
-    const rec = DAILY[dailyId(game, diff)] || {};
+  /** **A day counts when the whole day is done.**
+
+      `diffs` is one edition key or a list of them. With a list, the day is only
+      a streak day when *every* edition published that day was finished on it —
+      all three sudokus, or whichever crosswords came out (two on a Tuesday,
+      three on a Wednesday, and the fifteen as well on a Sunday). Doing the easy
+      one and walking away is a puzzle solved; it is not a day cleared.
+
+      Returns `{runs, done}`: `runs` false means the game published nothing that
+      day, which is not a miss and is skipped rather than counted. */
+  function dailyDay(game, diffs, on, day){
+    const list = Array.isArray(diffs) ? diffs : [diffs];
+    let runs = false, done = true;
+    for(const k of list){
+      if(on && !on(day, k)) continue;
+      runs = true;
+      const rec = DAILY[dailyId(game, k)] || {};
+      const r = dailyRec(rec[day]);
+      if(!(r && r.d)) done = false;
+    }
+    return {runs, done: runs && done};
+  }
+  /** How many of the editions published that day are finished, `[done, of]`. */
+  function dailyDayCount(game, diffs, on, day){
+    const list = Array.isArray(diffs) ? diffs : [diffs];
+    let of = 0, done = 0;
+    for(const k of list){
+      if(on && !on(day, k)) continue;
+      of++;
+      const rec = DAILY[dailyId(game, k)] || {};
+      const r = dailyRec(rec[day]);
+      if(r && r.d) done++;
+    }
+    return [done, of];
+  }
+  function dailyStreak(game, diffs, on){
     let n = 0, day = pktNow(), first = true, guard = 0;
     while(day >= DAILY_EPOCH && guard++ < 800){
-      const runs = on ? !!on(day, diff) : true;
-      if(runs){
-        const r = dailyRec(rec[day]);
-        if(r && r.d) n++;
+      const st = dailyDay(game, diffs, on, day);
+      if(st.runs){
+        if(st.done) n++;
         else if(!first) break;
         first = false;
       }
@@ -271,15 +304,33 @@
     }
     return n;
   }
+  /** This game's streak, on whatever editions and schedule it registered.
+      One place, so the game screen, the calendar and a friend's profile cannot
+      disagree about a number the person is being asked to care about. */
+  function dailyStreakOf(game){
+    const def = dailyDef(game);
+    if(!def) return 0;
+    return dailyStreak(game, (def.diffs || [{k:''}]).map(d=>d.k), def.on);
+  }
+  /** Paint the fire chip on a game screen. Hidden at zero — "0 in a row" is
+      not encouragement, it is a scoreboard for not having played. */
+  function dailyStreakPaint(id, game){
+    const el = $(id);
+    if(!el) return;
+    const n = dailyStreakOf(game);
+    el.classList.toggle('hide', n < 1);
+    if(n < 1) return;
+    el.textContent = '\uD83D\uDD25 ' + n;
+    el.title = n + (n === 1 ? ' day' : ' days') + ' in a row';
+  }
   /** The best run there has ever been, on the same rule. */
-  function dailyBestStreak(game, diff, on){
-    const rec = DAILY[dailyId(game, diff)] || {};
+  function dailyBestStreak(game, diffs, on){
     let best = 0, run = 0, day = DAILY_EPOCH, guard = 0;
     const today = pktNow();
     while(day <= today && guard++ < 800){
-      if(!on || on(day, diff)){
-        const r = dailyRec(rec[day]);
-        if(r && r.d){ run++; if(run > best) best = run; }
+      const st = dailyDay(game, diffs, on, day);
+      if(st.runs){
+        if(st.done){ run++; if(run > best) best = run; }
         else if(day !== today) run = 0;
       }
       day = pktAt(pktNum(day) + 1);
@@ -587,9 +638,12 @@
          -average-guesses for the word, clues for the crossword. Hidden until
          there is something in them, because "0 solved · — best" is worse than
          no tiles at all. */
+      /* Worked out before the tiles are drawn, because the sentence underneath
+         them is shown on the same condition: there is something to explain only
+         once there is a number to explain. */
+      let tiles = [];
       const sum = $('dcal-sum');
-      if(sum){
-        let tiles = [];
+      {
         try{
           if(def.stats){
             const all = [];
@@ -597,9 +651,31 @@
             if(all.some(r=>r.s === DAILY_DONE)) tiles = def.stats(all) || [];
           }
         }catch(err){}
+      }
+      if(sum){
         sum.classList.toggle('hide', !tiles.length);
         sum.innerHTML = tiles.map(t=>'<div class="dcal-stat"><b>' + esc(String(t.v))
           + '</b><span>' + esc(String(t.n)) + '</span></div>').join('');
+      }
+
+      /* **Say what the streak counts, because nobody can guess it.** "4" on a
+         tile could be four puzzles, four days, or four of something else, and
+         this game's rule is the strict one: every edition published that day,
+         finished that day. A number whose rule is invisible is a number people
+         either mistrust or misread. Written once here from the game's own
+         `diffs`, so a game that gains a difficulty cannot leave a stale
+         sentence behind. */
+      const rule = $('dcal-rule');
+      if(rule){
+        const many = (def.diffs || []).length > 1;
+        rule.classList.toggle('hide', !tiles.length);
+        rule.textContent = many
+          ? ('A streak day means every ' + (def.title || this.game).toLowerCase()
+             + ' published that day, finished that day. Older ones you go back '
+             + 'to are still counted everywhere else — just not here.')
+          : ('A streak day means that day\u2019s puzzle, finished that day. '
+             + 'Older ones you go back to are still counted everywhere else '
+             + '— just not here.');
       }
 
       const keys = $('dcal-keys');
