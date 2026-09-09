@@ -1,6 +1,6 @@
 {
-  "version": "1.3.2",
-  "notes": "Progress survives a failing disk, storage health in the menu, online save on close, boards keep their place when switching difficulty",
+  "version": "1.3.3",
+  "notes": "Puzzles keep their board and clock when an account syncs, smoother Tetris line clears, black window title bar",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-09-06T13:22:59.592Z"
+  "at": "2026-09-09T05:20:46.459Z"
 }
