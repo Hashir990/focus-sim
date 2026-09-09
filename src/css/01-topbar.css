@@ -10,3 +10,30 @@
 .today.hide{display:none}
 .today em{font-style:normal; color:var(--text); font-weight:600}
 
+
+/* ---- the desktop window's caption ----
+   Zero-height everywhere but the packaged Windows app; see 00-drawer.html for
+   why it exists and electron/main.cjs for what turns it on. `titlebar-area-*`
+   are set by Electron only when it has given the caption to the page, so the
+   fallbacks make this element vanish in every other context rather than needing
+   a flag passed in from the shell. */
+.winbar{
+  position:fixed; top:0; left:0; right:0; z-index:9000;
+  height:env(titlebar-area-height, 0px);
+  background:#000; color:#fff;
+  display:flex; align-items:center;
+  overflow:hidden;
+  /* Pull on the bar to move the window; the caption buttons sit to the right of
+     `titlebar-area-width` and keep their own behaviour. */
+  -webkit-app-region:drag; app-region:drag;
+  padding-left:calc(env(titlebar-area-x, 0px) + 12px);
+  padding-right:8px;
+  font-size:12px; letter-spacing:.06em;
+}
+.winbar span{
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width:env(titlebar-area-width, 0px);
+}
+/* Everything else moves down by exactly the strip's height — zero when there is
+   no strip, so no layout anywhere else changes. */
+body{ padding-top:env(titlebar-area-height, 0px) }

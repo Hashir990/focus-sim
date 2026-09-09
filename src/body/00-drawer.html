@@ -1,2 +1,18 @@
+<!-- ============ THE WINDOW'S OWN BAR ============
+     Only ever visible inside the desktop shell, and it says so without being
+     told: `env(titlebar-area-height)` is zero everywhere except a window whose
+     caption Electron has handed to the page (see `titleBarOverlay` in
+     electron/main.cjs). In a browser, on a phone, in the test harness, this is
+     a nothing-tall element that costs a line of markup.
+
+     It exists because Windows draws its caption in the system's colours — on a
+     light theme a white strip with black text, sitting at the top of a very
+     dark app, the single brightest thing on a screen somebody is looking at for
+     half an hour. Taking the strip means drawing it: black, white text, and
+     `-webkit-app-region: drag` so the window still moves when you pull on it.
+     The buttons stay native and stay where Windows puts them; the text is kept
+     clear of them by the same environment variables. -->
+<div class="winbar" aria-hidden="true"><span>Focus Simulator</span></div>
+
 <!-- moved to 16-drawer.html, so the menu lands after `.app` closes and stacks
      over every overlay rather than against them -->

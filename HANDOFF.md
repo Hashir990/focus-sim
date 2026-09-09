@@ -1215,6 +1215,38 @@ main timer screen.** That is the only outstanding request.
 
 Newest first. One line each.
 
+- **2026-09-09** — **The one a video found: an account arriving left a hole.**
+  Two phone recordings of the laptop screen, and the numbers in the header line
+  are the whole bug: `15x15 · Today · 00:46`, tap 5x5, tap 15x15, `00:00`. Four
+  rounds of this were chased as puzzle bugs and none of them was one.
+  **`gamesAdopt` empties a game's in-memory save and trusts the next `enter()`
+  to read the new one in.** But `enter()` is not the only thing that reads: a
+  size or difficulty button goes straight to `load`/`_open`, and those take the
+  letters and the clock out of the very map that had just been emptied. The
+  account had lost nothing; the object had. `forget()` now takes the adopted
+  save synchronously — `gamesAdopt` writes `GAME_SAVES[key]` *before* calling
+  it, so it is already there — and nothing is ever emptied and waited on.
+  **It got worse the day the syncing got better.** While sync only ran on a
+  daily mark this was rare. Then sync started running every five minutes and on
+  every hide (the previous batch), and it became: play a minute, switch size,
+  switch back, zero. Which is exactly why it read as "still not fixed".
+  **Tetris clears on the display's beat now.** The glow was an animated
+  `box-shadow` — on each band and again on the whole board for a tetris — and a
+  box-shadow that changes every frame repaints everything under it every frame:
+  two hundred squares re-rasterised sixty times a second, at the exact moment
+  the game is doing the most work. The shadows are still there and no longer
+  move; opacity and transform do, on promoted layers. And `setInterval(33)`
+  became `requestAnimationFrame`: 30 ticks against a 60Hz screen is judder by
+  construction, worst on the falling piece. `Tetris.running()` replaces reading
+  `tick` from the outside.
+  **The Windows caption is black with white text.** `titleBarOverlay` plus a
+  strip the page draws itself, sized from `env(titlebar-area-height)` — which is
+  zero in a browser, on a phone and in the harness, so the element knows where
+  it is without a flag being passed in. Pinned, because a regression there is a
+  black band across the top of the phone build.
+  *Also:* one check asserted a 15x15's day `=== today`, which is true one day in
+  seven. It passed on the Sunday it was written and failed on the Tuesday.
+
 - **2026-09-06 (7)** — **Seven checks failed on a release run and not one was a
   regression.** They were all cross-window: a guest joining, a promotion, a room
   filling to three, a timer handed over. Every one of them sleeps for a

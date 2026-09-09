@@ -442,6 +442,7 @@ function withDoor(src, code){
 const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet, Tetris, Sudoku,'
   + ' crossOnDay, crossAtSize, crossRows, CROSS_GRIDS,'
   + ' arcade: {writeGame, readGame}, kv: KV,'
+  + ' gamesAdopt, gamesSnapshot,'
   + ' dialogs: {askConfirm, closeConfirm}, arcadeReset: arcadeResetItems,'
   + ' wordleArt: (r) => dailyDef("wordle").art(r),'
   + ' shelfPrices: () => ({looks: embByPrice(EMB_LIGHTS), sounds: embByPrice(EMB_SOUNDS),'
@@ -545,8 +546,12 @@ check('no two @keyframes share a name', (() => {
   C.elapsed = 321; C.persist();
   const was = back();
   C.setSize(15);
+  /* The newest fifteen, which is the most recent Sunday and only *is* today one
+     day in seven — asserting `=== today` made this pass on the day it was
+     written and fail every other. What matters is that it moved off the 7x7 and
+     brought nothing with it. */
   check('switching size leaves the older grid alone',
-    C.day === now && C.user.filter(Boolean).length === 0, back());
+    C.size === 15 && C.day !== '2026-09-03' && C.user.filter(Boolean).length === 0, back());
   C.setSize(7);
   check('and switching back hands it over with its letters and its clock',
     back() === was, back() + ' vs ' + was);
@@ -2275,11 +2280,11 @@ await wait(300);
      or the grace would be a free go at rearranging the board. */
   T.newGame();
   T.pause(true);
-  check('pausing stops the clock', T.tick === null && T.paused === true,
-    `${T.tick} / ${T.paused}`);
+  check('pausing stops the clock', !T.running() && T.paused === true,
+    `${T.running()} / ${T.paused}`);
   T.pause(false);
   check('resuming does not start it straight away',
-    T.tick === null && T.count === 3, `${T.tick} / ${T.count}`);
+    !T.running() && T.count === 3, `${T.running()} / ${T.count}`);
   check('it counts you in, on the board', !!$('tet-count')
     && /3/.test($('tet-count').textContent), $('tet-count') ? $('tet-count').textContent : 'no count');
   const frozen = T.piece && { x: T.piece.x, r: T.piece.r };
@@ -2288,16 +2293,16 @@ await wait(300);
     !!T.piece && T.piece.x === frozen.x && T.piece.r === frozen.r,
     JSON.stringify(T.piece));
   await wait(3300);
-  check('then it starts', T.tick !== null && T.count === 0 && !$('tet-count'),
-    `${T.tick} / ${T.count}`);
+  check('then it starts', T.running() && T.count === 0 && !$('tet-count'),
+    `${T.running()} / ${T.count}`);
 
   /* A focus block starting takes the board away, because the arcade is for
      breaks and a piece falling behind a block is a stack you did not build. */
   T.pause(false);
   window.__m.startTimer();
   await wait(60);
-  check('starting a focus block pauses the game', T.paused === true && T.tick === null,
-    `${T.paused} / ${T.tick}`);
+  check('starting a focus block pauses the game', T.paused === true && !T.running(),
+    `${T.paused} / ${T.running()}`);
   window.__m.pauseTimer();
   await wait(40);
 
@@ -2312,7 +2317,7 @@ await wait(300);
   await T.enter();
   await wait(80);
   check('reopening it during a focus block leaves it stopped',
-    T.paused === true && T.tick === null, `${T.paused} / ${T.tick}`);
+    T.paused === true && !T.running(), `${T.paused} / ${T.running()}`);
   /* **And a paused board is put away.** Half the game is working out where the
      next piece goes; a stopped board is that puzzle with the clock off. */
   check('and the board is put away rather than left up',
@@ -2327,11 +2332,11 @@ await wait(300);
      same surprise as never having paused. */
   T.pause(false);
   await wait(3300);
-  check('a running board really is running', T.tick !== null && !T.paused,
-    `${T.tick} / ${T.paused}`);
+  check('a running board really is running', T.running() && !T.paused,
+    `${T.running()} / ${T.paused}`);
   T.leave();
-  check('and going back to the shelf pauses it', T.paused === true && T.tick === null,
-    `${T.paused} / ${T.tick}`);
+  check('and going back to the shelf pauses it', T.paused === true && !T.running(),
+    `${T.paused} / ${T.running()}`);
 
   await T.enter();
   await wait(80);
@@ -2340,14 +2345,14 @@ await wait(300);
   check('and the board comes back for the count-in',
     !$('tet-grid').classList.contains('away'), $('tet-grid').className);
   await wait(3300);
-  check('and then simply runs', T.tick !== null && T.count === 0,
-    `${T.tick} / ${T.count}`);
+  check('and then simply runs', T.running() && T.count === 0,
+    `${T.running()} / ${T.count}`);
 
   T.pause(true);
   T.pause(false);
   T.leave();
   check('and leaving the arcade stops the count-in too',
-    T.tick === null && T.count === 0 && !$('tet-count'), `${T.tick} / ${T.count}`);
+    !T.running() && T.count === 0 && !$('tet-count'), `${T.running()} / ${T.count}`);
 }
 
 // 2048
@@ -6567,6 +6572,74 @@ await wait(200);
   /* Put the real save back: the checks after this one play sudoku. */
   if (keep === null) window.localStorage.removeItem('arcade_sudoku');
   else window.localStorage.setItem('arcade_sudoku', keep);
+}
+
+/* ---- an account arriving must not leave a hole -----------------------------
+
+   The one that took a video to find. `gamesAdopt` empties a game's in-memory
+   save and trusts the next `enter()` to read the new one back in — but `enter()`
+   is not the only thing that reads. A size or difficulty button goes straight to
+   `load`/`_open`, and those take the letters and the clock out of the very map
+   that had just been emptied. So the grid came back blank with the clock at
+   zero, and the account had lost nothing at all: this object had.
+
+   Rare while sync only ran on a daily mark. Then sync started running every five
+   minutes and on every hide, and it became: play a minute, switch size, switch
+   back, zero. It got worse the day the syncing got better, which is why it read
+   as "still not fixed". */
+{
+  const C = window.__m.Cross, now = window.__m.pktNow();
+  const shape = () => [C.size, C.elapsed, C.user.filter(Boolean).length].join('/');
+  const size = (n) => [...window.document.getElementById('cw-size').children]
+    .find((b) => +b.dataset.s === n).click();
+  size(15);
+  await wait(250);
+  const e0 = C.puz.entries[0];
+  C.select(e0.cells[0][0] * C.size + e0.cells[0][1]);
+  ['T', 'H', 'E'].forEach((ch) => C.type(ch));
+  C.elapsed = 46; C.persist();
+  const was = shape();
+  /* A sync landing: the merged save is stamped by another device, so `gamesAdopt`
+     takes it and calls every `forget`. */
+  const snap = window.__m.gamesSnapshot();
+  snap['arcade_cross'].at = Date.now() + 5000;
+  window.__m.gamesAdopt(snap);
+  check('a sync leaves the open puzzle alone', shape() === was, shape() + ' vs ' + was);
+  size(5);
+  await wait(250);
+  size(15);
+  await wait(250);
+  check('and switching size after one still hands back the clock and the letters',
+    shape() === was, shape() + ' vs ' + was);
+}
+{
+  const S = window.__m.Sudoku, now = window.__m.pktNow();
+  S.newGame('hard', true, now);
+  S.build();
+  S.sel = S.given.indexOf(false); S.input(5); S.elapsed = 88; S.persist();
+  const was = [S.diff, S.elapsed, S.grid.filter(Boolean).length].join('/');
+  const snap = window.__m.gamesSnapshot();
+  snap['arcade_sudoku'].at = Date.now() + 5000;
+  window.__m.gamesAdopt(snap);
+  S.newGame('easy'); S.newGame('hard');
+  check('and a sudoku shelf survives a sync too',
+    [S.diff, S.elapsed, S.grid.filter(Boolean).length].join('/') === was,
+    [S.diff, S.elapsed, S.grid.filter(Boolean).length].join('/') + ' vs ' + was);
+}
+
+/* The window's own caption strip is zero-height anywhere that is not the
+   packaged desktop app — that is the whole of how it knows where it is, so it
+   is worth pinning. A regression here is a black band across the top of the
+   phone build. */
+{
+  const bar = window.document.querySelector('.winbar');
+  check('the desktop caption strip exists', !!bar);
+  check('and takes no room in a browser',
+    !!bar && bar.getBoundingClientRect().height === 0,
+    bar ? String(bar.getBoundingClientRect().height) : '-');
+  check('and pushes nothing down either',
+    window.getComputedStyle(window.document.body).paddingTop === '0px',
+    window.getComputedStyle(window.document.body).paddingTop);
 }
 
 // --- verdict ---------------------------------------------------------------

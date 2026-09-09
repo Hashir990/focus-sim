@@ -12,6 +12,26 @@ function createWindow() {
     backgroundColor: '#0b1220',
     title: 'Focus Simulator',
     autoHideMenuBar: true,
+    /* **A black title bar with white text on it.**
+     *
+     * Windows draws the caption in the system's colours, which on a light theme
+     * is a white strip with black text sitting on top of a very dark app — the
+     * one bright thing on the screen, at the top, above a timer somebody is
+     * looking at for half an hour. `titleBarOverlay` recolours the real caption
+     * buttons; `symbolColor` is the glyphs in them, and without it the minimise
+     * and close marks stay black and disappear into the bar.
+     *
+     * `titleBarStyle: 'hidden'` with an overlay keeps the buttons working and
+     * hands the rest of the strip to the page — so the height matches the app's
+     * own top bar rather than leaving a band of a different colour under it.
+     * Both keys are Windows-only in effect and are ignored elsewhere, which is
+     * why there is no platform branch here. */
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#000000',
+      symbolColor: '#ffffff',
+      height: 32,
+    },
     webPreferences: {
       // The app is fully self-contained and needs no Node access in the page.
       nodeIntegration: false,

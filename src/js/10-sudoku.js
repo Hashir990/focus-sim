@@ -356,7 +356,22 @@
     },
     /* An account replaced what is in storage: drop the grid so the next
        `enter()` reads the new one instead of writing this one back. */
-    forget(){ this.grid = []; this.boards = {}; this.shown = []; this.seen = {}; this.built = false; }
+    /** **An account arriving replaces the save; it must not leave a hole.**
+        This threw the shelf away and trusted the next `enter()` to read the new
+        one in — but a difficulty button goes straight to `_open`, which takes
+        boards off the shelf that had just been emptied, and builds a fresh grid
+        with the clock at zero instead. `gamesAdopt` has already written the new
+        save, so take it here rather than emptying and hoping. See the same note
+        on `Cross.forget` in 27-crossword.js. */
+    forget(){
+      let d = null;
+      try{ d = gameSaved(this.key); }catch(e){}
+      this.boards = (d && d.boards && typeof d.boards === 'object') ? d.boards : {};
+      this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : {};
+      this.grid = []; this.shown = []; this.built = false;
+      if(d && d.diff) this.diff = d.diff;
+      if(d && d.day) this.day = d.day;
+    }
   };
 
   forgetGame(Sudoku.key, ()=>Sudoku.forget());

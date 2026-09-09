@@ -42,11 +42,26 @@
    it: the model has already dropped everything into place, so an interrupted
    animation cannot leave the board wrong. Row fractions, so the overlay never
    needs to know how big a cell is. */
+/* **Everything here animates opacity and transform, and nothing else.**
+
+   The glow used to be an animated `box-shadow` — on each band and again on the
+   whole board for a tetris. A box-shadow that changes every frame is a repaint
+   of everything under it every frame, and on a full board that is two hundred
+   squares re-rasterised sixty times a second for nine hundred milliseconds. It
+   is exactly the moment the game is asked to do the most work, so the clear was
+   the one thing that stuttered.
+
+   The shadows are still there; they simply do not move. Each band is its own
+   layer with the glow baked in, and what animates is the layer's opacity and
+   scale, which the compositor does without touching the page. `will-change`
+   promotes them before the first frame rather than during it — the promotion
+   itself costs a frame, and a frame is the whole animation's budget. */
 .tet-zap{
   position:absolute; left:6px; right:6px; pointer-events:none; border-radius:4px;
   top:calc(6px + (100% - 12px) * var(--y0) / 20);
   height:calc((100% - 12px) / 20);
   background:#fff;
+  will-change:opacity, transform;
   animation:tetZap .4s ease-out forwards;
 }
 @keyframes tetZap{
@@ -54,10 +69,9 @@
   35%{ opacity:.6 }
   100%{ opacity:0; transform:scaleX(1.06) }
 }
-/* Four at once earns gold, a longer burn and a shimmer across it. */
 .tet-zap.big{
   background:linear-gradient(90deg, #ffd167, #fff6d8 45%, #ffd167);
-  box-shadow:0 0 22px 6px rgba(255,209,103,.55);
+  box-shadow:0 0 22px 6px rgba(255,209,103,.55);   /* fixed: the opacity moves, not this */
   animation:tetZapBig .9s ease-out forwards;
 }
 @keyframes tetZapBig{
@@ -66,13 +80,27 @@
   55%{ opacity:.9 }
   100%{ opacity:0; transform:scaleX(1.12) }
 }
-/* and the whole well answers */
-.tet.tetris{ animation:tetShake .5s ease-out }
+
+/* The board's own flash for a tetris. The shake is a transform, which is free;
+   the halo is a pseudo-element that sits over the board with its glow already
+   drawn, and only its opacity moves. It used to be a `box-shadow` on `.tet`
+   itself, animated — the most expensive way there is to draw a glow. */
+.tet.tetris{ animation:tetShake .5s ease-out; will-change:transform }
+.tet.tetris::before{
+  content:''; position:absolute; inset:-2px; border-radius:14px;
+  pointer-events:none; z-index:2;
+  box-shadow:0 0 30px 4px rgba(255,209,103,.5);
+  will-change:opacity;
+  animation:tetHalo .9s ease-out forwards;
+}
 @keyframes tetShake{
-  0%{ box-shadow:0 0 0 0 rgba(255,209,103,0); transform:translateY(0) }
-  20%{ box-shadow:0 0 30px 4px rgba(255,209,103,.5); transform:translateY(2px) }
+  0%{ transform:translateY(0) }
+  20%{ transform:translateY(2px) }
   45%{ transform:translateY(-1px) }
-  100%{ box-shadow:0 0 0 0 rgba(255,209,103,0); transform:translateY(0) }
+  100%{ transform:translateY(0) }
+}
+@keyframes tetHalo{
+  0%{ opacity:0 } 20%{ opacity:1 } 55%{ opacity:.85 } 100%{ opacity:0 }
 }
 /* The count-in on the way back. Big, dimming the board behind it, and
    unmissable: the whole point is that you get three seconds' notice before a
@@ -99,6 +127,7 @@
   pointer-events:none;
   font-size:clamp(20px, 7vw, 34px); font-weight:800; letter-spacing:.14em;
   color:#fff6d8; text-shadow:0 0 18px rgba(255,209,103,.9);
+  will-change:opacity, transform;
   animation:tetWord 1s ease-out forwards;
 }
 @keyframes tetWord{
@@ -108,7 +137,7 @@
   100%{ opacity:0; transform:scale(1.02) }
 }
 @media (prefers-reduced-motion:reduce){
-  .tet-zap, .tet-word{ animation:none; opacity:0 }
+  .tet-zap, .tet-word, .tet.tetris::before{ animation:none; opacity:0 }
   .tet.tetris{ animation:none }
 }
 

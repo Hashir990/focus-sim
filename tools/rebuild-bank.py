@@ -572,6 +572,15 @@ BANNED |= set("""
 lambda lakh dory
 """.split())
 
+# 2026-09-07, read off this run's 7x7 fill. `orgy` has the innocent "an orgy of
+# spending" sense the same way `shag` had the carpet pile, and the same answer:
+# the word a solver hears is the sexual one, and that is the tier `arousal`,
+# `bosom`, `lewd` and `perverted` are already in. It sat in one seven built
+# this run, so pruning it cost nothing already shipped.
+BANNED |= set("""
+orgy
+""".split())
+
 # Real people are answers, not contraband.
 #
 # Raising LONG_WHOLE pushed the fill onto eight- and nine-letter entries, and a
@@ -611,6 +620,37 @@ very can will just should now up down out off again further once
 someone something anyone anything oneself yourself itself themselves
 one two three four five six seven eight nine ten first second third
 """.split())
+
+# 2026-09-09. `tammy` is a plain-woven wool cloth and `ling` is either a
+# North Atlantic fish or a heather — both are dictionary-only words with no
+# life a solver would recognise, the `silva`/`imaret` tier.
+BANNED |= set("""
+tammy
+ling
+""".split())
+
+# 2026-09-07 catch-up. `shay` is a light two-wheeled carriage — a word that
+# survives only in the dictionary and in one Oliver Wendell Holmes poem.
+BANNED |= set("""
+shay
+""".split())
+
+# `assay` is a metallurgist's test for purity and reads like the `silva` tier,
+# and it was banned here for one run before the ban was reversed. Pruning it
+# dropped an *original* 15x15 that had shipped — exactly the trade the `roe`
+# note above refuses. Checked against the bank rather than assumed, again: it
+# stays, clued to the one sense a solver can reach.
+#
+# `rad` came off the same fill and is the same case. Neither of its senses
+# is gettable cold: a unit of absorbed radiation, or 1980s slang for excellent.
+# It is kept anyway, and only because of what dropping it costs — it sits in
+# the sixth 15x15, the first fifteen to close in the bank's history, and there
+# is no regenerating that on demand. This is the same trade already recorded
+# for `atp`, `roe`, `pta`, `lei` and `swami`: checked against the bank rather
+# than assumed. It is clued to the slang sense, which at least a solver can
+# reach.
+# (nothing banned from this pass — see the note above)
+
 
 
 def _load(name, attr=None):

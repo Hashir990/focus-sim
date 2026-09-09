@@ -98,7 +98,7 @@
     bag:[], queue:[],               // the seven-bag, and what is coming
     piece:null,                     // {k, r, x, y}
     hold:'', held:false,            // what is in the hold, and whether it is spent this piece
-    score:0, lines:0, best:0, done:false, paused:false,
+    score:0, lines:0, best:0, done:false, paused:false, raf:null,
     fall:0, lockAt:0, hang:0, tick:null, last:0,
     count:0, countT:null,           // the 3-2-1 on the way back in
     dirty:true,
@@ -398,9 +398,27 @@
       this.stop();
       if(this.done) return;
       this.last = Date.now();
-      this.tick = setInterval(()=>this._step(), 33);
+      /* **On the display's beat, not on a timer of our own.**
+
+         `setInterval(33)` is 30 ticks a second against a screen drawing 60, so
+         every other frame carried a change and the rest carried none — which is
+         judder, and it was worst exactly where the eye was looking, on a piece
+         coming down. `requestAnimationFrame` lands on the frame instead, and it
+         stops of its own accord while the window is hidden, which is what
+         should happen to a falling piece anyway. `_step` was already written
+         against elapsed time rather than against tick count, so the rate can
+         change without changing the game. */
+      const loop = ()=>{ this.raf = requestAnimationFrame(loop); this._step(); };
+      this.raf = requestAnimationFrame(loop);
     },
-    stop(){ if(this.tick) clearInterval(this.tick); this.tick = null; },
+    /** Whether the loop is turning. A predicate rather than a field, because
+        which timer drives it is an implementation detail that has changed once
+        and may change again — and three tests were reading `tick` directly. */
+    running(){ return !!(this.raf || this.tick); },
+    stop(){
+      if(this.raf){ try{ cancelAnimationFrame(this.raf); }catch(e){} this.raf = null; }
+      if(this.tick){ clearInterval(this.tick); this.tick = null; }
+    },
 
     /* **Coming back needs a moment; going away does not.**
 

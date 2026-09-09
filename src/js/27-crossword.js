@@ -746,12 +746,39 @@
        the copy that has just been replaced, so the whole game is reloaded from
        storage rather than repainted - and `loaded` going false is what makes
        the next `enter()` do it. */
+    /** **An account arriving replaces the save; it must not leave a hole.**
+
+        This emptied `progress` and set `loaded` false, on the understanding
+        that the next `enter()` would read the new save in. But `enter()` is not
+        the only thing that reads: a size button goes straight to `load()`, and
+        `load()` takes the puzzle's letters and its clock out of `progress` —
+        which was now `{}`. So the grid came back blank with the clock at zero,
+        and the account had not lost anything at all; this object had.
+
+        Rare while a sync only happened on a daily mark. Then sync started
+        running every five minutes and on every hide, and it became: play for a
+        minute, switch size, switch back, and the clock is at zero. Exactly what
+        was reported, and it got worse the day the syncing got better.
+
+        `gamesAdopt` writes `GAME_SAVES[key]` *before* calling this, so the new
+        save is already here and can be taken synchronously. Nothing is ever
+        emptied and waited on. */
     forget(){
-      this.loaded = false;
-      this.seen = {};
-      this.progress = {};
+      let d = null;
+      try{ d = gameSaved(this.key); }catch(e){}
+      this.progress = this._migrate((d && d.p) || {});
+      this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : {};
+      this.size = (d && [5,7,9,15].indexOf(d.size) >= 0) ? d.size : this.size;
+      /* `loaded` stays true: this *is* the load. Leaving it false would have the
+         next `enter()` read storage again and undo the adopt. */
+      this.loaded = true;
       this.puz = null;
       this.built = false;
+      /* Where we were, in the new save's terms. A fingerprint that is not in
+         the bank any more falls through to `_where`, the way a cold start does. */
+      let at = -1;
+      if(d && d.key) at = this._find(d.key);
+      this.idx = at;
     },
   };
 
