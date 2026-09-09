@@ -24,6 +24,14 @@
 
 *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
 html,body{height:100%}
+/* **How much of the top of the window the desktop shell has taken.**
+   Zero everywhere else — in a browser, on a phone, in the test harness — because
+   `titlebar-area-height` is only set when Electron has handed the caption to the
+   page (see electron/main.cjs and `.winbar` in 01-topbar.css). Every full-screen
+   layer starts below it; `body { padding-top }` could not do that job, because
+   `position:fixed` is measured against the viewport and ignores it entirely,
+   which is why the bar sat *over* the app instead of above it. */
+:root{ --winbar:env(titlebar-area-height, 0px) }
 /* Chrome treats a drag from the left edge as "go back", which is exactly the
    gesture that opens the menu — so on the way in, the browser sometimes took
    the touch and the menu never saw it. This turns that off for the page. */
@@ -36,7 +44,7 @@ body{
   overflow:hidden;
 }
 .app{
-  position:fixed; inset:0;
+  position:fixed; inset:var(--winbar) 0 0 0;
   background:
     radial-gradient(120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 62%);
   transition:background 1.1s ease;

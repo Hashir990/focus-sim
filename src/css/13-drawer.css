@@ -16,11 +16,11 @@ body.vfx-on .drawer{
   -webkit-backdrop-filter:blur(14px);
   backdrop-filter:blur(14px);
 }
-.drawer-backdrop{ position:fixed; inset:0; z-index:199; background:rgba(0,0,0,.5); opacity:0; transition:opacity .25s ease; }
+.drawer-backdrop{ position:fixed; inset:var(--winbar) 0 0 0; z-index:199; background:rgba(0,0,0,.5); opacity:0; transition:opacity .25s ease; }
 .drawer-backdrop.show{ opacity:1; }
 .drawer-backdrop.hide{ display:none; }
 .drawer{
-  position:fixed; top:0; left:0; bottom:0; z-index:200; width:82%; max-width:322px;
+  position:fixed; top:var(--winbar); left:0; bottom:0; z-index:200; width:82%; max-width:322px;
   background:radial-gradient(120% 60% at 0% 0%,
     color-mix(in srgb, var(--bg2) 96%, transparent) 0%,
     color-mix(in srgb, var(--bg) 97%, transparent) 70%);

@@ -52,7 +52,7 @@
    could follow. Everything drawn on top of the pane is opaque again, which is
    the half that was missing. */
 .overlay{
-  position:fixed; inset:0; z-index:50; display:flex; flex-direction:column;
+  position:fixed; inset:var(--winbar) 0 0 0; z-index:50; display:flex; flex-direction:column;
   /* 96–97%: a wash of the weather's colour comes through and nothing reads as
      see-through. Anything less and the app looks unfinished; anything more and
      there was no point putting the weather behind it. */

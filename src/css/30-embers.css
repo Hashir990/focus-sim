@@ -405,7 +405,7 @@ body[data-light="beach"] .app{
    per cycle, so the last frame is the first: change a `background-size` and its
    keyframe has to change with it. */
 body[data-light="beach"] .beach-sea{
-  display:block; position:fixed; inset:0; z-index:0; pointer-events:none;
+  display:block; position:fixed; inset:var(--winbar) 0 0 0; z-index:0; pointer-events:none;
   overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,
     transparent 68%, rgba(0,0,0,.3) 75%, rgba(0,0,0,.75) 85%, #000 93%, #000 100%);
@@ -654,7 +654,7 @@ body[data-amb="campfire"] #drawer{
    below is a percentage of what you can actually see.
    `z-index:2` puts him over the timer and under every overlay, so opening a
    page covers him instead of him swinging over it. */
-.bud-layer{ position:fixed; inset:0; pointer-events:none; z-index:2; overflow:hidden }
+.bud-layer{ position:fixed; inset:var(--winbar) 0 0 0; pointer-events:none; z-index:2; overflow:hidden }
 .bud-layer.hide{ display:none }
 
 /* --- the main menu: perched on the minutes box, waiting to go ---

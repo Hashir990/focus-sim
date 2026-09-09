@@ -1,7 +1,7 @@
 /* ---------------- confirm + hold menu ---------------- */
 
 .confirm{
-  position:fixed; inset:0; z-index:60;
+  position:fixed; inset:var(--winbar) 0 0 0; z-index:60;
   display:flex; align-items:center; justify-content:center; padding:24px;
   background:rgba(6,10,18,.66); backdrop-filter:blur(4px);
 }
@@ -46,7 +46,7 @@
   .holdring.go .hr-fill{ animation:none; stroke-dashoffset:60 }
 }
 
-.hmenu{ position:fixed; inset:0; z-index:61; }
+.hmenu{ position:fixed; inset:var(--winbar) 0 0 0; z-index:61; }
 .hmenu.hide{ display:none; }
 .hmenu-card{
   position:absolute; min-width:150px; padding:5px;

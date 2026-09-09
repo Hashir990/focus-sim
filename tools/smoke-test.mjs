@@ -4570,7 +4570,12 @@ if (keepBtn) {
   $t2('d-sync').click();
   $t2('sync-code').value = hostCode;
   $t2('sync-join').click();
-  await wait(500);
+  /* Three windows have to agree before any of this is true: the stranger's
+     socket has to open, the host has to hold them, and the note has to reach
+     the guest. A fixed pause is a guess at all three at once. */
+  await until(() => $h('sync-door').querySelectorAll('.ft-wait').length === 1
+    && /waiting to be let in/i.test($t2('sync-state').textContent)
+    && guest.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text)));
 
   check('somebody the host does not know is held at the door',
     $h('sync-door').querySelectorAll('.ft-wait').length === 1,
@@ -4602,7 +4607,7 @@ if (keepBtn) {
     $t2('sync-people').textContent.slice(0, 80));
   host.__r.Chat.thread = 'room';
   host.__r.Chat.send('said while somebody is at the door');
-  await wait(280);
+  await until(() => guest.__r.Chat.log.some((l) => /at the door/.test(l.text)));
   check('and what is said in the room does not reach them',
     !outsider.__r.Chat.log.some((l) => /at the door/.test(l.text)),
     JSON.stringify(outsider.__r.Chat.log.map((l) => l.text)));
@@ -4622,7 +4627,8 @@ if (keepBtn) {
     $g('sync-door').className + ' ' + $g('sync-door').textContent.slice(0, 60));
 
   $h('sync-door').querySelector('[data-letin]').click();
-  await wait(500);
+  await until(() => /Stranger/.test($h('sync-people').textContent)
+    && $t2('sync-people').querySelectorAll('.sync-person').length >= 2);
   check('letting them in puts them in the room',
     /Stranger/.test($h('sync-people').textContent),
     $h('sync-people').textContent.slice(0, 100));
@@ -6640,6 +6646,86 @@ await wait(200);
   check('and pushes nothing down either',
     window.getComputedStyle(window.document.body).paddingTop === '0px',
     window.getComputedStyle(window.document.body).paddingTop);
+}
+
+/* ---- the crossword, hammered ---------------------------------------------
+
+   "Every single instance of crossword crashes, it should work simply and test it
+   before finalizing." Fair. So: every size, in every order, many times, with the
+   records deliberately poisoned in the ways a save actually goes wrong — a
+   `done` flag on a grid nobody solved, a fingerprint that is not in the bank any
+   more, a record of the wrong length. After each switch the DOM has to match the
+   puzzle and the puzzle has to match the button. */
+{
+  const C = window.__m.Cross, D = window.document;
+  const btn = (n) => [...D.getElementById('cw-size').children].find((b) => +b.dataset.s === n);
+  const grid = () => D.getElementById('cw-grid');
+  const agree = () => C.puz && grid().children.length === C.puz.n * C.puz.n
+    && C.size === C.puz.n && C.user.length === C.puz.n * C.puz.n;
+  let bad = [];
+  const sizes = [5, 7, 9, 15];
+  for (let round = 0; round < 3; round++) {
+    for (const n of [15, 5, 9, 7, 15, 9, 5, 15, 7]) {
+      const b = btn(n);
+      if (b.disabled) { bad.push(`${n} disabled`); continue; }
+      b.click();
+      await wait(60);
+      if (C.size !== n) bad.push(`round ${round}: asked ${n}, got ${C.size}`);
+      else if (!agree()) bad.push(`round ${round}: ${n} drew ${grid().children.length} of ${C.puz.n * C.puz.n}`);
+    }
+  }
+  check('every size opens, in any order, every time', bad.length === 0, bad.slice(0, 4).join(' | '));
+  check('and nothing threw on the way', !C.lastError, C.lastError);
+}
+{
+  /* A `done` flag on a grid nobody solved. This is the one from the video: the
+     board opens full of letters, refuses every key because `type()` stops when
+     `done`, and `_firstUnfinished` skips that day forever — so the size will not
+     open either. One bad flag, three symptoms, none of them alike. */
+  const C = window.__m.Cross;
+  const btn = (n) => [...window.document.getElementById('cw-size').children]
+    .find((b) => +b.dataset.s === n);
+  btn(5).click();
+  await wait(120);
+  const fp = C._fp(C.idx);
+  C.progress[fp] = { u: '.'.repeat(C.user.length), secs: 10, done: true };
+  C.idx = -1;
+  btn(7).click(); await wait(120);
+  btn(5).click(); await wait(120);
+  check('a "finished" record with an empty grid is not believed',
+    C.done === false, `done=${C.done}`);
+  check('and the board takes letters again',
+    (() => { const before = C.user.filter(Boolean).length;
+      C.select(C.puz.entries[0].cells[0][0] * C.size + C.puz.entries[0].cells[0][1]);
+      C.type('A');
+      return C.user.filter(Boolean).length > before; })());
+  /* And the honest case still reads as finished. */
+  const sol = [];
+  for (let i = 0; i < C.user.length; i++) sol.push(C._solAt(i) || '.');
+  C.progress[C._fp(C.idx)] = { u: sol.join(''), secs: 10, done: true };
+  const i2 = C.idx, d2 = C.day;
+  C.idx = -1;
+  C.load(i2, d2);
+  check('a record that really did solve it keeps its flag', C.done === true, `done=${C.done}`);
+  C.restart();
+  check('and starting it again gives the grid back empty and unfinished',
+    C.done === false && C.user.filter(Boolean).length === 0,
+    `${C.done} / ${C.user.filter(Boolean).length}`);
+}
+{
+  /* A saved position pointing at a puzzle the bank no longer has — ordinary, as
+     the bank grows and is regenerated under a running app. */
+  const C = window.__m.Cross;
+  const btn = (n) => [...window.document.getElementById('cw-size').children]
+    .find((b) => +b.dataset.s === n);
+  C.seen = { 5: { k: 'not-a-real-fingerprint', day: '2026-01-01' },
+             15: { k: 'nor-is-this', day: '2026-01-01' } };
+  btn(15).click(); await wait(120);
+  check('a saved position that is not in the bank still opens something',
+    C.size === 15 && !!C.puz, `${C.size}/${!!C.puz}`);
+  btn(5).click(); await wait(120);
+  check('and so does the next one', C.size === 5 && !!C.puz, `${C.size}/${!!C.puz}`);
+  C.seen = {};
 }
 
 // --- verdict ---------------------------------------------------------------

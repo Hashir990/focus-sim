@@ -23,7 +23,7 @@
    the particles — so the far ones go soft while the ones passing the dial stay
    crisp. One element rather than a second copy of every speck. */
 .vfx{
-  position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+  position:fixed; inset:var(--winbar) 0 0 0; z-index:0; pointer-events:none; overflow:hidden;
   opacity:0; transition:opacity 1.4s ease;
   /* Wide enough to reach the sides. At 96% × 60% the falloff had eaten the left
      and right thirds of the screen entirely, so a fall of petals was a fall of

@@ -1215,6 +1215,38 @@ main timer screen.** That is the only outstanding request.
 
 Newest first. One line each.
 
+- **2026-09-09 (2)** — **The bar sat over the app, and one wrong flag looked
+  like three different bugs.**
+  **`body { padding-top }` was never going to work.** Every layer in this app is
+  `position:fixed`, which is measured against the viewport and ignores padding on
+  `body` entirely — so the new caption strip was drawn *over* the top bar rather
+  than above it. The offset belongs on the layers: `--winbar` in
+  00-tokens-base.css, read by `.app`, `.overlay`, the drawer, the dialogs, the
+  chat, the effects pane, the buddy layer and the rest. Zero everywhere that is
+  not the packaged desktop app, so nothing on a phone moves.
+  `tools/look-winbar.mjs` photographs it with and without.
+  **"Why is the 15x15 already filled" and "I cannot get back to 15x15" were the
+  same bug, and so was "it crashes".** A record marked `done` that is not
+  actually solved opens the board full of letters, refuses every key (`type()`
+  stops when `done`), and makes `_firstUnfinished` skip that day forever — which
+  is a size button that appears to do nothing. One flag, three symptoms, none of
+  them alike, which is why they were reported as three faults.
+  `_migrate` did check the flag against the solution, but **only for records
+  written under the old index-keyed scheme** — once a record passed through it,
+  it was fingerprint-keyed and never looked at again, so a wrong flag became
+  permanent. It is re-derived from the letters on every `load` now: a grid whose
+  squares are all correct is finished whatever the record says, and one with a
+  hole in it is not. The letters are kept either way.
+  **And when something does throw, it says so.** `_guard` wraps the ways in,
+  keeps the message on `Cross.lastError`, and offers `restart()` — the puzzle is
+  published on a day and always rebuilds, so throwing its record away costs the
+  letters and nothing else. A silent failure is a dead screen with no way to say
+  what happened, which is what "it crashes" has meant every time.
+  **Tested the way it was asked for:** every size, in every order, three times
+  over, checking after each that the DOM matches the puzzle and the puzzle
+  matches the button — plus a `done` flag on an empty grid, a record that really
+  did solve it, and a saved position pointing at a puzzle the bank no longer has.
+
 - **2026-09-09** — **The one a video found: an account arriving left a hole.**
   Two phone recordings of the laptop screen, and the numbers in the header line
   are the whole bug: `15x15 · Today · 00:46`, tap 5x5, tap 15x15, `00:00`. Four

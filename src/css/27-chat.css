@@ -35,7 +35,7 @@
 .topbar-right{ display:flex; align-items:center; gap:10px; min-height:38px }
 
 .chat{
-  position:fixed; inset:0; z-index:56;
+  position:fixed; inset:var(--winbar) 0 0 0; z-index:56;
   display:flex; align-items:flex-end; justify-content:center;
   background:rgba(6,10,18,.55);
   animation:chatin .2s ease both;

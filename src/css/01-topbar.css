@@ -19,7 +19,7 @@
    a flag passed in from the shell. */
 .winbar{
   position:fixed; top:0; left:0; right:0; z-index:9000;
-  height:env(titlebar-area-height, 0px);
+  height:var(--winbar);
   background:#000; color:#fff;
   display:flex; align-items:center;
   overflow:hidden;
@@ -32,8 +32,13 @@
 }
 .winbar span{
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  max-width:env(titlebar-area-width, 0px);
+  max-width:env(titlebar-area-width, 100%);
 }
-/* Everything else moves down by exactly the strip's height — zero when there is
-   no strip, so no layout anywhere else changes. */
-body{ padding-top:env(titlebar-area-height, 0px) }
+/* Padding on `body` was the first attempt and does nothing at all: every layer
+   in this app is `position:fixed`, which is measured against the viewport and
+   ignores it — so the bar was drawn *over* the app rather than above it. The
+   offset belongs on the layers themselves; `--winbar` in 00-tokens-base.css is
+   what they all read. */
+
+/* The strip itself is the one fixed layer that belongs *above* the offset, so it
+   keeps `top:0` and everything else starts under it. */

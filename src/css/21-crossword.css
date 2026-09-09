@@ -250,7 +250,7 @@
    two momentums fighting each other. Taken out of that flow it is the only
    thing that moves. */
 .cw-picker{
-  position:fixed; inset:0; z-index:60;
+  position:fixed; inset:var(--winbar) 0 0 0; z-index:60;
   display:flex; flex-direction:column; padding:16px 4px 8px;
   overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;
   background:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, var(--bg) 70%);

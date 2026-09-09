@@ -183,6 +183,19 @@
       }
       return out;
     },
+    /** Does this string of letters actually solve the grid on screen? Blanks
+        count as wrong, which is the point: a record that says it is finished and
+        has a hole in it is not finished. */
+    _solvedBy(u){
+      if(!this.puz || typeof u !== 'string') return false;
+      const n = this.puz.n;
+      for(let i = 0; i < n * n; i++){
+        const sol = this._solAt(i);
+        if(!sol) continue;                       // a black square
+        if((u[i] || '').toUpperCase() !== String(sol).toUpperCase()) return false;
+      }
+      return true;
+    },
     _isDone(i){ const r = this._rec(i); return !!(r && r.done); },
 
     /** The one to open by default.
@@ -232,6 +245,22 @@
       // showing up inside a 7x7, under a banner saying it had been solved.
       let rec = this._rec(i);
       if(rec && (typeof rec.u !== 'string' || rec.u.length !== cells)) rec = null;
+      /* **"Finished" is checked here, every time, not once at migration.**
+
+         `_migrate` verifies the flag against the solution — but only for records
+         written under the old index-keyed scheme. A record that passed through
+         it once is fingerprint-keyed afterwards and was never looked at again,
+         so a wrong `done` became permanent: the grid opened full of letters
+         nobody had typed, the board refused every key because `type()` stops
+         when `done`, and `_firstUnfinished` skipped that day forever — which is
+         a size that will not open. One bad flag, three symptoms, none of them
+         looking like the same bug.
+
+         So it is re-derived from the letters on every load. A grid whose squares
+         are all correct is finished whatever the record says; one that is not,
+         is not. The letters are kept either way — being wrong about the flag is
+         no reason to throw away somebody's work. */
+      if(rec && rec.done && !this._solvedBy(rec.u)) rec = Object.assign({}, rec, {done:false});
       this.user  = new Array(cells).fill('');
       this.given = new Array(cells).fill(false);
       if(rec){
@@ -313,6 +342,51 @@
       return this._firstUnfinished(size);
     },
 
+    /** **Start this one again.**
+
+        Every other way out of a bad record is a guess about how it went bad.
+        This is the one that does not need to be right about that: the puzzle is
+        published on a day and can always be rebuilt from the bank, so throwing
+        the record away costs the letters and nothing else. It asks first, and it
+        only ever touches the puzzle on screen — the archive is untouched.
+
+        The old `resetPuzzle` was removed on purpose, and rightly: a button that
+        wipes your record makes the record worth nothing. This is not that. It is
+        a repair, offered where repairs belong, and named for what it does. */
+    restart(){
+      if(this.idx < 0 || !this.puz) return;
+      try{ delete this.progress[this._fp(this.idx)]; }catch(e){}
+      const i = this.idx, day = this.day;
+      this.load(i, day);
+      if(!this.done) this.run();
+    },
+
+    /** **When something in here throws, say so and offer the way out.**
+
+        A crossword that fails silently is a dead screen: the buttons are there,
+        the grid is the last one that worked, and nothing says why. That is what
+        "it crashes" means from a chair, and it is unanswerable from here without
+        knowing what threw. So every way in goes through this: the error is kept
+        where it can be read, the person is told in one line, and they are
+        offered the one repair that always works — the puzzle is published on a
+        day and can always be rebuilt, so throwing its record away costs the
+        letters and nothing else. */
+    lastError:'',
+    _guard(what, fn){
+      try{ return fn(); }
+      catch(e){
+        this.lastError = what + ': ' + ((e && e.message) || e);
+        try{ console.error('[crossword] ' + this.lastError, e); }catch(_){}
+        try{
+          askConfirm('This crossword would not open',
+            this.lastError + '\u2014 starting it again rebuilds the grid from '
+            + 'its day. The letters in it go; nothing else does.',
+            'Start it again', ()=>{ try{ this.restart(); }catch(_){} });
+        }catch(_){}
+        return null;
+      }
+    },
+
     setSize(size){
       if(this.size === size) return;
       this.persist();
@@ -384,7 +458,8 @@
         const b = document.createElement('button');
         b.className = 'mini-btn'; b.dataset.s = k; b.textContent = label;
         b.disabled = !this._at(k).length;
-        b.onclick = ()=>this.setSize(k);
+  b.onclick = ()=>this._guard('switching to ' + k + '\u00d7' + k,
+          ()=>this.setSize(k));
         sizeBar.appendChild(b);
       });
 

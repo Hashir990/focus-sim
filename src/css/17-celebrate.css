@@ -1,6 +1,6 @@
 /* celebration */
 .confetti{
-  position:fixed; inset:0; width:100%; height:100%;
+  position:fixed; inset:var(--winbar) 0 0 0; width:100%; height:auto;
   pointer-events:none; z-index:55;
 }
 .banner.pop{ animation:banner-pop .42s cubic-bezier(.2,1.3,.4,1) }

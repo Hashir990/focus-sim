@@ -32,7 +32,7 @@ body[data-light="spiderman"] .dial-web{
    in CSS for the right-hand one, which is why both carry the same path data. */
 .corner-web{ display:none }
 body[data-light="spiderman"] .corner-web{
-  display:block; position:fixed; top:0; z-index:0; pointer-events:none;
+  display:block; position:fixed; top:var(--winbar); z-index:0; pointer-events:none;
   /* Smaller than it was: at 190px the web reached a third of the way across a
      phone and stopped being a corner. */
   width:min(26vw,132px); height:min(26vw,132px);
