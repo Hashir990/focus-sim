@@ -15,6 +15,8 @@
     "cap:add:ios": "npm run build && npx cap add ios",
     "cap:sync": "npm run build && npx cap sync",
     "android": "npm run cap:sync && npx cap open android",
+    "phone": "powershell -ExecutionPolicy Bypass -File tools/phone.ps1",
+    "phone:apk": "powershell -ExecutionPolicy Bypass -File tools/phone.ps1 -ApkOnly",
     "ios": "npm run cap:sync && npx cap open ios",
     "server:deploy": "cd server && wrangler deploy",
     "accounts:make": "wrangler d1 create focus-accounts --location apac",
@@ -45,7 +47,8 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.2.0",
     "@capacitor/ios": "^6.2.0",
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "focus-guard": "file:native/focus-guard"
   },
   "build": {
     "appId": "app.focussimulator.desktop",

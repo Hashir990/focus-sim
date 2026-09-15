@@ -1,0 +1,630 @@
+<!doctype html><meta charset="utf-8">
+<title>Crossword release calendar</title>
+<style>
+:root{--bg:#12141a;--fg:#e8e9ee;--dim:#8b90a0;--line:#262a35;--card:#1a1d26;
+ --c5:#5fb3d4;--c7:#8fd46f;--c9:#e8b04b;--c15:#e06c9f;--today:#e8e9ee}
+*{box-sizing:border-box}
+body{margin:0;padding:28px;background:var(--bg);color:var(--fg);
+ font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--dim);margin-bottom:22px}
+table.sum{border-collapse:collapse;margin-bottom:10px;min-width:640px}
+table.sum th,table.sum td{padding:7px 14px;text-align:left;border-bottom:1px solid var(--line)}
+table.sum th{color:var(--dim);font-weight:500;font-size:12px;
+ text-transform:uppercase;letter-spacing:.06em}
+.sz{font-weight:600}
+.pos{color:#8fd46f}.neg{color:#e0645c}.thin{color:#e8b04b}
+.note{color:var(--dim);font-size:13px;max-width:760px;margin:14px 0 26px}
+.months{display:flex;flex-wrap:wrap;gap:18px}
+.m{background:var(--card);border:1px solid var(--line);border-radius:10px;
+ padding:14px 16px 16px;width:340px}
+.m h2{font-size:14px;margin:0 0 10px;font-weight:600}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dow{color:var(--dim);font-size:10px;text-align:center;padding-bottom:4px}
+.d{min-height:52px;border:1px solid var(--line);border-radius:5px;padding:3px 4px;
+ font-size:10px;background:#161923}
+.d.blank{border:0;background:none}
+.d.past{opacity:.42}
+.d.today{border-color:var(--today);box-shadow:0 0 0 1px var(--today)}
+.n{color:var(--dim);font-size:10px;display:block;margin-bottom:2px}
+.d.today .n{color:var(--today);font-weight:700}
+.p{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.p b{font-weight:600}
+.c5{color:var(--c5)}.c7{color:var(--c7)}.c9{color:var(--c9)}.c15{color:var(--c15)}
+.key{margin:22px 0 0;color:var(--dim);font-size:12px}
+.key span{margin-right:16px}
+</style>
+<h1>Crossword release calendar</h1>
+<div class="sub">Bank as it stands on 2026-09-11. Epoch 2026-08-17. Faded days have already been published; solid days ahead of today are banked and waiting.</div>
+<table class="sum"><tr><th>Size</th><th>Comes out</th><th>In bank</th><th>Unreleased</th><th>Last banked date</th><th>Runway</th><th>Net per week</th></tr>
+<tr><td class="sz c5">5x5</td><td>every day</td><td>43</td><td>17</td><td>2026-09-28</td><td>17 days</td><td class="pos">+7.0</td></tr>
+<tr><td class="sz c7">7x7</td><td>every day</td><td>43</td><td>17</td><td>2026-09-28</td><td>17 days</td><td class="pos">+7.0</td></tr>
+<tr><td class="sz c9">9x9</td><td>Wed + Fri</td><td>43</td><td>35</td><td>2027-01-13</td><td>124 days</td><td class="pos">+12.0</td></tr>
+<tr><td class="sz c15">15x15</td><td>Sundays</td><td>6</td><td>3</td><td>2026-09-27</td><td>16 days</td><td class="thin">+0.4</td></tr>
+</table>
+<div class="note">Net per week is what the daily build adds minus what the release schedule spends. A positive number means the runway lengthens on its own and the last-banked date moves further out every day; only a negative one needs attention. Past the last banked date the app does not go blank -- <code>crossOnDay</code> wraps and reissues an earlier puzzle as an encore.</div>
+<div class="months">
+<div class="m">
+<h2>August 2026</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d past"><span class="n">1</span>
+</div>
+<div class="d past"><span class="n">2</span>
+</div>
+<div class="d past"><span class="n">3</span>
+</div>
+<div class="d past"><span class="n">4</span>
+</div>
+<div class="d past"><span class="n">5</span>
+</div>
+<div class="d past"><span class="n">6</span>
+</div>
+<div class="d past"><span class="n">7</span>
+</div>
+<div class="d past"><span class="n">8</span>
+</div>
+<div class="d past"><span class="n">9</span>
+</div>
+<div class="d past"><span class="n">10</span>
+</div>
+<div class="d past"><span class="n">11</span>
+</div>
+<div class="d past"><span class="n">12</span>
+</div>
+<div class="d past"><span class="n">13</span>
+</div>
+<div class="d past"><span class="n">14</span>
+</div>
+<div class="d past"><span class="n">15</span>
+</div>
+<div class="d past"><span class="n">16</span>
+</div>
+<div class="d past"><span class="n">17</span>
+<span class="p c5"><b>5</b> #1 SHARE</span>
+<span class="p c7"><b>7</b> #1 SKINNED</span>
+</div>
+<div class="d past"><span class="n">18</span>
+<span class="p c5"><b>5</b> #2 HOURS</span>
+<span class="p c7"><b>7</b> #2 IMPETUS</span>
+</div>
+<div class="d past"><span class="n">19</span>
+<span class="p c5"><b>5</b> #3 POLLS</span>
+<span class="p c7"><b>7</b> #3 EACH</span>
+<span class="p c9"><b>9</b> #1 LAMENT</span>
+</div>
+<div class="d past"><span class="n">20</span>
+<span class="p c5"><b>5</b> #4 BASED</span>
+<span class="p c7"><b>7</b> #4 MINI</span>
+</div>
+<div class="d past"><span class="n">21</span>
+<span class="p c5"><b>5</b> #5 SCALE</span>
+<span class="p c7"><b>7</b> #5 GORILLA</span>
+<span class="p c9"><b>9</b> #2 SCARED</span>
+</div>
+<div class="d past"><span class="n">22</span>
+<span class="p c5"><b>5</b> #6 IDEAL</span>
+<span class="p c7"><b>7</b> #6 BLASTED</span>
+</div>
+<div class="d past"><span class="n">23</span>
+<span class="p c5"><b>5</b> #7 SAGAN</span>
+<span class="p c7"><b>7</b> #7 ENDEMIC</span>
+<span class="p c15"><b>15</b> #1 ADHERE</span>
+</div>
+<div class="d past"><span class="n">24</span>
+<span class="p c5"><b>5</b> #8 CASTE</span>
+<span class="p c7"><b>7</b> #8 UGLY</span>
+</div>
+<div class="d past"><span class="n">25</span>
+<span class="p c5"><b>5</b> #9 EARTH</span>
+<span class="p c7"><b>7</b> #9 MESSIAH</span>
+</div>
+<div class="d past"><span class="n">26</span>
+<span class="p c5"><b>5</b> #10 AEGIS</span>
+<span class="p c7"><b>7</b> #10 FALLING</span>
+<span class="p c9"><b>9</b> #3 CRAFTY</span>
+</div>
+<div class="d past"><span class="n">27</span>
+<span class="p c5"><b>5</b> #11 FERAL</span>
+<span class="p c7"><b>7</b> #11 SIDEBAR</span>
+</div>
+<div class="d past"><span class="n">28</span>
+<span class="p c5"><b>5</b> #12 SCALE</span>
+<span class="p c7"><b>7</b> #12 ARTICLE</span>
+<span class="p c9"><b>9</b> #4 ASTHMA</span>
+</div>
+<div class="d past"><span class="n">29</span>
+<span class="p c5"><b>5</b> #13 ADAPT</span>
+<span class="p c7"><b>7</b> #13 AWKWARD</span>
+</div>
+<div class="d past"><span class="n">30</span>
+<span class="p c5"><b>5</b> #14 OPERA</span>
+<span class="p c7"><b>7</b> #14 SAMURAI</span>
+<span class="p c15"><b>15</b> #2 ABDOMEN</span>
+</div>
+<div class="d past"><span class="n">31</span>
+<span class="p c5"><b>5</b> #15 BEARD</span>
+<span class="p c7"><b>7</b> #15 BLOB</span>
+</div>
+</div></div>
+<div class="m">
+<h2>September 2026</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d past"><span class="n">1</span>
+<span class="p c5"><b>5</b> #16 CRASH</span>
+<span class="p c7"><b>7</b> #16 ABLE</span>
+</div>
+<div class="d past"><span class="n">2</span>
+<span class="p c5"><b>5</b> #17 AROMA</span>
+<span class="p c7"><b>7</b> #17 BOMB</span>
+<span class="p c9"><b>9</b> #5 HANDED</span>
+</div>
+<div class="d past"><span class="n">3</span>
+<span class="p c5"><b>5</b> #18 EAGER</span>
+<span class="p c7"><b>7</b> #18 GARLAND</span>
+</div>
+<div class="d past"><span class="n">4</span>
+<span class="p c5"><b>5</b> #19 LILAC</span>
+<span class="p c7"><b>7</b> #19 ACHE</span>
+<span class="p c9"><b>9</b> #6 CANDID</span>
+</div>
+<div class="d past"><span class="n">5</span>
+<span class="p c5"><b>5</b> #20 AMEND</span>
+<span class="p c7"><b>7</b> #20 ABDOMEN</span>
+</div>
+<div class="d past"><span class="n">6</span>
+<span class="p c5"><b>5</b> #21 EAGER</span>
+<span class="p c7"><b>7</b> #21 FARADAY</span>
+<span class="p c15"><b>15</b> #3 INDIRECT</span>
+</div>
+<div class="d past"><span class="n">7</span>
+<span class="p c5"><b>5</b> #22 DAILY</span>
+<span class="p c7"><b>7</b> #22 TAKEOFF</span>
+</div>
+<div class="d past"><span class="n">8</span>
+<span class="p c5"><b>5</b> #23 EVENT</span>
+<span class="p c7"><b>7</b> #23 BALANCE</span>
+</div>
+<div class="d past"><span class="n">9</span>
+<span class="p c5"><b>5</b> #24 CIGAR</span>
+<span class="p c7"><b>7</b> #24 BEAMING</span>
+<span class="p c9"><b>9</b> #7 TUCKER</span>
+</div>
+<div class="d past"><span class="n">10</span>
+<span class="p c5"><b>5</b> #25 EAGER</span>
+<span class="p c7"><b>7</b> #25 BROADEN</span>
+</div>
+<div class="d today"><span class="n">11</span>
+<span class="p c5"><b>5</b> #26 RELAY</span>
+<span class="p c7"><b>7</b> #26 ELASTIC</span>
+<span class="p c9"><b>9</b> #8 NARNIA</span>
+</div>
+<div class="d "><span class="n">12</span>
+<span class="p c5"><b>5</b> #27 GROAN</span>
+<span class="p c7"><b>7</b> #27 BONANZA</span>
+</div>
+<div class="d "><span class="n">13</span>
+<span class="p c5"><b>5</b> #28 TASTE</span>
+<span class="p c7"><b>7</b> #28 BLAB</span>
+<span class="p c15"><b>15</b> #4 TRAVOLTA</span>
+</div>
+<div class="d "><span class="n">14</span>
+<span class="p c5"><b>5</b> #29 ALLOY</span>
+<span class="p c7"><b>7</b> #29 LESBIAN</span>
+</div>
+<div class="d "><span class="n">15</span>
+<span class="p c5"><b>5</b> #30 AGONY</span>
+<span class="p c7"><b>7</b> #30 ARMORED</span>
+</div>
+<div class="d "><span class="n">16</span>
+<span class="p c5"><b>5</b> #31 ALLEY</span>
+<span class="p c7"><b>7</b> #31 MAXIMAL</span>
+<span class="p c9"><b>9</b> #9 FABRIC</span>
+</div>
+<div class="d "><span class="n">17</span>
+<span class="p c5"><b>5</b> #32 CHILI</span>
+<span class="p c7"><b>7</b> #32 SIDEBAR</span>
+</div>
+<div class="d "><span class="n">18</span>
+<span class="p c5"><b>5</b> #33 AVERT</span>
+<span class="p c7"><b>7</b> #33 DORMANT</span>
+<span class="p c9"><b>9</b> #10 BADGER</span>
+</div>
+<div class="d "><span class="n">19</span>
+<span class="p c5"><b>5</b> #34 CLASH</span>
+<span class="p c7"><b>7</b> #34 AGED</span>
+</div>
+<div class="d "><span class="n">20</span>
+<span class="p c5"><b>5</b> #35 CREAM</span>
+<span class="p c7"><b>7</b> #35 ICEBERG</span>
+<span class="p c15"><b>15</b> #5 ANNOUNCE</span>
+</div>
+<div class="d "><span class="n">21</span>
+<span class="p c5"><b>5</b> #36 ABORT</span>
+<span class="p c7"><b>7</b> #36 ANYMORE</span>
+</div>
+<div class="d "><span class="n">22</span>
+<span class="p c5"><b>5</b> #37 TIARA</span>
+<span class="p c7"><b>7</b> #37 BREAKER</span>
+</div>
+<div class="d "><span class="n">23</span>
+<span class="p c5"><b>5</b> #38 MARIA</span>
+<span class="p c7"><b>7</b> #38 INBOUND</span>
+<span class="p c9"><b>9</b> #11 DEDICATED</span>
+</div>
+<div class="d "><span class="n">24</span>
+<span class="p c5"><b>5</b> #39 AROMA</span>
+<span class="p c7"><b>7</b> #39 GUARDED</span>
+</div>
+<div class="d "><span class="n">25</span>
+<span class="p c5"><b>5</b> #40 OASIS</span>
+<span class="p c7"><b>7</b> #40 ACHE</span>
+<span class="p c9"><b>9</b> #12 ENTERING</span>
+</div>
+<div class="d "><span class="n">26</span>
+<span class="p c5"><b>5</b> #41 DANCE</span>
+<span class="p c7"><b>7</b> #41 TORTURE</span>
+</div>
+<div class="d "><span class="n">27</span>
+<span class="p c5"><b>5</b> #42 ARENA</span>
+<span class="p c7"><b>7</b> #42 ATHEISM</span>
+<span class="p c15"><b>15</b> #6 TOOBAD</span>
+</div>
+<div class="d "><span class="n">28</span>
+<span class="p c5"><b>5</b> #43 FORAY</span>
+<span class="p c7"><b>7</b> #43 SASH</span>
+</div>
+<div class="d "><span class="n">29</span>
+</div>
+<div class="d "><span class="n">30</span>
+<span class="p c9"><b>9</b> #13 CAMERA</span>
+</div>
+</div></div>
+<div class="m">
+<h2>October 2026</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d "><span class="n">1</span>
+</div>
+<div class="d "><span class="n">2</span>
+<span class="p c9"><b>9</b> #14 SWEETLY</span>
+</div>
+<div class="d "><span class="n">3</span>
+</div>
+<div class="d "><span class="n">4</span>
+</div>
+<div class="d "><span class="n">5</span>
+</div>
+<div class="d "><span class="n">6</span>
+</div>
+<div class="d "><span class="n">7</span>
+<span class="p c9"><b>9</b> #15 POTATO</span>
+</div>
+<div class="d "><span class="n">8</span>
+</div>
+<div class="d "><span class="n">9</span>
+<span class="p c9"><b>9</b> #16 HAIRED</span>
+</div>
+<div class="d "><span class="n">10</span>
+</div>
+<div class="d "><span class="n">11</span>
+</div>
+<div class="d "><span class="n">12</span>
+</div>
+<div class="d "><span class="n">13</span>
+</div>
+<div class="d "><span class="n">14</span>
+<span class="p c9"><b>9</b> #17 AERIAL</span>
+</div>
+<div class="d "><span class="n">15</span>
+</div>
+<div class="d "><span class="n">16</span>
+<span class="p c9"><b>9</b> #18 COOPERATE</span>
+</div>
+<div class="d "><span class="n">17</span>
+</div>
+<div class="d "><span class="n">18</span>
+</div>
+<div class="d "><span class="n">19</span>
+</div>
+<div class="d "><span class="n">20</span>
+</div>
+<div class="d "><span class="n">21</span>
+<span class="p c9"><b>9</b> #19 DEBTOR</span>
+</div>
+<div class="d "><span class="n">22</span>
+</div>
+<div class="d "><span class="n">23</span>
+<span class="p c9"><b>9</b> #20 CENSOR</span>
+</div>
+<div class="d "><span class="n">24</span>
+</div>
+<div class="d "><span class="n">25</span>
+</div>
+<div class="d "><span class="n">26</span>
+</div>
+<div class="d "><span class="n">27</span>
+</div>
+<div class="d "><span class="n">28</span>
+<span class="p c9"><b>9</b> #21 BUREAU</span>
+</div>
+<div class="d "><span class="n">29</span>
+</div>
+<div class="d "><span class="n">30</span>
+<span class="p c9"><b>9</b> #22 TREASURER</span>
+</div>
+<div class="d "><span class="n">31</span>
+</div>
+</div></div>
+<div class="m">
+<h2>November 2026</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d "><span class="n">1</span>
+</div>
+<div class="d "><span class="n">2</span>
+</div>
+<div class="d "><span class="n">3</span>
+</div>
+<div class="d "><span class="n">4</span>
+<span class="p c9"><b>9</b> #23 AEROSPACE</span>
+</div>
+<div class="d "><span class="n">5</span>
+</div>
+<div class="d "><span class="n">6</span>
+<span class="p c9"><b>9</b> #24 OBSERVING</span>
+</div>
+<div class="d "><span class="n">7</span>
+</div>
+<div class="d "><span class="n">8</span>
+</div>
+<div class="d "><span class="n">9</span>
+</div>
+<div class="d "><span class="n">10</span>
+</div>
+<div class="d "><span class="n">11</span>
+<span class="p c9"><b>9</b> #25 ISOLATION</span>
+</div>
+<div class="d "><span class="n">12</span>
+</div>
+<div class="d "><span class="n">13</span>
+<span class="p c9"><b>9</b> #26 EXISTENCE</span>
+</div>
+<div class="d "><span class="n">14</span>
+</div>
+<div class="d "><span class="n">15</span>
+</div>
+<div class="d "><span class="n">16</span>
+</div>
+<div class="d "><span class="n">17</span>
+</div>
+<div class="d "><span class="n">18</span>
+<span class="p c9"><b>9</b> #27 STREAMING</span>
+</div>
+<div class="d "><span class="n">19</span>
+</div>
+<div class="d "><span class="n">20</span>
+<span class="p c9"><b>9</b> #28 CARPENTER</span>
+</div>
+<div class="d "><span class="n">21</span>
+</div>
+<div class="d "><span class="n">22</span>
+</div>
+<div class="d "><span class="n">23</span>
+</div>
+<div class="d "><span class="n">24</span>
+</div>
+<div class="d "><span class="n">25</span>
+<span class="p c9"><b>9</b> #29 DISCOURSE</span>
+</div>
+<div class="d "><span class="n">26</span>
+</div>
+<div class="d "><span class="n">27</span>
+<span class="p c9"><b>9</b> #30 ELECTORAL</span>
+</div>
+<div class="d "><span class="n">28</span>
+</div>
+<div class="d "><span class="n">29</span>
+</div>
+<div class="d "><span class="n">30</span>
+</div>
+</div></div>
+<div class="m">
+<h2>December 2026</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d "><span class="n">1</span>
+</div>
+<div class="d "><span class="n">2</span>
+<span class="p c9"><b>9</b> #31 INSTANTLY</span>
+</div>
+<div class="d "><span class="n">3</span>
+</div>
+<div class="d "><span class="n">4</span>
+<span class="p c9"><b>9</b> #32 PENINSULA</span>
+</div>
+<div class="d "><span class="n">5</span>
+</div>
+<div class="d "><span class="n">6</span>
+</div>
+<div class="d "><span class="n">7</span>
+</div>
+<div class="d "><span class="n">8</span>
+</div>
+<div class="d "><span class="n">9</span>
+<span class="p c9"><b>9</b> #33 SUPPORTER</span>
+</div>
+<div class="d "><span class="n">10</span>
+</div>
+<div class="d "><span class="n">11</span>
+<span class="p c9"><b>9</b> #34 EVIDENTLY</span>
+</div>
+<div class="d "><span class="n">12</span>
+</div>
+<div class="d "><span class="n">13</span>
+</div>
+<div class="d "><span class="n">14</span>
+</div>
+<div class="d "><span class="n">15</span>
+</div>
+<div class="d "><span class="n">16</span>
+<span class="p c9"><b>9</b> #35 ELIMINATE</span>
+</div>
+<div class="d "><span class="n">17</span>
+</div>
+<div class="d "><span class="n">18</span>
+<span class="p c9"><b>9</b> #36 PAPERBACK</span>
+</div>
+<div class="d "><span class="n">19</span>
+</div>
+<div class="d "><span class="n">20</span>
+</div>
+<div class="d "><span class="n">21</span>
+</div>
+<div class="d "><span class="n">22</span>
+</div>
+<div class="d "><span class="n">23</span>
+<span class="p c9"><b>9</b> #37 YESTERDAY</span>
+</div>
+<div class="d "><span class="n">24</span>
+</div>
+<div class="d "><span class="n">25</span>
+<span class="p c9"><b>9</b> #38 DISCREDIT</span>
+</div>
+<div class="d "><span class="n">26</span>
+</div>
+<div class="d "><span class="n">27</span>
+</div>
+<div class="d "><span class="n">28</span>
+</div>
+<div class="d "><span class="n">29</span>
+</div>
+<div class="d "><span class="n">30</span>
+<span class="p c9"><b>9</b> #39 TALLORDER</span>
+</div>
+<div class="d "><span class="n">31</span>
+</div>
+</div></div>
+<div class="m">
+<h2>January 2027</h2><div class="g">
+<div class="dow">S</div>
+<div class="dow">M</div>
+<div class="dow">T</div>
+<div class="dow">W</div>
+<div class="dow">T</div>
+<div class="dow">F</div>
+<div class="dow">S</div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d blank"></div>
+<div class="d "><span class="n">1</span>
+<span class="p c9"><b>9</b> #40 GENTLEMAN</span>
+</div>
+<div class="d "><span class="n">2</span>
+</div>
+<div class="d "><span class="n">3</span>
+</div>
+<div class="d "><span class="n">4</span>
+</div>
+<div class="d "><span class="n">5</span>
+</div>
+<div class="d "><span class="n">6</span>
+<span class="p c9"><b>9</b> #41 PRIVILEGE</span>
+</div>
+<div class="d "><span class="n">7</span>
+</div>
+<div class="d "><span class="n">8</span>
+<span class="p c9"><b>9</b> #42 INCIDENCE</span>
+</div>
+<div class="d "><span class="n">9</span>
+</div>
+<div class="d "><span class="n">10</span>
+</div>
+<div class="d "><span class="n">11</span>
+</div>
+<div class="d "><span class="n">12</span>
+</div>
+<div class="d "><span class="n">13</span>
+<span class="p c9"><b>9</b> #43 LIBERATED</span>
+</div>
+<div class="d "><span class="n">14</span>
+</div>
+<div class="d "><span class="n">15</span>
+</div>
+<div class="d "><span class="n">16</span>
+</div>
+<div class="d "><span class="n">17</span>
+</div>
+<div class="d "><span class="n">18</span>
+</div>
+<div class="d "><span class="n">19</span>
+</div>
+<div class="d "><span class="n">20</span>
+</div>
+<div class="d "><span class="n">21</span>
+</div>
+<div class="d "><span class="n">22</span>
+</div>
+<div class="d "><span class="n">23</span>
+</div>
+<div class="d "><span class="n">24</span>
+</div>
+<div class="d "><span class="n">25</span>
+</div>
+<div class="d "><span class="n">26</span>
+</div>
+<div class="d "><span class="n">27</span>
+</div>
+<div class="d "><span class="n">28</span>
+</div>
+<div class="d "><span class="n">29</span>
+</div>
+<div class="d "><span class="n">30</span>
+</div>
+<div class="d "><span class="n">31</span>
+</div>
+</div></div>
+</div>
+<div class="key"><span class="c5">5x5 daily</span><span class="c7">7x7 daily</span><span class="c9">9x9 Wed+Fri</span><span class="c15">15x15 Sundays</span>&nbsp; #n is the puzzle's position in its size, which is what fixes its date. The word is that grid's longest answer, as a handle.</div>

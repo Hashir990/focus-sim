@@ -1,0 +1,57 @@
+<!-- ============ APP BLOCKING ============
+     Three screens, all filled from 51-guard-ui.js: the page, a rule, and the
+     app picker for that rule.
+
+     The picker is a screen of its own rather than a list under the settings.
+     Eighty apps inline is a page whose settings are at the top and whose bottom
+     nobody reaches, and it is a list you scan by icon rather than read — which
+     wants the whole window.
+
+     Neither of these is reachable on a build with no plugin: the menu row that
+     opens them hides itself (see 51-guard-ui.js). The markup is here anyway,
+     because a page that exists on every platform and is *shown* on one is one
+     thing to keep in step; a page built at runtime is two. -->
+<div class="overlay hide" id="block-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="block-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">App blocking</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <div id="block-body"></div>
+  </div>
+</div>
+
+<div class="overlay hide" id="block-rule-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="block-rule-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title" id="block-rule-title">Rule</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <div id="block-rule-body"></div>
+  </div>
+</div>
+
+<div class="overlay hide" id="block-apps-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="block-apps-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">Choose apps</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <!-- Sticky, because the list is long and the reason you are searching is
+         that it is long. -->
+    <div class="blk-find-wrap">
+      <input type="search" id="blk-find" class="blk-find" placeholder="Search apps"
+             autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Search apps" />
+    </div>
+    <div id="block-apps-list"></div>
+  </div>
+</div>

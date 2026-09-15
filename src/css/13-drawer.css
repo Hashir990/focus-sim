@@ -49,6 +49,9 @@ body.vfx-on .drawer{
 .drawer-x{ width:34px; height:34px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:20px; line-height:1; cursor:pointer; }
 .drawer-x:hover{ color:var(--text); }
 .drawer-item{ text-align:left; display:flex; align-items:center; gap:13px; padding:14px; border-radius:15px; border:1px solid var(--line); background:var(--card); color:var(--text); font-family:inherit; cursor:pointer; transition:background .18s, transform .1s; }
+/* No global .hide in this app — each component declares its own. Without this
+   the app-blocking row, which ships hidden, shows on every platform. */
+.drawer-item.hide{ display:none }
 .drawer-item:hover{ background:rgba(255,255,255,.06); }
 .drawer-item:active{ transform:scale(.99); }
 .drawer-item svg{ width:22px; height:22px; flex:0 0 auto; stroke:currentColor; stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; color:var(--accent); transition:color 1.1s ease; }

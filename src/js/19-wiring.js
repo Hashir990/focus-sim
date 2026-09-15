@@ -99,6 +99,9 @@
   $('cal-close').onclick = ()=>Cal.close();
   $('cal-prev').onclick = ()=>Cal.step(-1);
   $('cal-next').onclick = ()=>Cal.step(1);
+  if($('day-close')) $('day-close').onclick = ()=>Cal.closeDay();
+  if($('day-prev')) $('day-prev').onclick = ()=>Cal.dayStep(-1);
+  if($('day-next')) $('day-next').onclick = ()=>Cal.dayStep(1);
   /* Cutting the break short ends it for the whole room, so it is the timer
      holder's call — the same rule as start, pause and skip. The button is
      disabled for everyone else rather than hidden, so it's clear the option

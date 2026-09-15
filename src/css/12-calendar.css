@@ -21,7 +21,6 @@
 .cal-cell.l3 .lvl{ opacity:.85; }
 .cal-cell.l4 .lvl{ opacity:1; box-shadow:0 0 0 3px var(--glow); }
 .cal-detail{ margin-top:16px; }
-.cal-detail h4{ font-family:'Fraunces',serif; font-style:italic; font-weight:400; font-size:16px; margin-bottom:10px; }
 .cal-rec{ background:var(--card); border:1px solid var(--line); border-radius:13px; padding:12px 13px; margin-bottom:9px; }
 .cal-rec .rechead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:10px; }
 .cal-rec .rectime{ font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -49,20 +48,24 @@
   width:5px; height:5px; box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* ---- density ----
-   The month grid shrinks as the selected day gets more to read, so the notes are
-   on screen with it rather than below the fold. Driven by data-dense on the
-   overlay, set in Cal.detail(). */
-[data-dense="1"] .cal-summary{ margin-bottom:10px }
-[data-dense="1"] .cal-stat{ padding:9px 12px }
-[data-dense="1"] .cal-stat b{ font-size:18px }
+/* ---- one day, in front of the month ----
+   There used to be two layout modes here — `data-dense`, which shrank the
+   month as the selected day filled up, and `data-adding`, which shrank it to a
+   strip while the add form was open — because the day was a panel under the
+   grid and the two had to share one column. The day has its own page now
+   (#day-overlay, 11-calendar-overlay.html) and both modes are gone: the month
+   is always the whole month.
 
-[data-dense="2"] .cal-summary{ display:none }          /* buy back the vertical space */
-[data-dense="2"] .cal-nav{ margin-bottom:4px }
-[data-dense="2"] .cal-detail{ margin-top:12px }
-[data-dense="2"] .cal-rec{ padding:9px 10px; margin-bottom:7px; border-radius:11px }
-[data-dense="2"] .cal-rec .rechead{ margin-bottom:6px }
-[data-dense="2"] .cal-rec textarea{ padding:7px 8px; font-size:13px }
+   **Opaque, and one layer up**, like every overlay that opens over another
+   one (HANDOFF §6): two 96% washes stacked let the month show through the
+   day's list plainly enough to read. */
+#day-overlay{ background:var(--bg); z-index:56 }
+.day-title{ text-align:center }
+/* The two arrows are the back button's shape at a size that leaves the day's
+   name room; "Wednesday, 10 September" is the longest thing in this header. */
+.day-step{ width:34px; height:34px; border-radius:11px }
+.day-step svg{ width:17px; height:17px }
+#day-overlay .cal-detail{ margin-top:4px }
 
 .cal-rec textarea{ overflow:hidden; min-height:38px; transition:height .12s ease }
 @media (prefers-reduced-motion: reduce){ .cal-rec textarea{ transition:none } }
@@ -198,80 +201,25 @@
 }
 .plan-save:hover{ background:color-mix(in srgb, var(--accent) 32%, transparent) }
 
-/* ---- writing something down needs the room, not the month ----
-   The add form is five rows tall with the repeat options open. Below a full
-   month grid that put it off the bottom of the screen, and scrolling down to
-   it left it jammed against the edge with the grid taking the space.
 
-   So while the form is open the month shrinks to a strip: small squares, no
-   weekday header, no month totals. It is still there to move days with — which
-   is the only thing it is for at that moment — and everything below it moves
-   up by about half a screen. */
-[data-adding="1"] .cal-summary{ display:none }
-[data-adding="1"] .cal-week{ display:none }
-[data-adding="1"] .cal-nav{ margin:0 0 6px }
-[data-adding="1"] .cal-nav .cal-month{ font-size:15px }
-[data-adding="1"] .cal-nav button{ width:30px; height:30px; border-radius:9px }
-[data-adding="1"] .cal-grid{ gap:3px }
-[data-adding="1"] .cal-cell{
-  aspect-ratio:auto; height:19px; font-size:9.5px; border-radius:5px;
-}
-/* the marks stay — they are how you tell which days already have something on
-   them — but the session bar goes, along with the room it needs */
-[data-adding="1"] .cal-cell .lvl{ display:none }
-[data-adding="1"] .cal-cell .ev-dot,
-[data-adding="1"] .cal-cell .todo-dot{ width:3px; height:3px; top:2px }
-[data-adding="1"] .cal-cell .ev-dot{ left:2px }
-[data-adding="1"] .cal-cell .todo-dot{ left:8px; right:auto }
-[data-adding="1"] .cal-cell .note-dot{ display:none }
-[data-adding="1"] .cal-detail h4{ margin-bottom:6px; font-size:15px }
-[data-adding="1"] .cal-detail{ margin-top:10px }
-/* and the records below the form stay out of the way while it is open */
-[data-adding="1"] .cal-rec{ display:none }
-
-/* Reading a day, as opposed to writing one. `data-dense` already shrank the
-   month for a day with a lot of sessions on it; these carry the same idea
-   through the planned rows, which are the other half of what a day holds now.
-   Nothing here fires below three things on the day — a short day fits under a
-   full month, and compressing it then would be taking the calendar away for
-   no reason. */
-[data-dense="1"] .plan-row{ padding:8px 11px; margin-bottom:6px }
-[data-dense="1"] .cal-plan{ margin-bottom:10px }
-[data-dense="2"] .cal-week{ display:none }
-[data-dense="2"] .cal-grid{ gap:3px }
-[data-dense="2"] .cal-cell{ aspect-ratio:auto; height:22px; font-size:10px; border-radius:6px }
-[data-dense="2"] .cal-cell .lvl{ width:11px; height:3px; bottom:3px }
-[data-dense="2"] .cal-cell .ev-dot, [data-dense="2"] .cal-cell .todo-dot{ width:3px; height:3px; bottom:2px }
-[data-dense="2"] .cal-cell.ev .lvl, [data-dense="2"] .cal-cell.todo .lvl{ bottom:7px }
-[data-dense="2"] .plan-row{ padding:7px 10px; margin-bottom:5px; border-radius:11px }
-[data-dense="2"] .plan-mid b{ font-size:13px }
-[data-dense="2"] .cal-plan-head{ margin-bottom:6px }
 
 /* ---- how the day went ----
-   The faces, in the once-a-day prompt and on the day panel. Sized for a thumb:
-   this is the one control in the app whose whole point is being answerable
-   without looking, and a 30px target is not that. */
-.mood-row{ display:flex; gap:6px; flex-wrap:wrap }
-.mood-pick{
-  flex:1 1 0; min-width:38px; height:40px; padding:0;
-  font-size:19px; line-height:1; cursor:pointer;
-  border-radius:12px; border:1px solid var(--line); background:var(--card);
-  transition:transform .12s, border-color .12s, background .12s;
-}
-.mood-pick:hover, .mood-pick:focus-visible{ border-color:var(--muted); transform:translateY(-1px) }
-.mood-pick.on{
-  border-color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 20%, transparent);
-  transform:translateY(-1px);
-}
-/* The prompt's row is a touch larger than the calendar's, and no more: it was
-   a slab across the top of the screen, out of scale with the cards under it. */
-.mood-row.big .mood-pick{ height:44px; font-size:21px }
+   The faces, in the once-a-day prompt and on the day panel. They are drawn
+   rather than typed — see 17c-emoji.js — and every rule that dresses them lives
+   in 37-emoji.css beside the drawing. What is left here is the row.
+
+   Sized for a thumb: this is the one control in the app whose whole point is
+   being answerable without looking, and a 30px target is not that. */
+.mood-row{ display:flex; gap:2px; flex-wrap:nowrap; justify-content:space-between }
 
 /* The prompt. Above the dial, and dismissible — an app that keeps asking is one
    you learn to tap past without reading. */
+/* The top margin is the app's own rhythm — `.cycle`, which is what sits here
+   when the prompt is not asking, has the same one. Without it the panel's edge
+   lands exactly on the bottom of the top bar, and on a narrow window, where the
+   date wraps to two lines, the question reads as part of the bar. */
 .mood-ask{
-  margin:0 0 10px; padding:9px 11px 10px;
+  margin:clamp(8px, 1.6vh, 14px) 0 10px; padding:9px 11px 10px;
   border-radius:14px; border:1px solid var(--line); background:var(--card);
 }
 .mood-ask.hide{ display:none }
@@ -284,18 +232,11 @@
    the top-left corner in a row. The face is large and is the one thing on the
    square you read rather than count, so it gets a corner to itself. */
 .cal-cell .mood{
-  position:absolute; right:2px; bottom:1px;
-  font-size:13px; line-height:1; pointer-events:none;
-  /* **Named explicitly, or it comes out as an outline.** The app's own stack
-     has partial coverage of these code points, so the browser draws its
-     monochrome fallback rather than reaching the colour font — which at this
-     size reads as a smudge rather than a face. */
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",
-              "Twemoji Mozilla",sans-serif;
+  position:absolute; right:2px; bottom:1px; line-height:1; pointer-events:none;
+  /* The face is a drawing now, not a character, so nothing here has to name a
+     colour-emoji font and hope the platform has one. The size lives with the
+     drawing in 37-emoji.css, which is where the rest of .emo is set. */
 }
-[data-dense="1"] .cal-cell .mood{ font-size:11.5px }
-[data-dense="2"] .cal-cell .mood{ font-size:10px; right:1px; bottom:0 }
-[data-adding="1"] .cal-cell .mood{ display:none }
 /* **The number stays in the middle.** Moving it to the top-left to make room
    put it under the marks that had just been moved there, which is a collision
    traded for a collision. Centre is the one place on the square nothing else

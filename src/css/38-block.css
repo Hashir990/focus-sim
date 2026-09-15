@@ -1,0 +1,295 @@
+/* ---- app blocking ----
+   The settings page and the app picker. Markup in src/body/18-block.html,
+   filled by 51-guard-ui.js.
+
+   Everything here borrows the app's own furniture where it can — `.q-sec` for
+   the section headings, `.toggle` for the three "when" chips, `.overlay` and
+   `.ov-*` for the frame. What is left is the four things this page has that
+   nothing else does: the big switch, a permission checklist, a stepper, and a
+   list of applications. */
+
+.blk-note{
+  color:var(--muted); font-size:13px; line-height:1.55; margin:0 0 4px;
+}
+
+/* The three "when" chips borrow `.drawer-toggles`, which is written for the
+   menu — a 260px column where two per row is right. Across a full-width page
+   that basis wraps the third onto a line of its own and the row reads as two
+   choices and an afterthought. Shared evenly here, and nowhere else. */
+#block-body .drawer-toggles .toggle{ flex:1 1 0; min-width:0 }
+
+/* **The one loud line on the page.** Switched on with a permission missing is
+   the failure this whole screen exists to make visible: Android will not tell
+   you, the blocker will simply never appear, and every app of this kind gets
+   reported as broken for exactly that reason. */
+.blk-warn{
+  margin:10px 0 0; padding:10px 12px; border-radius:12px;
+  font-size:13px; line-height:1.5;
+  color:#f0c98a;
+  border:1px solid rgba(240,201,138,.3);
+  background:rgba(240,201,138,.09);
+}
+
+/* ---- the switch ----
+   A slab rather than a chip, because it is the only control on the page that
+   decides whether any of the others mean anything. */
+.blk-switch{
+  display:grid; grid-template-columns:auto 1fr; align-items:center;
+  column-gap:14px; row-gap:2px;
+  width:100%; padding:15px 16px; margin:0 0 4px;
+  border-radius:18px; border:1px solid var(--line); background:var(--card);
+  color:var(--text); font:inherit; text-align:left; cursor:pointer;
+  transition:border-color .2s ease, background .2s ease;
+}
+.blk-switch b{ grid-column:2; font-size:15.5px; font-weight:600 }
+.blk-switch small{ grid-column:2; color:var(--muted); font-size:12.5px; line-height:1.45 }
+.blk-switch .blk-knob{
+  grid-row:1 / span 2; grid-column:1;
+  width:46px; height:28px; border-radius:999px; position:relative;
+  background:var(--track); border:1px solid var(--line);
+  transition:background .2s ease, border-color .2s ease;
+}
+.blk-switch .blk-knob::after{
+  content:''; position:absolute; top:3px; left:3px;
+  width:20px; height:20px; border-radius:50%;
+  background:var(--muted);
+  transition:transform .2s ease, background .2s ease;
+}
+.blk-switch.on{ border-color:color-mix(in srgb, var(--accent) 45%, var(--line)) }
+.blk-switch.on .blk-knob{ background:color-mix(in srgb, var(--accent) 28%, transparent) }
+.blk-switch.on .blk-knob::after{ transform:translateX(18px); background:var(--accent) }
+
+/* ---- the permissions ----
+   Read as a checklist and not as a form: what it is, why it is being asked for,
+   and one button. The "why" is long on purpose — "Display over other apps" for
+   an app that never draws over anything is the single most alarming-sounding
+   thing this app asks for, and it is not for drawing. */
+.blk-perms{ display:flex; flex-direction:column; gap:8px }
+.blk-perm{
+  display:flex; align-items:flex-start; gap:11px;
+  padding:12px 13px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card);
+}
+.blk-tick{
+  flex:0 0 auto; width:20px; height:20px; margin-top:1px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; line-height:1;
+  border:1px solid var(--line); color:var(--bg); background:transparent;
+}
+.blk-perm.ok .blk-tick{ background:var(--accent); border-color:var(--accent) }
+.blk-perm-t{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px }
+.blk-perm-t b{ font-size:13.5px; font-weight:600 }
+.blk-perm-t small{ color:var(--muted); font-size:12px; line-height:1.5 }
+.blk-go{
+  flex:0 0 auto; align-self:center; padding:8px 12px; border-radius:11px;
+  border:1px solid var(--line); background:transparent;
+  color:var(--text); font:inherit; font-size:12.5px; cursor:pointer;
+  transition:border-color .18s ease, background .18s ease;
+}
+.blk-go:hover{ border-color:var(--muted); background:var(--track) }
+.blk-done{ flex:0 0 auto; align-self:center; color:var(--accent); font-size:12.5px }
+
+/* ---- the apps you chose ----
+   Chips with the real icon on them. A blocklist written as package names is a
+   list nobody can check: nobody knows which of the four Google entries on their
+   phone is the one they open at midnight. */
+.blk-chosen{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px }
+.blk-chip{
+  display:inline-flex; align-items:center; gap:7px;
+  padding:6px 9px 6px 6px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card);
+  color:var(--text); font:inherit; font-size:12.5px; cursor:pointer;
+}
+.blk-chip img{ width:20px; height:20px; border-radius:5px; display:block }
+.blk-chip i{ font-style:normal; color:var(--muted); font-size:14px; line-height:1 }
+.blk-chip:hover{ border-color:var(--muted) }
+.blk-chip:hover i{ color:#f0a0a0 }
+
+.blk-pick{
+  width:100%; padding:12px; border-radius:14px; cursor:pointer;
+  border:1px dashed var(--line); background:transparent;
+  color:var(--text); font:inherit; font-size:13.5px;
+  transition:border-color .18s ease, background .18s ease;
+}
+.blk-pick:hover{ border-color:var(--accent); background:var(--track) }
+
+/* ---- the numbers ---- */
+.blk-step{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 13px; margin-bottom:8px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card);
+}
+.blk-step > span:first-child{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px }
+.blk-step b{ font-size:13.5px; font-weight:600 }
+.blk-step small{ color:var(--muted); font-size:12px; line-height:1.5 }
+.blk-pm{ flex:0 0 auto; display:flex; align-items:center; gap:2px }
+.blk-pm button{
+  width:32px; height:32px; border-radius:10px; cursor:pointer;
+  border:1px solid var(--line); background:transparent;
+  color:var(--text); font:inherit; font-size:16px; line-height:1;
+}
+.blk-pm button:hover:not(:disabled){ border-color:var(--muted); background:var(--track) }
+.blk-pm button:disabled{ opacity:.32; cursor:default }
+/* Fixed width, so stepping from 9 to 10 does not shuffle the two buttons
+   sideways under a thumb that is still on one of them. */
+.blk-pm > b{ min-width:52px; text-align:center; font-size:14.5px; font-weight:600 }
+.blk-pm > b i{ font-style:normal; color:var(--muted); font-size:11.5px; margin-left:2px }
+
+/* ---- today ---- */
+.blk-tot{ display:flex; gap:8px; margin-bottom:10px }
+.blk-tot span{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:12px 6px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card);
+  color:var(--muted); font-size:11.5px; text-align:center;
+}
+.blk-tot b{ color:var(--text); font-size:21px; font-weight:600; line-height:1.1 }
+.blk-rows{ display:flex; flex-direction:column; gap:6px }
+.blk-row{
+  display:flex; align-items:baseline; gap:10px;
+  padding:9px 12px; border-radius:12px; background:var(--track);
+  font-size:13px;
+}
+.blk-row span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.blk-row i{ font-style:normal; color:var(--muted); font-size:11.5px; flex:0 0 auto }
+
+/* **Opaque, and one layer up.** The picker opens over the settings page, and
+   `.overlay` is deliberately 96% of the background so the weather shows through
+   — two of those stacked is one at 92%, and the settings underneath came
+   through the app list plainly enough to read. Exactly what happened to the
+   puzzle calendar over the arcade (HANDOFF §6), and the same fix: an overlay
+   that opens over an overlay needs a solid background and a higher z-index. */
+#block-rule-overlay{ background:var(--bg); z-index:56 }
+/* The picker opens from a rule now, so it is one layer above that. */
+#block-apps-overlay{ background:var(--bg); z-index:57 }
+
+/* ---- a change waiting out the lock ---- */
+.blk-pending{
+  display:flex; align-items:flex-start; gap:10px; margin:10px 0 2px; padding:11px 12px;
+  border-radius:14px; border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  background:color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.blk-pending > span{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px }
+.blk-pending b{ font-size:13.5px; font-weight:600 }
+.blk-pending small{ color:var(--muted); font-size:12px; line-height:1.5 }
+
+.blk-switch[disabled]{ opacity:.5; cursor:default }
+.blk-sub{ margin:12px 0 6px; color:var(--muted); font-size:12px; line-height:1.5 }
+
+/* ---- the rules ---- */
+.blk-rules{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px }
+.blk-rule{
+  display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; text-align:left;
+  border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; cursor:pointer;
+}
+.blk-rule:hover{ border-color:var(--muted) }
+.blk-rule.off{ opacity:.6 }
+.blk-rule-ic{ flex:0 0 auto; display:flex; align-items:center }
+/* Overlapped, like a hand of cards: five icons side by side is a rule wider than
+   its name. */
+.blk-rule-ic img, .blk-rule-ic .blk-noicon, .blk-site-ic{
+  width:26px; height:26px; border-radius:7px; display:block; margin-left:-8px;
+  box-shadow:0 0 0 2px var(--bg);
+}
+.blk-rule-ic > :first-child{ margin-left:0 }
+.blk-site-ic{
+  display:grid; place-items:center; background:var(--track); color:var(--muted);
+  font-size:8.5px; font-weight:600; letter-spacing:.02em;
+}
+.blk-rule-t{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px }
+.blk-rule-t b{ font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.blk-rule-t b i{ font-style:normal; font-weight:500; color:var(--muted); font-size:11.5px }
+.blk-rule-t small{ color:var(--muted); font-size:12px; line-height:1.45 }
+.blk-rule-go{ flex:0 0 auto; color:var(--muted); font-size:22px; line-height:1 }
+
+/* ---- a rule's controls ---- */
+.blk-field{ width:100%; box-sizing:border-box; margin-bottom:10px }
+.blk-addsite{ display:flex; gap:8px; align-items:center }
+.blk-addsite .blk-field{ margin-bottom:0; flex:1; min-width:0 }
+.blk-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px }
+.blk-opt{
+  padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+  color:var(--muted); font:inherit; font-size:12.5px; cursor:pointer;
+}
+.blk-opt.on{ color:var(--text); border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent) }
+.blk-days{ display:flex; gap:6px; margin:10px 0 }
+.blk-day{
+  flex:1 1 0; min-width:0; height:36px; border-radius:10px; border:1px solid var(--line);
+  background:var(--card); color:var(--muted); font:inherit; font-size:13px; cursor:pointer;
+}
+.blk-day.on{ color:var(--bg); background:var(--accent); border-color:var(--accent); font-weight:600 }
+.blk-times{ display:flex; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px }
+.blk-times label{ display:flex; align-items:center; gap:8px }
+.blk-times input{
+  font:inherit; color:var(--text); background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:7px 9px; color-scheme:dark;
+}
+.blk-delete{
+  display:block; width:100%; margin:24px 0 8px; padding:12px; border-radius:14px; font:inherit; cursor:pointer;
+  border:1px solid color-mix(in srgb, #f07070 45%, var(--line)); background:transparent; color:#f0a0a0;
+}
+.blk-code{
+  display:block; margin:6px 0 4px; padding:10px 12px; border-radius:10px; background:var(--track);
+  font-family:ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size:11.5px;
+  line-height:1.5; word-break:break-all; user-select:all; -webkit-user-select:all;
+}
+.blk-app-n small{ display:block; color:var(--muted); font-size:11px; margin-top:2px }
+
+/* ---- the week ---- */
+.blk-week{ display:flex; align-items:flex-end; gap:6px; height:84px; margin:14px 0 6px }
+.blk-bar{ flex:1 1 0; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:4px }
+.blk-bar i{ display:block; width:100%; border-radius:6px 6px 3px 3px; background:color-mix(in srgb, var(--accent) 55%, transparent) }
+.blk-bar.now i{ background:var(--accent) }
+.blk-bar em{ font-style:normal; color:var(--muted); font-size:11px }
+.blk-streak{ margin:8px 0 0; color:var(--muted); font-size:13px }
+.blk-streak b{ color:var(--text); font-weight:600 }
+
+/* ---- the picker ----
+   **Pinned at -6px, and the top corners squared off.** `.ov-body` has its own
+   padding, so a box stuck at `top:0` inside it leaves a strip of scrolling
+   content showing above — and filling that strip with a `box-shadow` in
+   `--card` fills it with glass, because `--card` is translucent and the shadow
+   follows the border radius. Pin at the scroller's own padding and let the
+   box's opaque background cover it. Same fix as the crossword's clue bar. */
+.blk-find-wrap{
+  position:sticky; top:-6px; z-index:3;
+  padding:6px 0 10px; margin:0 0 2px;
+  background:var(--bg);
+}
+.blk-find{
+  width:100%; padding:12px 14px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card);
+  color:var(--text); font:inherit; font-size:14px;
+  -webkit-appearance:none; appearance:none;
+}
+.blk-find:focus{ outline:none; border-color:var(--accent) }
+.blk-find::placeholder{ color:var(--muted) }
+
+.blk-app{
+  display:flex; align-items:center; gap:12px; width:100%;
+  padding:10px 12px; margin-bottom:6px; border-radius:14px;
+  border:1px solid transparent; background:var(--card);
+  color:var(--text); font:inherit; text-align:left; cursor:pointer;
+  /* A tap target inside a scroller has to say which gesture it wants, or the
+     browser guesses from what happens next and sometimes refuses to scroll at
+     all. See HANDOFF §6, the crossword. */
+  touch-action:pan-y;
+  transition:border-color .16s ease, background .16s ease;
+}
+.blk-app img, .blk-noicon{
+  flex:0 0 auto; width:36px; height:36px; border-radius:9px; display:block;
+}
+.blk-noicon{ background:var(--track) }
+.blk-app-n{
+  flex:1; min-width:0; font-size:14px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.blk-box{
+  flex:0 0 auto; width:24px; height:24px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; line-height:1;
+  border:1px solid var(--line); color:var(--bg); background:transparent;
+}
+.blk-app.on{ border-color:color-mix(in srgb, var(--accent) 45%, transparent) }
+.blk-app.on .blk-box{ background:var(--accent); border-color:var(--accent) }

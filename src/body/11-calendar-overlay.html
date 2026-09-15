@@ -19,6 +19,35 @@
     </div>
     <div class="cal-week"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
     <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
+<!-- ============ ONE DAY ============
+     **Its own page, in front of the month.** The day used to be a panel under
+     the grid, and a panel under a grid that is most of a screen on its own is a
+     panel squeezed into whatever is left: the month shrank as the day filled up
+     (`data-dense`), shrank again to a strip when the add form opened
+     (`data-adding`), and a busy day was still a scroll with the calendar
+     crushed above it. Two layout modes existed only to share one column.
+
+     Now the month is always the full month, and tapping a day opens this over
+     it. Back closes the day and leaves you on the month where you were; the
+     arrows walk to the day either side without going back to the grid, which is
+     how you read a week. Filled by Cal.detail() in 18-calendar.js. -->
+<div class="overlay hide" id="day-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="day-close" aria-label="Back to the month">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title day-title" id="day-title">—</div>
+    <button class="ov-back day-step" id="day-prev" aria-label="The day before">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <button class="ov-back day-step" id="day-next" aria-label="The day after">
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+  </div>
+  <div class="ov-body">
     <div class="cal-detail" id="cal-detail"></div>
   </div>
 </div>

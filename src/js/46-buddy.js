@@ -1289,18 +1289,29 @@
 
      Antics are the dearest things in here on purpose. A hat is seen by whoever
      is looking at your name; an antic is a thing that crosses the whole screen
-     for the length of a session, and it should feel like it cost something. */
+     for the length of a session, and it should feel like it cost something.
+
+     **The whole shelf was repriced, and not by one multiplier.** An ember is ten
+     minutes of focus, and at the old numbers the entire shop was a fortnight's
+     work — which makes the last thing you buy feel like the first. Each row is
+     now banded by where an item sits in its *own* row rather than against some
+     absolute figure: the cheapest third doubled, the middle third quadrupled,
+     and the top third times five. Banding by rank rather than by price is what
+     keeps peers together — thirty and thirty-two are the same kind of hat and
+     had no business landing either side of a line — and because the multiplier
+     never falls as the price rises, the cheapest-first order of every shelf is
+     unchanged. */
   const BUD_COST = {
-    e:  [0, 12, 14, 12, 16, 18, 16, 20, 22, 26, 24, 28, 26],
+    e:  [0, 24, 28, 24, 32, 72, 32, 80, 88, 130, 120, 140, 130],
     /* Six through ten are the second set of hairstyles. They arrived without
        prices for one release and every one of them showed a bare `0` in the
        shop — an option that looks broken rather than free. A row shorter than
        its list is now a failing check; see tools/smoke-test.mjs. */
-    r:  [0, 16, 22, 24, 20, 28, 18, 32, 30, 34, 26],
-    h:  [0, 18, 16, 24, 30, 34, 20, 32, 38, 30, 26, 22, 44],
-    f:  [0, 26, 22, 28, 48, 30, 34, 20, 24, 38],
-    a:  [0, 14, 16, 20, 24, 22, 26, 22, 28],
-    o:  [0, 45, 50, 55, 80, 40, 60, 45, 35, 50, 42, 48, 62, 52, 38],
+    r:  [0, 32, 88, 96, 40, 140, 36, 160, 150, 170, 104],
+    h:  [0, 36, 32, 96, 120, 170, 40, 160, 190, 120, 104, 44, 220],
+    f:  [0, 104, 44, 112, 240, 120, 170, 40, 48, 190],
+    a:  [0, 28, 32, 80, 120, 88, 130, 88, 140],
+    o:  [0, 180, 200, 275, 400, 80, 300, 180, 70, 200, 84, 192, 310, 208, 76],
     /* **No free antic.** He had the swing from the first minute and it was the
        one thing in the shop nobody would ever buy — the flashiest item, given
        away. Buying your first is now the first thing embers are for, and until
@@ -1310,7 +1321,7 @@
        Ordered by what they are worth to look at rather than by index: the
        reader turns a page, the swing crosses the whole window on webs it
        throws. `BUD_ANIM_ORDER` is what the shelf shows, cheapest first. */
-    an: [100, 35, 60, 70, 85, 55, 45, 30],
+    an: [500, 70, 240, 350, 425, 220, 90, 60],
   };
   /* How a purchase is filed in `Embers.own`: the row's letter and the index,
      so `bud-h8` is the wizard hat and `bud-an3` is the skateboard. Parsed by
@@ -1486,7 +1497,10 @@
       + ' ' + o.attr + '="' + r.k + '" data-i="' + i + '"'
       + ' aria-label="' + esc(list[i].n || (r.name + ' ' + i)) + '">'
       + budIcon(list[i], r.ink ? 0 : v[r.t], r.ink ? budTileInk(v.ec) : '', budPal(r.k))
-      + '<em>' + esc(o.label) + '</em></button>';
+      /* A price gets its own class so the label's ellipsis clip does not
+         reach it — see `.bud-tile em.bud-price` in 30-embers.css. */
+      + '<em' + (o.mark ? ' class="bud-price"' : '') + '>'
+      + (o.mark ? embMark() : '') + esc(o.label) + '</em></button>';
   }
 
   function budShopTile(r, list, i, v){
@@ -1499,6 +1513,7 @@
       attr:'data-shop', mine:owned, on:worn && !Buddy.tryOn, tried,
       far: !owned && !afford,
       label: owned ? (worn ? 'worn' : 'yours') : String(cost),
+      mark: !owned,
     });
   }
 
@@ -1516,14 +1531,14 @@
       bar = '<div class="bud-try">'
         + '<ul class="bud-try-list">' + tried.map(x=>
             '<li' + (x.owned ? ' class="mine"' : '') + '><b>' + esc(x.name) + '</b>'
-            + '<span>' + (x.owned ? 'yours' : x.cost) + '</span></li>').join('') + '</ul>'
+            + '<span>' + (x.owned ? 'yours' : embPrice(x.cost)) + '</span></li>').join('') + '</ul>'
         + '<div class="bud-try-do">'
         + (due
             ? '<button class="mini-btn' + (afford ? ' primary' : '') + '" id="bud-try-buy"'
               + (afford ? '' : ' disabled') + '>'
               + (afford ? 'Buy ' + (tried.filter(x=>!x.owned).length > 1 ? 'these' : 'it')
-                          + ' for ' + due
-                 : due + ' embers') + '</button>'
+                          + ' for ' + embPrice(due)
+                 : embPrice(due)) + '</button>'
             : '<button class="mini-btn primary" id="bud-try-wear">Wear it</button>')
         + '<button class="mini-btn" id="bud-try-off">Take it all off</button></div></div>';
     }
@@ -1566,8 +1581,8 @@
           return '<button class="emb-light' + (owned ? ' mine' : '') + (on ? ' on' : '')
             + (!owned && !afford ? ' far' : '') + '" data-antic="' + i + '"'
             + ' style="--lit:var(--accent)">'
-            + '<i></i><b>' + esc(a.n) + '</b>'
-            + '<em>' + (owned ? (on ? 'in use' : (cost ? 'owned' : 'free')) : cost + ' embers') + '</em>'
+            + embIcon(a.ic) + '<b>' + esc(a.n) + '</b>'
+            + '<em>' + (owned ? (on ? 'in use' : (cost ? 'owned' : 'free')) : embPrice(cost)) + '</em>'
             + '<span>' + esc(a.d) + '</span></button>';
         }).join('') + '</div></div>';
   }

@@ -33,22 +33,29 @@
   <div class="ov-body">
 
     <!-- picker -->
+    <!-- **Every card is three columns: its icon, its words, and a side column.**
+         The side column holds `.pcard-icons` above `.prog` — the slot for
+         anything a card wants to show beside its status (whoever in the room is
+         on this game, for now), stacked in the flow so nothing lands on the
+         status. The faces used to be pinned to the card's top-right corner with
+         `position:absolute`, which is where the status also sits, and covered
+         it. Anything new that belongs on a card goes in that slot. -->
     <div class="picker" id="picker">
       <div class="pick-group"><h4>On your own</h4><em>one a day</em></div>
       <button class="pcard" data-game="sudoku">
         <span class="emoji">▦</span>
-        <span><h3>Sudoku</h3><p>One grid a day, in three difficulties.</p></span>
-        <span class="prog" id="prog-sudoku"></span>
+        <span class="pcard-text"><h3>Sudoku</h3><p>One grid a day, in three difficulties.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-sudoku"></span></span>
       </button>
       <button class="pcard" data-game="wordle">
         <span class="emoji">◐</span>
-        <span><h3>Word guess</h3><p>Five letters, six tries. Everyone gets the same word.</p></span>
-        <span class="prog" id="prog-wordle"></span>
+        <span class="pcard-text"><h3>Word guess</h3><p>Five letters, six tries. Everyone gets the same word.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-wordle"></span></span>
       </button>
       <button class="pcard" data-game="g2048">
         <span class="emoji">◈</span>
-        <span><h3>2048</h3><p>Slide the tiles together and watch the numbers climb.</p></span>
-        <span class="prog" id="prog-2048"></span>
+        <span class="pcard-text"><h3>2048</h3><p>Slide the tiles together and watch the numbers climb.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-2048"></span></span>
       </button>
       <button class="pcard" data-game="tetris">
         <!-- The T piece, drawn rather than borrowed from a font: ▚ was a
@@ -60,40 +67,57 @@
           <rect x="8.5" y="10.5" width="7" height="7" rx="1.4"></rect>
           <rect x="15.5" y="10.5" width="7" height="7" rx="1.4"></rect>
         </svg></span>
-        <span><h3>Tetris</h3><p>Seven-bag pieces, hold and a ghost. Play as often as you like.</p></span>
-        <span class="prog" id="prog-tetris"></span>
+        <span class="pcard-text"><h3>Tetris</h3><p>Seven-bag pieces, hold and a ghost. Play as often as you like.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-tetris"></span></span>
       </button>
       <button class="pcard" data-game="crossword">
         <span class="emoji">▤</span>
-        <span><h3>Crossword</h3><p>Small ones daily, a big one on Sundays.</p></span>
-        <span class="prog" id="prog-crossword"></span>
+        <span class="pcard-text"><h3>Crossword</h3><p>Small ones daily, a big one on Sundays.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-crossword"></span></span>
       </button>
       <div class="pick-group"><h4>Together</h4><em>needs a room</em></div>
       <button class="pcard needs-room" data-game="hangman">
         <span class="emoji">⌇</span>
-        <span><h3>Hangman<em class="tag">2+</em></h3><p>One sets a word, the rest guess.</p></span>
-        <span class="prog" id="prog-hangman"></span>
+        <span class="pcard-text"><h3>Hangman<em class="tag">2+</em></h3><p>One sets a word, the rest guess.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-hangman"></span></span>
       </button>
       <button class="pcard needs-room" data-game="scrabble">
         <span class="emoji">▩</span>
-        <span><h3>Scrabble<em class="tag">2+</em></h3><p>The full board, taking turns.</p></span>
-        <span class="prog" id="prog-scrabble"></span>
+        <span class="pcard-text"><h3>Scrabble<em class="tag">2+</em></h3><p>The full board, taking turns.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-scrabble"></span></span>
       </button>
       <button class="pcard needs-room" data-game="chess">
         <span class="emoji">♞</span>
-        <span><h3>Chess<em class="tag">2</em></h3><p>Keeps its place between breaks.</p></span>
-        <span class="prog" id="prog-chess"></span>
+        <span class="pcard-text"><h3>Chess<em class="tag">2</em></h3><p>Keeps its place between breaks.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-chess"></span></span>
       </button>
       <button class="pcard needs-room" data-game="pictionary">
         <span class="emoji">✎</span>
-        <span><h3>Pictionary<em class="tag">2+</em></h3><p>One draws, everyone else shouts.</p></span>
-        <span class="prog" id="prog-pictionary"></span>
+        <span class="pcard-text"><h3>Pictionary<em class="tag">2+</em></h3><p>One draws, everyone else shouts.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-pictionary"></span></span>
+      </button>
+      <!-- Codenames-style, and the one room game that is about teams rather
+           than turns. Two players is enough: the board plays the other side. -->
+      <button class="pcard needs-room" data-game="spymaster">
+        <span class="emoji"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="5" height="5" rx="1.2"></rect>
+          <rect x="9.5" y="3" width="5" height="5" rx="1.2"></rect>
+          <rect x="16" y="3" width="5" height="5" rx="1.2"></rect>
+          <rect x="3" y="9.5" width="5" height="5" rx="1.2"></rect>
+          <rect x="9.5" y="9.5" width="5" height="5" rx="1.2" class="fill"></rect>
+          <rect x="16" y="9.5" width="5" height="5" rx="1.2"></rect>
+          <rect x="3" y="16" width="5" height="5" rx="1.2" class="fill"></rect>
+          <rect x="9.5" y="16" width="5" height="5" rx="1.2"></rect>
+          <rect x="16" y="16" width="5" height="5" rx="1.2"></rect>
+        </svg></span>
+        <span class="pcard-text"><h3>Spymaster<em class="tag">4+</em></h3><p>Pick a side. One word, and your team finds the rest.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-spymaster"></span></span>
       </button>
       <!-- Memory is disabled — see MEMORY_ENABLED in src/js/23-memory.js
       <button class="pcard" data-game="memory">
         <span class="emoji">❖</span>
-        <span><h3>Memory</h3><p>Turn over eight matching pairs. Gentle, and over in a minute or two.</p></span>
-        <span class="prog" id="prog-memory"></span>
+        <span class="pcard-text"><h3>Memory</h3><p>Turn over eight matching pairs. Gentle, and over in a minute or two.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-memory"></span></span>
       </button>
       -->
     </div>

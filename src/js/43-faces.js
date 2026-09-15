@@ -18,11 +18,34 @@
      and the other three are cheap, because a clock face is a smaller thing than
      a whole palette and weather system. Owned under a `face-` prefix in the same
      `Embers.own` list, exactly as sounds use `snd-`. */
+  /* `ic` is the face drawn small, for the shelf. Every tile there used to be
+     the same accent circle, which told you a face costs embers and nothing
+     else — four identical dots under four different names. Drawn at 24, in
+     `currentColor`, like the antics' icons and the wardrobe's. */
   const FACES = [
-    {id:'digital', name:'Digital',   note:'The numbers, plainly',        cost:0},
-    {id:'analog',  name:'Analog',    note:'Hands, sweeping down',        cost:70},
-    {id:'flip',    name:'Flip',      note:'Cards turning, one a digit',  cost:40},
-    {id:'glass',   name:'Hourglass', note:'Sand running through',        cost:100},
+    {id:'digital', name:'Digital',   note:'The numbers, plainly',        cost:0,
+     ic:'<rect x="1.4" y="6.6" width="8.2" height="10.8" rx="1.8" fill="currentColor"/>'
+        + '<rect x="14.4" y="6.6" width="8.2" height="10.8" rx="1.8" fill="currentColor"/>'
+        + '<circle cx="12" cy="9.8" r="1.15" fill="currentColor"/>'
+        + '<circle cx="12" cy="14.2" r="1.15" fill="currentColor"/>'},
+    {id:'analog',  name:'Analog',    note:'Hands, sweeping down',        cost:280,
+     ic:'<circle cx="12" cy="12" r="9.4" fill="none" stroke="currentColor" stroke-width="1.8"/>'
+        + '<path d="M12 6.2V12l4.4 2.8" fill="none" stroke="currentColor" stroke-width="1.8"'
+        + ' stroke-linecap="round" stroke-linejoin="round"/>'},
+    {id:'flip',    name:'Flip',      note:'Cards turning, one a digit',  cost:80,
+     /* The card mid-turn: the hinge bright across the middle, the leaf above it
+        foreshortened as it falls. A card drawn square is a rectangle, and the
+        fold is the only part that says flip clock. */
+     ic:'<rect x="3" y="4" width="18" height="16" rx="2.4" fill="currentColor" opacity=".38"/>'
+        + '<path d="M4.6 11.1H19.4L18.2 7.2Q17.8 6 16.4 6H7.6Q6.2 6 5.8 7.2Z" fill="currentColor"/>'
+        + '<path d="M3 12h18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
+        + '<circle cx="2.2" cy="12" r="1.2" fill="currentColor"/>'
+        + '<circle cx="21.8" cy="12" r="1.2" fill="currentColor"/>'},
+    {id:'glass',   name:'Hourglass', note:'Sand running through',        cost:500,
+     ic:'<path d="M5.6 2.8h12.8M5.6 21.2h12.8" stroke="currentColor" stroke-width="1.8"'
+        + ' stroke-linecap="round" fill="none"/>'
+        + '<path d="M7.4 4.2h9.2L12 12l4.6 7.8H7.4L12 12Z" fill="currentColor" opacity=".55"/>'
+        + '<path d="M12 12 8.6 18.4h6.8Z" fill="currentColor"/>'},
   ];
   const EMB_FACE = 'face-';
   function faceDef(id){ return FACES.find(f=>f.id === id) || FACES[0]; }

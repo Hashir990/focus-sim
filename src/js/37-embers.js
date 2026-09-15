@@ -29,6 +29,25 @@
      except Reset progress, which says plainly that it takes them with it. */
 
   const EMB_PER = 600;              // seconds of focus per ember
+  /** **The mark, wherever a number of embers is stated.**
+
+      A bare "42" on a shelf is a number with no unit; the diamond in the top bar
+      is what the currency looks like everywhere else in the app, and a price is
+      the one place it most needs to be recognisable. Same shape, same accent,
+      same rotated square — one class rather than a glyph, so it dyes with the
+      look like the chip does. Decorative, so it is hidden from a screen reader,
+      which reads the number and the word instead. */
+  function embMark(){ return '<i class="emb-mark" aria-hidden="true"></i>'; }
+  /** A price, as it is written on a shelf: the mark and the number. */
+  function embPrice(n){ return embMark() + '<span>' + (n | 0) + '</span>'; }
+  /** A shelf tile's first column, where the thing for sale is not a colour.
+      Takes the 24-unit drawing an item carries and puts it where the dot goes;
+      `currentColor` so it dyes with `--lit` like the dot does. */
+  function embIcon(ic){
+    return '<svg class="emb-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+      + (ic || '') + '</svg>';
+  }
+
   const EMB_KEY = 'focus_embers';
 
   /* Each light is a palette for the focus phase only — rest keeps its warm
@@ -42,15 +61,15 @@
   const EMB_LIGHTS = [
     {id:'seaglass', name:'Sea glass', note:'Blue and teal, rising', cost:0,
      accent:'#4fe0c8', fx:'sparks', fxc:'#5ee6d0', fxc2:'#6fb6f5', fxm:1},
-    {id:'latesun', name:'Late sun', note:'Yellow into orange, in waves', cost:18,
+    {id:'latesun', name:'Late sun', note:'Yellow into orange, in waves', cost:36,
      accent:'#f7bd52', fx:'sun', fxc:'#ffe07a', fxc2:'#ff9a3c', fxm:1},
-    {id:'dusk', name:'Dusk', note:'Smoke, white through to blue-black', cost:26,
+    {id:'dusk', name:'Dusk', note:'Smoke, white through to blue-black', cost:52,
      accent:'#c3cede', fx:'smoke', fxc:'#eef3fb', fxc2:'#55637a', fxm:1},
     /* Bubblegum is the quiet one of the pair: the same purple night, pink
        lights swelling and going out instead of anything going bang. */
-    {id:'frost', name:'First frost', note:'Snow, white and grey', cost:34,
+    {id:'frost', name:'First frost', note:'Snow, white and grey', cost:68,
      accent:'#e4ecf2', fx:'snow', fxc:'#ffffff', fxc2:'#9aa8b4', fxm:1},
-    {id:'hearth', name:'Hearth', note:'Spores, every shade of green', cost:42,
+    {id:'hearth', name:'Hearth', note:'Spores, every shade of green', cost:168,
      accent:'#8fd977', fx:'spores', fxc:'#c8f0a0', fxc2:'#4f9e58', fxm:1},
     /* Dusk's smoke, lit from underneath and three times as thick — smoke coming
        off a fire is not weather drifting past, and eight shapes read as the
@@ -63,7 +82,7 @@
        colours taken in turn rather than blended, because what makes molten rock
        read as molten is bright orange *between* dark crust. A blend of orange
        and near-black is an unbroken brown, which is mud. */
-    {id:'magma', name:'Magma', note:'Lava, cracking orange through black', cost:50,
+    {id:'magma', name:'Magma', note:'Lava, cracking orange through black', cost:200,
      accent:'#ff6a30', fx:'smoke', fxc:'#ff4a1e', fxc2:'#3a0602', fxm:1,
      /* `fxn` still asks for plenty; the kind's `cap` is what actually decides,
         and it is there because these carry a blur each. Thickness past that
@@ -81,9 +100,9 @@
         already starting to pull it back towards smoke. */
      fxpal:['#ff7a1e', '#ff3b0f', '#ffab3d', '#c21f07', '#ffd27a',
             '#ff5c14', '#ff9326', '#8f2a05', '#ffc266', '#1c0402']},
-    {id:'bubblegum', name:'Bubblegum', note:'Pink lights on a purple night', cost:58,
+    {id:'bubblegum', name:'Bubblegum', note:'Pink lights on a purple night', cost:290,
      accent:'#ff8fd0', fx:'bokeh', fxc:'#ffa6dc', fxc2:'#ff62b4', fxm:1},
-    {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:70,
+    {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:350,
      accent:'#f28cae', fx:'petals', fxc:'#ffd3e0', fxc2:'#e8608f', fxm:1},
     /* **A sunset, and it used to be daylight.** This was the one light look on
        the shelf, which meant --card, --line and --track had to be inverted for
@@ -91,9 +110,9 @@
        exception beside it. A focus app is mostly used in the evening anyway.
        Now it is dark like the rest, the exceptions are gone, and the motes are
        the warm glare coming off water under a low sun. See 30-embers.css. */
-    {id:'beach', name:'Beach', note:'A sunset, and a tide coming in', cost:70,
+    {id:'beach', name:'Beach', note:'A sunset, and a tide coming in', cost:350,
      accent:'#ff9d4d', fx:'bokeh', fxc:'#ffb36b', fxc2:'#e28cb4', fxm:1},
-    {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:85,
+    {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:425,
      accent:'#ff7ab8', fx:'fw', fxc:'#ffe066', fxc2:'#ff7ab8', fxm:1,
      // weighted towards the yellows, with the pinks and blues between them
      fxpal:['#ffe066', '#ff7ab8', '#fff2a8', '#7ac8ff', '#ffd166', '#b78cff',
@@ -102,7 +121,7 @@
        behind the dial, drawn as inline SVG in the timer markup and shown by
        this id alone. Kept faint on purpose — it is behind a countdown, and a
        mark you can read at a glance is a mark that competes with the numbers. */
-    {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:70,
+    {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:350,
      accent:'#e01b24', fx:'motes', fxc:'#e01b24', fxc2:'#2438a8', fxm:1},
   ];
 ;
@@ -112,15 +131,15 @@
      ships with no sound at all until you have earned some is a worse app. Each
      brings its own weather as well as its own tint. */
   const EMB_SOUNDS = [
-    {id:'cafe', name:'Café', note:'A room, out of focus', cost:18,
+    {id:'cafe', name:'Café', note:'A room, out of focus', cost:36,
      accent:'#d9a774', fx:'bokeh', fxc:'#e8c398', fxm:1},
-    {id:'rain', name:'Rain', note:'Lines down the glass', cost:34,
+    {id:'rain', name:'Rain', note:'Lines down the glass', cost:136,
      accent:'#7fb2d9', fx:'rain', fxc:'#a8d6f5', fxm:1},
-    {id:'office', name:'Office', note:'Somebody typing next door', cost:42,
+    {id:'office', name:'Office', note:'Somebody typing next door', cost:210,
      accent:'#9fb4cc', fx:'keys', fxc:'#bcd0e6', fxc2:'#7f97b3', fxm:1},
-    {id:'forest', name:'Forest', note:'Leaves letting go', cost:62,
+    {id:'forest', name:'Forest', note:'Leaves letting go', cost:310,
      accent:'#7fc98a', fx:'leaves', fxc:'#cbe8a8', fxc2:'#5f9c6b', fxm:1.2},
-    {id:'campfire', name:'Campfire', note:'Sparks thrown off the top', cost:62,
+    {id:'campfire', name:'Campfire', note:'Sparks thrown off the top', cost:310,
      accent:'#f0a05a', fx:'sparks', fxc:'#ffc083', fxc2:'#ff8f4d', fxm:.6, fxw:2.6,
      fxflick:1},
   ];
@@ -501,7 +520,7 @@
            and there is nowhere else in the app it could be inferred from. What
            was cut and stays cut is the paragraph about where bonus embers come
            from, which the achievements screen already says. */
-        + '<p class="emb-sub">' + this.earned + ' earned in all'
+        + '<p class="emb-sub">' + embMark() + ' ' + this.earned + ' earned in all'
         + (hours ? ' · about ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' of focus' : '')
         + '</p>'
         + '<p class="emb-sub">One ember per ten minutes of focus. Minutes left '
@@ -521,13 +540,13 @@
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
               + (!mine && !afford ? ' far' : '') + '" data-light="' + esc(l.id) + '"'
               + ' style="--lit:' + l.accent + '">'
-              + '<i></i>'
+              + '<i class="emb-dot"></i>'
               + '<b>' + esc(l.name) + '</b>'
               /* "burning" made sense when the shelf was only lights. It stopped
                  the moment one of them was a beach and another was a person in
                  a mask — "Spider-Man, burning" reads as an accident. "in use"
                  says the same thing about every look on the shelf. */
-              + '<em>' + (mine ? (on ? 'in use' : 'owned') : l.cost + ' embers') + '</em>'
+              + '<em>' + (mine ? (on ? 'in use' : 'owned') : embPrice(l.cost)) + '</em>'
               + '<span>' + esc(l.note) + '</span></button>';
           }).join('') + '</div>')
         + pane('sounds', '<p class="emb-head">Sounds <em>with their own colours</em></p>'
@@ -539,9 +558,9 @@
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
               + (!mine && !afford ? ' far' : '') + '" data-sound="' + esc(sd.id) + '"'
               + ' style="--lit:' + sd.accent + '">'
-              + '<i></i>'
+              + '<i class="emb-dot"></i>'
               + '<b>' + esc(sd.name) + '</b>'
-              + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : sd.cost + ' embers') + '</em>'
+              + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : embPrice(sd.cost)) + '</em>'
               + '<span>' + esc(sd.note) + '</span></button>';
           }).join('') + '</div>')
         /* The clock faces belong on the shelf too — they cost embers like
@@ -557,9 +576,9 @@
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
               + (!mine && !afford ? ' far' : '') + '" data-face-pick="' + esc(f.id) + '"'
               + ' style="--lit:var(--accent)">'
-              + '<i></i>'
+              + embIcon(f.ic)
               + '<b>' + esc(f.name) + '</b>'
-              + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : f.cost + ' embers') + '</em>'
+              + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : embPrice(f.cost)) + '</em>'
               + '<span>' + esc(f.note) + '</span></button>';
           }).join('') + '</div>')
         /* The wardrobe and the antics. Both are drawn by 46-buddy.js, next to
@@ -568,7 +587,7 @@
         + pane('antics', (()=>{ try{ return budAnticShopHtml(); }catch(e){ return ''; } })())
         + (next ? '<p class="emb-next">' + (this.have >= next.cost
             ? 'You can afford ' + next.name.toLowerCase() + '.'
-            : (next.cost - this.have) + ' more for ' + next.name.toLowerCase()
+            : embPrice(next.cost - this.have) + ' more for ' + next.name.toLowerCase()
               + ' — about ' + Math.ceil((next.cost - this.have) * EMB_PER / 3600 * 10) / 10
               + ' hours.') + '</p>'
            : '<p class="emb-next">Every light is yours. That was a lot of hours.</p>')

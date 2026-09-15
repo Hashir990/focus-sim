@@ -96,8 +96,15 @@
          The exception is a day you chose yourself. `_chose` is set when the
          calendar opens an older edition and lives only as long as the app is
          open, so going for a break and coming back puts you on the same grid,
-         and tomorrow morning puts you on tomorrow's. */
-      if(this.day !== pktNow() && !this._chose && !dailyPlayed('sudoku', this.diff)){
+         and tomorrow morning puts you on tomorrow's.
+
+         **Finishing today's is not a reason to stay behind.** This also asked
+         that today's be unplayed, so the one thing that reliably left you on an
+         old board was doing today's puzzle: solve Tuesday's, come back on
+         Wednesday, and you were looking at Tuesday. The finished board is not
+         lost — `_open` stashes it and it is a tap away on the calendar — and a
+         solved grid is not what anybody opens the app to look at. */
+      if(this.day !== pktNow() && !this._chose){
         this._open(this.diff, pktNow());
       }
       this.build(); this.render();

@@ -76,6 +76,20 @@ const ACCOUNT_URL = process.env.FOCUS_ACCOUNT_URL
   || envFile('FOCUS_ACCOUNT_URL')
   || '';
 
+/* Whose app this is, and where to write about it. Stamped rather than typed
+   into the source so one `.env` line covers the policy, the credits and any
+   store listing that has to agree with them. Left as the placeholder, the
+   Privacy screen shows a red gap where the name should be — a policy that ships
+   saying "the developer" is worse than one that is missing, and this makes that
+   impossible to not notice. See §"Your part" in HANDOFF.md. */
+const PRIVACY_OWNER = process.env.FOCUS_PRIVACY_OWNER
+  || envFile('FOCUS_PRIVACY_OWNER')
+  || '__PRIVACY_OWNER__';
+
+const PRIVACY_EMAIL = process.env.FOCUS_PRIVACY_EMAIL
+  || envFile('FOCUS_PRIVACY_EMAIL')
+  || '__PRIVACY_EMAIL__';
+
 const UPDATE_URL = process.env.FOCUS_UPDATE_URL
   || envFile('FOCUS_UPDATE_URL')
   || 'https://raw.githubusercontent.com/OWNER/REPO/main/latest.json';
@@ -114,7 +128,9 @@ export function build() {
   ).replace(/__BUILD__/g, buildStamp())
    .replace(/__VERSION__/g, appVersion())
    .replace(/__UPDATE_URL__/g, UPDATE_URL)
-   .replace(/__ACCOUNT_URL__/g, ACCOUNT_URL);
+   .replace(/__ACCOUNT_URL__/g, ACCOUNT_URL)
+   .replace(/__PRIVACY_OWNER__/g, PRIVACY_OWNER)
+   .replace(/__PRIVACY_EMAIL__/g, PRIVACY_EMAIL);
 
   mkdirSync(DIST, { recursive: true });
   writeFileSync(join(DIST, 'index.html'), html, 'utf8');

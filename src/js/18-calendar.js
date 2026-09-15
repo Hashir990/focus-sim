@@ -5,16 +5,46 @@
     draft:null,         // what has been typed into it so far
     open(){
       const d=new Date(); this.y=d.getFullYear(); this.m=d.getMonth();
-      /* Opening on today rather than on nothing: the day you want is nearly
-         always this one, and an empty panel makes the calendar look like it
-         only remembers months. */
+      /* Today is picked so the month opens with it marked, but its page is not
+         opened: the calendar is for looking across the month first, and a day
+         in front of it on arrival is a page to close before you can see it. */
       this.sel=dayKey(Date.now()); this.adding=null; this.draft=null;
       $('cal-overlay').classList.remove('hide');
+      this.closeDay(true);
       this.render();
       const body=this._body(); if(body) body.scrollTop=0;
     },
     _body(){ const ov=$('cal-overlay'); return ov ? ov.querySelector('.ov-body') : null; },
-    close(){ $('cal-overlay').classList.add('hide'); },
+    close(){ this.closeDay(true); $('cal-overlay').classList.add('hide'); },
+
+    /* ---- one day, on its own page ----
+       See the note on #day-overlay in 11-calendar-overlay.html: the day used to
+       share a column with the month and both were squeezed for it. */
+    dayOpen(){ const el=$('day-overlay'); return !!el && !el.classList.contains('hide'); },
+    openDay(key){
+      if(key) this.sel=key;
+      this.adding=null; this.draft=null;
+      const el=$('day-overlay');
+      if(el) el.classList.remove('hide');
+      this.render();
+      const body=el && el.querySelector('.ov-body'); if(body) body.scrollTop=0;
+    },
+    /** `quiet` skips the redraw, for the callers that are about to draw anyway. */
+    closeDay(quiet){
+      const el=$('day-overlay');
+      if(el) el.classList.add('hide');
+      this.adding=null; this.draft=null;
+      if(!quiet) this.render();
+    },
+    /** The day either side, carrying the month with it when it crosses one —
+        otherwise the grid behind would be showing a month the page is not in. */
+    dayStep(n){
+      if(!this.sel) return;
+      const d=new Date(this.sel+'T12:00:00');
+      d.setDate(d.getDate()+n);
+      this.y=d.getFullYear(); this.m=d.getMonth();
+      this.openDay(dayKey(d.getTime()));
+    },
     step(n){
       this.m+=n; if(this.m<0){this.m=11;this.y--;} if(this.m>11){this.m=0;this.y++;}
       this.sel=null; this.adding=null; this.draft=null;
@@ -47,12 +77,10 @@
         // Every day is selectable, whether or not it has sessions — otherwise you
         // can get stuck on one day with no way to move to a neighbouring one.
         if(key===this.sel) cell.classList.add('sel');
-        /* Picking a day never un-picks it. There is always something to show
-           for a day now — what is planned for it, even when nothing happened —
-           so an empty panel is never the more useful answer, and tapping the
-           day you are already on to make the page go blank is not a thing
-           anybody means to do. */
-        cell.onclick=()=>{ this.sel=key; this.adding=null; this.render(); };
+        /* Every day opens its page, whether or not anything happened on it:
+           there is always something to show — what is planned for it, how it
+           went — and a day in the future is where you plan it. */
+        cell.onclick=()=>this.openDay(key);
         if(info){
           cell.classList.add('has');
           const mins=info.secs/60, lvl = mins>=120?4 : mins>=60?3 : mins>=25?2 : 1;
@@ -88,7 +116,10 @@
             cell.classList.add('has-mood');
             const m = document.createElement('span');
             m.className = 'mood';
-            m.textContent = face;
+            /* Drawn, not typed — the same face the picker showed, at 15px.
+               A character here was a different picture on every platform and a
+               monochrome outline on some of them. See 17c-emoji.js. */
+            m.innerHTML = emoFace(face);
             m.title = moodName(face);
             cell.appendChild(m);
           }
@@ -106,26 +137,16 @@
     },
     detail(map){
       const box=$('cal-detail');
-      const ov=$('cal-overlay');
       box.style.paddingBottom='';
-      if(!this.sel){ box.innerHTML=''; ov.dataset.dense='0'; return; }
+      if(!this.sel){ box.innerHTML=''; return; }
       const label=new Date(this.sel+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
       const recs=map[this.sel] ? map[this.sel].recs.slice().sort((a,b)=>a.ts-b.ts) : [];
-      /* The more there is to read, the more the month grid gives way to it.
-
-         Planned things count towards that as much as finished sessions do:
-         a day with six tasks on it is exactly as much to read as a day with
-         six blocks, and before this only the blocks moved the grid — so a
-         busy future day was a full-size calendar with its list off the bottom.
-
-         It is a threshold rather than a slider on purpose. A day with one
-         session and one task on it fits underneath a full month with room to
-         spare, and shrinking the calendar for that would be taking something
-         away for nothing. */
-      let load = recs.length;
-      try{ load += planOn(this.sel).length; }catch(e){}
-      ov.dataset.dense = load>=6 ? '2' : load>=3 ? '1' : '0';
-      box.innerHTML='<h4>'+esc(label)+'</h4>';
+      /* The day's name is the page's title now rather than a heading inside
+         it. The month used to give way as a day filled up — a threshold on how
+         many sessions and plans it held — and none of that is needed once the
+         day has a page of its own to fill. */
+      if($('day-title')) $('day-title').textContent = label;
+      box.innerHTML='';
       /* **Changing your mind is a tap.** The prompt asks once; this is the way
          back, and the only way to clear a day (tap the face that is already on
          it). Not offered for a day that has not happened: a mood is a report,
@@ -260,11 +281,10 @@
 
       if(this.adding === key) wrap.appendChild(this.form(key));
       box.appendChild(wrap);
-      /* The form is the tallest thing in this overlay by some way, and it opens
-         below a month grid that is most of a screen on its own — so it opened
-         off the bottom, and scrolling to it left it wedged against the edge.
-         The month gives way instead: see [data-adding] in 12-calendar.css. */
-      $('cal-overlay').dataset.adding = this.adding === key ? '1' : '0';
+      /* The form used to open below a month grid that was most of a screen on
+         its own, and the month shrank to a strip to make room for it. On the
+         day's own page there is no month to push aside; bringing the form into
+         view is all that is left to do. */
       if(this.adding === key){
         const f = wrap.querySelector('.plan-form');
         // jsdom has no scrollIntoView, and neither do some older engines

@@ -97,6 +97,17 @@
      site was written in good faith and the next one will be too. */
   function tick(){
     if(!S.running) return;
+    /* **And not while the phone is being asked what it did.**
+
+       A block paused from the notification, twenty minutes in a pocket, and
+       then the app is opened again: as far as this page is concerned nothing
+       ever stopped, and this loop starts running the instant the web view
+       thaws — twenty phantom minutes into the log and the ember count before
+       the answer to `takeCommand()` has arrived. It is the same fault as the
+       one the line above guards against, coming in from the other side, and it
+       belongs here for the same reason: the call site was written in good faith
+       and the next one will be too. Always false off Android. See 50-guard.js. */
+    if(guardHolding()) return;
     const rem = Math.max(0, Math.round((S.endAt-Date.now())/1000));
     if(rem!==S.remaining){ S.remaining=rem; paint(); }
     /* Focus is written down while it happens rather than when it ends, so a

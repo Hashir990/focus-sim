@@ -75,11 +75,26 @@
   transition:border-color .18s ease, background .18s ease, transform .1s ease;
 }
 .emb-light:active{ transform:scale(.99) }
-/* the light itself, lit or not */
-.emb-light i{
-  grid-row:1 / span 2; width:20px; height:20px; border-radius:50%;
-  background:var(--lit); opacity:.35; transition:opacity .2s ease, box-shadow .2s ease;
+/* ---- the light itself, lit or not ----
+   **Named, not `.emb-light i`.** That selector was written when the only `<i>`
+   on a tile was this one, and it quietly also caught the ember mark inside a
+   price — so every price on every shelf became a second 20px circle, dropped
+   into the tile's own grid, and the mark that says what the number counts was
+   nowhere on the shelf. A swatch is a thing a tile *has*, not a tag it
+   happens to contain.
+
+   Two kinds stand in the first column. A colour, for the shelves where the
+   thing being sold is one; a drawing, for the shelves where it is not — an
+   antic and a clock face are not colours, and eight tiles of the same accent
+   dot say nothing about which is which. */
+.emb-light .emb-dot, .emb-light .emb-ic{
+  grid-row:1 / span 2; width:20px; height:20px;
+  transition:opacity .2s ease, box-shadow .2s ease, filter .2s ease;
 }
+.emb-light .emb-dot{ border-radius:50%; background:var(--lit); opacity:.35 }
+/* A drawing needs the room a flat circle does not, and reads as a shape rather
+   than a smudge only above about twenty pixels. */
+.emb-light .emb-ic{ width:23px; height:23px; display:block; color:var(--lit); opacity:.45 }
 .emb-light b{ font-size:13.5px; font-weight:600 }
 .emb-light em{
   grid-column:2; font-style:normal; font-size:11px; letter-spacing:.1em;
@@ -88,13 +103,23 @@
 .emb-light span{
   grid-column:1 / -1; font-size:11.5px; color:var(--muted); line-height:1.4; margin-top:4px;
 }
-.emb-light.mine i{ opacity:1 }
+.emb-light.mine .emb-dot, .emb-light.mine .emb-ic{ opacity:1 }
 .emb-light.on{ border-color:var(--lit); background:color-mix(in srgb, var(--lit) 14%, transparent) }
-.emb-light.on i{ box-shadow:0 0 0 4px color-mix(in srgb, var(--lit) 26%, transparent) }
+.emb-light.on .emb-dot{ box-shadow:0 0 0 4px color-mix(in srgb, var(--lit) 26%, transparent) }
+/* The dot's halo is a ring around a circle; around a drawing it would be a ring
+   around nothing. Same idea, following the shape instead. */
+.emb-light.on .emb-ic{ filter:drop-shadow(0 0 5px var(--glow)) }
 .emb-light.on em{ color:var(--lit) }
 /* one you can afford is worth pointing at; one you can't is just quiet */
 .emb-light:not(.mine):not(.far){ border-style:dashed; border-color:var(--lit) }
-.emb-light.far{ opacity:.62 }
+/* **Dim the thing, never the price.** This was `opacity:.62` on the whole
+   tile, which faded the one line you actually need off an item you cannot
+   afford — what it costs — and took the ember mark's glow down with it, since
+   opacity on a box applies to everything in it and there is no opting out.
+   What should sit back is the swatch and the name; the price stays lit. */
+.emb-light.far .emb-dot, .emb-light.far .emb-ic{ opacity:.4 }
+.emb-light.far b{ color:var(--muted) }
+.emb-light.far span{ opacity:.8 }
 
 /* ---- the palettes ----
    A look owns *every* colour on screen, not just the timer's.
@@ -367,6 +392,37 @@ body[data-light="beach"] .app{
       #24123a 100%),
     radial-gradient(120% 40% at 50% 70%, rgba(255,170,90,.55) 0%, transparent 70%);
 }
+
+/* ---- the way into the arcade, on the beach ----
+
+   **The accent is the horizon, and the button lands on it.** Everything the
+   rest arcade button is made of comes from `--accent`, which on this look is
+   the hot orange of the sky's bright band — and a rest is exactly when the
+   button appears, sitting in the middle of the screen, which is where that band
+   is. Orange on orange: the offer was there and nobody could see it, and the
+   line under it was `--muted` mauve on the same orange, which was worse.
+
+   The sky has one colour the horizon does not, and it is the one overhead. So
+   here the button is violet — a ground dark enough to put white on, a lilac
+   edge that reads against both the orange above the waterline and the plum
+   below it, and its own shadow, because on a gradient this busy a flat panel
+   needs a lift to look like a thing you can press. */
+body[data-light="beach"] .arcade-btn{
+  border-color:#bb90ff;
+  background:linear-gradient(180deg, rgba(66,30,114,.94), rgba(42,20,74,.94));
+  color:#f6e9f2;
+  box-shadow:0 8px 22px rgba(18,9,38,.5);
+}
+body[data-light="beach"] .arcade-btn:hover{
+  border-color:#d8c0ff;
+  background:linear-gradient(180deg, rgba(88,42,146,.96), rgba(58,28,102,.96));
+}
+body[data-light="beach"] .arcade-ic{
+  color:#ecd9ff; background:rgba(152,106,226,.36);
+}
+/* Against the violet rather than against the sky, so it can be quiet again. */
+body[data-light="beach"] .arcade-txt em{ color:#cdb4e4 }
+body[data-light="beach"] .arcade-go{ color:#ecd9ff; opacity:1 }
 
 /* ---- the tide ----
 
@@ -1675,24 +1731,30 @@ body[data-amb="campfire"] #drawer{
   position:relative; display:grid; place-items:center; gap:1px;
   width:46px; padding:5px 0 4px; border-radius:10px; cursor:pointer;
   font:inherit; border:1px solid var(--line);
-  background:var(--card); color:var(--muted); opacity:.72;
-  transition:border-color .15s ease, transform .1s ease, opacity .15s ease;
+  background:var(--card); color:var(--muted);
+  transition:border-color .15s ease, transform .1s ease, color .15s ease;
 }
+/* Same rule as the shelf above: the drawing sits back on something you do not
+   own, the price does not. A tile at `opacity:.45` made the cost of the thing
+   the least readable part of the offer to buy it. */
+.bud-tile .bud-ic{ opacity:.72; transition:opacity .15s ease }
 .bud-tile svg{ display:block; width:28px; height:28px }
 .bud-tile em{ font-style:normal; font-size:10px; letter-spacing:.02em }
-.bud-tile.mine{ opacity:1 }
+.bud-tile.mine{ color:var(--text) }
+.bud-tile.mine .bud-ic{ opacity:1 }
 .bud-tile:active{ transform:scale(.94) }
 .bud-tile.tried{
-  border-color:var(--accent); color:var(--accent); opacity:1;
+  border-color:var(--accent); color:var(--accent);
   box-shadow:0 0 0 2px var(--glow);
 }
+.bud-tile.tried .bud-ic{ opacity:1 }
 .bud-tile.on{
   border-color:var(--accent); color:var(--accent); opacity:1;
   background:color-mix(in srgb, var(--accent) 16%, var(--card));
 }
 /* Out of reach for now, and saying so quietly — a price you cannot pay is
    still worth reading, it is the reason to come back. */
-.bud-tile.far{ opacity:.45 }
+.bud-tile.far .bud-ic{ opacity:.45 }
 
 /* The way back to the shop from the wardrobe. Deliberately not a `.mini-btn`:
    it is the one thing on that page that leaves it. */
@@ -1726,6 +1788,13 @@ body[data-amb="campfire"] #drawer{
    costs, and a name needs more room than a number. */
 .bud-tiles .bud-tile{ width:58px }
 .bud-tile em{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:54px }
+/* **Except a price, which is never long enough to need it.** The ellipsis
+   needs `overflow:hidden`, and that clips everything drawn past the label's
+   box — which is exactly where the ember mark's glow is. Every price on the
+   wardrobe wore its glow sliced flat along the top and bottom of the line. A
+   mark and three digits fit a 46px tile with room to spare, so the price
+   label simply does not clip. */
+.bud-tile em.bud-price{ overflow:visible; text-overflow:clip }
 
 /* The drawer a colour lives in. It opens under the row it belongs to, is used,
    and closes — the palette is not a thing to scroll past thirteen times. */
@@ -1794,3 +1863,26 @@ body[data-amb="campfire"] #drawer{
 .bud-try-list li.mine span{ color:var(--muted) }
 .bud-try-do{ display:flex; align-items:center; gap:8px }
 .bud-try-do .mini-btn{ white-space:nowrap }
+
+/* ---- the mark on a price ----
+   The same rotated square as the chip in the top bar, at the size a line of
+   text wants. It goes wherever a number of embers is stated, because a bare
+   number on a shelf is a number with no unit. Dyes with the look, like the chip
+   does, rather than being a glyph in a font that would not. */
+.emb-mark{
+  display:inline-block; vertical-align:middle;
+  width:7px; height:7px; margin:-2px 5px 0 0;
+  border-radius:2px; transform:rotate(45deg);
+  background:var(--accent);
+  /* **Two shadows, and the near one is the accent itself.** `--glow` is a
+     look's atmosphere and some looks keep it soft and low-alpha, which on a
+     seven-pixel diamond is no glow at all — the mark went flat on exactly the
+     looks that are prettiest. The tight one is mixed from the accent, so
+     whatever the look does with its glow the mark is still lit. */
+  box-shadow:0 0 6px var(--glow),
+             0 0 3px color-mix(in srgb, var(--accent) 65%, transparent);
+  flex:0 0 auto;
+}
+/* On a tile the price sits in its own little row, so the mark needs to line up
+   with the digits rather than with the line box. */
+.bud-tile em .emb-mark{ margin-right:4px }

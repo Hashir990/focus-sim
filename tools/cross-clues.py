@@ -4103,3 +4103,206 @@ CLUES.update({
     'torso':  'Trunk of the body',
     'wedge':  'Tapering block that holds a door',
 })
+
+# 2026-09-10 run. Twenty answers off today's fills, all of them new to the bank
+# and all of them arriving on a WordNet gloss. The usual problem in force: the
+# first sense is almost never the one a solver means. DISK came out as "draw a
+# harrow over", TRIO as "cardinal number that is the sum of one and one and
+# one", TUNIC as a layer of body tissue, CUB as "male child", FREE as "not
+# literal" (the translation sense) and SEASON as "make fit". TRIAD and TRIO both
+# mean a group of three, so they are clued apart — one to the chord, one to the
+# players — rather than left as near-duplicate questions.
+CLUES.update({
+    'attending': 'Turning up, as at a lecture',
+    'band':      'Group that plays music together',
+    'bond':      'What glue forms between two surfaces',
+    'cub':       'Young bear or fox',
+    'diner':     'Roadside place for eggs and coffee',
+    'disk':      'Round flat object, or a place to store files',
+    'fired':     'Let go from a job',
+    'free':      'Costing nothing',
+    'gentleman': 'Polite, well-mannered man',
+    'glad':      'Pleased about how it turned out',
+    'hack':      'Break into a computer system',
+    'lit':       'Brightened, as a room at dusk',
+    'privilege': 'Advantage not everyone gets',
+    'season':    'Spring, summer, autumn or winter',
+    'sell':      'Hand over goods for money',
+    'tailoring': 'The trade of cutting and fitting suits',
+    'torture':   'Deliberately inflicted agony',
+    'triad':     'Chord of three notes',
+    'trio':      'Three musicians playing together',
+    'tunic':     'Loose belted garment, Roman style',
+})
+
+# 2026-09-11 run. Hand-written over the WordNet glosses, which as usual gave
+# the wrong sense: INCIDENCE as a light beam striking a surface, LIBERATED as
+# a chemical release, KITE as cheque fraud, LUCK as your lot in life.
+CLUES.update({
+    'answer':    'Reply to a question',
+    'atheism':   'Belief that no god exists',
+    'binge':     'Session of unrestrained indulgence',
+    'carol':     'Song sung at Christmas',
+    'clasp':     'Hold tightly',
+    'dense':     'Packed tightly together',
+    'forgotten': 'Slipped out of mind',
+    'gin':       'Spirit flavoured with juniper',
+    'gunman':    'Armed attacker',
+    'incidence': 'Rate at which something occurs',
+    'kite':      'Toy flown on a string',
+    'legs':      'What a table stands on',
+    'liberated': 'Set free',
+    'lingo':     'Jargon of a particular trade',
+    'luck':      'Chance, good or bad',
+    'manhattan': 'New York borough with Times Square',
+    'mute':      'Button that silences the TV',
+    'occult':    'Supernatural and secret',
+    'presently': 'At the moment',
+    'press':     'Newspapers collectively',
+    'sew':       'Join with needle and thread',
+})
+
+# 2026-09-12. Read off today's fill: two each at 5x5, 7x7 and 9x9 and the
+# seventh 15x15. The glosses were the usual trouble — DEAN arrived as the head
+# of the College of Cardinals, HEAD as a user of drugs, GRADUATED as "taking
+# place by degrees", PANEL as "select from a list" and SOIL as the state of
+# being covered in unclean things. Each is clued below to the sense an
+# ordinary solver actually means.
+CLUES.update({
+    'abolish':    'Put an end to, as a law',
+    'allegedly':  'So it is claimed',
+    'auburn':     'Reddish-brown, as hair',
+    'beak':       "A bird's bill",
+    'blow':       'A hard hit',
+    'brace':      'Support that takes the strain',
+    'burner':     'Ring on a gas hob',
+    'cabaret':    'Floor show at a nightclub',
+    'chad':       'Scrap punched from a ballot',
+    'choke':      'Struggle to breathe',
+    'concur':     'Agree, more formally',
+    'dean':       'Senior figure at a university',
+    'decent':     'Reasonably good',
+    'fiber':      'Roughage in the diet',
+    'governing':  'Holding power, as a party',
+    'graduated':  'Left university with a degree',
+    'head':       'Top of the body',
+    'heat':       'What a radiator gives off',
+    'idyllic':    'Perfectly peaceful and lovely',
+    'island':     'Land with water all round',
+    'mates':      'Friends, in British slang',
+    'mercy':      'Leniency shown to the guilty',
+    'messy':      'Untidy',
+    'pack':       'Fill a suitcase',
+    'panel':      'Flat board in a door or wall',
+    'par':        'The score a golfer aims at',
+    'pause':      'Short break',
+    'react':      'Respond to something',
+    'ridge':      'Long narrow crest of a hill',
+    'scandal':    'Shocking public disgrace',
+    'seriously':  'Without joking',
+    'soil':       'Earth in a garden',
+    'spot':       'Pick out in a crowd',
+    'totaled':    'Wrecked beyond repair, of a car',
+    'tug':        'Give a sharp pull',
+})
+
+# 2026-09-13. Hand clues for the fill at all three sizes. The glosses these
+# replace show the usual trouble: WordNet led ATTEMPT with "act of attacking",
+# DECIDE with "bring to an end", MAIN with the Spanish Main rather than the
+# ordinary adjective, HALF with the half-brother sense, ACETATE with the ester
+# rather than the fabric, and HIT arrived truncated mid-phrase as "make a
+# strategic". ASSURE and GUARANTEE both glossed identically as "make certain
+# of", so they are clued apart here.
+CLUES.update({
+    'acetate':    'Fabric with a silky sheen',
+    'advisable':  'The wise thing to do',
+    'agreed':     'Settled between both sides',
+    'assure':     'Tell someone not to worry',
+    'attempt':    'Have a go at it',
+    'candidate':  'One of the names on the ballot',
+    'decide':     'Make your mind up',
+    'defeat':     'Get the better of',
+    'drained':    'Worn out, with nothing left',
+    'dread':      'Look ahead to with fear',
+    'duke':       'Rank just below prince',
+    'fend':       '___ for yourself',
+    'fraught':    'Tense and full of trouble',
+    'guarantee':  'Promise backing a new appliance',
+    'half':       'Fifty per cent',
+    'hit':        'Strike, or a chart-topper',
+    'imagery':    'Pictures a poem puts in your head',
+    'main':       'The most important one of the lot',
+    'melted':     'Turned to liquid in the pan',
+    'northeast':  'Where Boston and Maine are',
+    'task':       'Job on the to-do list',
+    'viral':      'What a video goes when everyone shares it',
+})
+
+# 2026-09-14 run. Twenty-one answers from the new fives, sevens and nines that
+# were still carrying a WordNet gloss. The usual gloss problems: LINKS came out
+# as a definition of the golf sense long enough to need scrolling, PIP as a
+# poultry disease, ATTRIBUTE as a verb about schemes of classification.
+CLUES.update({
+    'alarm':      'Sound or device that warns of danger',
+    'attribute':  'A quality or feature of something',
+    'cricketer':  'One who bats or bowls for a living',
+    'dynamic':    'Full of energy and change',
+    'editorial':  "The paper's own opinion piece",
+    'eerie':      'Strange in a way that unsettles',
+    'fame':       'Being widely known',
+    'farm':       'Land worked for crops or livestock',
+    'fated':      'Bound to happen, like it or not',
+    'fluid':      'Liquid, or free to change',
+    'forbidden':  'Not allowed at all',
+    'franc':      'Swiss money',
+    'hum':        'Sing without opening your mouth',
+    'inert':      'Doing nothing, chemically or otherwise',
+    'like':       'Tap the thumbs-up icon',
+    'links':      'Seaside golf course',
+    'loose':      'Slack, not firmly fixed',
+    'onion':      'Layered bulb that makes you cry',
+    'path':       'Track worn by walking',
+    'pip':        'Apple seed',
+    'reactor':    'Core of a nuclear power station',
+})
+
+# 2026-09-14. `costa` comes out of the pool as the anatomist's rib or a leaf
+# vein, neither of which a solver reaches for, and it was briefly banned on
+# that basis. Kept instead with the hint that makes a name gettable, the same
+# way cross-phrases.py carries `nolan` and `lucas`.
+CLUES.update({
+    'costa': '___ Rica in Central America',
+})
+
+# 2026-09-15, read off today's fill: two new puzzles at each of 5x5, 7x7 and
+# 9x9. Nineteen answers were still carrying a WordNet gloss. The usual pattern
+# holds — the gloss gives a first sense that is almost never the one a solver
+# means. `cage` came through as the net in ice hockey rather than the thing an
+# animal is kept in, `digestive` as "any substance that promotes digestion",
+# `generator` as an apparatus producing a vapor or gas, and `pool` as a small
+# lake. Each is clued below to the sense an ordinary solver reaches for.
+#
+# `gran` is the one to watch for the answer-in-clue rule: the obvious clue is
+# "what some children call their grandmother", and `gran` hides inside
+# "GRANdmother". It is clued through the mother's-mother route instead.
+CLUES.update({
+    'assault':   'Violent attack',
+    'awareness': 'Knowing that something is going on',
+    'cage':      'Where a zoo keeps a bird or beast',
+    'closed':    'Shut for the day',
+    'come':      'Arrive at last',
+    'digestive': 'To do with the gut',
+    'dirty':     'Needing a wash',
+    'generator': 'Machine that makes electricity',
+    'gradual':   'Happening bit by bit',
+    'gran':      "Your mother's mother, familiarly",
+    'grim':      'Bleak and forbidding',
+    'heir':      'Next in line to the throne',
+    'mastering': 'Getting really good at',
+    'pool':      'Water you swim lengths in',
+    'roll':      'Register of names called out',
+    'scientist': 'Someone who works in a lab',
+    'ump':       'Official calling balls and strikes',
+    'weld':      'Join two bits of metal with heat',
+    'wrestler':  'Grappler on the mat',
+})

@@ -87,6 +87,25 @@ in the menu footer. `start.cmd` prints that stamp before it opens the window.
 
 ## 5. Tests
 
+**jsdom drops a declaration it cannot parse, and reports no shorthand.** Two
+separate ways a CSS check quietly tests nothing. It does not expand `margin:`
+into `marginTop` any more than it expands `animation:` — the longhand reads as
+the empty string however the rule is written — and a value it cannot parse, such
+as `clamp()`, makes the whole declaration vanish from the CSSOM while the rule
+itself is still there with every property empty. When the value is a function,
+assert against the built CSS text (the `html` string every test already has)
+rather than against `getComputedStyle` or `rule.style`.
+
+**Asking jsdom what a rule does to an element.** It has no layout and resolves
+neither `var()` nor `color-mix()`, so "is this round" is unanswerable — but it
+matches selectors, so "what reaches this element" is answerable and is usually
+the better question anyway. Two traps in the walk: a `CSSRuleList` is array-like
+and **not iterable**, so `for...of` over it throws rather than walking; and a
+plain `CSSStyleRule` carries an empty but **truthy** `cssRules`, so a
+`if (r.cssRules) recurse` branch tested first walks past every rule in the sheet
+and finds nothing. Test `selectorText` first, recurse only when there is none,
+and wrap `matches()` — a selector nwsapi cannot parse throws.
+
 `tools/smoke-test.mjs` drives the built file in jsdom — one file, ~800 checks.
 It is the only test that matters and it must stay green.
 
@@ -155,6 +174,46 @@ draws every part at icon size and worn (`--tint=7` to check the dye), and
 of them run in the sandbox.
 
 ## 6. Gotchas that have each cost real time
+
+- **PowerShell variable names ignore case, and a typed parameter keeps its
+  type.** `tools/phone.ps1` takes `[string]$Jdk`, and later assigned a
+  hashtable to `$jdk` — the same variable — which silently became the string
+  "System.Collections.Hashtable". And under `$ErrorActionPreference = 'Stop'`,
+  `& native.exe 2>&1` throws on the first line the program writes to stderr,
+  which for `java -version` is all of them. Both were in the script from the day
+  it was written and neither had ever run, because the first made the second
+  unreachable. Run a script the way a person will before calling it done.
+
+- **The blocker locks people out of Settings, on purpose — so lock last.** While
+  blocking is locked, BlockService stands in front of the Settings screens that
+  would switch it off, and it recognises them partly by this app's name
+  appearing on them — which is also true of the "Display over other apps" and
+  accessibility pages the setup needs. That is why the page will not offer the
+  lock until the permissions are done. If a phone does get stuck, safe mode
+  disables every accessibility service.
+
+- **`opacity` on a box has no opt-out.** "Not yours yet" and "you cannot afford
+  this" were both drawn by fading the whole tile, which faded the price — the
+  one line the person is there to read — and flattened the ember mark's glow,
+  because a child cannot opt out of an ancestor's opacity at any specificity.
+  Dim the picture, never the box: put the fade on the swatch or the drawing and
+  leave the text and the mark alone.
+
+- **A test that reaches for "today's puzzle" is a test with a calendar in it.**
+  Once the 5s run Tuesday/Thursday/Saturday and the 9s Monday/Wednesday/Friday,
+  a check that clicks the 5×5 passes three days a week and fails the other four
+  for no reason anybody can act on. Ask the schedule which sizes are out today
+  and use the smallest — the 7 is out every day, so there is always one.
+
+- **A bare tag under a class is a selector about every `<i>` in the box, not
+  about the one you were looking at.** `.emb-light i` meant "the tile's colour
+  swatch" and matched the ember mark inside the tile's price as well, and at
+  (0,1,1) it beat `.emb-mark` at (0,1,0) — so the thing the shop is denominated
+  in was drawn as a plain circle everywhere a price appeared, and the tiles
+  filled with circles. It survived a check that asked whether the mark element
+  was *present*, because it always was. Anything that is a part of a component
+  gets a class; if you find yourself styling `i`, `b`, `em` or `span` inside a
+  component, ask what else could ever be in there.
 
 - **`n` is taken.** Every entry in every buddy part table starts `n:'Pendant'`
   — that is its *name*. Adding a layer called `n:` gave the object literal two
@@ -1074,7 +1133,44 @@ Forget `latest.yml` and installed copies see nothing, for ever.
 
 ## 8b. Outstanding — read this before starting anything
 
-As of **2026-08-20**, version **1.0.10**, 964 checks green, `dist/` built.
+As of **2026-09-14**, 1369 checks green across the six files, `dist/` built and
+`npx cap sync android` run.
+
+0a. **Time in the arcade does not follow the account.** `focus_play` is local.
+   Syncing it needs a merge that adds devices without double-counting — a
+   counter per device, merged by max per device and summed for display — added
+   to *both* `47-merge.js` and `server/accounts.js` byte-identically, the
+   snapshot and adopt paths in `48-account.js`, and a Worker deploy. Do not add
+   it to the snapshot before the server knows the key: the server rebuilds the
+   snapshot, drops what it does not recognise, and an adopt that assigns
+   `PLAY = snap.play || {}` would then wipe every device's total on its next sync.
+
+00. **App blocking has never run on a phone.** It compiles, 29 JVM tests cover
+   its decisions and 20 smoke checks cover its page, but the accessibility
+   service, the shield, website blocking, the Settings guard, device admin and
+   grayscale have only ever been built, not watched. Plug a phone in,
+   `npm run phone`, grant the three permissions, and try each rule setting once.
+   The browser address-bar ids (BlockService.BARS) are the likeliest thing to be
+   wrong on a given phone.
+
+0. **Three features from the 11th are shipped and untested** (app blocking has
+   tests again as of 2026-09-15). The drawn mood faces, the calendar's day page
+   and Spymaster are all in the app and all working; the checks written for them that day are not in
+   `tools/smoke-test.mjs`. The file in the tree is an older branch of itself —
+   it also still had the arcade card count from before Spymaster and the
+   calendar's two density modes from before the day page, which is how the loss
+   was noticed. Those four are replaced and green; the feature blocks are not
+   back. **What survives to rebuild them from**, in this session's scratchpad
+   (`%TEMP%/claude/D--Focus/<session>/scratchpad`, which is temporary — copy it
+   somewhere before relying on it): `block.txt` (the drawn-faces block, 182
+   lines), `sm-block.txt` (Spymaster, 212 lines), `guardtest.cjs` and
+   `caltest.cjs` (app blocking and the day page, as inline patch strings). Each
+   needs re-anchoring — their anchors were written against the other branch —
+   and the test door (`window.__m`, `window.__r`) needs widening again for
+   `emoFace`, `emoHas`, `EMO_HOLD`, `Guard`, `GUARD_NUMS`, `Spymaster`,
+   `smDeal` and the rest. **Do not run those scripts blind**: several overwrite
+   their own backup with whatever is in the tree at the time, which is how the
+   one complete copy of that file was lost.
 
 1. **Publish 1.0.10.** `npm run publish:win`, then `npm run publish:assets` if
    the upload fails again (it is safe either way and prefers a published release
@@ -1214,6 +1310,191 @@ main timer screen.** That is the only outstanding request.
 ## 9. Log
 
 Newest first. One line each.
+
+- **2026-09-15 (3)** — **App blocking had never reached a phone, and now does
+  what ScreenZen does.** Two reasons it was never seen. The only APK ever built
+  was from 15 August, a month before blocking existed — `npm run phone` refused
+  to build. It did not look in `~/.jdks`, where a working Java 17 had been all
+  along; and it could not have recognised any JDK anyway (ANDROID.md §2 — two
+  PowerShell bugs that hid each other). And the menu row that opens it had been lost in the same
+  partial revert as `_faces()`, so even a build with the plugin had no way in.
+  Both fixed. Then the ScreenZen feature set: rules grouping apps and websites
+  (per-app settings are a rule of one), schedules including overnight windows,
+  a pause that grows per open, a custom prompt, reason/sum interventions, a
+  choice of minutes, quick looks, daily open and minute limits shared across a
+  rule that block or keep pausing, cooldowns, unlock odds, block outright, your
+  own tasks offered instead, time in front tracked for every app, a week chart
+  and streak, a lock that makes every change wait (enforced natively), device
+  admin uninstall protection, guarded Settings screens, clock-change protection,
+  and grayscale behind a one-time adb grant. Every decision is in
+  `GuardRules.java` with no Android in it and 29 JVM tests
+  (`gradlew :focus-guard:testDebugUnitTest`), because this machine cannot run an
+  emulator. **The accessibility service now reads content** — browser address
+  bars while a rule blocks a site, Settings text while locked — and the
+  permission description says so. Not done: accountability friends, Windows
+  blocking. Nothing here has run on a real phone yet.
+
+- **2026-09-15 (2)** — **Spymaster is four to play; the arcade keeps time.**
+  Spymaster used to start with one side staffed and the board playing the
+  other, and its card said 2+, which was true of that game. It now needs a
+  spymaster and a guesser on both sides, the card says 4+, and the co-op mode
+  is gone rather than left dormant (`smEndTurn` just passes the turn; `smDeal`
+  no longer takes a side). A room of two or three is told how many more it
+  needs. **The wardrobe's price glow was sliced flat**: the tile label is
+  `overflow:hidden` for the ellipsis on long names, and it held every price too.
+  Prices carry `bud-price` and do not clip. **Your focus has "In the arcade"**,
+  per game under its card's name, fed by `09c-playtime.js`. It counts
+  *playing*, not a board being open: the clock stops two minutes after the last
+  key, tap or scroll and does not count the gap; it banks every fifteen seconds
+  and on hide, so a killed app loses one beat at most. **It is this device's
+  only** — see §8b.
+
+- **2026-09-15** — **A week with a shape, and a shop you can read.** The
+  crossword's 5s and 9s used to be seven a week and two; they now take alternate
+  days — **5s Tuesday, Thursday, Saturday; 9s Monday, Wednesday, Friday** — with
+  the 7 every day so no day is empty and the 15 still on Sunday. Changing
+  `CROSS_WHEN` moves every release date for those two sizes, which is the point
+  and is *not* a bank edit: the bank is untouched and still in its original
+  order. A size on a day it does not run now falls back to its last edition
+  (`crossLatestDay`). **All three daily games open on the newest board**: moving
+  to today used to also require that today's be unplayed, so doing today's
+  puzzle was the one thing that reliably left you on an old one. **The sad face
+  has no tear until it is tapped** — a drop hanging under the eye of a face in a
+  row of six is a face held mid-cry forever — and the prompt is no longer welded
+  to the top bar. **Nothing on a shelf is dimmed as a whole** any more: an
+  unowned or unaffordable item faded the one line you need, the price, and took
+  the ember mark's glow with it, because opacity on a box cannot be opted out
+  of. The mark carries its own accent-mixed shadow so it is lit under every
+  look. The beach's rest-arcade button is violet: the accent on that look *is*
+  the horizon, so an accent button sat orange on orange. Twelve new marks —
+  runs of five, seven and nine on each crossword size, the word game and Tetris,
+  the antic and clock-face shelves, and thirty days noted. And the way in counts
+  the shelf instead of saying "eight games" forever.
+
+- **2026-09-14** — **The shop stopped selling circles.** `.emb-light i` was
+  written for a tile's colour swatch and, being a bare tag under a class, also
+  caught the `<i>` inside every price: at one class and one tag it outranks
+  `.emb-mark`, so each price turned into a second twenty-pixel circle dropped
+  into the tile's grid. The ember was nowhere in a shop that deals in embers.
+  The swatch is `.emb-dot` now and can only reach itself. **Two shelves sell
+  something that is not a colour and now draw it**: every antic wears the
+  drawing it already had in the wardrobe, and every clock face got one, in
+  place of the same accent dot repeated eight and four times. A check walks the
+  stylesheet and fails if any rule but the mark's own can reach a price mark.
+
+- **2026-09-14 (2)** — **Three things from the 11th had come adrift, and are
+  back.** `Arcade._faces()` was appending to `card.parentNode` again while the
+  markup and the CSS both had the icon slot it was written for, so the faces of
+  whoever is on a game sat below the status instead of above it. The handover
+  block clicked `[data-lead]` index 0 — whoever the host listed first, which is
+  whoever connected first — and handed the timer to Third about half the time,
+  failing eight checks identically and passing on the next run; it picks Friend
+  by name now, and stays green with the join order forced. And the suite's exit
+  code was being taken from 0 to 1 after the verdict by a closed window's
+  leftover `_refresh`. See §8b: the checks for four features from that day did
+  not come back with them.
+
+- **2026-09-11 (3)** — **A message is readable; faces on the shelf have a
+  place.** The chat pop-out's background was a corner glow fading into `--card`
+  — glass — so a message arriving over the arcade was printed on the game's own
+  text. Same glow, over `var(--bg)`. **Every arcade card has a side column: an
+  icon slot (`.pcard-icons`) above the status**, both in the flow. The faces of
+  whoever is on a game were `position:absolute` in the card's top-right corner,
+  which is where the status is, and covered it; they go in the slot now, and so
+  does anything a card wants to show next.
+
+- **2026-09-11 (2)** — **Report a problem, in the menu beside Privacy.**
+  Eight categories, picked before anything is typed, because "it does not work"
+  is what people write when there is nothing to choose from and it is
+  unanswerable. They are named after the symptom from where the person is
+  sitting, not after the file — nobody knows they are reporting a crossword bug
+  when what they saw is a board going blank.
+  **It says what it is sending, in a box that can be edited.** Version, platform,
+  window size, signed in or not, whether this device is saving at all, the look,
+  and the last crossword error if there is one. Those are the facts that have
+  actually settled reports here: a week of this app's history went on finding out
+  which build somebody was running. Diagnostics people cannot see is how you lose
+  their trust once, so they are shown in full and can be deleted.
+  **`mailto:`, not a server.** The report leaves from their own mail app, to an
+  address they can read, with a body they have read — nothing posted, nothing
+  logged, and it works signed out and offline. A desktop with no mail app
+  configured does nothing and gives no error to catch, so the whole thing goes to
+  the clipboard at the same time and says so.
+  *Test note:* `reportSend` returns the address it would open rather than only
+  having a side effect. The first version of the checks watched `location.href`,
+  which never moves in the harness — so both refusals passed while neither guard
+  existed. A function that can only be tested by watching for a side effect the
+  harness forbids is a function that is not being tested.
+
+- **2026-09-11** — **Privacy and Credits in, backups and Storage out; the whole
+  shop repriced.**
+  **Export and Import are gone.** They existed because every packaged build has
+  its own private storage and the only bridge between two copies was a file you
+  carried by hand. The account does that now, continuously and in both
+  directions — so it was two buttons most people pressed by accident, and a file
+  format to keep working, for a problem that is solved. The Storage readout went
+  with them: it was a diagnostic for one bad week, and the save-failure toast
+  still says the thing that matters.
+  **The privacy policy is written from what the code does**, not from what
+  anybody remembers it doing. Every clause was checked against a call site — the
+  fonts against the `@import` in 00-tokens-base.css, the signalling server
+  against `SYNC_CDN` in 29-sync.js, the vault against `ACC_URL`, the update check
+  against `UPD_URL`. **Add a line there when you add a network call.** It names
+  the WebRTC address leak plainly, because a direct connection cannot hide one
+  and a policy that omits it is wrong rather than brief.
+  `FOCUS_PRIVACY_OWNER` and `FOCUS_PRIVACY_EMAIL` are stamped at build time like
+  the account URL. Unstamped, the screen shows a **red gap** where the name and
+  address go — a policy that ships reading "the developer" is worse than one
+  that is missing, and the check asserts the gap is visible when unstamped and
+  absent when stamped, so neither state can pass by accident.
+  **The ember mark goes on every price.** `embPrice()` in 37-embers.js: the same
+  rotated square as the chip in the top bar, because a bare number on a shelf is
+  a number with no unit. The word "embers" went where the mark now stands.
+  **And the shelf was repriced, banded per row rather than by one multiplier.**
+  Cheapest third doubled, middle third quadrupled, top third times five — by
+  *rank within its own row*, which is what keeps peers together: thirty and
+  thirty-two are the same kind of hat and had no business landing either side of
+  a line. The multiplier never falls as the price rises, so every shelf's
+  cheapest-first order is unchanged. Grandfathering still holds: the test now
+  writes that arithmetic as a subtraction rather than a total, so the next
+  repricing does not silently invalidate it.
+
+- **2026-09-09 (4)** — **"Nothing works on the crossword after writing once."**
+  That sentence was the whole diagnosis, and the path is one keystroke long:
+  type a letter, `persist()` marks the day on the calendar, marking the day asks
+  the account to sync, the sync merges and adopts, and `gamesAdopt` calls
+  `forget()`. Every game implements `forget()` the same way — throw the grid
+  away, null the puzzle, empty the shelf, and let the next `enter()` rebuild.
+  Right when nobody is looking at it; fatal when somebody is. The board was
+  blanked by the very letter typed into it, `render()` found no puzzle, and
+  every key after that went into an array nothing was drawing.
+  **`gamesAdopt` no longer calls `forget()` for the game that is on screen.**
+  One guard, all seven games: the open game's own save was written a millisecond
+  ago by the keystroke that started this, so it is the newest thing there is and
+  it keeps it. `GAME_SAVES` is still updated, so the merged save is picked up the
+  next time that game is opened.
+  `Cross.forget()` is non-destructive now as well — it takes the other puzzles'
+  records and does not touch `puz`, `idx` or the letters — so the crossword is
+  safe by two independent routes. Both confirmed to fail on their own.
+  *The lesson worth keeping:* every previous round fixed how a bad state was
+  *reached*. This one was about what happens a millisecond after a keypress, and
+  no amount of reasoning about saved records was going to find it. The report
+  named the trigger — "after writing once" — and that was the thing to test.
+
+- **2026-09-09 (3)** — **A flag is never allowed to be the thing that stops you
+  playing.** `type()`, `select()`, `check()` and `hint()` all began with
+  `if(this.done) return`, which is reasonable right up to the moment `done` is
+  wrong — and then the board refuses every key with nothing on screen to say
+  why. Re-deriving the flag on load fixed how it got set; it did not fix the
+  board being unusable while it was. Those guards are gone. `checkDone` now
+  derives `done` from the squares after every letter, so a solved grid that is
+  edited is simply not solved any more and only the crossing *into* finished
+  celebrates. The calendar is unaffected either way — `dailyMark` only ever moves
+  forward. `back()` had the same guard and lost it too — backspace is half of
+  typing, and a grid you cannot correct is not solvable either.
+  Pinned by a check that starts from the worst case (a record insisting
+  an empty grid is finished) and types a whole 5x5 and 7x7 in, square by square,
+  through the same `type()` a keyboard calls.
 
 - **2026-09-09 (2)** — **The bar sat over the app, and one wrong flag looked
   like three different bugs.**

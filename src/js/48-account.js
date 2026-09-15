@@ -189,7 +189,19 @@
       }catch(e){
         /* Offline, mid-deploy, a token that has been signed out elsewhere: all
            normal, and none of it stops the app working. */
-        this.note = /signed in/i.test(e.message) ? '' : 'Could not reach the server';
+        /* **"Could not reach the server" was the answer to every question.**
+           `_post` throws the server's own words when it answers `ok:false` —
+           rate limited, snapshot rejected, database unbound, a route that moved
+           — and all of it came out as a network problem, which sent us looking
+           at the network. A request that never arrived is the only thing that
+           deserves that sentence: in a browser that is a `TypeError` from
+           `fetch` itself, and nothing the server says can be one. */
+        const why = (e && e.message) || '';
+        const never = (e instanceof TypeError)
+          || /failed to fetch|networkerror|load failed|network request failed/i.test(why);
+        this.note = /signed in/i.test(e.message) ? ''
+          : never ? ((typeof navigator === 'object' && navigator.onLine === false) ? 'This device is offline' : 'Could not reach the server')
+          : why;
         if(/signed in/i.test(e.message)){ this.token = ''; this.username = ''; this.save(); }
         if(!quiet) toast(this.note || 'Signed out on this device');
       }

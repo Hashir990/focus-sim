@@ -34,6 +34,13 @@
     }
   }
   function render(){
+    /* **The phone's copy of the clock, kept up to date here.** Everything that
+       has to know about the block while the web view is frozen — the ongoing
+       notification and the app blocker — reads a mirror rather than `S`, and
+       this is the one hook that fires on every state change. Keyed inside, so
+       the once-a-second call with nothing changed costs a string compare.
+       No-op on anything that is not the Android build. See 50-guard.js. */
+    try{ guardPushTimer(); }catch(e){}
     document.getElementById('app').setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     document.body.setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     tasksRefresh();
@@ -81,6 +88,13 @@
     $('rest-extra').classList.toggle('hide', S.mode!=='rest');
     // the arcade lives above the transport now, so it is shown on its own
     $('arcade-open').classList.toggle('hide', S.mode!=='rest');
+    /* Written from the shelf rather than from the markup — see Arcade.offer.
+       Compared first because this runs once a second for a whole session. */
+    try{
+      const em = $('arcade-open').querySelector('.arcade-txt em');
+      const offer = Arcade.offer();
+      if(em && em.textContent !== offer) em.textContent = offer;
+    }catch(e){}
     if(S.mode==='rest') refreshNote();
     if(S.mode==='focus' && S.running) Quote.ensure(); else Quote.stop();
     renderCycle();

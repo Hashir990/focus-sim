@@ -1,0 +1,325 @@
+/* ---- the drawn faces ----
+   Markup in 17c-emoji.js. Everything that decides how they look and move is here.
+
+   **Flat, and the face is the ink.** A solid disc in `currentColor` — `--muted`
+   at rest, `--accent` when chosen — with the eyes and mouth cut into it in the
+   ground colour (`--emo-ink`, which is `--bg`). No gradients, no shadows, no
+   highlights: the first version was a glossy 3D ball, the only object in a flat
+   app that ignored the theme, and the smoke test fails if any of that comes
+   back. Because both colours are tokens, under Beach the same rule gives a
+   brown face with cream features and nothing here has to know.
+
+   **One number sizes a face.** `.emo` is 1em square and its `font-size` is the
+   size, so a face at 15px in a calendar square is the same drawing as one at
+   48px under the timer. Set `--emo-size` on the container. Stroke widths are in
+   the drawing's own 64-unit box and thicken at calendar size, where three units
+   would be a hairline. */
+.emo{
+  --emo-ink:var(--bg);
+  position:relative; display:inline-block; vertical-align:middle;
+  font-size:var(--emo-size,34px); width:1em; height:1em; line-height:1;
+  /* Motions scale and turn the face; about its own middle unless a motion
+     says otherwise (the tired one tips from the chin). */
+  transform-origin:50% 50%;
+}
+/* Nothing we can draw: the character itself, in whatever colour font the
+   platform has. Never the app's own stack — its coverage of these code points
+   is partial and the fallback is a monochrome outline. */
+.emo-raw{
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",
+              "Twemoji Mozilla",sans-serif;
+}
+/* `overflow:visible` because the tear falls off the bottom of the face, the
+   zeds stream out of the top and the steam puffs off the sides, and an `<svg>`
+   clips to its own viewBox unless told otherwise (HANDOFF §6, the hats). */
+.emo svg{ display:block; width:100%; height:100%; overflow:visible }
+/* **Every part moves about its own middle.** Without `fill-box` a transform on
+   an SVG child is measured from the drawing's origin at 0,0 — so a wink scaled
+   the eye towards the top-left corner of the face instead of closing it. */
+.emo svg *{ transform-box:fill-box; transform-origin:50% 50% }
+
+.emo-hd{ fill:currentColor; stroke:none }
+/* Inside the head: the ground colour, which is what makes it a face cut into a
+   disc rather than lines drawn on one. */
+.emo-s{ fill:none; stroke:var(--emo-ink); stroke-width:3.2; stroke-linecap:round; stroke-linejoin:round }
+.emo-f{ fill:var(--emo-ink); stroke:none }
+/* The grin is both: solid, with the same ink stroked round it so its corners
+   are as round as every other line in the set. */
+.emo-f.emo-s{ fill:var(--emo-ink); stroke:var(--emo-ink); stroke-width:2 }
+/* **Outside the head: the face's own colour.** The zeds and the hard face's
+   temper sit on the page, not on the face, and in the ground colour they would
+   be drawn in the colour of the thing behind them — there and invisible. */
+.emo-x{ fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round }
+/* The hard face's teeth are the one feature drawn in the *face's* colour inside
+   the head: light teeth in a dark mouth, split by gaps in the ground's colour. */
+.emo-tooth{ fill:currentColor; stroke:none }
+.emo-gap{ fill:none; stroke:var(--emo-ink); stroke-width:1.3; stroke-linecap:butt }
+.emo-st{ fill:currentColor; stroke:none }
+/* What exists only for a motion, and is not there at rest. */
+.emo-z2, .emo-z3, .emo-st, .emo-tn{ opacity:0 }
+
+/* ---- the motions ----
+   One per face, each saying what the face says, and each **one gesture** —
+   played once, start to finish. There is no common pop under them: a hop, a
+   shudder and a yawn done with the same bounce are one motion wearing six
+   faces.
+
+   Written longhand. jsdom does not expand the `animation:` shorthand — it
+   reports `animation-name:none` for a valid one — so a shorthand animation is
+   one the smoke test cannot see at all (HANDOFF §6). No `var()` inside a
+   keyframe either (§6): distances are written out, and a percentage in a
+   `translate` is a percentage of the face's own box, which is what a motion
+   that has to work at 15px and at 48px wants anyway.
+
+   **`--emo-t` is how far in the motion already is.** A redraw part-way through
+   makes a fresh element, and a fresh element starts again from nothing — which
+   is how an account sync landing mid-motion made every face play twice. The
+   redraw passes the age down as a negative delay (17c-emoji.js), and anything
+   with a delay of its own *adds* to it rather than replacing it: a part that
+   sets a plain delay steps out of time with the rest of its face, which is the
+   same trap as the room's buddies and `--t` (§6).
+
+   Everything finishes by 1.1s and `EMO_HOLD` is longer than that on purpose:
+   the class comes off at the end of the hold, and a hold that ends first cuts
+   the end off the motion. */
+.emo.pop, .emo.pop *{
+  animation-duration:1.1s;
+  animation-timing-function:ease-in-out;
+  animation-iteration-count:1;
+  animation-fill-mode:both;
+  animation-delay:var(--emo-t, 0s);
+}
+
+/* A great day: one hop. Crouch, spring, land with a squash, settle — with the
+   grin widening and the eyes squeezing into it. */
+@keyframes emo-great{
+  0%        { transform:translateY(0) scale(1,1) }
+  12%       { transform:translateY(0) scale(1.1,.88) }
+  34%       { transform:translateY(-26%) scale(.93,1.09) }
+  54%       { transform:translateY(0) scale(1.1,.9) }
+  68%       { transform:translateY(0) scale(.98,1.02) }
+  80%, 100% { transform:translateY(0) scale(1,1) }
+}
+@keyframes emo-great-m{
+  0%, 100%  { transform:scale(1,1) }
+  18%, 76%  { transform:scale(1.14,1.22) }
+}
+@keyframes emo-great-e{
+  0%, 100%  { transform:scale(1,1) }
+  18%, 76%  { transform:scale(1.05,.72) }
+}
+.emo-great.pop           { animation-name:emo-great }
+.emo-great.pop .emo-m    { animation-name:emo-great-m }
+.emo-great.pop .emo-e    { animation-name:emo-great-e }
+
+/* A good day: a tilt of the head, one wink, and the smile opening up. One eye,
+   which is the whole reason the eyes carry `emo-el` and `emo-er`. */
+@keyframes emo-good{
+  0%, 100%  { transform:rotate(0deg) translateY(0) }
+  22%, 62%  { transform:rotate(-9deg) translateY(-4%) }
+  82%       { transform:rotate(1deg) translateY(0) }
+}
+@keyframes emo-good-wink{
+  0%, 18%, 60%, 100% { transform:scaleY(1) }
+  28%, 50%           { transform:scaleY(.12) }
+}
+@keyframes emo-good-m{
+  0%, 100%  { transform:scale(1,1) }
+  24%, 70%  { transform:scale(1.16,1.3) }
+}
+.emo-good.pop            { animation-name:emo-good }
+.emo-good.pop .emo-er    { animation-name:emo-good-wink }
+.emo-good.pop .emo-m     { animation-name:emo-good-m }
+
+/* An ordinary day: barely anything, which is the point. A small shrug, one
+   glance aside and back, the mouth going "hm", and a blink to finish. */
+@keyframes emo-ordinary{
+  0%, 100%  { transform:translateY(0) }
+  16%, 44%  { transform:translateY(-6%) }
+  60%       { transform:translateY(0) }
+}
+@keyframes emo-ordinary-e{
+  0%        { transform:translateX(0) scaleY(1) }
+  16%, 46%  { transform:translateX(-3.5px) scaleY(1) }
+  62%       { transform:translateX(0) scaleY(1) }
+  76%       { transform:translateX(0) scaleY(.12) }
+  88%, 100% { transform:translateX(0) scaleY(1) }
+}
+@keyframes emo-ordinary-m{
+  0%, 100%  { transform:rotate(0deg) }
+  18%, 50%  { transform:rotate(-8deg) }
+  66%       { transform:rotate(0deg) }
+}
+.emo-ordinary.pop        { animation-name:emo-ordinary }
+.emo-ordinary.pop .emo-e { animation-name:emo-ordinary-e }
+.emo-ordinary.pop .emo-m { animation-name:emo-ordinary-m }
+
+/* A hard day: a shudder of temper that dies away — the face shrinking into
+   itself, eyes screwed tight, mouth open on a groan — and the anger showing
+   round it: the vein swells, steam puffs off both sides, and three strain
+   marks flick out at the top-left. Each of those happens once. */
+@keyframes emo-hard{
+  0%, 100%  { transform:translateX(0) rotate(0deg) scale(1) }
+  7%        { transform:translateX(-6%) rotate(-5deg) scale(.95) }
+  14%       { transform:translateX(6%) rotate(5deg) scale(.95) }
+  21%       { transform:translateX(-5%) rotate(-4deg) scale(.95) }
+  28%       { transform:translateX(5%) rotate(4deg) scale(.95) }
+  35%       { transform:translateX(-3%) rotate(-2deg) scale(.95) }
+  42%       { transform:translateX(3%) rotate(2deg) scale(.95) }
+  50%, 80%  { transform:translateX(0) rotate(0deg) scale(.95) }
+}
+@keyframes emo-hard-e{
+  0%, 100%  { transform:scale(1,1) }
+  8%, 80%   { transform:scale(.82,.7) }
+}
+/* Clenched, not opened: wider and flatter, teeth gritted — a groan would be an
+   open mouth, and this one is shut on something. */
+@keyframes emo-hard-m{
+  0%, 100%  { transform:scale(1,1) }
+  8%, 80%   { transform:scale(1.14,.84) }
+}
+/* One swell and a slow release, not a throb: a throbbing vein is a motion that
+   repeats, and a face playing twice is what this file was rewritten to stop. */
+@keyframes emo-hard-vein{
+  0%, 100%  { transform:scale(1) rotate(0deg) }
+  16%       { transform:scale(1.55) rotate(-10deg) }
+  40%, 78%  { transform:scale(1.25) rotate(0deg) }
+}
+@keyframes emo-hard-steam-l{
+  0%        { transform:translate(4px,2px) scale(.3); opacity:0 }
+  22%       { transform:translate(0,0) scale(1.2); opacity:1 }
+  72%, 100% { transform:translate(-7px,-9px) scale(1.7); opacity:0 }
+}
+@keyframes emo-hard-steam-r{
+  0%        { transform:translate(-4px,2px) scale(.3); opacity:0 }
+  22%       { transform:translate(0,0) scale(1.2); opacity:1 }
+  72%, 100% { transform:translate(7px,-9px) scale(1.7); opacity:0 }
+}
+@keyframes emo-hard-tick{
+  0%        { transform:scale(.4); opacity:0 }
+  10%       { transform:scale(1.15); opacity:1 }
+  26%       { transform:scale(1); opacity:1 }
+  62%, 100% { transform:scale(1); opacity:0 }
+}
+.emo-hard.pop            { animation-name:emo-hard }
+.emo-hard.pop .emo-e     { animation-name:emo-hard-e }
+.emo-hard.pop .emo-m     { animation-name:emo-hard-m }
+.emo-hard.pop .emo-v     { animation-name:emo-hard-vein }
+.emo-hard.pop .emo-tn    { animation-name:emo-hard-tick }
+/* The steam goes a beat after the shudder starts, so it reads as the result of
+   it. Shorter than the face, so it is gone well before the hold ends. */
+.emo-hard.pop .emo-st    { animation-duration:.9s; animation-delay:calc(.08s + var(--emo-t, 0s)) }
+.emo-hard.pop .emo-st-l  { animation-name:emo-hard-steam-l }
+.emo-hard.pop .emo-st-r  { animation-name:emo-hard-steam-r }
+
+/* A bad day: the head drops, and a tear wells up, lets go and falls off the
+   face — once.
+
+   **The tear is not there until the face is tapped.** A drop hanging under the
+   eye of a face sitting in a row of six is a face mid-cry, held forever, and
+   six faces on a shelf are a menu rather than a moment. So the still face is
+   just the face, and the crying is the thing that happens when you say the day
+   was bad. Which means the drop has to be *drawn* by the motion: it starts at
+   nothing up by the eye, swells, falls, and is gone — and gone is where it
+   stays, because the rest state under it is also nothing. */
+@keyframes emo-bad{
+  0%, 100%  { transform:translateY(0) rotate(0deg) }
+  30%, 76%  { transform:translateY(7%) rotate(-4deg) }
+}
+@keyframes emo-bad-t{
+  0%        { transform:translateY(-3px) scale(.15,.15); opacity:0 }
+  20%       { transform:translateY(0) scale(1,1); opacity:1 }
+  34%       { transform:translateY(0) scale(1,1); opacity:1 }
+  74%       { transform:translateY(22px) scale(.78,1.2); opacity:0 }
+  100%      { transform:translateY(22px) scale(.78,1.2); opacity:0 }
+}
+@keyframes emo-bad-m{
+  0%, 20%, 76%, 100% { transform:scaleX(1) }
+  32%, 52%           { transform:scaleX(.9) }
+  42%, 62%           { transform:scaleX(1.06) }
+}
+/* At rest there is no tear at all — see the note on the keyframes. Written
+   before the `.pop` rules so that the animation, which sets opacity itself,
+   has the last word for as long as it is running. */
+.emo-bad .emo-t          { opacity:0 }
+.emo-bad.pop             { animation-name:emo-bad }
+.emo-bad.pop .emo-t      { animation-name:emo-bad-t }
+.emo-bad.pop .emo-m      { animation-name:emo-bad-m }
+
+/* A tired day: head back for a yawn, then tipping sideways from the chin as it
+   nods off, while the zeds stream up and out of the corner. */
+@keyframes emo-tired{
+  0%        { transform:rotate(0deg) translateY(0) }
+  30%       { transform:rotate(-5deg) translateY(-3%) }
+  45%       { transform:rotate(0deg) translateY(0) }
+  75%, 88%  { transform:rotate(12deg) translateY(4%) }
+  100%      { transform:rotate(0deg) translateY(0) }
+}
+@keyframes emo-tired-m{
+  0%, 100%  { transform:scale(1,1) }
+  25%, 38%  { transform:scale(1.55,2.1) }
+  52%       { transform:scale(1,1) }
+}
+@keyframes emo-tired-z{
+  0%        { transform:translate(-10px,12px) scale(.4); opacity:0 }
+  25%       { opacity:1 }
+  100%      { transform:translate(3px,-6px) scale(1.1); opacity:0 }
+}
+.emo-tired.pop           { animation-name:emo-tired; transform-origin:50% 85% }
+.emo-tired.pop .emo-m    { animation-name:emo-tired-m }
+/* **The resting zed stays where it is; two more stream out past it.** All three
+   used to stream, which meant the one that lives in the corner faded out with
+   the others and was simply missing for the last part of the hold, then popped
+   back in when the class came off — a blink at the end of every yawn. Each of
+   the two is shorter than the face's motion and they start in turn, and the
+   last ends as the face does. Delays are added to `--emo-t`, not written over
+   it, or a redraw would restart the stream on its own. */
+.emo-tired.pop .emo-z2, .emo-tired.pop .emo-z3{
+  animation-name:emo-tired-z; animation-duration:.6s; animation-timing-function:ease-out;
+}
+.emo-tired.pop .emo-z2   { animation-delay:calc(.35s + var(--emo-t, 0s)) }
+.emo-tired.pop .emo-z3   { animation-delay:calc(.5s + var(--emo-t, 0s)) }
+
+/* ---- the row of faces ----
+   **No boxes.** The face is the button: the hit area is 44px and nothing is
+   drawn round it. Unchosen faces are the muted colour and sit back a touch; the
+   chosen one is the accent, at full size. */
+.mood-pick{
+  flex:1 1 0; min-width:44px; min-height:44px; padding:2px 0;
+  display:flex; align-items:center; justify-content:center;
+  border:0; background:none; box-shadow:none; cursor:pointer;
+  /* A tap target in a scroller has to say which gesture it wants or the
+     browser guesses from what happens next — see HANDOFF §6, the crossword. */
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.mood-pick .emo{
+  --emo-size:34px;
+  color:var(--muted); transform:scale(.92);
+  transition:color .2s ease, transform .16s ease;
+}
+.mood-pick:hover .emo, .mood-pick:focus-visible .emo{ color:var(--text) }
+.mood-pick.on .emo{ color:var(--accent); transform:scale(1) }
+
+/* The prompt over the timer is the one place these are the whole point of the
+   screen, so they are properly big there. The calendar's day panel is a panel
+   among panels and sits a size down. */
+.mood-row.big .mood-pick{ min-height:62px }
+.mood-row.big .mood-pick .emo{ --emo-size:48px }
+
+/* ---- the mark on a calendar square ----
+   Small, so the strokes thicken: three units of a 64-unit drawing at 15px is
+   under a pixel and the features close up. In the text colour rather than the
+   accent, because the square already uses the accent to say how much was done
+   that day and the face is a different fact. */
+.cal-cell .emo{ --emo-size:15px; color:var(--text); opacity:.9 }
+.cal-cell .emo .emo-s, .cal-cell .emo .emo-x{ stroke-width:5 }
+/* At 15px the gaps between the teeth are less than a pixel and blur the teeth
+   into the mouth; without them it reads as a bared row, which is the point. */
+.cal-cell .emo .emo-gap{ display:none }
+
+/* `!important` for the same reason 34-rest.css uses it: the motions are keyed
+   three classes deep, and a request for less motion outranks all of them. */
+@media (prefers-reduced-motion:reduce){
+  .emo.pop, .emo.pop *{ animation-name:none !important }
+}

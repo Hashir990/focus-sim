@@ -24,9 +24,16 @@
    "claim it to set the word" pushed straight through the description beside it,
    so it is capped at roughly the width of "tap to start" — the longest line it
    was ever designed to hold — and anything longer wraps to two. */
+/* **The side column: icons on top, status underneath, in the flow.** Its
+   width is the status's, and the icon slot above it takes whatever the icons
+   need and no more — so the two stack instead of one landing on the other. */
+.pcard-side{
+  margin-left:auto; flex:0 0 auto; max-width:76px;
+  display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+}
 .pcard .prog{
-  margin-left:auto; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--accent); text-align:right; flex:0 0 auto;
+  font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); text-align:right;
   width:76px; white-space:normal; overflow-wrap:anywhere;
 }
 /* A game with nothing to report takes no room at all, rather than leaving a
@@ -91,16 +98,21 @@
 
 
 
-/* ---- who is in this one ----
-   Whoever in the room has this game open, on the card itself. It answers the
-   question the shelf is for — "is anybody on something?" — where you are
-   already looking, rather than in a list of names somewhere else.
+/* ---- the icon slot, and who is in this one ----
+   `.pcard-icons` is the one place on a card for icons: the top of the side
+   column, above the status. Whoever in the room has this game open goes there —
+   it answers the question the shelf is for, "is anybody on something?", where
+   you are already looking.
 
-   Top-right, away from the title and the progress line, and small enough that a
-   card with nobody on it is not visibly missing anything. */
-.pcard{ position:relative }
+   **In the flow, not pinned.** The faces were `position:absolute` in the
+   card's top-right corner, which is exactly where the status sits, so a card
+   with somebody on it had "READY / WAITING" printed underneath two heads. The
+   same collision happened once before with the player-count tag, which is why
+   that lives in the title line (see `.pcard .tag`). An empty slot takes no
+   room, so a card with nobody on it is not visibly missing anything. */
+.pcard-icons{ display:flex; align-items:center; justify-content:flex-end; gap:4px }
+.pcard-icons:empty{ display:none }
 .pcard-who{
-  position:absolute; top:7px; right:9px;
   display:flex; align-items:center; gap:2px;
   pointer-events:none;
 }

@@ -440,9 +440,12 @@ function withDoor(src, code){
 }
 
 const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet, Tetris, Sudoku,'
-  + ' crossOnDay, crossAtSize, crossRows, CROSS_GRIDS,'
+  + ' crossOnDay, crossAtSize, crossRows, CROSS_GRIDS, crossReleases, crossLatestDay, smLineup,'
+  + ' shelfTotal: () => EMB_LIGHTS.reduce((n, l) => n + l.cost, 0)'
+  + '   + EMB_SOUNDS.reduce((n, x) => n + x.cost, 0) + FACES.reduce((n, f) => n + f.cost, 0)'
+  + '   + Object.keys(BUD_COST).reduce((n, k) => n + BUD_COST[k].reduce((m, c) => m + c, 0), 0),'
   + ' arcade: {writeGame, readGame}, kv: KV,'
-  + ' gamesAdopt, gamesSnapshot,'
+  + ' gamesAdopt, gamesSnapshot, reportSend,'
   + ' dialogs: {askConfirm, closeConfirm}, arcadeReset: arcadeResetItems,'
   + ' wordleArt: (r) => dailyDef("wordle").art(r),'
   + ' shelfPrices: () => ({looks: embByPrice(EMB_LIGHTS), sounds: embByPrice(EMB_SOUNDS),'
@@ -457,10 +460,52 @@ const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY
   + ' budDyed: () => BUD_OUTER.filter(p => p.dye).map(p => p.n),'
   + ' startTimer: start, pauseTimer: pause, Cal, moodOf, moodAsk,'
   + ' today: () => dayKey(Date.now())};'), {
-  focus_embers: JSON.stringify({ have: 200, earned: 200, own: ['seaglass'], light: 'seaglass' }),
+  focus_embers: JSON.stringify({ have: 600, earned: 600, own: ['seaglass'], light: 'seaglass' }),
 });
 const $ = (id) => window.document.getElementById(id);
 const click = (id) => { const el = $(id); if (!el) throw new Error(`#${id} missing`); el.click(); };
+
+/* ---- asking the built stylesheet what a rule says ----
+   jsdom has no layout, no animation engine, and resolves neither `var()` nor
+   `color-mix()` — so "is it round", "is it glowing" and "did it move" are all
+   unanswerable. What it does have is the parsed CSSOM, so the question becomes
+   what the rule *declares*, which is the thing an edit breaks anyway.
+
+   Two traps in the walk, both of which silently return nothing rather than
+   failing: a `CSSRuleList` is array-like and **not iterable**, so `for...of`
+   throws; and a plain style rule carries an empty but **truthy** `cssRules`,
+   so testing that branch first walks past every rule in the sheet. */
+const CSS_RULES = (() => {
+  const out = [];
+  const walk = (list) => {
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (r.selectorText) out.push(r);
+      else if (r.cssRules) walk(r.cssRules);
+    }
+  };
+  for (const sheet of window.document.styleSheets) {
+    try { walk(sheet.cssRules); } catch (e) { /* not ours to read */ }
+  }
+  return out;
+})();
+/** Every declaration block written against exactly this selector, in order. */
+const cssOf = (sel) => CSS_RULES.filter((r) => r.selectorText === sel).map((r) => r.style);
+/** The stops of a named @keyframes, as `{key, style}`. */
+const keyframesOf = (name) => {
+  for (const sheet of window.document.styleSheets) {
+    let list = [];
+    try { list = sheet.cssRules; } catch (e) { continue; }
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (r.name !== name || !r.cssRules) continue;
+      const out = [];
+      for (let k = 0; k < r.cssRules.length; k++) out.push({ key: r.cssRules[k].keyText, style: r.cssRules[k].style });
+      return out;
+    }
+  }
+  return [];
+};
 
 await wait(400);
 
@@ -1345,16 +1390,39 @@ check('each one says what it pays',
 check('none of them is a progress bar', !$('ach-body').querySelector('.ach-bar'));
 /* The arcade half of the list is the bigger half now, and most of it is made
    of moments the boards themselves don't remember — see Embers.feats. */
+/* **A run on one size, not a run on the crossword.** The streak the game
+   screen shows counts a day as kept when every grid published that day is
+   filled in, which makes a month of 5×5s read the same as a month of 9×9s.
+   These three count each size's own editions, so the nine is three weeks of
+   Mondays, Wednesdays and Fridays and cannot be had on the small one. And the
+   two games that had no marks at all now have some. */
+check('the crossword pays for a run on each size',
+  ['Five fives', 'Seven sevens', 'Nine nines'].every((w) => $('ach-body').textContent.includes(w)),
+  $('ach-body').textContent.slice(0, 80));
+check('and the word game and Tetris are on the board at all',
+  /Guess the word of the day/.test($('ach-body').textContent)
+  && /Tetris/.test($('ach-body').textContent),
+  $('ach-body').textContent.slice(0, 80));
 check('the arcade has marks for the moments, not only the totals',
   ['Promote a pawn', 'sudoku', 'seven', 'ten-point', 'hangman', '2048 tile']
     .every((w) => $('ach-body').textContent.includes(w)),
   $('ach-body').textContent.slice(0, 60));
-check('the whole board still pays less than the shelf costs',
-  (() => {
-    const pays = [...$('ach-body').querySelectorAll('.ach-pays')].reduce((n, p) => n + +p.textContent, 0);
-    return pays > 0 && pays < 280;                      // the shelf, end to end
-  })(),
-  `${[...$('ach-body').querySelectorAll('.ach-pays')].reduce((n, p) => n + +p.textContent, 0)} embers`);
+/* **Counted, not remembered.** This was `pays < 280`, with "the shelf, end to
+   end" beside it — true when the shelf was eleven lights, and false from the
+   day the wardrobe arrived and took the shelf past thirteen thousand. A
+   hand-kept number that drifts by two orders of magnitude is not a rule; it is
+   a number that happens to be bigger than the other number. The rule worth
+   keeping is the one written in 40-achievements.js: the marks are a bonus on
+   top of the hours and never a way around them. */
+{
+  const pays = [...$('ach-body').querySelectorAll('.ach-pays')].map((el) => +el.textContent);
+  const all = pays.reduce((n, x) => n + x, 0);
+  const shelf = window.__m.shelfTotal();
+  check('the whole board pays a fraction of what the shelf costs',
+    all > 0 && shelf > 0 && all < shelf / 10, `${all} of ${shelf}`);
+  check('and no single mark pays more than a morning of focus',
+    pays.length > 0 && Math.max(...pays) <= 40, `${Math.max(...pays)}`);
+}
 $('ach-close').click();
 await wait(60);
 
@@ -1362,6 +1430,17 @@ await wait(60);
    The overlay pane is frosted rather than opaque, so the shell underneath is
    blurred at the source as well; without it the setup screen's big number was
    still legible through the shelf. */
+/* **The accent is the horizon on this look, and the button lands on it.**
+   Everything `.arcade-btn` is made of comes from `--accent`, which under the
+   beach is the hot orange of the sky's bright band — and a rest is exactly when
+   the button appears, in the middle of the screen, which is where that band is.
+   The override has to exist and has to not be built from the accent again. */
+{
+  const beach = (html.match(/body\[data-light="beach"\] \.arcade-btn\{([^}]*)\}/) || [])[1] || '';
+  check('the beach gives the way into the arcade its own colour',
+    /background\s*:/.test(beach) && /border-color\s*:/.test(beach)
+    && !/var\(--accent\)/.test(beach), beach.replace(/\s+/g, ' ').trim() || 'no rule');
+}
 check('the app is not veiled with nothing open', !window.document.body.classList.contains('veiled'));
 $('d-stats').click();
 await wait(80);
@@ -1840,7 +1919,7 @@ await wait(60);
    second, and the counter has not moved. */
 $('d-stats').click();
 await wait(120);
-check('a one-second block is not worth an ember', +$('emb-box').dataset.have === 200,
+check('a one-second block is not worth an ember', +$('emb-box').dataset.have === 600,
   $('emb-box').dataset.have);
 check('the leftover seconds are kept rather than thrown away',
   $('emb-box').dataset.bank !== undefined && +$('emb-box').dataset.bank < 600,
@@ -1914,12 +1993,134 @@ check('written down, so they survive the app closing',
     `${window.document.body.dataset.amb} / ${$('emb-box').dataset.own}`);
   check('the light is still what is burning', window.document.body.dataset.light === 'seaglass',
     window.document.body.dataset.light);
+  /* **Nothing on a shelf is dimmed as a whole.** An item you do not own was
+     `opacity:.62` on the tile and an item you cannot afford `.45` on the
+     wardrobe's, which faded the one line you actually need — the price — and,
+     because opacity applies to everything in the box with no way to opt out,
+     took the ember mark's glow down with it. What sits back is the swatch and
+     the name. Asked of the built CSS: jsdom resolves none of these values. */
+  {
+    /* Fixed patterns rather than one built from a string: the selectors are
+       known, and `$&` in a replacement is a backreference, which is how the
+       builder quietly spliced the next two lines of this file into its own
+       regex. */
+    const ruleOf = (re) => ((html.match(re) || [])[1] || '').replace(/\s+/g, ' ').trim();
+    const rules = {
+      '.emb-light.far': ruleOf(/\.emb-light\.far\{([^}]*)\}/),
+      '.bud-tile': ruleOf(/\.bud-tile\{([^}]*)\}/),
+      '.bud-tile.far': ruleOf(/\.bud-tile\.far\{([^}]*)\}/),
+      '.bud-tile.mine': ruleOf(/\.bud-tile\.mine\{([^}]*)\}/),
+    };
+    const flat = Object.keys(rules).filter((k) => /(^|;|\s)opacity\s*:/.test(rules[k]));
+    check('a shelf dims the picture, never the whole tile',
+      flat.length === 0, flat.map((k) => k + ' {' + rules[k] + '}').join(' · ') || 'none');
+    /* And the mark carries a glow that does not depend on the look being
+       generous with `--glow` — some are almost transparent, and on a
+       seven-pixel diamond that is no glow at all. */
+    const mark = ruleOf(/\.emb-mark\{([^}]*)\}/);
+    check('the ember mark is always lit',
+      /box-shadow\s*:[^;]*var\(--glow\)[^;]*,[^;]*var\(--accent\)/.test(mark), mark);
+  }
+  /* **And nothing crops the glow.** The wardrobe's tile label is
+     `overflow:hidden` so a long name can end in an ellipsis, and it held every
+     price too — so the mark's glow was sliced flat along the top and bottom of
+     the line on all sixty-five prices on the shelf. A price is its own label
+     now and does not clip. Asked of the markup and of the built CSS both: the
+     class is what lets the rule reach it, and the rule is what un-clips it. */
+  await shopTab('buddy');
+  {
+    const ems = [...$('emb-box').querySelectorAll('.bud-tile em')].filter((em) => em.querySelector('.emb-mark'));
+    const loose = ems.filter((em) => !em.classList.contains('bud-price'));
+    const rule = ((html.match(/\.bud-tile em\.bud-price\{([^}]*)\}/) || [])[1] || '');
+    check('no price on the wardrobe sits inside a label that clips it',
+      ems.length > 0 && loose.length === 0 && /overflow\s*:\s*visible/.test(rule),
+      ems.length + ' prices, ' + loose.length + ' unclassed; rule: ' + (rule.trim() || 'none'));
+  }
   await shopTab('looks');
   check('the first is free and already burning',
     shelf()[0].classList.contains('mine') && shelf()[0].classList.contains('on'), shelf()[0].className);
   check('the rest are not yours yet', shelf().slice(1).every((b) => !b.classList.contains('mine')));
-  check('and say what they cost', /18 embers/.test($('emb-box').textContent),
-    $('emb-box').textContent.slice(0, 140));
+  /* A price is the mark and the number — see `embPrice` in 37-embers.js. The
+     word went because the mark says it, and this checks the mark is really
+     there rather than the shelf quietly showing bare numbers. */
+  check('and say what they cost, with the ember mark on it', (() => {
+    const em = shelf()[1].querySelector('em');
+    return !!em && !!em.querySelector('.emb-mark') && /\d/.test(em.textContent);
+  })(), shelf()[1].textContent.slice(0, 60));
+  /* **And the mark is a mark.** The check above asks whether the element is
+     there, which it always was: `.emb-light i` was written for the tile's own
+     colour swatch and, being a *descendant* selector on a bare tag, caught the
+     mark inside every price as well. At one class and one tag it outranks
+     `.emb-mark`, so every price on every shelf became a second twenty-pixel
+     circle dropped into the tile's own grid — the ember was nowhere in a shop
+     that deals in embers, and the shelves were full of circles instead.
+
+     Asked as "what reaches this element", not "is it round": jsdom has no
+     layout and resolves neither `var()` nor `color-mix()`, but it does match
+     selectors, and a mark only its own rule can reach cannot be dressed up as
+     something else by a tile it happens to sit inside. */
+  {
+    const mark = shelf()[1].querySelector('em .emb-mark');
+    const hits = [];
+    /* By index: jsdom's CSSRuleList is array-like and not iterable, and a
+       for..of over it throws where a browser would walk it. */
+    const walk = (rules) => {
+      for (let i = 0; i < rules.length; i++) {
+        const r = rules[i];
+        /* Selector first: a plain style rule in jsdom carries an empty but very
+           truthy `cssRules`, so testing that first walks past every rule in
+           the sheet and finds nothing. */
+        if (r.selectorText) {
+          /* A selector nwsapi will not parse is not one about a bare tag. */
+          try { if (mark.matches(r.selectorText)) hits.push(r.selectorText); } catch (e) { /* skip */ }
+        } else if (r.cssRules) walk(r.cssRules);
+      }
+    };
+    for (const sheet of window.document.styleSheets) {
+      try { walk(sheet.cssRules); } catch (e) { /* skip */ }
+    }
+    /* The page reset reaches everything on purpose and is not what this is
+       about; anything else that lands on the mark is a rule about some box the
+       mark is merely inside. */
+    const wide = (sel) => sel.split(',').every((one) => /^\s*\*(::[a-z-]+)?\s*$/.test(one));
+    const dressed = hits.filter((sel) => !/emb-mark/.test(sel) && !wide(sel));
+    check("and nothing but the mark's own rules reach it",
+      !!mark && hits.length > 0 && dressed.length === 0,
+      dressed.join(' | ') || (mark ? 'no rules' : 'no mark'));
+  }
+  /* **A shelf selling something that is not a colour draws the thing.** The dot
+     is the item where the item *is* a colour — a look, a sound. A clock face
+     and an antic are neither, and both shelves drew the same accent dot on
+     every tile: eight identical circles under eight different names, which is
+     a decoration standing where a picture belongs. Distinctness is the point
+     of the check — one drawing repeated is the same bug in a different hat. */
+  const drawn = (tiles) => {
+    if (!tiles.length) return 'no tiles';
+    const art = tiles.map((t) => t.querySelector('svg.emb-ic'));
+    if (art.some((a) => !a || a.innerHTML.trim().length < 20)) return 'not drawn';
+    if (tiles.some((t) => t.querySelector('.emb-dot'))) return 'still a dot';
+    const seen = new Set(art.map((a) => a.innerHTML));
+    return seen.size === tiles.length ? '' : seen.size + ' drawings for ' + tiles.length + ' tiles';
+  };
+  await shopTab('faces');
+  check('every clock face is drawn on its own tile, each one different',
+    drawn([...$('emb-box').querySelectorAll('[data-face-pick]')]) === '',
+    drawn([...$('emb-box').querySelectorAll('[data-face-pick]')]));
+  await shopTab('antics');
+  check('and so is every antic',
+    drawn([...$('emb-box').querySelectorAll('[data-antic]')]) === '',
+    drawn([...$('emb-box').querySelectorAll('[data-antic]')]));
+  /* Both catalogues, at the source: one added without a drawing renders an
+     empty square rather than failing, which is the kind of thing that ships. */
+  for (const [name, re] of [['clock face', /const FACES = \[([\s\S]*?)\n {2}\];/],
+                            ['antic', /const BUD_ANIMS = \[([\s\S]*?)\n {2}\];/]]) {
+    const body = (html.match(re) || ['', ''])[1];
+    const items = (body.match(/^ {4}\{(?:id|k):'/gm) || []).length;
+    const arts = (body.match(/\n\s*ic:'/g) || []).length;
+    check('every ' + name + ' in the catalogue carries a drawing',
+      items > 0 && items === arts, arts + ' drawings for ' + items + ' ' + name + 's');
+  }
+  await shopTab('looks');
   // "12 more for x" while it is out of reach, "you can afford x" once it isn't
   check('with the next one either priced or offered',
     /more for late sun|afford late sun/.test($('emb-box').textContent),
@@ -1978,7 +2179,7 @@ check('no speck asks to be a compositing layer for the life of the page', (() =>
   $('confirm-no').click();
   await wait(60);
   check('and backing out leaves it locked, with the embers still there',
-    $('emb-box').dataset.own === 'seaglass' && +$('emb-box').dataset.have === 200,
+    $('emb-box').dataset.own === 'seaglass' && +$('emb-box').dataset.have === 600,
     `${$('emb-box').dataset.own} / ${$('emb-box').dataset.have}`);
 }
 $('stats-close').click();
@@ -1988,6 +2189,19 @@ await wait(60);
 // keyboard handlers guard on. Poking the class directly would skip that.
 click('arcade-open');
 await wait(80);
+/* **The offer counts the shelf.** The button said "eight games" for as long as
+   there were eight and then went on saying it — the same fault as the card
+   count this file used to carry. Written from `GAMES` now, so the two cannot
+   disagree. */
+{
+  const em = $('arcade-open').querySelector('.arcade-txt em');
+  const cards = window.document.querySelectorAll('.pcard').length;
+  const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+                 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+  check('the way in offers as many games as the shelf holds',
+    !!em && em.textContent.indexOf(words[cards] + ' games') === 0,
+    (em && em.textContent) + ' for ' + cards + ' cards');
+}
 check('arcade opens from the rest screen', !$('overlay').classList.contains('hide'));
 check('and the way in sits above the transport, not under the note',
   (() => {
@@ -1996,9 +2210,64 @@ check('and the way in sits above the transport, not under the note',
       && kids.indexOf($('arcade-open')) < kids.indexOf($('rest-extra'));
   })());
 const pcards = [...window.document.querySelectorAll('.pcard')];
-check('arcade has nine games', pcards.length === 9, `${pcards.length} cards`);
+/* Not a count. "Nine games" had to be re-typed the day a tenth shipped, and
+   a number kept in step by hand is a number that eventually gets kept in step
+   without anyone reading it. What actually matters is that the shelf is games:
+   every card names one, and no game is on it twice. */
+check('every card on the arcade shelf is a game, and each one only once',
+  pcards.length >= 9 && pcards.every((c) => c.dataset.game)
+  && new Set(pcards.map((c) => c.dataset.game)).size === pcards.length,
+  pcards.map((c) => c.dataset.game || '?').join(','));
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess', 'spymaster'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+/* **Spymaster is four to play, and the card and the start agree.** It used to
+   start with one side staffed and the board playing the other, and its card
+   said 2+ — true of that game. A 4+ card over a start that still let two
+   people in would be wrong the other way round, so this asks both: what the
+   shelf says, and what the lineup rule the start obeys will accept. */
+{
+  const tag = (byGame.spymaster && byGame.spymaster.querySelector('.tag') || {}).textContent;
+  check('the Spymaster card says four to play', tag === '4+', tag);
+  const L = window.__m.smLineup;
+  const seat = (team, role) => ({ team, role });
+  const two = L({ a: seat('red', 'spy'), b: seat('red', 'op') });
+  const three = L({ a: seat('red', 'spy'), b: seat('red', 'op'), c: seat('blue', 'spy') });
+  const four = L({ a: seat('red', 'spy'), b: seat('red', 'op'), c: seat('blue', 'spy'), d: seat('blue', 'op') });
+  check('and one staffed side is not a game any more',
+    two.mode === '' && three.mode === '', two.mode + ' / ' + three.mode);
+  check('two staffed sides are',
+    four.mode === 'duel', four.mode + ' ' + four.needs.join(' '));
+  check('and a short side says what it is missing',
+    three.needs.join(' ') === 'Blue needs somebody to guess.', three.needs.join(' '));
+}
+/* **One place on a card for icons.** Every card has a side column holding the
+   icon slot above the status. The faces of whoever is on a game used to be
+   pinned to the card's corner and covered the status; a card built without
+   the slot is a card where the next icon has nowhere to go but on top of
+   something. */
+{
+  const missing = pcards.filter((c) => {
+    const side = c.querySelector(':scope > .pcard-side');
+    const kids = side ? [...side.children].map((k) => k.className) : [];
+    return !(kids[0] === 'pcard-icons' && /\bprog\b/.test(kids[1] || ''));
+  }).map((c) => c.dataset.game);
+  check('every card has an icon slot, above its status, in one side column',
+    pcards.length > 0 && missing.length === 0, missing.join(', '));
+}
+/* **A message is readable over whatever it arrives on.** The pop-out's
+   background was a glow fading into `--card`, which is a few percent of white,
+   so a message over the arcade was printed on top of the game's own text. Asked
+   of the stylesheet: jsdom resolves neither gradients nor custom properties. */
+{
+  let bg = '';
+  for (const sheet of window.document.styleSheets) {
+    let rules = [];
+    try { rules = [...sheet.cssRules]; } catch (e) { continue; }
+    for (const r of rules) if (r.selectorText === '.chat-pop' && r.style.background) bg = r.style.background;
+  }
+  check('the message pop-out sits on a solid ground, not on glass',
+    /,\s*var\(--bg\)\s*$/.test(bg) && !/var\(--card\)/.test(bg), bg);
+}
 check('memory is disconnected', !byGame.memory);
 
 /* ---- the setup screen ----
@@ -2757,6 +3026,19 @@ check('and the puzzle it is on is named by content, not by position',
    And nothing here can be started over. Every puzzle is published on a day and
    its time, its clues and the letters it gave away are kept; a Reset would
    make that record worth nothing. */
+
+/* **Which sizes come out today is a different answer on different days.** The
+   5s run Tuesday, Thursday and Saturday and the 9s Monday, Wednesday and
+   Friday, so everything below that needs "a puzzle published today" has to ask
+   the schedule rather than reach for the 5×5 — which would be a suite that
+   passes three days a week and fails the other four for no reason anybody
+   could act on. `cwSmall` is the smallest size out today; the 7 comes out
+   every day, so there is always one. */
+const cwToday = [5, 7, 9, 15].filter((n) => window.__m.crossReleases(n, window.__m.pktNow()));
+const cwSmall = cwToday[0];
+const cwSmallRe = new RegExp(cwSmall + '\u00d7' + cwSmall);
+check('something comes out every day, whatever day the suite is run on',
+  cwToday.length >= 1 && cwToday.indexOf(7) >= 0, cwToday.join(','));
 {
   check('the crossword no longer carries a list of its own',
     !$('cw-picker') && !$('cw-list-body'), 'the old picker panel is still in the markup');
@@ -2770,7 +3052,8 @@ check('and the puzzle it is on is named by content, not by position',
   /* Every size for the chosen day, with today's at the top of the grid. */
   const rows = [...$('dcal-day').querySelectorAll('.dcal-row')];
   check('and offers the day’s puzzles, one per size published',
-    rows.length >= 2 && /5×5/.test(rows[0].textContent), rows.map((r) => r.textContent).join(' | '));
+    rows.length === cwToday.length && cwSmallRe.test(rows[0].textContent),
+    rows.map((r) => r.textContent).join(' | ') + '  for ' + cwToday.join(','));
   $('dcal-close').click();
   await wait(80);
 
@@ -2791,12 +3074,12 @@ check('and the puzzle it is on is named by content, not by position',
 // path, including the banner and the crossing-off in the picker
 {
   const sizeBtn = (s) => [...$('cw-size').children].find((b) => +b.dataset.s === s);
-  sizeBtn(5).click();
+  sizeBtn(cwSmall).click();
   await wait(200);
   check('sizes are offered, and only the ones the bank has',
     [...$('cw-size').children].filter((b) => !b.disabled).length >= 2,
     [...$('cw-size').children].map((b) => b.dataset.s + (b.disabled ? '!' : '')).join(','));
-  check('switching size loads a puzzle of that size', cwN() === 5, `${cwN()}`);
+  check('switching size loads a puzzle of that size', cwN() === cwSmall, `${cwN()}`);
 
   /* **The calendar counts clues, not squares.** "in progress" told you nothing
      about which day was nearly done, so a started puzzle says how many of its
@@ -2812,7 +3095,7 @@ check('and the puzzle it is on is named by content, not by position',
     $('cw-list').click();
     await wait(120);
     const row = [...$('dcal-day').querySelectorAll('.dcal-row')]
-      .find((r) => /5×5/.test(r.querySelector('b').textContent));
+      .find((r) => cwSmallRe.test(r.querySelector('b').textContent));
     const note = row && row.querySelector('span');
     check('a started puzzle says how many of its clues are right',
       !!note && /^1 of \d+ clues · \d+ revealed$/.test(note.textContent), note && note.textContent);
@@ -2838,7 +3121,7 @@ check('and the puzzle it is on is named by content, not by position',
   await wait(120);
   {
     const row = [...$('dcal-day').querySelectorAll('.dcal-row')]
-      .find((r) => /5×5/.test(r.querySelector('b').textContent));
+      .find((r) => cwSmallRe.test(r.querySelector('b').textContent));
     check('a finished puzzle is on the calendar with its numbers',
       !!row && /^\d+ clues in \d{2}:\d{2} · \d+ revealed$/.test(row.querySelector('span').textContent),
       row && row.querySelector('span').textContent);
@@ -3065,10 +3348,59 @@ check('calendar grid built', $('cal-grid').children.length > 0);
      to be counted; this is the one thing on the square you read. */
   const cell = [...$('cal-grid').querySelectorAll('.cal-cell')]
     .find((c) => c.classList.contains('today'));
+  /* The face is drawn rather than typed, so there is no text on the square to
+     compare against. The emotion is in the class the drawing carries, and the
+     question is the same one: the square wears the face that was tapped. */
+  const faceOf = (el) => {
+    const e = el && el.querySelector('.emo');
+    return e ? (String(e.className).match(/emo-[a-z]+/) || [''])[0] : '';
+  };
+  const chosen = [...$('cal-detail').querySelectorAll('[data-mood]')]
+    .find((b) => b.dataset.mood === picked);
   check('and the day wears it on the calendar',
-    !!cell && !!cell.querySelector('.mood')
-    && cell.querySelector('.mood').textContent === picked,
-    cell ? cell.innerHTML.slice(0, 120) : 'no today');
+    !!cell && !!cell.querySelector('.mood') && faceOf(cell.querySelector('.mood')) !== ''
+    && faceOf(cell.querySelector('.mood')) === faceOf(chosen),
+    cell ? faceOf(cell.querySelector('.mood')) + ' vs ' + faceOf(chosen) : 'no today');
+
+  /* **A sad face is not a face that is crying.** The drop used to hang under
+     the eye whenever the face was drawn, so the row of six on the prompt was
+     five faces and one person mid-cry, held there forever — and the calendar
+     wore it on every bad day it remembered. The tear belongs to the moment you
+     say the day was bad, so it is drawn by the motion and by nothing else: at
+     rest there is none, tapping wells one up, it falls, and it is gone.
+
+     Asked of the stylesheet, because jsdom runs no animation: the resting rule
+     has to hide it, and the keyframes have to both raise it and put it back
+     down — a version that ends opaque leaves a tear hanging when the motion
+     stops, which is the bug wearing a delay. */
+  {
+    const rest = cssOf('.emo-bad .emo-t');
+    const fall = keyframesOf('emo-bad-t');
+    const at = (k) => (fall.find((f) => f.key === k) || { style: {} }).style.opacity;
+    check('a sad face has no tear until it is tapped',
+      rest.length > 0 && rest.every((d) => d.opacity === '0'),
+      rest.map((d) => d.opacity).join(',') || 'no resting rule');
+    check('and tapping it wells one up',
+      fall.length > 0 && Math.max(...fall.map((f) => +f.style.opacity || 0)) === 1,
+      fall.map((f) => f.key + ':' + f.style.opacity).join(' '));
+    check('and the motion leaves the face dry',
+      at('100%') === '0' && /translateY\(\s*2?\d+px/.test(
+        (fall.find((f) => f.key === '100%') || { style: {} }).style.transform || ''),
+      fall.map((f) => f.key + ':' + f.style.opacity).join(' '));
+  }
+  /* The prompt is the first thing under the top bar and used to be welded to
+     it — no top margin at all, so on a narrow window, where the date wraps to
+     two lines, the question read as part of the bar. */
+  /* Read out of the built CSS rather than out of the CSSOM. jsdom does not
+     expand a `margin:` shorthand (the same trap as `animation:`, HANDOFF §6),
+     and it drops a declaration whose value it cannot parse — `clamp()` is one —
+     so the rule is there and every property on it reads as empty. */
+  check('the prompt is spaced off the top bar', (() => {
+    const rule = (html.match(/\.mood-ask\{([^}]*)\}/) || [])[1] || '';
+    const mar = (rule.match(/margin\s*:\s*([^;]+)/) || [])[1] || '';
+    const top = mar.trim().split(/\s+(?![^(]*\))/)[0] || '';
+    return !!top && top !== '0' && top !== '0px';
+  })(), ((html.match(/\.mood-ask\{([^}]*)\}/) || [])[1] || 'no rule').replace(/\s+/g, ' ').trim());
 
   /* Choosing the one already there clears it: there is no other way back to an
      empty square, and being stuck with yesterday's face is worse than none. */
@@ -3104,9 +3436,90 @@ check('stats renders after one session', $('stats-body').querySelectorAll('.stat
 click('stats-close');
 check('stats overlay closes', $('stats-overlay').classList.contains('hide'));
 
-click('d-export'); await wait(150);
-check('export runs', true);
-check('import controls wired', !!$('import-file') && !!$('d-import'));
+/* Export and Import are gone — the account moves data between devices now, and
+   two buttons plus a file format for a solved problem is worse than neither.
+   In their place, the two things every shipped app has to be able to show. */
+click('d-privacy'); await wait(120);
+check('Privacy opens', !$('about-overlay').classList.contains('hide'));
+check('and it is the privacy text', $('about-title').textContent === 'Privacy'
+  && /never collected/i.test($('about-body').textContent),
+  $('about-body').textContent.slice(0, 60));
+/* **A policy must not ship with the name still a placeholder.** The build
+   stamps it; unstamped, the screen shows a red gap, and this is what stops that
+   gap reaching a store listing without somebody noticing. */
+/* Blank in this repo on purpose, exactly like the account URL — so this checks
+   the mechanism rather than the value. Stamped, there must be no gap; unstamped,
+   there must be a visible one. A build that shows neither is the bad case: a
+   policy that reads as finished while saying "the developer" where a name goes. */
+{
+  const gaps = [...$('about-body').querySelectorAll('.about-todo')];
+  const stamped = !/the contact address for this build/.test($('about-body').textContent);
+  check(stamped ? 'and the policy names who runs it'
+                : 'and an unstamped policy shows the gap rather than hiding it',
+    stamped ? gaps.length === 0 : gaps.length >= 1,
+    gaps.map((n) => n.textContent).join(' | '));
+}
+click('about-back'); await wait(60);
+click('d-credits'); await wait(120);
+check('Credits opens', !$('about-overlay').classList.contains('hide')
+  && $('about-title').textContent === 'Credits', $('about-title').textContent);
+check('and credits the typefaces and the libraries',
+  /Space Grotesk/.test($('about-body').textContent)
+  && /PeerJS/.test($('about-body').textContent));
+click('about-back'); await wait(60);
+/* ---- reporting something ----
+   A category before the sentence, because "it does not work" is what people
+   write when there is nothing to pick from. And it must refuse to send an empty
+   one: a report with no category and no words costs somebody a reply to find
+   out there is nothing in it. */
+click('d-report'); await wait(120);
+check('Report opens', !$('about-overlay').classList.contains('hide')
+  && $('about-title').textContent === 'Report a problem', $('about-title').textContent);
+check('and offers a category before anything is typed',
+  $('about-body').querySelectorAll('.rep-kind').length === 8,
+  `${$('about-body').querySelectorAll('.rep-kind').length}`);
+check('with nothing picked to start with',
+  $('about-body').querySelectorAll('.rep-kind.on').length === 0);
+check('and it says where it goes',
+  /spiderman\.hashir@gmail\.com/.test($('about-body').textContent));
+/* The facts that settle most reports, shown rather than attached silently. */
+check('the version travels with it',
+  /Version: v\d/.test($('rep-facts').value), $('rep-facts').value.slice(0, 40));
+check('and whether this device is saving at all',
+  /Saving:/.test($('rep-facts').value), $('rep-facts').value.slice(0, 120));
+/* Both halves are needed, and each is checked on its own — a report with words
+   and no category is as unanswerable as one with a category and no words, and a
+   single "empty is refused" test would pass while either guard was missing. */
+$('rep-text').value = 'the board went blank';
+check('words with no category are refused', window.__m.reportSend() === '');
+$('rep-text').value = '';
+$('about-body').querySelector('[data-kind="game"]').click();
+await wait(40);
+check('picking one marks it, and only it',
+  $('about-body').querySelectorAll('.rep-kind.on').length === 1
+  && $('about-body').querySelector('.rep-kind.on').dataset.kind === 'game',
+  `${$('about-body').querySelectorAll('.rep-kind.on').length}`);
+$('about-body').querySelector('[data-kind="room"]').click();
+await wait(40);
+check('and picking another moves the mark rather than adding one',
+  $('about-body').querySelectorAll('.rep-kind.on').length === 1
+  && $('about-body').querySelector('.rep-kind.on').dataset.kind === 'room');
+check('and a category with no words is refused too', window.__m.reportSend() === '');
+$('rep-text').value = 'It stopped taking letters after the first one.';
+{
+  const url = window.__m.reportSend();
+  check('a report with both goes to the right address',
+    url.indexOf('mailto:spiderman.hashir@gmail.com') === 0, url.slice(0, 46));
+  check('and carries the category, the words and the version', (() => {
+    const body = decodeURIComponent((url.split('&body=')[1] || ''));
+    return /Focus together/.test(body) && /stopped taking letters/.test(body)
+      && /Version: v\d/.test(body);
+  })(), decodeURIComponent((url.split('&body=')[1] || '')).slice(0, 70));
+}
+click('about-back'); await wait(60);
+check('and it closes again', $('about-overlay').classList.contains('hide'));
+check('the backup buttons are gone with it',
+  !$('d-export') && !$('d-import') && !$('import-file'));
 
 // ===========================================================================
 // Pass 2 — seeded history, so the stats dashboard has real numbers to render
@@ -3166,7 +3579,7 @@ await wait(120);
   shelf()[1].click();
   await wait(60);
   check('buying a light asks first', !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
-  check('and says what it costs', /18/.test($('confirm-yes').textContent), $('confirm-yes').textContent);
+  check('and says what it costs', /36/.test($('confirm-yes').textContent), $('confirm-yes').textContent);
   $('confirm-no').click();
   await wait(40);
   check('changing your mind costs nothing', +$('emb-box').dataset.have === before);
@@ -3174,7 +3587,7 @@ await wait(120);
   await wait(40);
   $('confirm-yes').click();
   await wait(80);
-  check('it is paid for', +$('emb-box').dataset.have === before - 18, $('emb-box').dataset.have);
+  check('it is paid for', +$('emb-box').dataset.have === before - 36, $('emb-box').dataset.have);
   check('it is yours', /latesun/.test($('emb-box').dataset.own), $('emb-box').dataset.own);
   check('and it is what is burning now', window.document.body.dataset.light === 'latesun',
     window.document.body.dataset.light);
@@ -3235,7 +3648,7 @@ await wait(120);
     !$('confirm').classList.contains('hide'), $('confirm-title').textContent);
   $('confirm-yes').click();
   await wait(150);
-  check('buying it spends the embers', +$('emb-box').dataset.have === had - 34,
+  check('buying it spends the embers', +$('emb-box').dataset.have === had - 136,
     `${$('emb-box').dataset.have} was ${had}`);
   check('and starts it playing', window.document.body.dataset.amb === 'rain',
     window.document.body.dataset.amb);
@@ -3276,18 +3689,28 @@ await wait(120);
 $('stats-close').click();
 await wait(60);
 
-// --- calendar density ------------------------------------------------------
+// --- a day, as its own page ------------------------------------------------
 $2('stats-close').click();
 $2('d-history').click();
 await wait(120);
 check('calendar marks days that have notes', $2('cal-grid').querySelectorAll('.note-dot').length > 0, `${$2('cal-grid').querySelectorAll('.note-dot').length} dots`);
-check('calendar starts at normal density', $2('cal-overlay').dataset.dense === '0', $2('cal-overlay').dataset.dense);
+check('the calendar opens on the month, with no day in front of it',
+  $2('day-overlay').classList.contains('hide'), $2('day-overlay').className);
 
 // today was seeded with 2 sessions, so selecting it stays roomy
 const cells = [...$2('cal-grid').querySelectorAll('.cal-cell.has')];
 cells[cells.length - 1].click();
 await wait(60);
-check('two sessions keeps the roomy layout', $2('cal-overlay').dataset.dense === '0', $2('cal-overlay').dataset.dense);
+/* **A day opens in front of the month rather than under it.** The records,
+   the notes and the mood row used to unfold below the grid, which left the
+   month squeezed into whatever was left — hence the two density modes this
+   block used to check. The page in front is what replaced them. */
+check('and tapping a day opens it as a page of its own',
+  !$2('day-overlay').classList.contains('hide')
+  && $2('day-overlay').contains($2('cal-detail')),
+  $2('day-overlay').className);
+check('and the month underneath is left at its own size',
+  !$2('cal-overlay').dataset.dense, $2('cal-overlay').dataset.dense);
 check('records rendered for the day', $2('cal-detail').querySelectorAll('.cal-rec').length === 2, `${$2('cal-detail').querySelectorAll('.cal-rec').length}`);
 check('note textareas auto-sized', [...$2('cal-detail').querySelectorAll('textarea')].every((t) => t.style.height), 'no height set');
 
@@ -3313,7 +3736,11 @@ await wait(120);
 const heavyCells = [...$3('cal-grid').querySelectorAll('.cal-cell.has')];
 heavyCells[heavyCells.length - 1].click();
 await wait(60);
-check('eight sessions compacts the calendar', $3('cal-overlay').dataset.dense === '2', $3('cal-overlay').dataset.dense);
+/* Eight sessions was the case that forced the compact layout. Now it is just
+   a longer page, and the month behind it does not change at all. */
+check('a heavy day opens the same way, and still does not squeeze the month',
+  !$3('day-overlay').classList.contains('hide') && !$3('cal-overlay').dataset.dense,
+  $3('day-overlay').className + ' / ' + $3('cal-overlay').dataset.dense);
 check('all eight records shown', $3('cal-detail').querySelectorAll('.cal-rec').length === 8, `${$3('cal-detail').querySelectorAll('.cal-rec').length}`);
 
 // --- switching days --------------------------------------------------------
@@ -3461,7 +3888,7 @@ if (nextDay) {
 {
   const { window: fw, errors: faceErr } = boot(html, {
     /* Enough for all three at the new prices — 70 + 40 + 100. */
-    focus_embers: JSON.stringify({ have: 400, earned: 400, own: ['seaglass'], light: 'seaglass' }),
+    focus_embers: JSON.stringify({ have: 2400, earned: 2400, own: ['seaglass'], light: 'seaglass' }),
   });
   await wait(400);
   const $ = (id) => fw.document.getElementById(id);
@@ -3668,26 +4095,30 @@ if (nextDay) {
    two applies. So this boots a device with an *old* ember record: one that
    holds pre-rise purchases and has never heard of `grand`.
 
-   Old prices: 5 + 10 + 15 + 15 + 60 = 105. New ones: 18 + 26 + 34 + 34 + 100
-   = 212. A balance of 195 is the fix; 88 is the bug. */
+   Old prices: 5 + 10 + 15 + 15 + 60 = 105. A balance of 1695 out of 1800 is the
+   fix; anything lower means the rise was charged retrospectively. The absolute
+   numbers move whenever the shelf is repriced — what is being tested is the
+   subtraction, so they are written as the arithmetic rather than as a total. */
 {
   const OLD_OWN = ['seaglass', 'latesun', 'dusk', 'frost', 'snd-rain', 'face-glass'];
   const { window: pw, errors: pErr } = boot(html, {
     // no `grand` key: this record was written by a build that had no such idea
-    focus_embers: JSON.stringify({ have: 300, earned: 300, own: OLD_OWN, light: 'latesun' }),
+    focus_embers: JSON.stringify({ have: 1800, earned: 1800, own: OLD_OWN, light: 'latesun' }),
   });
   await wait(400);
   const $p = (id) => pw.document.getElementById(id);
+  const OLD_PAID = 105;                       // 5 + 10 + 15 + 15 + 60, as bought
   check('an old record keeps every ember it had when the prices went up',
-    +$p('emb-box').dataset.have === 195, `${$p('emb-box').dataset.have}, wanted 195`);
+    +$p('emb-box').dataset.have === 1800 - OLD_PAID,
+    `${$p('emb-box').dataset.have}, wanted ${1800 - OLD_PAID}`);
   /* Written down, so the next boot does not have to work it out again — and so
      it can travel to the other devices on the account. */
   const rec = JSON.parse(pw.localStorage.getItem('focus_embers') || '{}');
   check('and what it was holding at the time is written down',
     Array.isArray(rec.grand) && OLD_OWN.every((id) => rec.grand.indexOf(id) >= 0),
     JSON.stringify(rec.grand));
-  /* The other half: the rise is real for anything bought *after* it. Hearth is
-     42 now and was 20; this device never owned it, so it pays 42. */
+  /* The other half: the rise is real for anything bought *after* it. This device
+     never owned Hearth, so it pays whatever Hearth costs today. */
   $p('emb-spend-row').click();
   await wait(150);
   { const t = $p('emb-box').querySelector('[data-tab="looks"]'); if (t) t.click(); }
@@ -3699,7 +4130,7 @@ if (nextDay) {
   $p('confirm-yes').click();
   await wait(150);
   check('but anything bought after the rise pays the new price',
-    +$p('emb-box').dataset.have === before - 42,
+    +$p('emb-box').dataset.have === before - 168,
     `${$p('emb-box').dataset.have} was ${before}`);
   /* And it does not sneak into the grandfathered list on the way — that list
      is written once, at the moment the rise lands, and never grows. */
@@ -3737,7 +4168,7 @@ if (nextDay) {
      just before it costs the shipped build nothing. */
   const dailyHtml = withDoor(html, `window.__d = {pktNow, pktDay, pktNum, pktAt, pktDow,
     pktLabel, pktUntilRoll, dailyGen, dailyState, sMake, WORDS, crossReleases,
-    crossReleaseDay, crossOnDay, DAILY_EPOCH, Sudoku, DCal, Wordle, dailyStreak,
+    crossReleaseDay, crossOnDay, crossLatestDay, DAILY_EPOCH, Sudoku, DCal, Wordle, dailyStreak,
     dailyMark, dailyAdopt, dailyGet, dailyDayCount, DAILY_DONE};`);
   const { window: dw, errors: dErr } = boot(dailyHtml, { focus_daily: JSON.stringify({}) });
   await wait(500);
@@ -3778,31 +4209,58 @@ if (nextDay) {
   check('the word of the day is the same word twice', same.wordTwice);
   check('and a different word tomorrow', same.wordMoved);
 
-  /* --- the crossword's release schedule --- */
+  /* --- the crossword's release schedule ---
+     The epoch, 2026-08-17, is a Monday. The 7 comes out every day so no day is
+     empty; the 5 and the 9 take alternate days — 5s on Tuesday, Thursday and
+     Saturday, 9s on Monday, Wednesday and Friday — and Sunday is the 15 with
+     the 7. Three a week each, rather than the 5 and the 7 every day and the 9
+     twice. */
   const sched = probe((d) => ({
     mon: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-17')),
+    tue: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-18')),
     wed: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-19')),
     fri: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-21')),
+    sat: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-22')),
     sun: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-23')),
     // nothing at all before the day the schedule starts
     before: [5,7,9,15].filter(n => d.crossReleases(n, '2026-08-16')),
-    // the first four fives are four consecutive days
+    // every day of the week has something on it
+    week: [0,1,2,3,4,5,6].map(i => [5,7,9,15]
+      .filter(n => d.crossReleases(n, d.pktAt(d.pktNum('2026-08-17') + i))).length),
     fives: [0,1,2,3].map(n => d.crossReleaseDay(5, n)),
     nines: [0,1,2].map(n => d.crossReleaseDay(9, n)),
     fifteens: [0,1].map(n => d.crossReleaseDay(15, n)),
-    // and a day maps to a real puzzle in the bank
-    onMon: d.crossOnDay(5, '2026-08-17').i,
+    // two days that both publish a five are two different fives
     onTue: d.crossOnDay(5, '2026-08-18').i,
+    onThu: d.crossOnDay(5, '2026-08-20').i,
+    // and a size on a day it does not run still has a last edition
+    latest5OnMon: d.crossLatestDay(5, '2026-08-24'),
+    latest9OnSun: d.crossLatestDay(9, '2026-08-23'),
   }));
-  check('five and seven come out every day', sched.mon.join(',') === '5,7', sched.mon.join(','));
-  check('the nine on Wednesday and Friday', sched.wed.join(',') === '5,7,9' && sched.fri.join(',') === '5,7,9',
-    `${sched.wed} / ${sched.fri}`);
-  check('the fifteen on Sunday', sched.sun.join(',') === '5,7,15', sched.sun.join(','));
+  check('the seven comes out every day, so no day is empty',
+    sched.week.length === 7 && sched.week.every(n => n >= 1), sched.week.join(','));
+  check('the nine on Monday, Wednesday and Friday',
+    sched.mon.join(',') === '7,9' && sched.wed.join(',') === '7,9' && sched.fri.join(',') === '7,9',
+    `${sched.mon} / ${sched.wed} / ${sched.fri}`);
+  check('the five on Tuesday, Thursday and Saturday',
+    sched.tue.join(',') === '5,7' && sched.sat.join(',') === '5,7',
+    `${sched.tue} / ${sched.sat}`);
+  check('and never both of them on one day',
+    ![sched.mon, sched.tue, sched.wed, sched.fri, sched.sat, sched.sun]
+      .some(day => day.indexOf(5) >= 0 && day.indexOf(9) >= 0),
+    [sched.mon, sched.tue, sched.wed, sched.fri, sched.sat, sched.sun].join(' | '));
+  check('the fifteen on Sunday', sched.sun.join(',') === '7,15', sched.sun.join(','));
   check('and nothing before the day the schedule starts', sched.before.length === 0, sched.before.join(','));
-  check('the daily sizes run on consecutive days',
-    sched.fives.join(' ') === '2026-08-17 2026-08-18 2026-08-19 2026-08-20', sched.fives.join(' '));
-  check('the nines land on Wednesdays and Fridays',
-    sched.nines.join(' ') === '2026-08-19 2026-08-21 2026-08-26', sched.nines.join(' '));
+  check('the fives land on Tuesdays, Thursdays and Saturdays',
+    sched.fives.join(' ') === '2026-08-18 2026-08-20 2026-08-22 2026-08-25', sched.fives.join(' '));
+  check('the nines on Mondays, Wednesdays and Fridays',
+    sched.nines.join(' ') === '2026-08-17 2026-08-19 2026-08-21', sched.nines.join(' '));
+  /* A size you are looking at on a day it does not run still has a board to
+     show: its most recent one. Without this the shelf is empty four days a week
+     for the 5s and the 9s and six for the 15. */
+  check('and a size out of season falls back to its last edition',
+    sched.latest5OnMon === '2026-08-22' && sched.latest9OnSun === '2026-08-21',
+    `${sched.latest5OnMon} / ${sched.latest9OnSun}`);
   check('and the fifteens a week apart, on Sundays',
     sched.fifteens.join(' ') === '2026-08-23 2026-08-30', sched.fifteens.join(' '));
   /* **The bank is append-only, and this is what says so.** A puzzle's date is
@@ -3810,8 +4268,8 @@ if (nextDay) {
      after it moves, which rewrites history and orphans saved boards. If this
      check ever fails, something was inserted rather than appended. */
   check('and two different days are two different puzzles',
-    sched.onMon >= 0 && sched.onTue >= 0 && sched.onMon !== sched.onTue,
-    `${sched.onMon} / ${sched.onTue}`);
+    sched.onTue >= 0 && sched.onThu >= 0 && sched.onTue !== sched.onThu,
+    `${sched.onTue} / ${sched.onThu}`);
 
   /* --- one a day --- */
   dw.document.getElementById('arcade-open').click();
@@ -3913,22 +4371,86 @@ if (nextDay) {
     const chip = $d('sdk-streak');
     check('the board wears the streak', !chip.classList.contains('hide')
       && /\u{1F525}\s*1/u.test(chip.textContent), chip.textContent + ' / ' + chip.className);
-    /* **The schedule decides what "every" means.** The crossword publishes two
-       sizes on a Tuesday and three on a Wednesday, so a day nothing came out on
-       is skipped rather than counted as a miss, and a Wednesday needs the 9x9
-       as well. This is the part a single-difficulty game cannot exercise. */
+    /* **The schedule decides what "every" means.** Each day publishes two sizes
+       and they are not the same two — a Tuesday is the 5 and the 7, a Wednesday
+       the 7 and the 9, a Sunday the 7 and the 15 — so keeping a streak means
+       finishing whatever came out that day, and a size that did not come out is
+       skipped rather than counted as a miss. This is the part a
+       single-difficulty game cannot exercise. */
     const cw = probe((d) => {
       const on = (day, k) => d.crossReleases(+k, day);
-      const wed = '2026-08-19', tue = '2026-08-18';
+      const all = ['5', '7', '9', '15'];
       return {
-        wedNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, wed)[1],
-        tueNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, tue)[1],
-        sunNeeds: d.dailyDayCount('crossword', ['5', '7', '9', '15'], on, '2026-08-23')[1],
+        tueNeeds: d.dailyDayCount('crossword', all, on, '2026-08-18')[1],
+        wedNeeds: d.dailyDayCount('crossword', all, on, '2026-08-19')[1],
+        sunNeeds: d.dailyDayCount('crossword', all, on, '2026-08-23')[1],
+        tueSizes: [5, 7, 9, 15].filter(n => d.crossReleases(n, '2026-08-18')).join(','),
+        wedSizes: [5, 7, 9, 15].filter(n => d.crossReleases(n, '2026-08-19')).join(','),
       };
     });
-    check('a Tuesday asks for two crosswords, a Wednesday three',
-      cw.tueNeeds === 2 && cw.wedNeeds === 3, JSON.stringify(cw));
-    check('and a Sunday three, the fifteen among them', cw.sunNeeds === 3, `${cw.sunNeeds}`);
+    check('every day asks for exactly the sizes published on it',
+      cw.tueNeeds === 2 && cw.wedNeeds === 2 && cw.sunNeeds === 2, JSON.stringify(cw));
+    check('and a Tuesday and a Wednesday are not the same two',
+      cw.tueSizes === '5,7' && cw.wedSizes === '7,9', cw.tueSizes + ' / ' + cw.wedSizes);
+
+    /* **Opening lands on the newest board, finished or not.**
+
+       Moving to today used to also require that today's be *unplayed*, which
+       made doing today's puzzle the one thing that reliably left you behind:
+       solve Tuesday's, come back on Wednesday, and Tuesday's solved grid was
+       what was waiting. Nothing is lost by moving — the board is stashed and
+       the calendar hands it straight back — and a grid you have already
+       finished is not what anybody opens the app to look at.
+
+       Driven on the state rather than through the screen: what is under test is
+       the one condition in `enter`, and clicking a week of calendar cells to
+       reach it would be testing the calendar. */
+    {
+      const set = probe((d) => {
+        const today = d.pktNow();
+        const old = d.pktAt(d.pktNum(today) - 3);
+        d.dailyMark('sudoku', d.Sudoku.diff, today, d.DAILY_DONE);
+        d.Sudoku._chose = false;
+        d.Sudoku.day = old;
+        return { today, old, on: d.Sudoku.day };
+      });
+      await probe((d) => d.Sudoku.enter());
+      await wait(200);
+      const moved = probe((d) => d.Sudoku.day);
+      check('a day already finished is no reason to open on an old board',
+        set.on === set.old && moved === set.today, set.old + ' -> ' + moved);
+
+      /* And the exception holds: a day you opened yourself is still yours until
+         the app is closed, or browsing the archive would be impossible. */
+      probe((d) => { d.Sudoku._chose = true; d.Sudoku.day = set.old; });
+      await probe((d) => d.Sudoku.enter());
+      await wait(200);
+      const kept = probe((d) => d.Sudoku.day);
+      check('but a day you chose yourself is left where it is',
+        kept === set.old, set.old + ' -> ' + kept);
+      probe((d) => { d.Sudoku._chose = false; d.Sudoku.day = set.today; });
+
+      /* The word game had the same two conditions and loses them both. */
+      const w = probe((d) => {
+        const today = d.pktNow();
+        const old = d.pktAt(d.pktNum(today) - 2);
+        /* Left unfinished on purpose: the old condition also required
+           `this.done`, so an unsolved old word is exactly the case it refused
+           to move on from. Today's record is deliberately not touched — a done
+           mark without a pattern is one the calendar cannot draw, and the grid
+           checks further down read it. */
+        d.Wordle._chose = false;
+        d.Wordle.answer = 'crane';
+        d.Wordle.done = false;
+        d.Wordle.day = old;
+        return { today, old };
+      });
+      await probe((d) => d.Wordle.enter());
+      await wait(200);
+      const wOn = probe((d) => d.Wordle.day);
+      check('and the word of the day is today’s word',
+        wOn === w.today, w.old + ' -> ' + wOn);
+    }
   }
 
   /* --- the word grid, and the streak ------------------------------------
@@ -4083,7 +4605,7 @@ if (nextDay) {
    blocks above assert on the balance. */
 {
   const { window: bw, errors: budErr } = boot(html, {
-    focus_embers: JSON.stringify({ have: 300, earned: 300, own: ['seaglass'], light: 'seaglass' }),
+    focus_embers: JSON.stringify({ have: 1800, earned: 1800, own: ['seaglass'], light: 'seaglass' }),
     /* Wearing three things he has never bought — which is exactly what every
        existing buddy looked like the moment the shop arrived. */
     focus_sim: JSON.stringify({ focusMin: 25, breakMin: 5, repeat: 4, face: 'digital',
@@ -4183,7 +4705,7 @@ if (nextDay) {
   await wait(80);
   $b('confirm-yes').click();
   await wait(160);
-  check('saying yes spends the embers', +$b('emb-box').dataset.have === had - 26,
+  check('saying yes spends the embers', +$b('emb-box').dataset.have === had - 104,
     `${$b('emb-box').dataset.have} was ${had}`);
   check('and the hat is his', ($b('emb-box').dataset.own || '').indexOf('bud-h10') >= 0,
     $b('emb-box').dataset.own);
@@ -4213,7 +4735,7 @@ if (nextDay) {
     $b('confirm-title').textContent);
   $b('confirm-yes').click();
   await wait(160);
-  check('it costs what the shelf said', +$b('emb-box').dataset.have === hadA - 70,
+  check('it costs what the shelf said', +$b('emb-box').dataset.have === hadA - 350,
     `${$b('emb-box').dataset.have} was ${hadA}`);
   check('and it is his', ($b('emb-box').dataset.own || '').indexOf('bud-an3') >= 0,
     $b('emb-box').dataset.own);
@@ -4254,9 +4776,9 @@ if (nextDay) {
   const asMade = dyed();
   rowOf('hc')[4].click();
   await wait(80);
-  // 70 for the antic he did not have, 55 for the one he had already chosen
+  // 350 for the antic he did not have, 220 for the one he had already chosen
   check('choosing a colour recolours him and costs nothing',
-    dyed() !== asMade && +$b('emb-box').dataset.have === hadA - 125,
+    dyed() !== asMade && +$b('emb-box').dataset.have === hadA - 570,
     $b('emb-box').dataset.have);
   rowOf('hc')[0].click();
   await wait(80);
@@ -4417,6 +4939,22 @@ check('host sees the guest by name', $h('sync-people').textContent.includes('Fri
     cardOf('hangman').innerHTML.slice(0, 200));
   /* On *that* card and no other, or it says nothing at all. */
   check('and on no other card', faces().length === 1, `${faces().length}`);
+  /* **In the card's icon slot, above the status — not pinned over it.** jsdom
+     has no layout, so this asks where the faces are and how they are placed:
+     inside `.pcard-icons`, which comes before the status in its column, and in
+     the flow rather than `position:absolute`, which is how they covered it. */
+  {
+    const who = cardOf('hangman').querySelector('.pcard-who');
+    const slot = who && who.parentNode;
+    const side = slot && slot.parentNode;
+    check('and they sit in the card\'s icon slot, above the status',
+      !!who && slot.classList.contains('pcard-icons') && side.classList.contains('pcard-side')
+      && side.firstElementChild === slot && /\bprog\b/.test((slot.nextElementSibling || {}).className || ''),
+      who ? (side ? side.innerHTML.slice(0, 120) : 'no side column') : 'no faces');
+    check('in the flow, not pinned over the corner',
+      !!who && host.getComputedStyle(who).position !== 'absolute',
+      who ? host.getComputedStyle(who).position : 'no faces');
+  }
   check('with their name on it', /Friend/.test(
     (cardOf('hangman').querySelector('.pcard-who') || {}).title || ''),
     (cardOf('hangman').querySelector('.pcard-who') || {}).title);
@@ -6228,8 +6766,22 @@ $h('ov-back').click();
 $g('ov-back').click();
 await wait(80);
 
-// hand the timer to the guest — through the confirm, the way a person would
-$h('sync-people').querySelectorAll('[data-lead]')[0].click();
+/* Hand the timer to the guest — through the confirm, the way a person would,
+   and **to the person by name**. This used to click `[data-lead]` index 0,
+   which is whoever the host happens to list first, which is whoever connected
+   first. Friend and Third join together and either can win; when Third won,
+   the timer went to Third and the next eight checks all reported Third where
+   they wanted Friend — a whole block failing identically, looking exactly like
+   a broken handover, and green again on the next run. The room does not
+   promise an order, so the test must not assume one. */
+const handTo = (name) => {
+  const row = [...$h('sync-people').querySelectorAll('.sync-person')]
+    .find((r) => ((r.querySelector('.sync-who') || {}).textContent || '').includes(name));
+  return row && row.querySelector('[data-lead]');
+};
+check('the host can see Friend to hand the timer to', !!handTo('Friend'),
+  [...$h('sync-people').querySelectorAll('.sync-who')].map((x) => x.textContent).join(' | '));
+handTo('Friend').click();
 await wait(60);
 check('handing over asks first, even in a full room', !$h('confirm').classList.contains('hide'));
 $h('confirm-yes').click();
@@ -6728,6 +7280,347 @@ await wait(200);
   C.seen = {};
 }
 
+/* ---- a crossword can always be solved by typing --------------------------
+
+   The plainest thing this game has to do, and the one that kept not being true.
+   `done` is a flag; a flag can be wrong; and when it was, the board refused
+   every key with nothing on screen to say why. So: start from the worst case — a
+   record insisting the puzzle is finished when the grid is empty — and type the
+   whole thing in, one letter at a time, through the same `type()` a keyboard
+   calls. */
+{
+  const C = window.__m.Cross;
+  const btn = (n) => [...window.document.getElementById('cw-size').children]
+    .find((b) => +b.dataset.s === n);
+  for (const size of [5, 7]) {
+    btn(size).click();
+    await wait(120);
+    /* Poison it: finished, according to the record, with nothing in the grid. */
+    C.progress[C._fp(C.idx)] = { u: '.'.repeat(C.user.length), secs: 5, done: true };
+    const i = C.idx, day = C.day;
+    C.idx = -1;
+    C.load(i, day);
+    check(`a ${size}\u00d7${size} that claims to be finished still opens unfinished`,
+      C.done === false, `done=${C.done}`);
+    /* Now solve it the way a person does: pick a square, type a letter. */
+    let typed = 0;
+    for (let k = 0; k < C.user.length; k++) {
+      const sol = C._solAt(k);
+      if (!sol) continue;
+      C.select(k);
+      C.type(sol);
+      typed++;
+    }
+    check(`and every one of its ${typed} squares took a letter`,
+      C.user.filter((v, k) => C._solAt(k) && v === C._solAt(k)).length === typed,
+      `${C.user.filter((v, k) => C._solAt(k) && v === C._solAt(k)).length} of ${typed}`);
+    check(`and typing the last one finishes it`, C.done === true, `done=${C.done}`);
+    check('and the banner says so',
+      !window.document.getElementById('cw-banner').classList.contains('hide'));
+    /* Changing a letter on a finished grid un-finishes it, rather than being
+       ignored — the flag follows the squares, never the other way round. */
+    const first = C.user.findIndex((v, k) => C._solAt(k));
+    C.select(first);
+    C.type(C.user[first] === 'Z' ? 'Q' : 'Z');
+    check('and editing it afterwards is allowed, and un-finishes it',
+      C.done === false && C.user[first] !== C._solAt(first),
+      `done=${C.done} ${C.user[first]} vs ${C._solAt(first)}`);
+    C.select(first);
+    C.type(C._solAt(first));
+    check('and putting it back finishes it again', C.done === true, `done=${C.done}`);
+    /* Backspace is half of typing: a grid you cannot correct is not solvable. */
+    C.select(first);
+    C.back();
+    check('and a finished grid can still be rubbed out',
+      C.user[first] === '' && C.done === false,
+      `"${C.user[first]}" done=${C.done}`);
+    C.select(first);
+    C.type(C._solAt(first));
+  }
+}
+
+/* ---- a sync landing mid-keystroke ----------------------------------------
+
+   The path is one keystroke long and was not obvious: type a letter,
+   `persist()` marks the day, marking the day asks the account to sync, the sync
+   adopts, and the adopt used to call `forget()` — which every game implements by
+   throwing the open board away. So the first letter typed blanked the grid it
+   was typed into, `render()` found no puzzle, and every key after that went
+   nowhere. Reported, exactly, as "nothing works on the crossword after writing
+   once". This is that sequence, run for real. */
+{
+  const C = window.__m.Cross, S = window.__m.Sudoku;
+  const btn = (n) => [...window.document.getElementById('cw-size').children]
+    .find((b) => +b.dataset.s === n);
+  await openGame(window, $, 'crossword');
+  btn(7).click();
+  await wait(150);
+  const e0 = C.puz.entries[0];
+  C.select(e0.cells[0][0] * C.size + e0.cells[0][1]);
+  C.type('A');
+  /* Exactly what the keystroke sets off, made to happen now. */
+  const snap = window.__m.gamesSnapshot();
+  snap['arcade_cross'].at = Date.now() + 5000;
+  snap['arcade_sudoku'].at = Date.now() + 5000;
+  window.__m.gamesAdopt(snap);
+  check('a sync mid-keystroke leaves the grid on screen', !!C.puz && C.idx >= 0,
+    `puz=${!!C.puz} idx=${C.idx}`);
+  check('and the letter that caused it is still there',
+    C.user.filter(Boolean).length >= 1, `${C.user.filter(Boolean).length}`);
+  /* And the board keeps working: more letters, and they reach the DOM. */
+  let ok = true;
+  for (const k of [1, 2, 3]) {
+    const cell = C._cellsOf(C.puz.entries[0])[k];
+    if (cell === undefined) continue;
+    C.select(cell);
+    C.type('B');
+    if (C.user[cell] !== 'B') ok = false;
+    const el = window.document.getElementById('cw-grid').children[cell];
+    if (!el || !/B/.test(el.textContent)) ok = false;
+  }
+  check('and it still takes letters, and still draws them', ok,
+    C.user.slice(0, 8).join('|'));
+}
+{
+  /* The same hazard, in the game that has a shelf rather than one board. */
+  const S = window.__m.Sudoku;
+  await openGame(window, $, 'sudoku');
+  S.sel = S.given.indexOf(false);
+  S.input(5);
+  const before = S.grid.filter(Boolean).length;
+  const snap = window.__m.gamesSnapshot();
+  snap['arcade_sudoku'].at = Date.now() + 6000;
+  window.__m.gamesAdopt(snap);
+  check('a sync does not empty the sudoku being played',
+    S.grid.length === 81 && S.grid.filter(Boolean).length === before,
+    `${S.grid.length} / ${S.grid.filter(Boolean).length} vs ${before}`);
+  S.sel = S.given.indexOf(false, S.sel + 1);
+  if (S.sel >= 0) S.input(6);
+  check('and it still takes numbers afterwards',
+    S.grid.filter(Boolean).length >= before, `${S.grid.filter(Boolean).length}`);
+}
+
+/* ---- time in the arcade ----
+   **Playing, not having a board open.** The clock runs while a game is on
+   screen and something has been pressed in the last two minutes; a board left
+   open over lunch is not two hours of play, and a total that says it was is
+   one nobody believes. Driven through the arcade's own way in and way out,
+   with the window's clock held in the hand, because the thing under test is
+   exactly which stretches of time count. */
+{
+  /* One finished block, so Your focus draws its full page rather than the
+     empty one — the section has to be on the page people actually see. */
+  const pDay = new Date(Date.now() - 3600 * 1000);
+  const pKey = pDay.getFullYear() + '-' + String(pDay.getMonth() + 1).padStart(2, '0') + '-' + String(pDay.getDate()).padStart(2, '0');
+  const { window: pw, errors: pErr } = boot(withDoor(html, 'window.__p = {Arcade, playTotals, Stats};'), {
+    focus_log: JSON.stringify([{ id: 'p1', ts: pDay.getTime(), at: pDay.getTime(), day: pKey, secs: 1500, full: true }]),
+  });
+  await wait(500);
+  const P = pw.__p;
+  const realNow = pw.Date.now;
+  let now = realNow.call(pw.Date);
+  pw.Date.now = () => now;
+  const MIN = 60 * 1000;
+  const poke = () => pw.document.dispatchEvent(new pw.KeyboardEvent('keydown', { bubbles: true }));
+  const secs = () => Math.round((P.playTotals().find((g) => g.id === 'g2048') || { secs: 0 }).secs);
+
+  await P.Arcade.pick('g2048');
+  now += MIN; poke();
+  check('a minute on a board with keys going is a minute in the arcade', secs() === 60, secs() + 's');
+  now += 10 * MIN;
+  check('ten minutes with nothing pressed counts only the two before it stopped',
+    secs() === 180, secs() + 's');
+  poke(); now += 30 * 1000;
+  check('and the next key starts it again, without counting the gap', secs() === 210, secs() + 's');
+  P.Arcade.back();
+  now += 5 * MIN;
+  check('leaving the game stops the clock', secs() === 210, secs() + 's');
+
+  P.Stats.open();
+  await wait(60);
+  const body = pw.document.getElementById('stats-body');
+  const row = [...body.querySelectorAll('.stat-games .scomp')].find((r) => r.dataset.game === 'g2048');
+  check('Your focus says so, under the name on the game’s card',
+    !!body.querySelector('.stat-grid') && /In the arcade/.test(body.textContent) && !!row
+    && row.querySelector('.scomp-name').textContent === '2048'
+    && row.querySelector('b').textContent === '4 min',
+    row ? row.textContent : body.textContent.slice(0, 120));
+  check('and nothing went wrong keeping it', pErr.length === 0, pErr.slice(0, 2).join(' | '));
+  pw.Date.now = realNow;
+}
+
+/* ---- app blocking ----
+   The decisions are made natively and tested on the JVM
+   (native/focus-guard/android/src/test). What is tested here is the page: that
+   a config is cleaned into something those decisions can trust, that the lock
+   holds on this side as well as that one, and that the way in exists at all.
+
+   **The way in went missing once.** A partial revert took the menu row out of
+   the drawer and left everything else, so the whole feature was unreachable on
+   the one platform it is for, with nothing failing and nothing logged. The first
+   two checks are about that. */
+{
+  check('the app blocking row is in the menu, and hidden without the Android plugin',
+    !!$('d-block') && $('d-block').classList.contains('hide')
+    && window.getComputedStyle($('d-block')).display === 'none',
+    $('d-block') ? $('d-block').className : 'no row');
+
+  /* A stand-in for the plugin that enforces the lock the way GuardRules.accept
+     does, so the page's handling of a refused save is exercised for real. */
+  const fake = `<script>
+    window.__gcalls = [];
+    window.Capacitor = {Plugins: {FocusGuard: (function(){
+      let stored = null;
+      const copy = (o) => JSON.parse(JSON.stringify(o));
+      return {
+        status: async () => ({notifications:true, overlay:false, accessibility:true, admin:false, gray:false}),
+        listApps: async () => ({apps:[{id:'x.insta', name:'Instagram', icon:''}, {id:'x.tok', name:'TikTok', icon:''}]}),
+        setConfig: async (c) => {
+          window.__gcalls.push(['setConfig', copy(c)]);
+          const locked = stored && stored.on && stored.lock && stored.lock.on;
+          if(!locked){ stored = copy(c); return copy(stored); }
+          const kept = copy(stored);
+          if(!c.pending) kept.pending = null;
+          else if(Number(c.pending.at) >= Date.now() + stored.lock.delay * 60000 - 60000) kept.pending = c.pending;
+          stored = kept;
+          return copy(stored);
+        },
+        getStats: async () => ({usage:{}, day:''}),
+        setTimer: async () => {}, showNotice: async () => {}, hideNotice: async () => {},
+        takeCommand: async () => ({cmd:''}), requestNotifications: async () => ({granted:true}),
+        openSettings: async () => {}, requestAdmin: async () => {}, releaseAdmin: async () => {},
+        setTasks: async (t) => { window.__gcalls.push(['setTasks', copy(t)]); },
+        addListener: () => ({remove(){}}),
+      };
+    })()}};
+  </script>
+`;
+  const v1 = JSON.stringify({on:true, when:'session', apps:['x.insta', 'x.tok'], pause:12, allow:7, opens:0});
+  const gHtml = withDoor(html.replace('<script>', fake + '<script>'),
+    'window.__g = {Guard, guardClean, guardSite, guardChange, guardPromote, guardStreak, guardWeek,'
+    + ' guardOpen, guardOpenRule, guardLocked, saveTasks, tasks: () => TASKS};');
+  const { window: gw, errors: gErr } = boot(gHtml, { focus_guard: v1 });
+  await wait(700);
+  const G = gw.__g;
+  const $g = (id) => gw.document.getElementById(id);
+  const calls = (name) => gw.__gcalls.filter((c) => c[0] === name).map((c) => c[1]);
+
+  check('and shown on a build that has it', !!$g('d-block') && !$g('d-block').classList.contains('hide'),
+    $g('d-block') ? $g('d-block').className : 'no row');
+
+  /* **The first version had one set of settings for every app**, and updating
+     must change nothing about what is blocked. Its zero opens meant no way
+     through at all. */
+  {
+    const r = G.Guard.cfg.rules[0] || {};
+    check('an old single config becomes one rule with the same apps and numbers',
+      G.Guard.cfg.rules.length === 1 && r.apps.join(',') === 'x.insta,x.tok'
+      && r.when === 'session' && r.pause === 12 && r.open.join(',') === '7',
+      JSON.stringify(r));
+    check('and its zero opens is still no way through', r.hard === true, String(r.hard));
+    const three = G.guardClean({on:true, apps:['x.insta'], opens:3});
+    check('while a number of opens is still a limit that closes the way',
+      three.rules[0].opens === 3 && three.rules[0].after === 'block' && !three.rules[0].hard,
+      JSON.stringify(three.rules[0]));
+  }
+
+  {
+    const c = G.guardClean({on:true, rules:[
+      {id:'a', apps:['x.insta', 'bad pkg!', 'x.insta'], sites:['https://www.Reddit.com/r/all', 'youtube', ''],
+       when:'nonsense', pause:9999, open:[0, 500, 5, 5], odds:0, days:'9x1175'},
+      {id:'a', apps:['x.tok']},
+    ]});
+    const r = c.rules[0];
+    check('a config is cleaned before anything trusts it',
+      c.rules.length === 1 && r.apps.join(',') === 'x.insta' && r.sites.join(',') === 'reddit.com'
+      && r.when === 'focus' && r.pause === 120 && r.open.join(',') === '1,5,120' && r.odds === 1
+      // 7 is not a weekday: they run 0 (Sunday) to 6
+      && r.days === '15', JSON.stringify(c));
+    check('and a site is reduced the way the phone reduces an address bar',
+      G.guardSite('https://m.YouTube.com/watch?v=1') === 'm.youtube.com' && G.guardSite('youtube') === ''
+      && G.guardSite('www.bbc.co.uk:443/news') === 'bbc.co.uk',
+      [G.guardSite('https://m.YouTube.com/watch?v=1'), G.guardSite('youtube'), G.guardSite('www.bbc.co.uk:443/news')].join(' | '));
+  }
+
+  /* The page, through its own buttons. */
+  G.guardOpen();
+  await wait(200);
+  check('a missing permission is said out loud, not left to three grey ticks',
+    /Nothing is being blocked yet/.test($g('block-body').textContent), $g('block-body').textContent.slice(0, 140));
+  check('grayscale explains the one-time grant rather than offering a switch that cannot work',
+    /pm grant app\.focussimulator\.mobile android\.permission\.WRITE_SECURE_SETTINGS/.test($g('block-body').textContent),
+    ($g('block-body').querySelector('.blk-code') || {}).textContent);
+  const before = calls('setConfig').length;
+  $g('blk-add').click();
+  await wait(200);
+  check('adding a rule opens it and sends it to the phone',
+    !$g('block-rule-overlay').classList.contains('hide') && G.Guard.cfg.rules.length === 2
+    && calls('setConfig').length > before && calls('setConfig').pop().rules.length === 2,
+    G.Guard.cfg.rules.length + ' rules');
+  $g('block-rule-body').querySelector('[data-rstep="pause"][data-by="1"]').click();
+  await wait(100);
+  check('and a stepper in it changes that rule and only that rule',
+    G.Guard.cfg.rules[1].pause === 15 && G.Guard.cfg.rules[0].pause === 12,
+    G.Guard.cfg.rules.map((r) => r.pause).join(','));
+  $g('block-rule-close').click();
+  await wait(100);
+
+  /* **The lock.** Every change waits; the phone refuses a save that tries to
+     skip the wait; and the page believes the phone. */
+  G.guardChange((c) => { c.lock.on = true; c.lock.delay = 10; });
+  await wait(150);
+  check('locking happens at once', G.guardLocked(G.Guard.cfg), JSON.stringify(G.Guard.cfg.lock));
+  G.guardChange((c) => { c.rules[0].pause = 3; });
+  await wait(150);
+  const pend = G.Guard.cfg.pending;
+  check('while locked, a change waits out the delay instead of happening',
+    G.Guard.cfg.rules[0].pause === 12 && !!pend && pend.cfg.rules[0].pause === 3
+    && Number(pend.at) - Date.now() > 9 * 60000,
+    JSON.stringify({applied:G.Guard.cfg.rules[0].pause, pend:pend && pend.cfg.rules[0].pause}));
+  G.guardChange((c) => { c.rules[0].pause = 12; });
+  await wait(150);
+  check('and changing it back cancels the wait', !G.Guard.cfg.pending, JSON.stringify(G.Guard.cfg.pending));
+  G.Guard.cfg.rules[0].pause = 3;
+  await G.Guard.push();
+  await wait(100);
+  check('a save that skips the wait is refused by the phone, and the page believes the phone',
+    G.Guard.cfg.rules[0].pause === 12, String(G.Guard.cfg.rules[0].pause));
+  G.guardChange((c) => { c.lock.on = false; });
+  await wait(150);
+  /* Guarded rather than assumed: if the lock is broken there is no waiting
+     change here, and a throw would take every check after it down too. */
+  if(G.Guard.cfg.pending) G.Guard.cfg.pending.at = String(Date.now() - 1);
+  check('a change whose time has come is applied', !!G.guardPromote() && !G.guardLocked(G.Guard.cfg),
+    JSON.stringify(G.Guard.cfg.lock));
+
+  /* The shield offers open tasks as something to do instead; it cannot ask the
+     page, so they go down whenever the list is saved. */
+  G.tasks().push({id:'t1', text:'Reply to Sam', done:false}, {id:'t2', text:'Already done', done:true});
+  G.saveTasks();
+  await wait(80);
+  const sent = (calls('setTasks').pop() || {tasks:[]}).tasks;
+  check('saving the task list sends the open ones to the phone, and only those',
+    sent.length === 1 && sent[0].text === 'Reply to Sam', JSON.stringify(sent));
+
+  /* What has happened, from a stand-in history. */
+  {
+    const cfg = G.guardClean({on:true, rules:[{id:'s', apps:['x.insta'], opens:3, minutes:30}]});
+    const usage = {
+      '2026-09-12': {'x.insta': {through:1, secs:600}},
+      '2026-09-13': {'x.insta': {through:5, secs:600}},
+      '2026-09-14': {'x.insta': {through:2, secs:1200}},
+      '2026-09-15': {'x.insta': {through:3, secs:1700}},
+    };
+    check('the streak counts back from today through days inside every limit, and stops at the first that was not',
+      G.guardStreak(usage, '2026-09-15', cfg) === 2, String(G.guardStreak(usage, '2026-09-15', cfg)));
+    const week = G.guardWeek(usage, '2026-09-15', cfg);
+    check('and the week is seven days, oldest first, in everything the rules cover',
+      week.length === 7 && week[6].key === '2026-09-15' && week[6].secs === 1700 && week[0].key === '2026-09-09',
+      JSON.stringify(week.map((d) => d.key + ':' + d.secs)));
+  }
+  check('and the blocking pages ran without an error', gErr.length === 0, gErr.slice(0, 2).join(' | '));
+}
+
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
 log('');
@@ -6747,5 +7640,15 @@ log(`\n${checks.length - failed.length}/${checks.length} checks passed`
    the rAF loops still running is what trips the assertion in async.c on
    Windows. The exit code is decided first so nothing after this can change it. */
 const code = failed.length || allErrors.length ? 1 : 0;
+/* **And nothing a closed window says afterwards may change it.** `Arcade._refresh`
+   is async: a timer fires it, it awaits a game's `progress()`, and the rest of
+   it runs a microtask later — by which time the window it belongs to has been
+   closed here and `document` is gone. The throw lands after the verdict is
+   printed, with no check attached to it, and took the exit code from 0 to 1
+   with nothing to say which of eleven hundred checks had failed. Every real
+   runtime error is already in `allErrors`, collected while the windows were
+   open; this is only the sound of the door shutting. */
+process.on('uncaughtException', () => {});
+process.on('unhandledRejection', () => {});
 for (const w of BOOTED) { try { w.close(); } catch (e) { /* already gone */ } }
 setImmediate(() => process.exit(code));

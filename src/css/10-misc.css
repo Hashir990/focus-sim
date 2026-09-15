@@ -31,3 +31,46 @@
 .ov-focus:active{ transform:scale(.98); }
 
 .ov-focus:disabled{ opacity:.4; cursor:default; transform:none }
+
+/* ---- about: privacy and credits ----
+   Prose, and nothing else. Read once, at most twice, so it is sized to be
+   comfortable rather than compact. */
+.about{ max-width:520px; margin:0 auto; padding:4px 2px 40px }
+.about h4{
+  margin:22px 0 6px; font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--accent);
+}
+.about p{ margin:0 0 10px; font-size:13.5px; line-height:1.65; color:var(--text) }
+.about b{ font-weight:600 }
+.about .about-lede{ font-size:14.5px; line-height:1.6; color:var(--text); margin-bottom:4px }
+.about .about-date{ margin-top:18px; font-size:12px; color:var(--muted) }
+/* A line the build has not filled in. Loud on purpose: a policy that ships
+   saying "the developer" instead of a name is worse than one that is missing. */
+.about-todo{
+  text-decoration:none; padding:1px 6px; border-radius:5px;
+  background:rgba(240,90,90,.16); color:#ff9d9d; font-style:normal;
+}
+
+/* ---- reporting something ----
+   The categories are the form's real content: most people pick one and write a
+   line, so they are big enough to read at a glance and to hit with a thumb. */
+.rep-kinds{ display:grid; gap:8px; margin:4px 0 6px }
+.rep-kind{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  padding:10px 12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; transition:border-color .18s ease, background .18s ease;
+}
+.rep-kind:hover{ background:rgba(255,255,255,.05) }
+.rep-kind.on{ border-color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--card)) }
+.rep-kind b{ display:block; font-size:13.5px; font-weight:600 }
+.rep-kind span{ display:block; margin-top:2px; font-size:11.5px; color:var(--muted); line-height:1.45 }
+.about textarea{
+  width:100%; box-sizing:border-box; resize:vertical;
+  padding:10px 12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--bg2); color:var(--text);
+  font:inherit; font-size:13px; line-height:1.55;
+}
+#rep-facts{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; color:var(--muted) }
+.rep-send{ width:100%; height:46px; border-radius:12px; font-size:14px; margin-top:14px }
+.about .about-quiet{ font-size:11.5px; color:var(--muted); margin:6px 0 0; line-height:1.5 }

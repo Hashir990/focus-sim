@@ -1,0 +1,50 @@
+    <!-- spymaster (shared — needs a room). A Codenames-style word game: two
+         teams, one spymaster each, and a grid of words only the spymasters can
+         see the colours of. See 36b-spymaster.js. -->
+    <div class="game hide" id="game-spymaster">
+      <div class="game-top">
+        <span class="gname">Spymaster</span>
+        <span class="meta" id="sm-meta"></span>
+        <!-- The leader's, at any point in a game. See the note on `reset` in
+             36b-spymaster.js for why this game has one here as well as on its
+             card in the arcade. -->
+        <button class="mini-btn danger hide" id="sm-reset">Reset</button>
+      </div>
+
+      <p class="sg-need hide" id="sm-need">
+        Two teams, a grid of words, and a spymaster on each side who knows which
+        are theirs. Open a room and the others can join from their own break.
+        <button class="mini-btn" id="sm-need-go">Open Focus together</button>
+      </p>
+
+      <!-- Before a game: pick a side and a job. Nothing is dealt until the
+           leader starts, so changing your mind costs nothing. -->
+      <div id="sm-lobby" class="hide">
+        <div class="sm-sides" id="sm-sides"></div>
+        <div class="sm-watch" id="sm-watch"></div>
+        <p class="sm-needs" id="sm-needs"></p>
+        <div class="sm-go">
+          <button class="mini-btn on" id="sm-start">Start the game</button>
+        </div>
+      </div>
+
+      <div id="sm-play" class="hide">
+        <div class="sm-status" id="sm-status"></div>
+        <div class="sm-clue" id="sm-clue"></div>
+        <div class="sm-give hide" id="sm-give">
+          <input id="sm-word" maxlength="24" autocomplete="off" autocorrect="off"
+                 autocapitalize="off" spellcheck="false" placeholder="one word" aria-label="Your clue">
+          <div class="sm-nums" id="sm-nums" role="group" aria-label="How many words it points at"></div>
+          <button class="mini-btn on" id="sm-send">Give clue</button>
+        </div>
+        <div class="sm-grid" id="sm-grid"></div>
+        <div class="sm-act">
+          <button class="mini-btn hide" id="sm-pass">End our turn</button>
+          <button class="mini-btn hide" id="sm-again">Back to teams</button>
+        </div>
+        <p class="sm-msg" id="sm-msg"></p>
+        <div class="sm-log" id="sm-log"></div>
+      </div>
+
+      <div class="banner hide" id="sm-banner"><h3></h3><p></p></div>
+    </div>

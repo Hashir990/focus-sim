@@ -12,6 +12,10 @@ audio-src/
 android/
 ios/
 
+# What tools/look-*.mjs render. Generated pictures and the spliced copies of
+# the bundle they are rendered from — never source, and some of them are large.
+look/
+
 # Tauri
 src-tauri/target/
 src-tauri/gen/

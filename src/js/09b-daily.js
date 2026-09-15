@@ -416,8 +416,23 @@
      release schedule is counted from here too. */
   const DAILY_EPOCH = '2026-08-17';
   const CROSS_EPOCH = DAILY_EPOCH;
-  /* '*' is every day; digits are weekdays with 0 = Sunday. */
-  const CROSS_WHEN = {5:'*', 7:'*', 9:'35', 15:'0'};
+  /* '*' is every day; digits are weekdays with 0 = Sunday.
+
+     **A week with a shape.** The 5s and the 7s both used to come out every day,
+     which made two thirds of the week the same two grids and left the 9 as an
+     occasional visitor on a Wednesday. Now the small and the big one take turns
+     — 5s on Tuesday, Thursday and Saturday, 9s on Monday, Wednesday and Friday
+     — the 7 still comes every day so no day is empty, and Sunday is the 15 on
+     its own. Three a week each rather than seven and two.
+
+     **Changing this moves every release date for those two sizes**, because a
+     date is a position counted from the epoch through this table (see
+     `crossReleaseNo`). That is the intended effect — the bank is untouched and
+     is still in its original order — but a 5×5 that was Wednesday's is now
+     some other day's, so a part-finished grid is found through History rather
+     than where it used to sit on the calendar. Nothing is lost: progress is
+     keyed by the grid's own fingerprint, not by its date. */
+  const CROSS_WHEN = {5:'246', 7:'*', 9:'135', 15:'0'};
   const CROSS_SIZES = [5, 7, 9, 15];
 
   /** Does a puzzle of this size come out on this day? */
@@ -457,6 +472,21 @@
     for(let n = n0; n <= n0 + 7 * (no + 1) + 7; n++){
       const k = pktAt(n);
       if(crossReleases(size, k)){ seen++; if(seen === no) return k; }
+    }
+    return '';
+  }
+  /** The last day a size came out, on or before `from`. '' if there is none.
+
+      With the 5s and the 9s on three days each, "today's 5×5" is a question
+      with no answer four days a week — so the front door for a size is its most
+      recent edition, which on the days it does run is today's. A week is a
+      hard bound: every size in the table comes out at least once in one. */
+  function crossLatestDay(size, from){
+    let n = pktNum(from || pktNow());
+    for(let i = 0; i < 8; i++, n--){
+      const k = pktAt(n);
+      if(k < CROSS_EPOCH) break;
+      if(crossReleases(size, k)) return k;
     }
     return '';
   }

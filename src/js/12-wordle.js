@@ -20,9 +20,13 @@
         if(d){ Object.assign(this,{answer:d.answer,guesses:d.guesses||[],done:!!d.done,won:!!d.won,cur:'',day:d.day||pktNow()}); }
         else this._new(pktNow());
       }
-      /* Finished an older one and today's is untouched: hand over today's.
-         A word still being guessed is never taken away. */
-      if(this.done && this.day !== pktNow() && !dailyPlayed('wordle', '')){
+      /* **Opening lands on today's word.** This used to need the old one to be
+         finished *and* today's to be untouched, so guessing today's word and
+         coming back tomorrow left you looking at yesterday's. The exception is
+         a word you opened from the calendar yourself — `_chose` lives only as
+         long as the app is open, so a break and back returns you to it and
+         tomorrow returns you to tomorrow's. */
+      if(this.day !== pktNow() && !this._chose){
         this._new(pktNow());
       }
       this.build(); this.render(); this._banner();
@@ -39,6 +43,8 @@
       dailyMark('wordle', '', d, DAILY_STARTED);
     },
     newGame(day){
+      // Picked off the calendar, so enter() leaves it alone; see there.
+      this._chose = !!day && day !== pktNow();
       if(!day && dailyPlayed('wordle', '')){
         toast('Today\u2019s word is done');
         dailyCalOpen('wordle');

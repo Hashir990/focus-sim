@@ -1,6 +1,6 @@
   /* ---------- init ---------- */
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load()]).then(()=>{
+  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
     /* Anything planned for today joins the checklist before the first render,
        so it is simply there rather than appearing a moment later. */

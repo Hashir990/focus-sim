@@ -36,6 +36,16 @@
       <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
       <span><b>Achievements</b><small>What the hours added up to</small></span>
     </button>
+    <!-- App blocking. **Ships hidden** and is shown by guardMenuRow() in
+         51-guard-ui.js only on a build that has the Android plugin: on a desktop
+         or in a browser it would be a row that opens a page explaining it cannot
+         work. This row went missing once in a partial revert, and with it the
+         only way into the feature — nothing failed and nothing logged, so a
+         smoke check now asks that it is here and that it shows with the plugin. -->
+    <button class="drawer-item hide" id="d-block">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
+      <span><b>App blocking</b><small>A pause in front of the apps you pick</small></span>
+    </button>
     <button class="drawer-item" id="d-quotes">
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
       <span><b>Quote bank</b><small>Lines that fade in while you focus</small></span>
@@ -72,24 +82,16 @@
     <div class="drawer-sec">Clock face</div>
     <div class="amb-grid" id="face-pick"></div>
 
-    <div class="drawer-sec">Your data</div>
+    <div class="drawer-sec">About</div>
     <div class="drawer-toggles">
-      <button class="toggle" id="d-export"><span class="dot"></span>Export backup</button>
-      <button class="toggle" id="d-import"><span class="dot"></span>Import backup</button>
+      <button class="toggle" id="d-privacy"><span class="dot"></span>Privacy</button>
+      <button class="toggle" id="d-credits"><span class="dot"></span>Credits</button>
+      <button class="toggle" id="d-report"><span class="dot"></span>Report a problem</button>
     </div>
     <!-- Only ever visible in a build that has somewhere to check. See
          41-update.js: with no update URL stamped in, this stays empty. -->
     <div id="upd-box" class="hide"></div>
-    <!-- **What storage is actually doing.** Filled by `storageLine` in
-         42-dev.js. A store that has stopped accepting writes looks exactly like
-         one that is working until a board comes back empty, and three separate
-         puzzle bugs were chased before that was the answer — so it says so
-         here, in numbers, rather than being something only a developer can
-         find out. -->
-    <button class="toggle" id="d-storage"><span class="dot"></span>Storage</button>
-    <p class="drawer-note" id="storage-note"></p>
     <button class="drawer-reset" id="d-reset">Reset progress</button>
-    <input type="file" id="import-file" accept="application/json,.json" hidden />
     <!-- **This line has to tell the truth.** It has always said the data stays
          on this device, and that was true. With an account it is not, so the
          claim is made by 48-account.js from what is actually the case rather

@@ -1,0 +1,19 @@
+{
+  "name": "focus-guard",
+  "version": "1.0.0",
+  "description": "App blocking and a controllable timer notification for Focus Simulator on Android.",
+  "main": "src/index.js",
+  "private": true,
+  "files": [
+    "android/",
+    "src/"
+  ],
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0"
+  }
+}

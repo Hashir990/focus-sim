@@ -1,0 +1,155 @@
+/* ---------------- spymaster ----------------
+   Markup in src/body/08i-arcade-spymaster.html, drawn by 36b-spymaster.js.
+
+   **The two sides have fixed colours; everything else is the theme's.** A team
+   is its colour — "red's turn", "the blue ones" — so it cannot change with the
+   light the way the rest of the app does. A coral and a periwinkle that sit on
+   every dark palette and still read on Beach, and cards, text and lines from
+   the tokens like any other game. */
+
+/* No global `.hide` in this app (HANDOFF §2): every game declares its own. */
+#game-spymaster .hide{ display:none !important }
+
+#game-spymaster{
+  --sm-red:#f0776f;
+  --sm-blue:#6f9cf0;
+  --sm-none:#c9bea9;
+  --sm-kill:#16181e;
+  /* Dark ink on the filled cards, whatever the light: the fills are fixed, so
+     the text on them has to be too. */
+  --sm-ink:#14100e;
+}
+#game-spymaster .mini-btn:disabled{ opacity:.4; cursor:default }
+
+.sm-red{ color:var(--sm-red) }
+.sm-blue{ color:var(--sm-blue) }
+
+/* ---- before a game: the two sides ---- */
+.sm-sides{ display:flex; gap:10px; margin:8px 0 10px }
+.sm-side{
+  flex:1 1 0; min-width:0;
+  padding:12px 12px 10px; border-radius:14px;
+  border:1px solid var(--line); background:var(--card);
+  border-top:3px solid var(--sm-team);
+}
+.sm-side.sm-red{ --sm-team:var(--sm-red); color:var(--text) }
+.sm-side.sm-blue{ --sm-team:var(--sm-blue); color:var(--text) }
+.sm-side h4{ margin:0 0 8px; font-size:15px; font-weight:600; color:var(--sm-team) }
+.sm-job{
+  margin:8px 0 4px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted);
+}
+.sm-slot{ display:flex; flex-direction:column; align-items:flex-start; gap:5px }
+.sm-slot .mini-btn{ font-size:12px; padding:6px 10px }
+.sm-who{ font-size:13.5px }
+.sm-who.me{ color:var(--sm-team); font-weight:600 }
+.sm-none{ font-size:12.5px; color:var(--muted); font-style:italic }
+.sm-watch{ font-size:12.5px; color:var(--muted); margin:2px 0 8px; line-height:1.8 }
+.sm-watch .sm-job{ margin:0 6px 0 0 }
+.sm-watch .mini-btn{ font-size:12px; padding:5px 10px; margin-left:4px }
+.sm-needs{ font-size:13px; color:var(--muted); line-height:1.55; margin:6px 0 10px; min-height:1.55em }
+.sm-go{ display:flex; justify-content:center }
+
+/* ---- a game ---- */
+.sm-status{
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px;
+  margin:6px 0 8px; font-size:13px;
+}
+.sm-turn{ font-weight:600; font-size:14.5px }
+.sm-turn.sm-red{ color:var(--sm-red) }
+.sm-turn.sm-blue{ color:var(--sm-blue) }
+.sm-left{ color:var(--muted) }
+.sm-left b{ font-weight:600 }
+.sm-status .mini-btn{ font-size:12px; padding:5px 10px }
+
+/* The clue is the one thing everybody at the table is reading at once, so it
+   is the biggest type on the screen. */
+.sm-clue{ display:flex; align-items:baseline; justify-content:center; gap:10px; min-height:0; margin:0 0 8px }
+.sm-clue:empty{ margin:0 }
+.sm-clue-word{ font-size:22px; font-weight:600; letter-spacing:.02em; text-transform:lowercase }
+.sm-clue-n{
+  font-size:15px; font-weight:600; padding:2px 9px; border-radius:9px;
+  background:var(--card); border:1px solid var(--line);
+}
+.sm-clue-left{ font-size:12px; color:var(--muted) }
+
+.sm-give{ display:flex; flex-direction:column; gap:8px; align-items:stretch; margin:0 0 10px }
+.sm-give input{
+  width:100%; padding:11px 13px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:15px;
+}
+.sm-give input:focus{ outline:none; border-color:var(--accent) }
+.sm-nums{ display:flex; gap:4px; justify-content:space-between }
+.sm-num{
+  flex:1 1 0; min-width:0; height:34px; border-radius:10px; cursor:pointer;
+  border:1px solid var(--line); background:transparent; color:var(--text);
+  font:inherit; font-size:14px; font-weight:600;
+}
+.sm-num.on{ background:var(--accent); border-color:var(--accent); color:var(--bg) }
+.sm-give #sm-send{ align-self:center }
+
+/* ---- the grid ----
+   Five across on a phone is about sixty pixels a card, which is why no word in
+   the bank is longer than eight letters (the test holds that line). Square-ish
+   rather than square: a word is wider than it is tall. */
+.sm-grid{
+  display:grid; grid-template-columns:repeat(5, 1fr); gap:5px;
+  margin:0 0 10px;
+}
+.sm-card{
+  position:relative; min-width:0; aspect-ratio:1.25;
+  display:flex; align-items:center; justify-content:center; padding:2px;
+  border-radius:9px; border:1px solid var(--line); background:var(--card);
+  color:var(--text); font:inherit; cursor:pointer;
+  /* A tap target in a scroller says which gesture it wants (HANDOFF §6). */
+  touch-action:manipulation;
+  transition:background .25s ease, color .25s ease, border-color .25s ease, transform .12s ease;
+}
+.sm-card span{
+  font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  line-height:1.1; text-align:center; overflow-wrap:anywhere;
+}
+.sm-card:disabled{ cursor:default }
+.sm-card:not(:disabled):hover{ border-color:var(--muted) }
+
+/* Tapped once, waiting for the second. Lifted and outlined in the accent, so
+   it is obvious which one the next tap turns over. */
+.sm-card.pick{ outline:2px solid var(--accent); outline-offset:1px; transform:translateY(-2px) }
+
+/* **Turned over: filled with its colour.** The word stays, dimmed, so the
+   board can still be read for what has gone — half the clues in a game lean on
+   words already out. */
+.sm-card.shown{ border-color:transparent; cursor:default }
+.sm-card.shown span{ opacity:.72 }
+.sm-card.shown.c-red{ background:var(--sm-red); color:var(--sm-ink) }
+.sm-card.shown.c-blue{ background:var(--sm-blue); color:var(--sm-ink) }
+.sm-card.shown.c-none{ background:var(--sm-none); color:var(--sm-ink) }
+.sm-card.shown.c-kill{ background:var(--sm-kill); color:#f2ece4; box-shadow:inset 0 0 0 2px var(--sm-red) }
+.sm-card.shown.c-kill span{ opacity:1 }
+
+/* **What the spymaster sees, and everybody once it is over.** A tint and a
+   coloured edge, never a fill: a fill means "turned over", and a spymaster who
+   cannot tell at a glance which of theirs are still out is giving clues for
+   words that are gone. */
+.sm-card.key.c-red{ background:color-mix(in srgb, var(--sm-red) 20%, var(--card)); border-color:color-mix(in srgb, var(--sm-red) 70%, transparent) }
+.sm-card.key.c-blue{ background:color-mix(in srgb, var(--sm-blue) 20%, var(--card)); border-color:color-mix(in srgb, var(--sm-blue) 70%, transparent) }
+.sm-card.key.c-none{ border-color:color-mix(in srgb, var(--sm-none) 45%, transparent) }
+.sm-card.key.c-kill{ background:color-mix(in srgb, var(--sm-kill) 70%, var(--card)); border-color:var(--sm-red); color:#f2ece4 }
+
+.sm-act{ display:flex; justify-content:center; gap:8px; margin:0 0 6px }
+.sm-msg{ font-size:13px; color:var(--muted); text-align:center; margin:0 0 10px; min-height:1.5em; line-height:1.5 }
+
+/* Every clue given this game, newest first — the one thing a team argues
+   over is what an earlier clue meant. */
+.sm-log{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center }
+.sm-log span{
+  font-size:12px; font-weight:600; padding:3px 9px; border-radius:9px;
+  background:var(--card); border:1px solid var(--line);
+}
+
+/* The card on the arcade shelf: a three-by-three of words with two turned
+   over. The shelf fills every icon solid (06-picker.css), which would make this
+   one a black square, so it draws its grid as outlines. */
+.pcard[data-game="spymaster"] .emoji rect{ fill:none; stroke:currentColor; stroke-width:1.5 }
+.pcard[data-game="spymaster"] .emoji rect.fill{ fill:currentColor }

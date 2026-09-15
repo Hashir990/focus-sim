@@ -29,11 +29,17 @@
     // full-screen pages
     /* Above Focus together, because it opens from it. */
     {id:'prof-overlay',   close:()=>{ const b = $('prof-close'); if(b) b.click(); }},
+    /* Above App blocking, for the same reason: the picker opens from it. */
+    {id:'block-apps-overlay', close:()=>{ const b = $('block-apps-close'); if(b) b.click(); }},
+    {id:'block-overlay',  close:()=>{ const b = $('block-close'); if(b) b.click(); }},
     {id:'sync-overlay',   close:()=>{ const b = $('sync-close'); if(b) b.click(); }},
     {id:'ach-overlay',    close:()=>{ const b = $('ach-close'); if(b) b.click(); }},
     {id:'stats-overlay',  close:()=>{ const b = $('stats-close'); if(b) b.click(); }},
     {id:'acct-overlay',   close:()=>{ const b = $('acct-close'); if(b) b.click(); }},
     {id:'shop-overlay',   close:()=>{ const b = $('shop-close'); if(b) b.click(); }},
+    /* Above the month, because it opens from it: Back closes the day and
+       leaves you on the month, which is where you were. */
+    {id:'day-overlay',    close:()=>{ const b = $('day-close'); if(b) b.click(); }},
     {id:'cal-overlay',    close:()=>{ const b = $('cal-close'); if(b) b.click(); }},
     {id:'quotes-overlay', close:()=>{ const b = $('q-back'); if(b) b.click(); }},
     // the arcade last: it is the thing everything else opens on top of

@@ -98,9 +98,8 @@
     if(saveBroke) return;
     saveBroke = true;
     /* Once. A toast on every keystroke of a game that cannot be saved is its
-       own kind of broken, and the drawer carries the detail — see storageLine
-       in 42-dev.js. */
-    try{ toast('This device has stopped saving \u2014 see Storage in the menu'); }catch(e){}
+       own kind of broken. */
+    try{ toast('This device has stopped saving \u2014 your progress may not be kept'); }catch(e){}
   }
 
   /** **Free room, so a full store is a hiccup and not the end of the game.**
@@ -126,6 +125,17 @@
   };
 
   function forgetGame(key, fn){ GAME_FORGET[key] = fn; }
+
+  /** Is this save the one behind the game currently on screen? Games name their
+      save `key` (wordle says `skey`), so both are asked. */
+  function gameIsOpen(key){
+    try{
+      const def = Arcade.active && GAMES[Arcade.active];
+      if(!def || !def.game) return false;
+      const g = def.game();
+      return !!g && (g.key === key || g.skey === key);
+    }catch(e){ return false; }
+  }
 
   /** What `Account.snapshot()` carries: `{key: {at, v}}`, one per save. */
   /** One game's save, as this device last wrote it, without waiting on storage.
@@ -161,7 +171,25 @@
       GAME_SAVES[k] = got.v;
       GAME_AT[k] = at;
       try{ KV.set(k, JSON.stringify(got.v)); }catch(e){}
-      try{ GAME_FORGET[k] && GAME_FORGET[k](); }catch(e){}
+      /* **Never pull the board out from under somebody playing on it.**
+
+         `forget()` exists so a game re-reads storage after an account replaces
+         it, and every game implements that the same way: throw the grid away,
+         null the puzzle, empty the shelf, and let the next `enter()` rebuild.
+         That is right when nobody is looking at it and fatal when somebody is —
+         and the path from a keystroke to here is shorter than it looks. Type a
+         letter, `persist()` marks the day on the calendar, marking the day asks
+         the account to sync, the sync merges and adopts, and the adopt calls
+         this. All inside one keypress. The board you just typed into is blanked,
+         `render()` finds nothing to draw, and every key after that goes nowhere:
+         "nothing works after writing once".
+
+         The open game's own save is the newest thing in existence — it was
+         written a millisecond ago by the very keystroke that started all this —
+         so it keeps it. `GAME_SAVES` above is still updated, so anything that
+         reads the save later sees the merged one, and the game picks it up the
+         next time it is opened. */
+      if(!gameIsOpen(k)){ try{ GAME_FORGET[k] && GAME_FORGET[k](); }catch(e){} }
     }
     try{ KV.set(GAME_AT_KEY, JSON.stringify(GAME_AT)); }catch(e){}
     try{ if(Arcade.open) Arcade._refresh(); }catch(e){}
@@ -260,6 +288,7 @@
       else this.close();
     },
     _leaveActive(){
+      try{ playStop(); }catch(e){}     // time in games — 09c-playtime.js
       const def = this.active && GAMES[this.active];
       if(!def) return;
       try{ const g = def.game(); if(g && g.leave) g.leave(); }catch(e){}
@@ -270,18 +299,30 @@
         to save on its ten-second beat. This is the same `leave()` the Back
         button calls, on the two events a shutdown does still fire. */
     _stow(){
+      try{ playBank(); playSave(); }catch(e){}
       const def = this.active && GAMES[this.active];
       if(!def) return;
       try{ const g = def.game(); if(g && g.persist) g.persist(); }catch(e){}
     },
     async pick(g){ this.active=g; await this._showGame(g); },
     _picker(){
+      try{ playStop(); }catch(e){}
       this.active=null;
       this._calBtn('');
       $('picker').classList.remove('hide');
       for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.add('hide'); }
       $('ov-title').textContent='Rest arcade';
       this._refresh();
+    },
+    /** What the way-in button offers. The label said "eight games" for as long
+        as there were eight, and then went on saying it — a number kept in step
+        by hand is a number that stops being true quietly. Counted from the
+        shelf itself, so shipping a game updates the offer. */
+    offer(){
+      const n = Object.keys(GAMES).length;
+      const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+                     'eight', 'nine', 'ten', 'eleven', 'twelve'];
+      return (words[n] || n) + ' games, progress saved';
     },
     async _refresh(){
       for(const id in GAMES){
@@ -307,7 +348,12 @@
       for(const id in GAMES){
         const def = GAMES[id], card = $(def.progEl);
         if(!card) continue;
-        const host = card.parentNode;
+        /* Into the card's icon slot, which is the one place on a card for icons
+           (see `.pcard-icons` in 06-picker.css). Appended to the card itself they
+           were pinned over the status and covered it. A card built without the
+           slot falls back to the status's own column rather than to nowhere. */
+        const pc = card.closest ? card.closest('.pcard') : null;
+        const host = (pc && pc.querySelector('.pcard-icons')) || card.parentNode;
         if(!host) continue;
         let box = host.querySelector('.pcard-who');
         let who = [];
@@ -340,6 +386,7 @@
          disabled: a button that is never usable in 2048 is clutter, not a
          hint. See `registerDaily` in 09b-daily.js. */
       this._calBtn(g);
+      try{ if(def) playStart(g); }catch(e){}
       if(def){ try{ await def.game().enter(); }catch(e){} }
     },
     _calBtn(g){

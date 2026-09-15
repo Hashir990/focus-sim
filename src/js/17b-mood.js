@@ -99,14 +99,51 @@
     return m ? m.n : '';
   }
 
-  /** The row of faces, used by the prompt and by the calendar's day panel. */
+  /* ---- which face is mid-animation ----
+     A tap re-renders the row it was in — the calendar rebuilds its whole day
+     panel — so a class toggled onto the button that was tapped is thrown away a
+     millisecond later. The pop has to be part of what the row *renders*.
+
+     That is also what makes it work at all: a fresh element starts its
+     animations now, which is the same fact the buddy's slot depends on (see
+     HANDOFF §6). Re-rendering is not something to work around here, it is the
+     mechanism.
+
+     `EMO_HOLD` is a const in 17c-emoji.js, which loads *after* this file. Read
+     from inside a function that is what you want; read at load time it would
+     throw and take the whole app with it (§2). */
+  let MOOD_POP = '', MOOD_POP_DAY = '', MOOD_POP_T = 0, MOOD_POP_AT = 0;
+  function moodPop(day, emoji){
+    clearTimeout(MOOD_POP_T);
+    MOOD_POP_DAY = day; MOOD_POP = emoji; MOOD_POP_AT = Date.now();
+    MOOD_POP_T = setTimeout(()=>{
+      MOOD_POP = ''; MOOD_POP_DAY = '';
+      moodPaint();
+    }, EMO_HOLD);
+  }
+  /** Is this the face that is popping right now? */
+  function moodPopping(day, emoji){ return !!emoji && MOOD_POP === emoji && MOOD_POP_DAY === day; }
+  /* **How far into its motion the popping face is.** Every redraw of the row
+     makes a fresh element, and a fresh element starts its animation from the
+     beginning — which is what made the faces play twice. Choosing a mood saves
+     it, saving syncs the account, and the sync coming back redraws the
+     calendar a few hundred milliseconds later: second element, second motion,
+     the first one cut off part-way. So each redraw is told the age and picks
+     the motion up where it was (17c-emoji.js turns it into a negative delay).
+     Any other redraw that lands mid-motion is covered by the same line. */
+  function moodPopAge(){ return MOOD_POP ? Math.max(0, Date.now() - MOOD_POP_AT) : 0; }
+
+  /** The row of faces, used by the prompt and by the calendar's day panel.
+      The faces are drawn (17c-emoji.js) rather than printed, so they are the
+      same six faces on a phone, a desktop and a browser. */
   function moodRow(day, cls){
     const now = moodOf(day);
     return '<div class="mood-row' + (cls ? ' ' + cls : '') + '">'
       + MOODS.map(m=>'<button class="mood-pick' + (now === m.e ? ' on' : '')
           + '" data-mood="' + m.e + '" data-day="' + esc(day) + '"'
           + ' title="' + esc(m.n) + '" aria-label="' + esc(m.n) + '">'
-          + m.e + '</button>').join('')
+          + (moodPopping(day, m.e) ? emoFace(m.e, 'pop', moodPopAge()) : emoFace(m.e))
+          + '</button>').join('')
       + '</div>';
   }
   /** Wire a rendered `moodRow`. Delegated so it survives a re-render. */
@@ -114,6 +151,18 @@
     if(!box) return;
     box.querySelectorAll('[data-mood]').forEach(b=>{
       b.onclick = ()=>{
+        /* Marked before the store is touched, because writing the mood is what
+           repaints the calendar — and the repaint is the thing that has to
+           carry the motion with it.
+
+           **Only when it is being chosen.** Tapping the face already there
+           clears it, and each face's motion is that face *meaning* something —
+           the great day hopping as it is taken off the calendar is the app
+           cheering at the wrong moment. */
+        if(moodOf(b.dataset.day) !== b.dataset.mood) moodPop(b.dataset.day, b.dataset.mood);
+        /* And a face taken off part-way through its own motion stops there,
+           rather than finishing a hop for a day it no longer describes. */
+        else if(moodPopping(b.dataset.day, b.dataset.mood)){ clearTimeout(MOOD_POP_T); MOOD_POP = ''; }
         moodSet(b.dataset.day, b.dataset.mood);
         try{ blip(); }catch(e){}
         if(after) after();
@@ -130,11 +179,27 @@
     if(!el) return;
     const day = dayKey(Date.now());
     if(moodAnswered(day) || MOOD_ASKED[day]){ el.classList.add('hide'); return; }
-    $('mood-ask-row').innerHTML = moodRow(day, 'big');
-    moodWire($('mood-ask-row'), ()=>moodDone(day));
+    moodAskDraw(day);
     el.classList.remove('hide');
   }
+  /* The prompt draws its own row and re-draws it on a tap. It has to: the
+     answer is the last thing that happens on this panel and the panel then
+     goes away, so hiding it at once plays the animation behind a closing box
+     and nobody ever sees the face they chose. Redraw, let the pop run, and
+     close on the far side of it. */
+  function moodAskDraw(day){
+    const row = $('mood-ask-row');
+    if(!row) return;
+    row.innerHTML = moodRow(day, 'big');
+    moodWire(row, ()=>{
+      moodAskDraw(day);
+      clearTimeout(MOOD_ASK_T);
+      MOOD_ASK_T = setTimeout(()=>moodDone(day), EMO_HOLD);
+    });
+  }
+  let MOOD_ASK_T = 0;
   function moodDone(day){
+    clearTimeout(MOOD_ASK_T);
     MOOD_ASKED[day] = 1;
     const el = $('mood-ask');
     if(el) el.classList.add('hide');

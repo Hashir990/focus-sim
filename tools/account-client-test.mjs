@@ -535,6 +535,44 @@ await wait(800);
   })(), B.localStorage.getItem('focus_log'));
 }
 
+/* ---- what the band says when a sync does not work ----
+
+   **"Could not reach the server" used to be the answer to every question.**
+   `_post` throws the server's own words whenever it answers `ok:false` — rate
+   limited, snapshot refused, no database bound, a route that moved — and every
+   one of them came out as a network problem, which sends whoever is reading it
+   to look at their wifi. A request that never arrived is the only thing that
+   deserves that sentence, and in a browser that is a `TypeError` out of `fetch`
+   itself, which is a thing the server cannot cause.
+
+   Driven through the band's own button, with the transport swapped underneath
+   it, because the discrimination is in the catch and nowhere else. */
+{
+  const b2 = B.document;
+  const real = B.fetch;
+  /* The note is the line under the username in the account panel. */
+  const band = () => { const el = b2.querySelector('.acc-in span'); return el ? el.textContent : '(no panel)'; };
+  const sync = async () => {
+    const btn = b2.getElementById('acc-sync');
+    if (btn) btn.click();
+    await wait(600);
+  };
+
+  // 1. the server answers, and says why
+  B.fetch = async () => ({ json: async () => ({ ok: false, error: 'the vault is having a lie down' }) });
+  await sync();
+  check('a server that answers with a reason has its reason shown',
+    /lie down/.test(band()) && !/could not reach/i.test(band()), band().slice(0, 120));
+
+  // 2. the request never arrives
+  B.fetch = async () => { throw new B.TypeError('Failed to fetch'); };
+  await sync();
+  check('and only a request that never arrived is a server out of reach',
+    /could not reach the server|offline/i.test(band()), band().slice(0, 120));
+
+  B.fetch = real;
+}
+
 console.log('\n' + pass + '/' + (pass + fails.length) + ' account client checks passed');
 if (fails.length) { fails.forEach((f) => console.log('   ' + f)); process.exit(1); }
 process.exit(0);

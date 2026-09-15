@@ -72,6 +72,47 @@
       }
     }catch(e){}
 
+    /* **A run on one size, not a run on the crossword.** The streak the game
+       screen shows counts a day as kept if every grid published that day is
+       filled in, which is the right number for "do you keep up". It is the
+       wrong number for "are you good at the big one": a month of 5×5s reads the
+       same as a month of 9×9s. These count each size's own editions, so a 9×9
+       streak of nine is nine consecutive Mondays-Wednesdays-Fridays — three
+       weeks — and cannot be had by doing the small one. */
+    let cwRun5 = 0, cwRun7 = 0, cwRun9 = 0;
+    try{
+      cwRun5 = dailyStreak('crossword', ['5'], (day)=>crossReleases(5, day));
+      cwRun7 = dailyStreak('crossword', ['7'], (day)=>crossReleases(7, day));
+      cwRun9 = dailyStreak('crossword', ['9'], (day)=>crossReleases(9, day));
+    }catch(e){}
+
+    /* Read off the daily record rather than kept as a tally: `w` is whether the
+       word was got and `g` is how many guesses it took, both written once when
+       the board is finished and never rewritten. */
+    let wordle = 0, wordleBest = 99, wordleRun = 0;
+    try{
+      const rec = DAILY[dailyId('wordle', '')] || {};
+      for(const k in rec){
+        const r = dailyRec(rec[k]);
+        if(!r || r.s !== DAILY_DONE || !r.w) continue;
+        wordle++;
+        if((r.g | 0) > 0) wordleBest = Math.min(wordleBest, r.g | 0);
+      }
+      wordleRun = dailyStreakOf('wordle');
+    }catch(e){}
+
+    let tetris = 0, tetrisLines = 0;
+    try{ tetris = Tetris.best | 0; tetrisLines = Tetris.lines | 0; }catch(e){}
+
+    /* The two shelves that had nothing to earn on them. Antics have no free
+       index 0, so owning all of them means all of them. */
+    let antics = 0, faces = 0;
+    try{ for(let i = 0; i < BUD_ANIMS.length; i++) if(budOwns('an', i)) antics++; }catch(e){}
+    try{ faces = FACES.filter(f=>faceHas(f.id)).length; }catch(e){}
+
+    let moods = 0;
+    try{ for(const k in MOOD) if(MOOD[k]) moods++; }catch(e){}
+
     let chessWon = 0, chessDone = 0;
     try{
       for(const k in Chess.saved){
@@ -92,6 +133,9 @@
       lights: EMB_LIGHTS.filter(l=>Embers.own.indexOf(l.id) >= 0).length,
       sounds: EMB_SOUNDS.filter(s=>embHasSound(s.id)).length,
       crossword, cross9, chessWon, chessDone,
+      cwRun5, cwRun7, cwRun9,
+      wordle, wordleBest, wordleRun, tetris, tetrisLines,
+      antics, faces, moods,
       best2048: (typeof G2048 === 'object' && G2048.best) || 0,
       // the moments nothing else remembers — see Embers.feats
       feat: (n)=>(Embers.feats && Embers.feats[n]) || 0,
@@ -118,6 +162,7 @@
   const ACH_ICONS = {
     sudoku:['▦','Sudoku'], wordle:['◐','Word guess'], g2048:['◈','2048'],
     crossword:['▤','Crossword'], hangman:['⌇','Hangman'], scrabble:['▩','Scrabble'],
+    tetris:['▟','Tetris'],
     chess:['♞','Chess'], pictionary:['✎','Pictionary'], memory:['❖','Memory'],
   };
 
@@ -159,6 +204,27 @@
      want:'Fill in ten crosswords',                  got:f=>f.crossword >= 10},
     {id:'cwall', in:'games', of:'crossword',   name:'The whole bank',        pays:35,
      want:'Fill in every crossword there is',        got:f=>f.crossword >= 31},
+    /* One per size, each asking for its own number, which is also roughly its
+       own difficulty: five 5×5s is a fortnight of Tuesdays, Thursdays and
+       Saturdays; nine 9×9s is three weeks of not missing one. */
+    {id:'cwr5', in:'games', of:'crossword',    name:'Five fives',            pays:6,
+     want:'Fill in five 5×5s in a row',              got:f=>f.cwRun5 >= 5},
+    {id:'cwr7', in:'games', of:'crossword',    name:'Seven sevens',          pays:9,
+     want:'Fill in seven 7×7s in a row',             got:f=>f.cwRun7 >= 7},
+    {id:'cwr9', in:'games', of:'crossword',    name:'Nine nines',            pays:16,
+     want:'Fill in nine 9×9s in a row',              got:f=>f.cwRun9 >= 9},
+    {id:'wdl1', in:'games', of:'wordle',       name:'Got it',                pays:2,
+     want:'Guess the word of the day',               got:f=>f.wordle >= 1},
+    {id:'wdl10', in:'games', of:'wordle',      name:'Ten words',             pays:6,
+     want:'Guess ten words of the day',              got:f=>f.wordle >= 10},
+    {id:'wdlrun', in:'games', of:'wordle',     name:'A word a day',          pays:10,
+     want:'Guess the word seven days running',       got:f=>f.wordleRun >= 7},
+    {id:'wdl2', in:'games', of:'wordle',       name:'In two',                pays:8,
+     want:'Guess the word in two',                   got:f=>f.wordleBest <= 2},
+    {id:'tet5k', in:'games', of:'tetris',      name:'Five thousand',         pays:5,
+     want:'Score five thousand at Tetris',           got:f=>f.tetris >= 5000},
+    {id:'tet20k', in:'games', of:'tetris',     name:'Twenty thousand',       pays:12,
+     want:'Score twenty thousand at Tetris',         got:f=>f.tetris >= 20000},
     {id:'chess1', in:'games', of:'chess',  name:'Checkmate',             pays:3,
      want:'Win a game of chess',                     got:f=>f.chessWon >= 1},
     {id:'chess10', in:'games', of:'chess', name:'Ten wins',              pays:12,
@@ -188,6 +254,17 @@
      want:'Own every light on the shelf',            got:f=>f.lights >= EMB_LIGHTS.length},
     {id:'rich', in:'shelf',    name:'A thousand embers',     pays:18,
      want:'Earn a thousand embers in all',           got:f=>f.embers >= 1000},
+    /* The wardrobe's two dearest shelves and the clock. Nothing on any of them
+       is free, so each of these is a long way down the line — which is what an
+       achievement about a shop should be. */
+    {id:'antics', in:'shelf',  name:'Every antic',           pays:30,
+     want:'Own every antic he can do',               got:f=>f.antics >= BUD_ANIMS.length},
+    {id:'faces', in:'shelf',   name:'Every clock face',      pays:20,
+     want:'Own every way of drawing the time',       got:f=>f.faces >= FACES.length},
+    /* The one mark that is not about doing more. Answering the prompt costs
+       nothing and is the only record the app keeps of how the work felt. */
+    {id:'mood30', in:'focus',  name:'Thirty days noted',     pays:8,
+     want:'Say how the day went, thirty times',      got:f=>f.moods >= 30},
   ];
 
   /** Pay for anything newly true. Safe to call as often as you like. */

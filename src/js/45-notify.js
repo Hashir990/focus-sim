@@ -40,6 +40,14 @@
     /** The plugin, or null everywhere else. */
     _find(){
       try{
+        /* **FocusGuard wins where it exists.** It posts the same two things and
+           more — a countdown Android draws itself, and Stop, Pause and Continue
+           that work with this process dead — so running both would be two
+           "Focusing" notifications, one of which is wrong the moment the other
+           is used. This is the only line that has to know; everything below
+           carries on being the fallback for a build that has the older plugin
+           and not the newer one. See 50-guard.js. */
+        if(guardHasPlugin()) return null;
         const C = window.Capacitor;
         if(!C || !C.Plugins || !C.Plugins.LocalNotifications) return null;
         return C.Plugins.LocalNotifications;
@@ -138,7 +146,13 @@
        enough. `tick()` refuses now for the same reason; the check is written
        twice on purpose, because reading this line should not require knowing
        what the other one does. */
-    try{ if(S.running) tick(); }catch(e){}
+    /* **Not when FocusGuard is installed**, because it has to apply whatever a
+       notification button did *before* the clock is allowed to move again, and
+       finding that out is a round trip to the native side. `guardResume()` does
+       this same catch-up on the far side of that answer. Two of them would be
+       harmless — `tick()` reads the wall clock rather than counting — but the
+       one here would run first and against the wrong end time. */
+    try{ if(S.running && !guardHasPlugin()) tick(); }catch(e){}
     try{ Notify.sync(); }catch(e){}
   });
   /* A phone that is about to kill the app gets no visibilitychange, but it does

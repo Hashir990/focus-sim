@@ -224,7 +224,13 @@
   display:flex; flex-direction:column; gap:3px; text-align:left;
   padding:10px 13px; border-radius:14px; cursor:pointer;
   border:1px solid var(--accent); color:var(--text);
-  background:radial-gradient(140% 120% at 100% 0%, var(--bg2) 0%, var(--card) 70%);
+  /* **Solid underneath, the glow on top.** This was the glow alone — `--bg2` in
+     the corner fading to `--card` — and `--card` is a few percent of white, so
+     most of the pop-out was glass: a message arriving over the arcade was
+     printed straight on top of the game's own text and could not be read. The
+     same corner glow, laid over the page's own ground. (HANDOFF §6: a
+     translucent fill cannot hide what is behind it.) */
+  background:radial-gradient(140% 120% at 100% 0%, var(--bg2) 0%, transparent 70%), var(--bg);
   box-shadow:0 10px 28px rgba(0,0,0,.42);
   font-family:inherit;
   animation:cpin .26s cubic-bezier(.2,.8,.3,1) both;

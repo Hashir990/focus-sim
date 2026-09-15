@@ -77,7 +77,8 @@
 
       if(!s.sessions){
         body.innerHTML = '<p class="q-empty">No finished sessions yet. Complete a focus block '
-          + 'and this fills in — total time, streaks, and your best hours.</p>';
+          + 'and this fills in — total time, streaks, and your best hours.</p>'
+          + this._arcade();
         return;
       }
 
@@ -111,7 +112,8 @@
         + '<div><span>Average day</span><b>'+fmtDur(s.perDay)+'</b></div>'
         + '<div><span>Average session</span><b>'+fmtDur(Math.round(s.totalSecs/s.sessions))+'</b></div>'
         + '</div>'
-        + this._company(s);
+        + this._company(s)
+        + this._arcade();
 
       this._wireBars();
     },
@@ -153,6 +155,29 @@
             + '<span class="scomp-name">'+esc(c.name)+'</span>'
             + '<span class="scomp-bar"><i style="width:'+Math.max(4, Math.round(c.secs/max*100))+'%"></i></span>'
             + '<b>'+fmtDur(c.secs)+'</b>'
+            + '</div>').join('')
+        + '</div>';
+    },
+
+    /** Time in the rest arcade, longest game first, in the same rows as the
+        people above it. Absent until there is a minute of it: a heading over
+        nothing reads as a section that failed to load. The clock and what it
+        refuses to count are in 09c-playtime.js. */
+    _arcade(){
+      let games = [];
+      try{ games = playTotals(); }catch(e){}
+      const total = games.reduce((n, g)=>n + g.secs, 0);
+      if(total < 60) return '';
+      const shown = games.filter(g=>g.secs >= 30);
+      const max = (shown[0] && shown[0].secs) || 1;
+      return '<p class="q-sec">In the arcade</p>'
+        + '<p class="stat-note">' + fmtDur(total) + ' playing, in all.</p>'
+        + '<div class="stat-company stat-games">'
+        + shown.slice(0, 8).map(g=>
+            '<div class="scomp" data-game="' + esc(g.id) + '">'
+            + '<span class="scomp-name">' + esc(g.name) + '</span>'
+            + '<span class="scomp-bar"><i style="width:' + Math.max(4, Math.round(g.secs/max*100)) + '%"></i></span>'
+            + '<b>' + fmtDur(g.secs) + '</b>'
             + '</div>').join('')
         + '</div>';
     },

@@ -581,6 +581,17 @@ BANNED |= set("""
 orgy
 """.split())
 
+# 2026-09-13, read off this run's fill at all three sizes. Nothing banned, and
+# recorded so the next pass does not re-argue it. Every borderline answer here
+# has already been settled above and settled as a keep: `aol`, `ebay`, `fda`,
+# `faa` and `amd` are the initials-and-brands tier the `mlb`/`nba`/`dna` notes
+# drew; `icu` is the neutral clinical shorthand the `autism` note kept; `uni`
+# and `aft` are the clipped-but-still-said tier beside `cad` and `ante`;
+# `tarantino` is the one-famous-person proper noun `uma` and `cicero` settled;
+# and `emir` is kept where `bey` went. `deb`, `lam` and `fab` are the new
+# arrivals and go the same way — a debutante, on the lam and a fab idea are all
+# said out loud, which is the `sus`/`yeet` line rather than the `bronc` one.
+
 # Real people are answers, not contraband.
 #
 # Raising LONG_WHOLE pushed the fill onto eight- and nine-letter entries, and a
@@ -635,6 +646,14 @@ BANNED |= set("""
 shay
 """.split())
 
+# 2026-09-10. `jag` came off today's 7x7 fill and is new to the bank, so banning
+# it costs nothing already shipped. Every sense is a dead end for a solver
+# working from crossings: a bout of drinking, a flap on the edge of a garment,
+# or a sharp projection. Same tier as `trey` and `tod` above.
+BANNED |= set("""
+jag
+""".split())
+
 # `assay` is a metallurgist's test for purity and reads like the `silva` tier,
 # and it was banned here for one run before the ban was reversed. Pruning it
 # dropped an *original* 15x15 that had shipped — exactly the trade the `roe`
@@ -651,6 +670,31 @@ shay
 # reach.
 # (nothing banned from this pass — see the note above)
 
+# 2026-09-12, read off the seventh 15x15 — the size that surfaces these tiers
+# fastest, exactly as the note about `cock` and `lea` predicted. `douche` and
+# `johns` are the crude tier: the first has no sense a solver wants to meet,
+# and the second is a slur for a prostitute's client before it is a plural
+# forename.
+BANNED |= set("""
+douche johns
+""".split())
+
+# `ditko`, `damon`, `nolan` and `lucas` were banned here alongside them as bare
+# surnames of the `fife` tier, and that was wrong. They are not pool words that
+# arrived wearing a common-noun gloss: all four are deliberate entries in
+# cross-phrases.py, which exists to carry famous names, and each already had a
+# name-hint clue there — "Artist Steve who drew the first Spider-Man",
+# "Director Christopher of Inception". A name is gettable when the clue names
+# the person, and that is the whole point of that file.
+#
+# This is the trap step 6 of the task warns about from the other side: `--clues`
+# cannot see cross-phrases.py, so those answers look unclued when read off the
+# raw fill. The lesson is to check the clue sources before banning a name, not
+# just the answer list. `costa` was in the same block and is genuinely a pool
+# word with no clue anywhere; it is kept too, clued to Costa Rica in
+# cross-clues.py rather than to WordNet's rib.
+
+# (the `lucas costa` ban that stood here is reversed — see the note above)
 
 
 def _load(name, attr=None):
@@ -949,14 +993,26 @@ def generate(cw, words, n, want, budget, barred=True):
         # sixteen seconds) that there is no reason to spend the squares. Variety
         # comes from where the bars fall, which is a bigger space than four
         # blocks was. If a seven ever stops closing, [0, 4] is the way back.
-        cw.BARRED_BLOCKS.update({5: [0], 7: [0]})
-        # CW_BLOCKS5 puts black squares back at five, and there is a hard reason
-        # it has to exist. Zero blocks at 5x5 means every row and every column is
-        # a whole five-letter word — a double word square — and tools/
-        # word-squares.py enumerated the pool exhaustively on 2026-08-21: it
-        # contains exactly four, which is two puzzles and their transposes. Both
-        # are now in the bank. There is no third solid five to find, so a bank
-        # that wants more than two of them has to allow a black square.
+        cw.BARRED_BLOCKS.update({5: [4, 6, 8], 7: [0]})
+        # Five defaults to black squares; seven does not. Hashir asked for the
+        # small grids to lose their black squares and seven can honour that, but
+        # five cannot, for a reason that is arithmetic rather than taste. Zero
+        # blocks at 5x5 means every row and every column is a whole five-letter
+        # word — a double word square — and tools/word-squares.py enumerated the
+        # pool exhaustively on 2026-08-21: it contains exactly four, which is two
+        # puzzles and their transposes. Both have been in the bank since. So
+        # `5: [0]` is not a strict setting, it is a dead one: it cannot produce a
+        # new five and never will, and the daily run that asked for two spent
+        # seven minutes across six calls discovering that again on 2026-09-14.
+        #
+        # 4, 6 and 8 are the counts the non-barred make5 path below already
+        # picks from, so the judgement that six and eight are still a puzzle is
+        # not a new one. They are not the same *shapes* as make5's, though —
+        # this is the barred path, so bars cut the grid further on top of the
+        # blocks. What carries over is the block budget, not the grid.
+        #
+        # CW_BLOCKS5 still overrides, and `CW_BLOCKS5=0` is how to ask for a
+        # solid five if the pool ever grows enough to hold a fifth word square.
         if os.environ.get('CW_BLOCKS5'):
             cw.BARRED_BLOCKS[5] = [int(x) for x in
                                    os.environ['CW_BLOCKS5'].split(',')]

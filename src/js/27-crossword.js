@@ -86,10 +86,17 @@
          and by the calendar and lives only as long as the app is open, so a
          break and back returns you to the same grid and tomorrow returns you
          to tomorrow's. */
-      if(!this._chose && crossReleases(this.size, pktNow())
-         && !dailyPlayed('crossword', String(this.size))){
-        const t = crossOnDay(this.size, pktNow());
-        if(t.i >= 0 && t.i !== this.idx) this.load(t.i, pktNow());
+      /* **The newest edition of this size, whether or not today's is done.**
+         Two things used to keep you on an old grid. Finishing today's was one —
+         solve Wednesday's 9×9, come back on Friday, and Wednesday's solved grid
+         was still on screen. The other is new: the 5s and the 9s come out three
+         days a week now, so on the days a size does not run there is no
+         "today's" at all, and asking for one did nothing. Both are answered by
+         asking for the *latest* rather than for today's. */
+      if(!this._chose){
+        const day = crossLatestDay(this.size);
+        const t = day ? crossOnDay(this.size, day) : {i:-1};
+        if(t.i >= 0 && !(t.i === this.idx && this.day === day)) this.load(t.i, day);
       }
       if(!this.done) this.run();
     },
@@ -508,7 +515,6 @@
     },
 
     select(i){
-      if(this.done) return;
       if(this.sel === i){
         const other = this._other();
         if(this.entryAt(i, other)) this.dir = other;
@@ -524,8 +530,17 @@
       this.render();
     },
 
+    /* **A grid always takes letters.** `done` used to stop this, on the
+       reasoning that a finished puzzle has nothing left to type — but `done` is
+       a flag, and a flag can be wrong. When it was, the board sat there refusing
+       every key with no way to say why, which reads as the game being broken and
+       was reported as exactly that, three times. A flag is never allowed to be
+       the thing that stops you playing again. `checkDone` re-derives it from the
+       squares after every letter, so a solved grid you edit is simply not solved
+       any more, and the calendar keeps the result either way — `dailyMark` only
+       ever moves forward. */
     type(ch){
-      if(this.done || this.sel < 0) return;
+      if(this.sel < 0) return;
       if(this.given[this.sel]){ this._step(1); this.render(); return; }   // a hint isn't yours to change
       this.user[this.sel] = ch.toUpperCase();
       this.wrong = null;
@@ -539,8 +554,11 @@
       const at = cells.indexOf(this.sel);
       if(at !== -1 && at + by >= 0 && at + by < cells.length) this.sel = cells[at + by];
     },
+    /* Backspace is half of typing: a grid you cannot correct is not solvable
+       either. Same rule as `type` — the flag never stops you, and `checkDone`
+       works out what the squares now say. */
     back(){
-      if(this.done || this.sel < 0) return;
+      if(this.sel < 0) return;
       this.wrong = null;
       if(this.user[this.sel] && !this.given[this.sel]) this.user[this.sel] = '';
       else{
@@ -554,7 +572,7 @@
           }
         }
       }
-      this.persist(); this.render();
+      this.persist(); this.render(); this.checkDone();
     },
     /** The clue before or after this one. Wired to the arrows either side of
         the clue line and to Tab; the two have to be the same journey or the
@@ -581,7 +599,7 @@
 
     /** Reveal one letter: the square you're on, or the next empty one in its word. */
     hint(){
-      if(this.done || !this.puz) return;
+      if(!this.puz) return;
       let i = (this.sel >= 0 && this._solAt(this.sel) && !this.user[this.sel]) ? this.sel : -1;
       if(i < 0){
         const e = this.current();
@@ -603,7 +621,6 @@
     },
 
     check(){
-      if(this.done) return;
       const bad = [];
       let blank = 0;
       for(let i=0;i<this.user.length;i++){
@@ -619,11 +636,26 @@
       else toast('All correct');
     },
 
+    /** **Derived, not remembered.** Called after every letter: the board is
+        finished exactly when every square is right, and unfinished the moment
+        one is not. Only the crossing into finished celebrates. */
     checkDone(){
+      const was = this.done;
+      let all = true;
       for(let i=0;i<this.user.length;i++){
         const sol = this._solAt(i);
-        if(sol && this.user[i] !== sol) return;
+        if(sol && this.user[i] !== sol){ all = false; break; }
       }
+      if(!all){
+        if(was){
+          this.done = false;
+          $('cw-banner').classList.add('hide');
+          this.persist();
+          if(!this.tick) this.run();
+        }
+        return;
+      }
+      if(was) return;                     // already finished; nothing to announce
       this.done = true; this.stop(); this.persist();
       if(this.day) dailyMark('crossword', String(this.size), this.day, DAILY_DONE,
         {t:this.elapsed, c:this.puz.entries.length, n:this.puz.entries.length, h:this._hintCount()});
@@ -838,22 +870,46 @@
         `gamesAdopt` writes `GAME_SAVES[key]` *before* calling this, so the new
         save is already here and can be taken synchronously. Nothing is ever
         emptied and waited on. */
+    /** **An account arriving must not touch the board you are playing on.**
+
+        This is called from `gamesAdopt`, and the path there is shorter than it
+        looks: type a letter, `persist()` marks the day on the calendar, marking
+        the day asks the account to sync, the sync merges and adopts, and the
+        adopt calls this. All of it inside one keystroke.
+
+        So blanking `puz` here — which the first version did, to force a reload
+        that nothing was ever going to perform — killed the game on the first
+        letter typed. `render()` returns early with no puzzle, so the grid stopped
+        repainting, the clue line froze, and every key after that went into an
+        array nothing was drawing. "Nothing works after writing once", exactly.
+
+        What actually needs adopting is the *other* puzzles' records. The one on
+        screen is being played this instant, so its own record is the newest
+        thing in existence and is kept over anything the wire brought back. The
+        grid, the index and the letters are not touched at all. */
     forget(){
       let d = null;
       try{ d = gameSaved(this.key); }catch(e){}
-      this.progress = this._migrate((d && d.p) || {});
-      this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : {};
-      this.size = (d && [5,7,9,15].indexOf(d.size) >= 0) ? d.size : this.size;
+      const p = this._migrate((d && d.p) || {});
+      if(this.idx >= 0 && this.puz){
+        const k = this._fp(this.idx);
+        if(k && this.progress[k]) p[k] = this.progress[k];
+      }
+      this.progress = p;
+      this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : (this.seen || {});
       /* `loaded` stays true: this *is* the load. Leaving it false would have the
          next `enter()` read storage again and undo the adopt. */
       this.loaded = true;
-      this.puz = null;
-      this.built = false;
-      /* Where we were, in the new save's terms. A fingerprint that is not in
-         the bank any more falls through to `_where`, the way a cold start does. */
-      let at = -1;
-      if(d && d.key) at = this._find(d.key);
-      this.idx = at;
+      /* Nothing below this line touches `puz`, `built`, `idx`, `size` or the
+         letters. A board that is open stays open. Only a game that has never
+         been opened takes its position from the save. */
+      if(!this.puz){
+        this.built = false;
+        this.size = (d && [5,7,9,15].indexOf(d.size) >= 0) ? d.size : this.size;
+        let at = -1;
+        if(d && d.key) at = this._find(d.key);
+        this.idx = at;
+      }
     },
   };
 

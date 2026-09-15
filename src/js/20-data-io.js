@@ -1,61 +1,15 @@
-  /* ---------- data backup: export / import ----------
-     Every packaged build (browser, Android, iOS, Electron, Tauri) has its own
-     private storage — a Capacitor app cannot read the localStorage your browser
-     tab wrote. These two buttons are the bridge: export from the old one,
-     import into the new one, and nothing is lost. */
-  const DATA_KEYS = ['focus_sim', 'focus_log', 'focus_quotes', 'focus_quotes_share',
-                     'focus_tasks', 'focus_amb', 'focus_sync', 'focus_dm', 'focus_embers', 'focus_vfx',
-                     /* The calendar was missing from this list, so exporting your data
-                        quietly left every event and repeat rule behind, and importing a
-                        backup wiped nothing but restored nothing either. `focus_gone`
-                        travels with it — without the tombstones an import brings back
-                        everything you had ever deleted. */
-                     'focus_plan', 'focus_gone'];
+  /* ---------- moving your data ----------
 
-  async function collectData(){
-    const out = { app:'focus-simulator', version:1, exportedAt:new Date().toISOString(), data:{} };
-    for(const k of DATA_KEYS){
-      const r = await KV.get(k);
-      out.data[k] = (r && r.value!=null) ? r.value : null;
-    }
-    return out;
-  }
+     **There used to be Export and Import buttons here, and there is an account
+     instead.** They existed because every packaged build has its own private
+     storage — a phone app cannot read what a browser tab wrote — so the only
+     bridge between two copies was a file you carried by hand. Signing in does
+     that now, continuously and in both directions, which is the same job done
+     without asking anybody to remember to do it. Two buttons that most people
+     pressed by accident, and a file format to keep working, for a problem that
+     is solved.
 
-  async function exportData(){
-    let payload;
-    try{ payload = JSON.stringify(await collectData(), null, 2); }
-    catch(e){ toast('Export failed'); return; }
-
-    const name = 'focus-backup-'+new Date().toISOString().slice(0,10)+'.json';
-    try{
-      const blob = new Blob([payload], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(url), 1000);
-      toast('Backup saved');
-    }catch(e){
-      try{ await navigator.clipboard.writeText(payload); toast('Backup copied to clipboard'); }
-      catch(e2){ toast('Export failed'); }
-    }
-  }
-
-  async function importData(file){
-    try{
-      const parsed = JSON.parse(await file.text());
-      const data = parsed && parsed.data;
-      if(!data || typeof data!=='object') throw new Error('unrecognised file');
-      let n = 0;
-      for(const k of DATA_KEYS){
-        if(typeof data[k] === 'string'){ await KV.set(k, data[k]); n++; }
-      }
-      if(!n) throw new Error('nothing to restore');
-      toast('Restored — reloading');
-      setTimeout(()=>location.reload(), 900);
-    }catch(e){ toast('Import failed'); }
-  }
-
+     `resetProgress` stays: it is not a backup feature, it is the way out. */
   /* ---- reset progress ----
      Everything you have *done*: the session log the calendar and stats are
      drawn from, the embers and the lights they bought, and where you had got to
@@ -90,16 +44,8 @@
     closeDrawer();
     askConfirm('Reset your progress?',
       'Your session history, your embers and the lights they bought, and every '
-      + 'saved game go. Settings, friends and quotes stay. There is no undo — '
-      + 'export a backup first if you might want it.',
+      + 'saved game go. Settings, friends and quotes stay. There is no undo. '
+      + 'If you are signed in, this device is emptied and the account is not.',
       'Reset it all', resetProgress);
   };
-
-  $('d-export').onclick = exportData;
-  $('d-import').onclick = ()=> $('import-file').click();
-  $('import-file').addEventListener('change', e=>{
-    const f = e.target.files && e.target.files[0];
-    if(f) importData(f);
-    e.target.value = '';
-  });
 

@@ -15,7 +15,11 @@
     }catch(e){}
     tasksRender();
   }
-  function saveTasks(){ try{ KV.set('focus_tasks', JSON.stringify(TASKS)); }catch(e){} }
+  function saveTasks(){
+    try{ KV.set('focus_tasks', JSON.stringify(TASKS)); }catch(e){}
+    // the blocking screen offers open tasks as something to do instead; see 50-guard.js
+    try{ guardPushTasks(); }catch(e){}
+  }
 
   function tasksAdd(){
     const inp = $('task-input');

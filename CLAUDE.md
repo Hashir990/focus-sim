@@ -22,8 +22,10 @@ say which line did it. Order is the filename prefix; that is the only reason
 
 ```
 npm run build                 # → dist/index.html
-npm test                      # the gate: build + 6 test files, ~905 checks, ~3 min
+npm test                      # the gate: build + 6 test files, ~1420 checks, ~3 min
+cd android && gradlew :focus-guard:testDebugUnitTest   # app blocking's rules, on the JVM (Java 17)
 npm run electron              # run the desktop app
+npm run phone                 # → the Android phone plugged in (see ANDROID.md)
 node tools/look-<x>.mjs       # render a screen to look/<x>.png (Chromium)
 ```
 
