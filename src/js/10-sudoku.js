@@ -198,7 +198,7 @@
       /* One a day is the rule for *today*; the archive is always open, which
          is what makes the rule bearable. */
       if(!day && want === pktNow() && dailyPlayed('sudoku', diff)){
-        toast('Today\u2019s ' + diff + ' is done');
+        toast(T('Today\u2019s {d} is done', {d:LANG === 'en' ? diff : T(SDK_NAMES[diff] || diff)}));
         dailyCalOpen('sudoku');
         return;
       }
@@ -263,8 +263,8 @@
       const blank=this.grid.filter((v,i)=>!v && !this.given[i]).length;
       this.wrong=bad;
       this.render();
-      if(bad.length) toast(bad.length+' wrong '+(bad.length===1?'cell':'cells'));
-      else if(blank) toast('All good so far — '+blank+' left');
+      if(bad.length) toast(Tn('{n} wrong cell', '{n} wrong cells', bad.length));
+      else if(blank) toast(T('All good so far — {n} left', {n:blank}));
       else toast('All correct');
     },
     erase(){ if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)) return;
@@ -329,8 +329,8 @@
     },
     /** `Hard · Aug 27 · 04:12`, so the board says which edition it is. */
     _meta(){
-      const d = this.diff.replace(/^./,m=>m.toUpperCase());
-      const when = this.day === pktNow() ? 'Today' : pktLabel(this.day);
+      const d = T(SDK_NAMES[this.diff] || this.diff.replace(/^./,m=>m.toUpperCase()));
+      const when = this.day === pktNow() ? T('Today') : pktLabel(this.day);
       return d + ' · ' + when + ' · ' + fmt(this.elapsed);
     },
     checkDone(){
@@ -345,7 +345,7 @@
       // has to be kept somewhere that outlives it
       try{ featBump('sudoku', 10); }catch(e){}
       chime(false); buzz(120);
-      showBanner('sdk-banner', 'Solved.', fmt(this.elapsed) + ' · ' + this.diff);
+      showBanner('sdk-banner', 'Solved.', fmt(this.elapsed) + ' · ' + (LANG === 'en' ? this.diff : T(SDK_NAMES[this.diff] || this.diff)));
     },
     run(){ this.stop(); this.tick=setInterval(()=>{ this.elapsed++; $('sdk-meta').textContent=this._meta();
       if(this.elapsed%10===0) this.persist(); },1000); },
@@ -391,8 +391,8 @@
     open(day, diff){ Sudoku.newGame(diff || 'medium', true, day); },
     line(rec){
       if(!rec) return '';
-      if(rec.s !== 2) return rec.t ? ('Started · ' + fmt(rec.t)) : 'Started';
-      return 'Solved in ' + fmt(rec.t || 0);
+      if(rec.s !== 2) return rec.t ? T('Started · {t}', {t:fmt(rec.t)}) : 'Started';
+      return T('Solved in {t}', {t:fmt(rec.t || 0)});
     },
     stats(all){
       const done = all.filter(r=>r.s === 2);
@@ -424,7 +424,7 @@
       if(!b || !Array.isArray(b.grid)) return 'Today<span>tap to start</span>';
       if(b.done) return 'Solved<span>see history</span>';
       const filled = b.grid.filter((v,i)=>v && !b.given[i]).length;
-      return filled>0 ? (filled+' filled<span>in progress</span>') : 'Today<span>tap to start</span>';
+      return filled>0 ? (T('{n} filled', {n:filled})+'<span>in progress</span>') : 'Today<span>tap to start</span>';
     }
   });
 

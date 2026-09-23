@@ -286,7 +286,7 @@
     /* One line for the lot rather than five in a row: finishing a block can
        tick two or three marks at once, and a stack of toasts is a worse way to
        be told than a single number. */
-    Embers.credit(paid, paid + ' · ' + (last && paid === last.pays ? last.name : 'achievements'));
+    Embers.credit(paid, paid + ' · ' + (last && paid === last.pays ? T(last.name) : T('achievements')));
     if(!quiet){ try{ chime(false); }catch(e){} }
     try{ Achievements.render(); }catch(e){}
     return paid;
@@ -306,9 +306,10 @@
 
       box.dataset.done = String(done.length);
       box.innerHTML =
-        '<div class="ach-top"><b>' + done.length + '</b><span>of ' + ACH_LIST.length + '</span></div>'
-        + '<p class="ach-lede">Each one pays once, in embers.'
-        + (owed ? ' <b>' + owed + ' embers</b> still out there.' : '')
+        '<div class="ach-top"><b>' + done.length + '</b><span>' + esc(T('of {n}', {n:ACH_LIST.length})) + '</span></div>'
+        + '<p class="ach-lede"><span>Each one pays once, in embers.</span>'
+        + (owed ? ' ' + Tn('{n} embers still out there.', '{n} embers still out there.', owed,
+            {n:'<b>' + owed + '</b>'}) : '')
         + '</p>'
         + ACH_GROUPS.map(g=>{
             const rows = ACH_LIST.filter(a=>a.in === g[0]).sort((a, b)=>a.pays - b.pays);

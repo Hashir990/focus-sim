@@ -209,10 +209,10 @@
     const code = friendCode(u);
     if(!code){ toast('That username will not do'); return; }
     const had = friendFind(code);
-    if(had && had.ok){ toast('Already friends with ' + friendLabel(had)); return; }
+    if(had && had.ok){ toast(T('Already friends with {name}', {name:friendLabel(had)})); return; }
     friendSet(code, {u, name: u, asked: Date.now()});
     friendWireSend(code, FRIEND_ASK);
-    toast('Asked ' + u);
+    toast(T('Asked {name}', {name:u}));
   }
 
   /** Say yes to one waiting, or no. */
@@ -223,7 +223,7 @@
       ok: 1, card: (req && req.card) || undefined, at: Date.now()});
     friendWireSend(c, FRIEND_YES);
     friendDropAsk(c);
-    toast('Friends with ' + friendLabel(friendFind(c)));
+    toast(T('Friends with {name}', {name:friendLabel(friendFind(c))}));
   }
   function friendDecline(code){
     const c = syncNormalise(code);
@@ -318,7 +318,7 @@
       const had = friendFind(code);
       if(had){
         friendRemove(code, true);
-        try{ toast(((card && card.u) || had.u || 'Someone') + ' removed you'); }catch(e){}
+        try{ toast(T('{name} removed you', {name:(card && card.u) || had.u || T('Someone')})); }catch(e){}
       }
       return true;
     }
@@ -332,7 +332,7 @@
   function friendPing(card){
     if(chatQuietHours && chatQuietHours()) return;
     try{ blip(); buzz(14); }catch(e){}
-    try{ toast(((card && card.u) || 'Someone') + ' wants to be friends'); }catch(e){}
+    try{ toast(T('{name} wants to be friends', {name:(card && card.u) || T('Someone')})); }catch(e){}
   }
 
   /** Somebody in the room said hello and sent a card with it. */
@@ -359,13 +359,13 @@
   /** How stale a card is, in words. */
   function friendWhen(at){
     const ms = Date.now() - (Number(at) || 0);
-    if(!(ms > 0) || ms < 6e4) return 'just now';
+    if(!(ms > 0) || ms < 6e4) return T('just now');
     const m = Math.floor(ms / 6e4);
-    if(m < 60) return m + ' min ago';
+    if(m < 60) return T('{n} min ago', {n:m});
     const h = Math.floor(m / 60);
-    if(h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    if(h < 24) return Tn('{n} hour ago', '{n} hours ago', h);
     const d = Math.floor(h / 24);
-    return d + (d === 1 ? ' day ago' : ' days ago');
+    return Tn('{n} day ago', '{n} days ago', d);
   }
 
   /* ---------------- what a card looks like ----------------
@@ -388,7 +388,7 @@
       return v >= 10000 ? (Math.round(v / 100) / 10) + 'k' : String(v);
     };
     return '<div class="ft-stats">'
-      + tile(card.hrs ? card.hrs + 'h' : '0h', 'focused')
+      + tile(Tn('{h}h', '{h}h', card.hrs || 0, {h:card.hrs || 0}), 'focused')
       + tile(card.sess || 0, 'sessions')
       + tile(card.run || 0, 'day streak')
       + '</div>'
@@ -496,7 +496,7 @@
     }
     /* Nothing is claimed until the answer comes back. */
     el.classList.remove('hide');
-    el.innerHTML = '<em>looking for ' + esc(u) + '\u2026</em>';
+    el.innerHTML = '<em>' + esc(T('looking for {name}…', {name:u})) + '</em>';
     /* Ask only once the typing stops: every keystroke is a different name and
        therefore a different question, and none of the earlier ones matter. */
     friendHintT = setTimeout(()=>friendCodeCheck(u), 450);
@@ -516,10 +516,10 @@
       return;
     }
     if(name && name.toLowerCase() === u.toLowerCase()){
-      el.innerHTML = '<span>' + esc(name) + ' is </span><code>' + esc(code) + '</code>';
+      el.innerHTML = '<span>' + esc(T('{name} is', {name})) + ' </span><code>' + esc(code) + '</code>';
       return;
     }
-    el.innerHTML = '<em>no account called ' + esc(u) + ' yet</em>';
+    el.innerHTML = '<em>' + esc(T('no account called {name} yet', {name:u})) + '</em>';
   }
 
   /* ---------------- the profile page ---------------- */
@@ -559,10 +559,10 @@
       box.innerHTML = '<div class="ft-me"><div class="ft-me-top">'
         + (Buddy.shown() && card.buddy ? '<span class="ft-face">' + budSvg(card.buddy, 46) + '</span>' : '')
         + '<div class="ft-me-who"><b>' + esc(who) + '</b>'
-        + '<span>as of ' + esc(friendWhen(card.at)) + '</span></div>'
+        + '<span>' + esc(T('as of {when}', {when:friendWhen(card.at)})) + '</span></div>'
         + '</div>' + friendStatsHtml(card) + '</div>'
         + (card.g && card.g.avg
-            ? '<p class="ft-note">Finds the word in ' + esc(String(card.g.avg)) + ' guesses on average.</p>'
+            ? '<p class="ft-note">' + esc(T('Finds the word in {n} guesses on average.', {n:String(card.g.avg)})) + '</p>'
             : '')
         + this._acts(f);
       this._wire();

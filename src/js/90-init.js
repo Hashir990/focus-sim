@@ -1,4 +1,9 @@
   /* ---------- init ---------- */
+  /* First, so everything drawn from here on is drawn into a page that is
+     already in the chosen language — the observer it starts catches each
+     screen as it is built. Every string table has been read by now; they are
+     the files numbered below this one. See 00a-i18n.js. */
+  try{ langStart(); }catch(e){}
   buildPresets();
   Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
@@ -45,7 +50,9 @@
     /* **The once-a-day ask, after everything is loaded.** Before the load it
        would not know whether today had already been answered and would ask a
        second time on every restart. See 17b-mood.js. */
-    try{ moodAsk(); }catch(e){}
+    /* And behind the terms, the first time: one question on the screen, not
+       two stacked on each other. See 50b-terms.js. */
+    try{ termsGate(()=>{ try{ moodAsk(); }catch(e){} }); }catch(e){ try{ moodAsk(); }catch(err){} }
     render();
     /* Last, so the first thing it does cannot race the layers it switches off.
        See 49-rest.js: a timer left running for half an hour behind another

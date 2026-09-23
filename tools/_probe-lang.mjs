@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import { JSDOM, VirtualConsole } from 'jsdom';
+const html = fs.readFileSync('dist/index.html', 'utf8');
+const lang = process.argv[2] || 'ja';
+const seed = `localStorage.setItem('focus_lang','${lang}');`;
+const errs = [];
+const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message)); vc.on('error', (...a)=>errs.push(a.join(' ')));
+const dom = new JSDOM(html.replace('<script>', '<script>' + seed + '</script>\n<script>'), { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
+const w = dom.window;
+await new Promise(r => setTimeout(r, 1200));
+const $ = (id) => w.document.getElementById(id);
+console.log('html lang/dir', w.document.documentElement.lang, w.document.documentElement.dir);
+console.log('gate title:', $('terms-title').textContent, '| agree:', $('terms-agree').textContent);
+console.log('begin:', $('begin').textContent, '| focus for:', w.document.querySelector('.flabel span').textContent, '| rest summary:', $('rest-summary').textContent);
+console.log('drawer:', [...w.document.querySelectorAll('.drawer-item b')].map(b => b.textContent).join(' / '));
+console.log('wordmark:', w.document.querySelector('.wordmark').textContent, '| date:', $('today-date').textContent);
+console.log('errors:', errs.slice(0, 5));
+w.close(); process.exit(0);

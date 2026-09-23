@@ -167,6 +167,7 @@
     const n = (list||[]).filter(Boolean);
     if(!n.length) return '';
     if(n.length === 1) return n[0];
+    if(LANG !== 'en') return langAnd(n);
     return n.slice(0,-1).join(', ') + ' and ' + n[n.length-1];
   }
   function refreshNote(){

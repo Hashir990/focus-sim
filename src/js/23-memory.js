@@ -76,7 +76,7 @@
         el.querySelector('.mfront').textContent = this.cards[i] || '';
       }
       const pairs = this.matched.filter(Boolean).length / 2;
-      $('mem-meta').textContent = pairs+'/8 · '+this.moves+' moves · '+fmt(this.elapsed);
+      $('mem-meta').textContent = pairs+'/8 · '+Tn('{n} move', '{n} moves', this.moves)+' · '+fmt(this.elapsed);
     },
 
     flip(i){
@@ -111,14 +111,14 @@
       }
     },
 
-    _summary(){ return 'Cleared in '+this.moves+' moves, '+fmt(this.elapsed)+'.'; },
+    _summary(){ return T('Cleared in {moves}, {t}.', {moves:Tn('{n} move', '{n} moves', this.moves), t:fmt(this.elapsed)}); },
 
     run(){
       this.stop();
       this.tick = setInterval(()=>{
         this.elapsed++;
         const pairs = this.matched.filter(Boolean).length / 2;
-        $('mem-meta').textContent = pairs+'/8 · '+this.moves+' moves · '+fmt(this.elapsed);
+        $('mem-meta').textContent = pairs+'/8 · '+Tn('{n} move', '{n} moves', this.moves)+' · '+fmt(this.elapsed);
         if(this.elapsed % 10 === 0) this.persist();
       }, 1000);
     },

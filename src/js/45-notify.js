@@ -84,7 +84,7 @@
     post(){
       const focus = S.mode === 'focus';
       const ends = new Date(S.endAt);
-      const hhmm = ends.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      const hhmm = ends.toLocaleTimeString(langLocale() || [], {hour:'2-digit', minute:'2-digit'});
       try{
         this.api.schedule({notifications:[
           /* The ongoing one. No countdown in it on purpose: a notification the
@@ -94,8 +94,8 @@
              block lasts and costs nothing to keep true. */
           {
             id: NOTE_LIVE,
-            title: focus ? 'Focusing' : 'On a break',
-            body: (focus ? 'Until ' : 'Back at ') + hhmm,
+            title: T(focus ? 'Focusing' : 'On a break'),
+            body: T(focus ? 'Until {t}' : 'Back at {t}', {t:hhmm}),
             ongoing: true, autoCancel: false, smallIcon: 'ic_stat_icon_config_sample',
             channelId: 'focus-timer',
           },
@@ -103,8 +103,8 @@
              then, whether or not this page is ever given another instruction. */
           {
             id: NOTE_DONE,
-            title: focus ? 'Focus block done' : 'Break over',
-            body: focus ? 'Time for a break.' : 'Back to it when you are ready.',
+            title: T(focus ? 'Focus block done' : 'Break over'),
+            body: T(focus ? 'Time for a break.' : 'Back to it when you are ready.'),
             schedule: {at: ends, allowWhileIdle: true},
             channelId: 'focus-timer',
           },

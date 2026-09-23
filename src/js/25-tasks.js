@@ -162,7 +162,7 @@
       const lbl = $('rest-task-label');
       if(lbl){
         lbl.innerHTML = left.length
-          ? 'Still to do · <b>' + left.length + '</b>'
+          ? esc(T('Still to do')) + ' · <b>' + left.length + '</b>'
           : (TASKS.length ? 'All done' : 'Nothing on the list');
       }
     }

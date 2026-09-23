@@ -112,17 +112,17 @@
   function faceSet(id){
     const f = faceDef(id);
     if(faceHas(f.id)){ S.face = f.id; save(); faceApply(); return; }
-    if(Embers.have < f.cost){ toast(f.cost + ' embers for the ' + f.name.toLowerCase() + ' face'); return; }
-    askConfirm('Unlock the ' + f.name.toLowerCase() + ' face?',
-      f.cost + ' embers, and it is yours for good. You can switch between any '
-      + 'face you have whenever you like.',
-      'Spend ' + f.cost, ()=>{
+    const fn = LANG === 'en' ? f.name.toLowerCase() : T(f.name);
+    if(Embers.have < f.cost){ toast(T('{n} embers for the {face} face', {n:f.cost, face:fn})); return; }
+    askConfirm(T('Unlock the {face} face?', {face:fn}),
+      T('{n} embers, and it is yours for good. You can switch between any face you have whenever you like.', {n:f.cost}),
+      T('Spend {n}', {n:f.cost}), ()=>{
         if(Embers.have < f.cost) return;
         Embers.have -= f.cost;
         Embers.own.push(EMB_FACE + f.id);
         Embers.save(); Embers.render();
         S.face = f.id; save(); faceApply();
-        toast('The ' + f.name.toLowerCase() + ' face is yours');
+        toast(T('The {face} face is yours', {face:fn}));
       });
   }
 

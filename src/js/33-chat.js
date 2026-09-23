@@ -46,6 +46,13 @@
   const CHAT_KEEP = 300;             // direct-message lines kept on disk, per person
   const CHAT_OUT_MAX = 60;           // messages queued for one person
   const CHAT_QUICK = ['👍', 'Nice one', 'Back in 5', 'Good luck', 'Well played'];
+  /* The room's own announcements, by name, so they can be said in the
+     reader's language; see `note`. */
+  const CHAT_NOTES = {
+    wait:'{name} is waiting to be let in',
+    in:'{name} was let in',
+    out:'{name} was not let in',
+  };
 
   const Chat = {
     log:[],                          // the room thread, this room only
@@ -130,7 +137,7 @@
           // one pop-out for the batch; a stack of them on opening the app would
           // be worse than the number ever was
           this._pop(last.code, {name:last.name, text:got > 1
-            ? got + ' messages while you were away' : last.text});
+            ? Tn('{n} message while you were away', '{n} messages while you were away', got) : last.text});
         }
         this.render();
       }
@@ -276,7 +283,9 @@
        than as something a person said — nobody wrote it and it should not look
        like they did. Host only: two devices both announcing the same arrival
        would say it twice. */
-    note(text){
+    /* `k` and `who` are the same news as data, so each reader can be told it
+       in their own language; `text` is still sent, for older builds. */
+    note(text, k, who){
       const t = String(text || '').trim().slice(0, 200);
       if(!t || !syncActive()) return;
       const msg = {
@@ -285,6 +294,7 @@
         name:'', from:SYNC.selfId, fromCode:'', to:null,
         sys:1, text:t, at:Date.now(),
       };
+      if(k && CHAT_NOTES[k]){ msg.k = k; msg.who = String(who || '').slice(0, 40); }
       this._add('room', msg, false);
       syncBroadcast(msg);
       this.render();
@@ -344,7 +354,7 @@
       const el = $('chat-pop');
       if(!el || this.open) return;              // no need to announce what's on screen
       $('chat-pop-who').textContent = key === 'room'
-        ? (m.name || 'Someone') + ' · room'
+        ? T('{name} · room', {name:m.name || T('Someone')})
         : (m.name || this._nameFor(key));
       $('chat-pop-text').textContent = String(m.text || '');
       el.dataset.thread = key;
@@ -478,19 +488,18 @@
           const label = k === 'room' ? 'Room' : this._nameFor(k);
           const gone = k !== 'room' && !this._idFor(k);
           return '<button class="chat-tab'+(this.thread===k?' on':'')+(gone?' gone':'')
-            + '" data-thread="'+esc(k)+'">'+esc(label)
+            + '" data-thread="'+esc(k)+'"'+(k === 'room' ? '' : ' translate="no"')+'>'+esc(label)
             + (n ? '<i>'+(n>9?'9+':n)+'</i>' : '') + '</button>';
         }).join('');
 
       const dm = this.thread !== 'room';
       const waiting = dm ? this.pending(this.thread).length : 0;
       $('chat-who').textContent = dm
-        ? (this._idFor(this.thread) ? 'Just you and ' + this._nameFor(this.thread)
-           : waiting ? waiting + (waiting === 1 ? ' message' : ' messages')
-                       + ' waiting to reach ' + this._nameFor(this.thread)
-           : this._nameFor(this.thread) + ' isn’t here — they’ll get it when they’re back')
+        ? (this._idFor(this.thread) ? T('Just you and {name}', {name:this._nameFor(this.thread)})
+           : waiting ? Tn('{n} message waiting to reach {name}', '{n} messages waiting to reach {name}', waiting, {name:this._nameFor(this.thread)})
+           : T('{name} isn’t here — they’ll get it when they’re back', {name:this._nameFor(this.thread)}))
         : people.length > 1
-          ? people.filter(p=>!p.me).map(p=>p.name).join(', ')
+          ? people.filter(p=>!p.me).map(p=>p.name).join(langSep())
           : 'Nobody else is here yet';
 
       const lines = this._lines();
@@ -503,7 +512,7 @@
         box.innerHTML = '<p class="chat-empty">' + (dm
           ? 'Nothing yet. Write anyway — it waits for them.'
           : nobody
-            ? 'Nobody to write to yet. Add someone by username in <b>Focus together</b>.'
+            ? T('Nobody to write to yet. Add someone by username in {where}.', {where:'<b>' + esc(T('Focus together')) + '</b>'})
             : !room
               ? 'No room open. Pick a friend above.'
               : 'Nothing said yet.')
@@ -511,7 +520,7 @@
       }else{
         let last = '';
         box.innerHTML = lines.map(m=>{
-          const time = new Date(m.at).toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+          const time = new Date(m.at).toLocaleTimeString(langLocale(), {hour:'numeric', minute:'2-digit'});
           // Only name a line when the speaker changes; a wall of repeated names
           // is harder to read than the messages themselves.
           /* In the room, a name is a way through to that person. Elsewhere —
@@ -520,19 +529,22 @@
              something anybody said. */
           if(m.sys){
             last = '';
-            return '<div class="chat-note">'+esc(m.text)+'</div>';
+            return '<div class="chat-note">'+esc(m.k && CHAT_NOTES[m.k] ? T(CHAT_NOTES[m.k], {name:m.who || T('Someone')}) : m.text)+'</div>';
           }
           const who = this.thread === 'room' ? this._codeOf(m) : '';
           const head = (m.mine || m.name === last) ? ''
             : who
-              ? '<button class="chat-name link" data-who="'+esc(who)+'">'+esc(m.name)+'</button>'
-              : '<span class="chat-name">'+esc(m.name)+'</span>';
+              ? '<button class="chat-name link" data-who="'+esc(who)+'" translate="no">'+esc(m.name)+'</button>'
+              : '<span class="chat-name" translate="no">'+esc(m.name)+'</span>';
           last = m.name;
           return '<div class="chat-line'+(m.mine?' mine':'')+(m.waiting?' waiting':'')+'">'
             + head
-            + '<span class="chat-bubble">'+esc(m.text)+'</span>'
+            /* What people write is theirs and is left alone — except the
+               canned quick replies, which are the app's words and read best in
+               the reader's own language. */
+            + '<span class="chat-bubble"'+(CHAT_QUICK.indexOf(m.text) >= 0 ? '' : ' translate="no"')+'>'+esc(m.text)+'</span>'
             + '<span class="chat-time">'+esc(time)
-            + (m.waiting ? ' · waiting to send' : '') + '</span></div>';
+            + (m.waiting ? ' · ' + esc(T('waiting to send')) : '') + '</span></div>';
         }).join('');
       }
 
@@ -542,7 +554,7 @@
       $('chat-send').disabled = !canSend;
       $('chat-input').placeholder = this.thread === 'room'
         ? (room ? 'Say something…' : 'No room open')
-        : 'Message ' + this._nameFor(this.thread) + '…';
+        : T('Message {name}…', {name:this._nameFor(this.thread)});
     },
   };
 
@@ -557,7 +569,7 @@
   function chatDelivered(code, ids){ Chat.delivered(code, ids); }
   function chatReceiveMail(items){ return Chat.receiveMail(items); }
   function chatSendRaw(code, text){ return Chat.sendRaw(code, text); }
-  function chatNote(text){ try{ Chat.note(text); }catch(e){} }
+  function chatNote(text, k, who){ try{ Chat.note(text, k, who); }catch(e){} }
   /** Open the sheet on one person's thread — what a profile's Message goes to. */
   function chatOpenWith(code){
     const c = syncNormalise(code);

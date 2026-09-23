@@ -141,10 +141,10 @@
     for(let i = 0; i < words.length; i++){
       if(shown[i]) continue;
       const b = words[i];
-      if(b === w) return '“' + b + '” is on the board.';
+      if(b === w) return T('“{w}” is on the board.', {w:b});
       const short = b.length < w.length ? b : w;
       if(short.length >= 3 && (b.indexOf(w) === 0 || w.indexOf(b) === 0)){
-        return 'Too close to “' + b + '”, which is on the board.';
+        return T('Too close to “{w}”, which is on the board.', {w:b});
       }
     }
     return '';
@@ -482,8 +482,7 @@
     _cheer(v){
       const mine = v.me && v.me.team;
       const won = mine && mine === v.winner;
-      const side = v.winner === 'red' ? 'Red' : 'Blue';
-      const title = side + ' wins.';
+      const title = T(v.winner === 'red' ? 'Red wins.' : 'Blue wins.');
       const sub = v.why === 'kill' ? 'Somebody found the assassin.' : 'Every word found.';
       if(won) chime(false);
       showBanner('sm-banner', title, sub);
@@ -504,7 +503,7 @@
       $('sm-lobby').classList.toggle('hide', !inRoom || !v || v.phase !== 'lobby');
       $('sm-play').classList.toggle('hide', !inRoom || !v || v.phase === 'lobby');
       $('sm-reset').classList.toggle('hide', !(inRoom && v && v.leader && (v.phase !== 'lobby' || v.game)));
-      $('sm-meta').textContent = v && v.game ? 'Game ' + v.game : '';
+      $('sm-meta').textContent = v && v.game ? T('Game {n}', {n:v.game}) : '';
       if(!inRoom || !v) return;
       if(v.phase === 'lobby') this._lobby(v); else this._board(v);
     },
@@ -515,11 +514,11 @@
         const me = v.me && v.me.team === k ? v.me.role : '';
         const nm = k === 'red' ? 'Red' : 'Blue';
         const spy = t.spy
-          ? '<span class="sm-who' + (t.spy.me ? ' me' : '') + '">' + esc(t.spy.name) + (t.spy.me ? ' (you)' : '') + '</span>'
-          : '<button class="mini-btn" data-seat="' + k + ':spy">Be ' + nm + '’s spymaster</button>';
+          ? '<span class="sm-who' + (t.spy.me ? ' me' : '') + '">' + esc(t.spy.name) + (t.spy.me ? ' ' + esc(T('(you)')) : '') + '</span>'
+          : '<button class="mini-btn" data-seat="' + k + ':spy">' + esc(T(k === 'red' ? 'Be Red’s spymaster' : 'Be Blue’s spymaster')) + '</button>';
         const ops = t.ops.map(p=>'<span class="sm-who' + (p.me ? ' me' : '') + '">'
-          + esc(p.name) + (p.me ? ' (you)' : '') + '</span>').join('');
-        const join = me === 'op' ? '' : '<button class="mini-btn" data-seat="' + k + ':op">Join ' + nm + '</button>';
+          + esc(p.name) + (p.me ? ' ' + esc(T('(you)')) : '') + '</span>').join('');
+        const join = me === 'op' ? '' : '<button class="mini-btn" data-seat="' + k + ':op">' + esc(T(k === 'red' ? 'Join Red' : 'Join Blue')) + '</button>';
         return '<div class="sm-side sm-' + k + '">'
           + '<h4>' + nm + '</h4>'
           + '<p class="sm-job">Spymaster</p><div class="sm-slot">' + spy + '</div>'
@@ -528,7 +527,7 @@
       };
       $('sm-sides').innerHTML = side('red') + side('blue');
       $('sm-watch').innerHTML = (v.watching.length
-        ? '<span class="sm-job">Watching</span> ' + v.watching.map(p=>esc(p.name) + (p.me ? ' (you)' : '')).join(', ')
+        ? '<span class="sm-job">Watching</span> ' + v.watching.map(p=>esc(p.name) + (p.me ? ' ' + esc(T('(you)')) : '')).join(langSep())
         : '')
         + (v.me ? ' <button class="mini-btn" data-unseat="1">Sit this one out</button>' : '');
 
@@ -538,9 +537,9 @@
          they could fix by moving around. */
       $('sm-needs').textContent = v.alone
         ? 'Share your code from Focus together and they can join in.'
-        : v.mode === 'duel' ? 'Two sides. Ready when ' + (v.leader ? 'you are.' : v.leaderName + ' is.')
-        : v.short ? 'Four to play \u2014 ' + (v.short === 1 ? 'one more' : 'two more') + ' to go.'
-        : v.needs.join(' ');
+        : v.mode === 'duel' ? (v.leader ? T('Two sides. Ready when you are.') : T('Two sides. Ready when {name} is.', {name:v.leaderName}))
+        : v.short ? T(v.short === 1 ? 'Four to play \u2014 one more to go.' : 'Four to play \u2014 two more to go.')
+        : v.needs.map(n=>T(n)).join(' ');
       $('sm-start').classList.toggle('hide', !v.leader);
       $('sm-start').disabled = !v.canStart;
     },
@@ -553,17 +552,17 @@
       const vacant = !over && v.vacant[v.turn];
       $('sm-status').innerHTML =
         '<span class="sm-turn sm-' + (over ? v.winner : v.turn) + '">'
-          + (over ? nm(v.winner) + ' won' : nm(v.turn) + '’s turn') + '</span>'
-        + '<span class="sm-left"><b class="sm-red">' + v.left.red + '</b> red · '
-          + '<b class="sm-blue">' + v.left.blue + '</b> blue left</span>'
+          + esc(over ? T(v.winner === 'red' ? 'Red won' : 'Blue won') : T(v.turn === 'red' ? 'Red’s turn' : 'Blue’s turn')) + '</span>'
+        + '<span class="sm-left">' + T('{r} red · {b} blue left', {r:'<b class="sm-red">' + v.left.red + '</b>',
+            b:'<b class="sm-blue">' + v.left.blue + '</b>'}) + '</span>'
         + (vacant && v.me && v.me.team === v.turn
           ? '<button class="mini-btn" data-seat="' + v.turn + ':spy">Take over as spymaster</button>' : '');
 
       /* the clue, once there is one */
       $('sm-clue').innerHTML = v.clue
-        ? '<span class="sm-clue-word sm-' + v.clue.team + '">' + esc(v.clue.word) + '</span>'
+        ? '<span class="sm-clue-word sm-' + v.clue.team + '" translate="no">' + esc(v.clue.word) + '</span>'
           + '<span class="sm-clue-n">' + v.clue.n + '</span>'
-          + '<span class="sm-clue-left">' + v.clue.left + (v.clue.left === 1 ? ' guess' : ' guesses') + ' left</span>'
+          + '<span class="sm-clue-left">' + esc(Tn('{n} guess left', '{n} guesses left', v.clue.left)) + '</span>'
         : '';
 
       $('sm-give').classList.toggle('hide', !v.canClue);
@@ -590,13 +589,13 @@
       /* one line for what you are waiting on */
       const turnName = nm(v.turn);
       $('sm-msg').textContent = over
-        ? (v.leader ? 'Back to teams when you are ready.' : 'Waiting for ' + v.leaderName + ' to set up the next one.')
-        : vacant ? turnName + ' has no spymaster. Somebody on ' + turnName + ' can take over.'
+        ? (v.leader ? 'Back to teams when you are ready.' : T('Waiting for {name} to set up the next one.', {name:v.leaderName}))
+        : vacant ? T(v.turn === 'red' ? 'Red has no spymaster. Somebody on Red can take over.' : 'Blue has no spymaster. Somebody on Blue can take over.')
         : v.canClue ? 'Your clue: one word, and how many of your words it points at.'
         : v.canGuess ? (this.pick >= 0 ? 'Tap it again to turn it over.' : 'Tap a word, then tap it again to turn it over.')
-        : !v.clue ? 'Waiting for ' + turnName + '’s spymaster.'
-        : v.spy ? turnName + ' is guessing. You can only watch.'
-        : turnName + ' is guessing.';
+        : !v.clue ? T(v.turn === 'red' ? 'Waiting for Red’s spymaster.' : 'Waiting for Blue’s spymaster.')
+        : v.spy ? T(v.turn === 'red' ? 'Red is guessing. You can only watch.' : 'Blue is guessing. You can only watch.')
+        : T(v.turn === 'red' ? 'Red is guessing.' : 'Blue is guessing.');
 
       $('sm-log').innerHTML = v.log.slice().reverse().map(l=>
         '<span class="sm-' + l.team + '">' + esc(l.word) + ' ' + l.n + '</span>').join('');
@@ -623,7 +622,7 @@
       const v = Spymaster.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
       if(v.phase === 'lobby') return 'Sides<span>' + (v.mode ? 'ready' : 'picking') + '</span>';
-      if(v.phase === 'over') return 'Done<span>' + (v.winner === 'red' ? 'red' : 'blue') + ' won</span>';
+      if(v.phase === 'over') return 'Done<span>' + esc(T(v.winner === 'red' ? 'red won' : 'blue won')) + '</span>';
       return (v.turn === 'red' ? 'Red' : 'Blue') + '<span>to play</span>';
     },
   });

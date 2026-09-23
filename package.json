@@ -26,15 +26,16 @@
     "electron:pack": "npm run build && electron-builder",
     "ship": "npm run build && node tools/merge-test.mjs && node tools/scrabble-rules-test.mjs && node server/mailbox-test.mjs && node server/accounts-test.mjs && node tools/account-client-test.mjs && node tools/smoke-test.mjs && electron-builder",
     "release": "node tools/make-release.mjs",
-    "publish:win": "npm run publish:check && npm run build && electron-builder --win --publish always && node tools/publish-extra.mjs",
+    "publish:win": "npm run publish:check && npm run build:release && electron-builder --win --publish always && node tools/publish-extra.mjs",
     "publish:assets": "powershell -ExecutionPolicy Bypass -File tools/publish-assets.ps1",
-    "publish:mac": "npm run publish:check && npm run build && electron-builder --mac --publish always && node tools/publish-extra.mjs",
-    "publish:linux": "npm run publish:check && npm run build && electron-builder --linux --publish always && node tools/publish-extra.mjs",
+    "publish:mac": "npm run publish:check && npm run build:release && electron-builder --mac --publish always && node tools/publish-extra.mjs",
+    "publish:linux": "npm run publish:check && npm run build:release && electron-builder --linux --publish always && node tools/publish-extra.mjs",
     "tauri": "npm run build && tauri dev",
     "tauri:build": "npm run build && tauri build",
     "setup:updates": "node tools/setup-updates.mjs",
     "publish:check": "node tools/publish-check.mjs",
-    "ship:release": "powershell -ExecutionPolicy Bypass -File tools/ship-release.ps1"
+    "ship:release": "powershell -ExecutionPolicy Bypass -File tools/ship-release.ps1",
+    "build:release": "node tools/build.mjs --release"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",

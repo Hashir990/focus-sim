@@ -75,6 +75,21 @@ const device = (seedLog, seedStore) => new JSDOM(html, {
   },
 }).window;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/* **Wait for the thing, not for a number.** The panels here are redrawn when a
+   sign-in or a wipe finishes, and a fixed pause is a bet on how long that
+   takes. One of these sat so close to the line that merely reading the DOM
+   first — one extra tick — was the difference between finding the form and
+   crashing on null, which is a test failing for a reason the app does not
+   have. Ask for the element until it appears, then give up loudly. */
+const until = async (get, what = "it", ms = 5000) => {
+  const end = Date.now() + ms;
+  for (;;) {
+    const got = get();
+    if (got) return got;
+    if (Date.now() > end) throw new Error(what + " never appeared");
+    await wait(25);
+  }
+};
 
 console.log('\none device, making an account');
 const A = device([{ id: 'x1', secs: 1800, ts: 1, at: 1, day: '2026-08-01' }], {
@@ -137,7 +152,7 @@ await wait(800);
   check('while the account page carries both',
     a.getElementById('acct-overlay').contains(a.getElementById('acc-box'))
     && a.getElementById('acct-overlay').contains(a.getElementById('bud-box')));
-  a.getElementById('acc-email').value = 'me@example.com';
+  (await until(() => a.getElementById('acc-email'), 'the sign-in form')).value = 'me@example.com';
   a.getElementById('acc-new').click();          // first press reveals the username
   await wait(60);
   check('asking for an account asks for a username first',
@@ -414,7 +429,7 @@ await wait(800);
   await wait(150);
   check('the menu row opens the same page',
     !b.getElementById('acct-overlay').classList.contains('hide'));
-  b.getElementById('acc-email').value = 'me@example.com';
+  (await until(() => b.getElementById('acc-email'), 'the sign-in form')).value = 'me@example.com';
   b.getElementById('acc-pass').value = 'hunter2hunter2';
   b.getElementById('acc-in').click();
   await wait(150);
@@ -523,7 +538,7 @@ await wait(800);
     B.localStorage.getItem('focus_embers'));
 
   /* Emptied, not destroyed — which is the whole claim the dialog makes. */
-  b.getElementById('acc-email').value = 'me@example.com';
+  (await until(() => b.getElementById('acc-email'), 'the sign-in form')).value = 'me@example.com';
   b.getElementById('acc-pass').value = 'hunter2hunter2';
   b.getElementById('acc-in').click();
   await wait(1200);

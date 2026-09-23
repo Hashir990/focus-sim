@@ -503,9 +503,9 @@
       const r = scrJudge(this.view.board, this.pending);
       if(r.ok){
         const main = r.words.slice().sort((a,b)=>b.length - a.length)[0] || '';
-        box.innerHTML = '<span class="w">'+esc(main)+'</span>'
-          + (r.words.length > 1 ? '<span class="x">+'+(r.words.length-1)+' more</span>' : '');
-        setBtn('ready', 'Play ' + main.toUpperCase(), r.pts);
+        box.innerHTML = '<span class="w" translate="no">'+esc(main)+'</span>'
+          + (r.words.length > 1 ? '<span class="x">'+esc(T('+{n} more', {n:r.words.length-1}))+'</span>' : '');
+        setBtn('ready', T('Play {w}', {w:main.toUpperCase()}), r.pts);
         return;
       }
       if(scrUnfinished(r.why)){ setBtn('', 'Keep going', null); return; }
@@ -513,7 +513,7 @@
       box.className = 'sc-preview bad';
       // a rejected word is worth naming; a rule you broke is worth stating
       box.innerHTML = /^Not a word|^Not words/.test(r.why)
-        ? '<span class="w">'+esc(r.why.replace(/^Not a? ?words?: /,''))+'</span><span>no such word</span>'
+        ? '<span class="w" translate="no">'+esc(r.why.replace(/^Not a? ?words?: /,''))+'</span><span>no such word</span>'
         : '<span>'+esc(r.why)+'</span>';
       setBtn('bad', /^Not a word|^Not words/.test(r.why) ? 'Not a word' : 'Can’t play that', null);
     },
@@ -755,10 +755,10 @@
     _cheer(v){
       const me = v.players.find(p=>p.me);
       const won = me && v.winner === me.name;
-      if(won){ chime(false); showBanner('sc-banner', 'You won.', me.score + ' points.'); }
+      if(won){ chime(false); showBanner('sc-banner', 'You won.', Tn('{n} points.', '{n} points.', me.score)); }
       else{
         const bn = $('sc-banner');
-        bn.querySelector('h3').textContent = v.winner ? v.winner + ' won.' : 'A draw.';
+        bn.querySelector('h3').textContent = v.winner ? T('{name} won.', {name:v.winner}) : 'A draw.';
         $('sc-win-sub').textContent = v.endedBy === 'quiet'
           ? 'Six turns went by with nothing scored.' : 'The bag is empty.';
         bn.classList.remove('hide');
@@ -774,14 +774,14 @@
       $('sc-need').classList.toggle('hide', inRoom);
       $('sc-live').classList.toggle('hide', !inRoom || !v);
       $('sc-new').classList.toggle('hide', !(v && (v.over || v.moves === 0)));
-      $('sc-meta').textContent = v ? (v.bagLeft + ' in the bag') : '';
+      $('sc-meta').textContent = v ? T('{n} in the bag', {n:v.bagLeft}) : '';
       if(!inRoom || !v) return;
       if(!$('sc-board').style.getPropertyValue('--sc-cell')) this._sizeBoard();
 
       // players
       $('sc-players').innerHTML = v.players.map(p=>
         '<div class="sc-player'+(p.turn?' turn':'')+'">'
-        + '<span>'+esc(p.name)+(p.me?' (you)':'')+'</span>'
+        + '<span>'+esc(p.name)+(p.me?' '+esc(T('(you)')):'')+'</span>'
         + '<b>'+p.score+'</b><i>'+p.tiles+'</i></div>').join('');
 
       // board
@@ -826,14 +826,16 @@
       if(note){ this._say(note, true); return; }
       if(v.alone){ this._say('Nobody else is here yet. Share your code from Focus together.'); return; }
       if(v.over){
-        this._say(v.winner ? v.winner + ' won it.' : 'It ended level.');
+        this._say(v.winner ? T('{name} won it.', {name:v.winner}) : 'It ended level.');
         return;
       }
       const last = v.last;
       const lastTxt = !last ? ''
+        : last.what === 'passed' ? T('{name} passed.', {name:last.name}) + ' '
+        : /^swapped \d+$/.test(last.what || '') ? T('{name} swapped {n}.', {name:last.name, n:last.what.slice(8)}) + ' '
         : last.what ? last.name + ' ' + last.what + '. '
-        : last.name + ' played ' + last.word + ' for ' + last.pts + '. ';
-      this._say(lastTxt + (mine ? 'Your turn.' : v.turnName + ' is thinking.'));
+        : T('{name} played {w} for {n}.', {name:last.name, w:last.word, n:last.pts}) + ' ';
+      this._say(lastTxt + (mine ? T('Your turn.') : T('{name} is thinking.', {name:v.turnName})));
     },
   };
 
@@ -861,7 +863,7 @@
       if(!syncActive()) return '';
       const v = Scrabble.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
-      if(v.over) return 'Over<span>'+(v.winner ? esc(v.winner)+' won' : 'a draw')+'</span>';
+      if(v.over) return 'Over<span>'+(v.winner ? esc(T('{name} won', {name:v.winner})) : 'a draw')+'</span>';
       const me = v.players.find(p=>p.me);
       return (me ? me.score : 0)+'<span>'+(v.myTurn ? 'your turn' : 'their turn')+'</span>';
     }

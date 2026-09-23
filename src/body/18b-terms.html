@@ -1,0 +1,18 @@
+<!-- ============ THE TERMS, THE FIRST TIME ============
+     Over everything, once, until "I agree". The language row comes first so
+     that somebody who cannot read English can find their own before they have
+     to read anything; the document underneath is the same one the menu opens
+     later (aboutDoc in 50-about.js). termsGate() in 50b-terms.js runs it. -->
+<div class="terms-gate hide" id="terms-gate" role="dialog" aria-modal="true" aria-labelledby="terms-title">
+  <div class="terms-card">
+    <div class="terms-langs" id="terms-langs"></div>
+    <h2 class="terms-title" id="terms-title">Before you start</h2>
+    <p class="terms-lede">Please read the terms for using the app, then agree to carry on. They stay in the menu under About.</p>
+    <div class="terms-tabs">
+      <button class="terms-tab on" data-doc="terms">Terms of use</button>
+      <button class="terms-tab" data-doc="privacy">Privacy</button>
+    </div>
+    <div class="about terms-doc" id="terms-doc" translate="no"></div>
+    <button class="primary terms-agree" id="terms-agree">I agree</button>
+  </div>
+</div>

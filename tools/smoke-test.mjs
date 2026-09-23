@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
+import { createHash } from 'node:crypto';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Optional argument lets you point the test at any built file:
@@ -146,7 +147,16 @@ const until = async (fn, ms = 6000, step = 25) => {
 const BOOTED = [];
 
 function boot(pageHtml, seed) {
-  if (seed) {
+  /* **The terms are already agreed to, unless a test says otherwise.** A fresh
+     start shows them over everything and holds back the mood question until
+     "I agree", which is right for a person and wrong for every check below
+     that is about something else. Seeded from the version the page carries,
+     so bumping it does not quietly turn the gate back on for the whole suite;
+     pass `focus_terms: null` to see the first start as a new user does. */
+  const termsV = (pageHtml.match(/const TERMS_VERSION = '([^']+)'/) || [])[1];
+  seed = Object.assign(termsV ? { focus_terms: JSON.stringify({ v: termsV, at: 1 }) } : {}, seed || {});
+  if (seed.focus_terms === null) delete seed.focus_terms;
+  if (Object.keys(seed).length) {
     const js = Object.keys(seed)
       .map((k) => `localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(seed[k])});`)
       .join('');
@@ -231,6 +241,7 @@ function boot(pageHtml, seed) {
     const self = this;
     const handlers = {};
     self.id = id || 'anon-' + Math.random().toString(36).slice(2, 9);
+    self._win = window;                 // which window this peer lives in; see `gone`
     self.destroyed = false;
     self.on = (ev, fn) => { (handlers[ev] = handlers[ev] || []).push(fn); return self; };
     self._emit = (ev, ...a) => (handlers[ev] || []).forEach((f) => f(...a));
@@ -243,7 +254,10 @@ function boot(pageHtml, seed) {
       conn.metadata = (opts && opts.metadata) || null;
       const remote = FAKE_NET[target];
       setTimeout(() => {
-        if (!remote) { conn._emit('error', new Error('peer-unavailable')); return; }
+        if (!remote || (remote._win && remote._win.closed)) {
+          conn._emit('error', new Error('peer-unavailable'));
+          return;
+        }
         // The remote's end has to be built by the remote, not by us: each
         // connection object closes over the window that owns it, and a test
         // that silences one device must not silence the other.
@@ -265,17 +279,30 @@ function boot(pageHtml, seed) {
       setTimeout(() => self._emit('open', self.id), 0);
     }
 
+    /* A window a test has closed keeps nothing running of its own, but the
+       sockets pointed at it still hold timers. Delivering to one is not a
+       failure worth reporting — it is a message to somebody who has left. */
+    const gone = (conn) => !conn || (conn._win && conn._win.closed);
+
     function mkConn(from, to) {
       const h = {};
       const c = {
-        peer: to, open: true, _owner: from,
+        /* **Which window this end belongs to.** A test can close a window and
+           leave its sockets holding deferred timers; delivering into one of
+           those runs the app's own code against a `document` that is gone,
+           which throws on a Node timer and takes the whole run down rather
+           than failing a check. See `gone` below. */
+        peer: to, open: true, _owner: from, _win: window,
         on: (ev, fn) => { (h[ev] = h[ev] || []).push(fn); return c; },
         _emit: (ev, ...a) => (h[ev] || []).forEach((f) => f(...a)),
         // `__peerSilent` is how the test simulates a window that vanishes without
         // closing anything — a slept laptop, a killed tab, wifi walking away.
         send: (msg) => {
           if (window.__peerSilent) return;
-          setTimeout(() => c._peerConn && c._peerConn._emit('data', JSON.parse(JSON.stringify(msg))), 0);
+          setTimeout(() => {
+            if (gone(c._peerConn)) return;
+            c._peerConn._emit('data', JSON.parse(JSON.stringify(msg)));
+          }, 0);
         },
         /* **The local end closes synchronously, the far end on a tick.**
 
@@ -292,7 +319,7 @@ function boot(pageHtml, seed) {
         close: () => {
           c.open = false;
           c._emit('close');
-          setTimeout(() => { c._peerConn && c._peerConn._emit('close'); }, 0);
+          setTimeout(() => { if (!gone(c._peerConn)) c._peerConn._emit('close'); }, 0);
         },
       };
       /* Kept so a test can reach a specific socket rather than only the app's
@@ -3087,6 +3114,8 @@ check('something comes out every day, whatever day the suite is run on',
      letters is, which is why this reveals a whole entry rather than a few
      letters and expects the count to move exactly once. */
   {
+    /* One hint per letter of this entry — its own stated length, because the
+       first across entry is four letters on one day and seven on another. */
     const clue = $('cw-clues').querySelector('[data-dir="A"]');
     const len = +(clue.querySelector('i').textContent.match(/\d+/) || [0])[0];
     clue.click();
@@ -3103,8 +3132,32 @@ check('something comes out every day, whatever day the suite is run on',
     await wait(60);
   }
 
-  // fill it by asking for a hint on every square
-  for (let guard = 0; guard < 40; guard++) {
+  /* **A wrong letter is a square a hint will fix.** It used to look for an
+     *empty* one, so the moment a hint is most wanted — sitting on a square you
+     have filled in wrongly and stuck — was the moment the button skipped off
+     and revealed something else, and a grid that was full and wrong could not
+     be finished by hints at all because nothing in it was empty. Done here
+     while the puzzle is still open: once it is finished the button is disabled,
+     which is right. */
+  {
+    const C = window.__m.Cross;
+    const at = C.user.findIndex((v, i) => C._solAt(i) && !C.given[i]);
+    const right = C._solAt(at);
+    C.user[at] = right === 'X' ? 'Q' : 'X';
+    C.sel = at;
+    C.render();
+    $('cw-hint').click();
+    await wait(60);
+    check('and a hint puts right the square you are on, not some other one',
+      C.user[at] === right, C.user[at] + ' should be ' + right);
+  }
+
+  /* Fill it by asking for a hint on every square. The guard comes from the grid
+     in front of us: forty was enough for the twenty-five squares of a 5×5 and
+     not for the forty-odd white squares of a 7×7, so the suite quietly stopped
+     being able to finish a puzzle on the four days a week no 5×5 is published. */
+  const whiteSquares = $('cw-grid').querySelectorAll('.cw-cell').length;
+  for (let guard = 0; guard < whiteSquares + 10; guard++) {
     if (!$('cw-banner').classList.contains('hide')) break;
     $('cw-hint').click();
     await wait(20);
@@ -4141,6 +4194,62 @@ if (nextDay) {
     pErr.slice(0, 2).join(' | '));
 }
 
+/* ---- the wardrobe went up too, and was forgotten ---------------------------
+
+   The same release raised every buddy price two to five times, and `grand` was
+   only ever filled with lights, sounds and faces — so a device that had met the
+   first rise already, holding coats and antics bought at the old prices, was
+   re-charged for all of them at the new ones and sat at zero for good.
+
+   This boots exactly that device: `grand` present (it met the lights' rise),
+   no wardrobe marker, three buddy things in `own`. Old prices 80 + 100 + 44;
+   new ones 400 + 500 + 220, which is more than the whole balance. Then the
+   same record comes back with one thing added after the migration, which must
+   pay today's price — the migration happens once. */
+{
+  const BUD = ['bud-o4', 'bud-an0', 'bud-h12'];
+  const OLD = 80 + 100 + 44;
+  const { window: bw, errors: bErr } = boot(html, {
+    focus_embers: JSON.stringify({ adjust: 1000, have: 0, earned: 1000, own: ['seaglass'].concat(BUD),
+      grand: ['seaglass'], light: 'seaglass' }),
+  });
+  await wait(400);
+  const $b = (id) => bw.document.getElementById(id);
+  check('buddy things bought before the rise keep the price they were bought at',
+    +$b('emb-box').dataset.have === 1000 - OLD, `${$b('emb-box').dataset.have}, wanted ${1000 - OLD}`);
+  const rec = JSON.parse(bw.localStorage.getItem('focus_embers') || '{}');
+  check('and they are written into the grandfathered list, with the marker that it happened',
+    BUD.every((id) => (rec.grand || []).indexOf(id) >= 0) && (rec.grand || []).indexOf('@bud-rise') >= 0,
+    JSON.stringify(rec.grand));
+  check('and that booted without an error', bErr.length === 0, bErr.slice(0, 2).join(' | '));
+
+  /* Next start, holding one more coat that was bought after it. */
+  rec.own = rec.own.concat('bud-o6');
+  const { window: bw2 } = boot(html, { focus_embers: JSON.stringify(rec) });
+  await wait(400);
+  const have2 = +bw2.document.getElementById('emb-box').dataset.have;
+  check('but something bought after it pays what the shelf says, and the migration does not run twice',
+    have2 === 1000 - OLD - 300, `${have2}, wanted ${1000 - OLD - 300}`);
+}
+
+/* ---- an achievement is still worth something tomorrow ---------------------
+
+   `payout()` looked in `ACH`, which has never existed — the list is
+   `ACH_LIST`. The ReferenceError was caught and read as zero, so every claimed
+   achievement was worth nothing to the derived balance: "+6" flashed through
+   `credit()` and the next reconcile quietly took it back. Three claimed ones
+   worth 1 + 2 + 6 have to arrive in `earned` from a cold start. */
+{
+  const { window: aw } = boot(html, {
+    focus_embers: JSON.stringify({ adjust: 50, have: 0, earned: 0, own: ['seaglass'],
+      claimed: ['first', 'ten', 'week'], light: 'seaglass' }),
+  });
+  await wait(400);
+  const got = +aw.document.getElementById('emb-box').dataset.earned;
+  check('claimed achievements count towards the balance after a restart', got >= 50 + 9,
+    `earned ${got}, wanted at least ${50 + 9}`);
+}
+
 /* ---- one puzzle a day, and the same one for everybody ----------------------
 
    Three separate claims, and each of them fails differently:
@@ -5134,8 +5243,10 @@ if (keepBtn) {
     /Stranger is waiting to be let in/.test($h('chat-log').textContent)
     || host.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text)),
     JSON.stringify(host.__r.Chat.log.slice(-2)));
+  /* The host posts it and the room hears about it a hop later, so this waits
+     for the guest rather than assuming it has already arrived. */
   check('and it reaches everybody already in the room, not just the host',
-    guest.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text)),
+    await until(() => guest.__r.Chat.log.some((l) => l.sys && /waiting to be let in/.test(l.text))),
     JSON.stringify(guest.__r.Chat.log.slice(-2)));
 
   /* **Held means nothing reaches them.** Connected is the only way they could
@@ -5164,7 +5275,14 @@ if (keepBtn) {
     && $g('sync-door').classList.contains('hide'),
     $g('sync-door').className + ' ' + $g('sync-door').textContent.slice(0, 60));
 
-  $h('sync-door').querySelector('[data-letin]').click();
+  /* **Wait for the button, then press it.** The knock crosses the fake network
+     a hop at a time, so on a slow run this was `null.click()` — which does not
+     fail a check, it kills the suite, and every check after it goes unreported. */
+  await until(() => !!$h('sync-door').querySelector('[data-letin]'));
+  const letIn = $h('sync-door').querySelector('[data-letin]');
+  check('the host is offered a way to let them in', !!letIn,
+    $h('sync-door').textContent.slice(0, 60));
+  if (letIn) letIn.click();
   await until(() => /Stranger/.test($h('sync-people').textContent)
     && $t2('sync-people').querySelectorAll('.sync-person').length >= 2);
   check('letting them in puts them in the room',
@@ -5476,13 +5594,13 @@ await wait(700);
    path and not something the retry happened to fix. */
 {
   $h('begin').click();
-  await wait(320);
+  await until(() => $g('app').dataset.phase === 'focus');
   check('the leader starting a session takes the room into it',
     !$g('timer').classList.contains('hide') && $g('app').dataset.phase === 'focus',
     `phase ${$g('app').dataset.phase}`);
 
   $h('stop').click();
-  await wait(320);
+  await until(() => !$g('setup').classList.contains('hide'));
   check('and the leader going back to the main menu brings everyone back',
     !$g('setup').classList.contains('hide') && $g('timer').classList.contains('hide'),
     `setup ${$g('setup').className} · timer ${$g('timer').className}`);
@@ -5905,7 +6023,9 @@ check('nobody is setting until somebody claims', !shown(host, 'hm-set') && !show
 
 // first claim wins; everything after it is a no-op
 $g('hm-take').click();
-await wait(250);
+/* The claim goes to the host and the new round comes back, so this waits for
+   the answer rather than for a number of milliseconds. */
+await until(() => shown(guest, 'hm-set'));
 check('claiming makes you the setter', shown(guest, 'hm-set'), $g('hm-role').textContent);
 check('a claim closes the round to everyone else', !shown(host, 'hm-set') && !shown(host, 'hm-claim'), $h('hm-role').textContent);
 $h('hm-take').click();
@@ -6007,8 +6127,8 @@ await openGame(guest, $g, 'pictionary');
   check('and there is no word on show', !shown(host, 'pic-word') && !shown(guest, 'pic-word'));
 
   $g('pic-take').click();
-  await wait(250);
   const artist = { w: guest, $: $g }, watcher = { w: host, $: $h };
+  await until(() => artist.$('pic-offers').querySelectorAll('[data-k]').length === 3);
 
   // claiming now offers three words rather than dealing one, and the clock waits
   check('claiming offers a choice of three', shown(artist.w, 'pic-choose')
@@ -7148,6 +7268,18 @@ await wait(200);
 {
   const C = window.__m.Cross, now = window.__m.pktNow();
   const shape = () => [C.size, C.elapsed, C.user.filter(Boolean).length].join('/');
+  /* **The clock is running while this runs.** Comparing the two readings as
+     strings made the test fail whenever a second happened to turn between them
+     — 47 against 46, on a loaded machine, in a check about something else
+     entirely. What is under test is that the letters and the clock came *back*
+     after a size switch, so the size and the letters must match exactly, the
+     clock may differ by a second or two, and a clock reset to zero still fails
+     — which is the bug this was written for. */
+  const same = (a, b) => {
+    const [as, ae, al] = a.split('/').map(Number);
+    const [bs, be, bl] = b.split('/').map(Number);
+    return as === bs && al === bl && ae > 0 && Math.abs(ae - be) <= 2;
+  };
   const size = (n) => [...window.document.getElementById('cw-size').children]
     .find((b) => +b.dataset.s === n).click();
   size(15);
@@ -7162,13 +7294,13 @@ await wait(200);
   const snap = window.__m.gamesSnapshot();
   snap['arcade_cross'].at = Date.now() + 5000;
   window.__m.gamesAdopt(snap);
-  check('a sync leaves the open puzzle alone', shape() === was, shape() + ' vs ' + was);
+  check('a sync leaves the open puzzle alone', same(shape(), was), shape() + ' vs ' + was);
   size(5);
   await wait(250);
   size(15);
   await wait(250);
   check('and switching size after one still hands back the clock and the letters',
-    shape() === was, shape() + ' vs ' + was);
+    same(shape(), was), shape() + ' vs ' + was);
 }
 {
   const S = window.__m.Sudoku, now = window.__m.pktNow();
@@ -7619,6 +7751,746 @@ await wait(200);
       JSON.stringify(week.map((d) => d.key + ':' + d.secs)));
   }
   check('and the blocking pages ran without an error', gErr.length === 0, gErr.slice(0, 2).join(' | '));
+}
+
+/* ---- picross, and the developer page ----
+   Both in one extra window, because the developer page is only wired on a build
+   carrying the stamp and picross is the easiest thing to point it at.
+
+   The bank's real guarantee — that every puzzle can be solved by reasoning
+   alone and has exactly one answer — is proved by the solver in
+   tools/make-picross.mjs before a design is allowed in, and re-proved by
+   `node tools/make-picross.mjs --check`. What is checked here is that the app
+   reads that bank correctly: the right puzzle on the right day, clues worked
+   out from the picture, and a finished picture recorded as finished. */
+{
+  /* The developer build is a stamp *and* a key: see devAttrs in tools/build.mjs.
+     The suite makes one of its own rather than reading the real .env.local,
+     which is on one machine and not in the repository. */
+  const DEV_KEY = 'a-key-for-the-suite';
+  const DEV_KEY_HASH = createHash('sha256').update(DEV_KEY, 'utf8').digest('hex');
+  /* **Any stamp the local build already carries comes off first.** On the
+     developer's own machine dist/index.html is built from their .env.local and
+     may name their account; leaving that attribute in place would mean the
+     suite testing their lock instead of its own, and failing on one machine
+     only — the worst kind of red. */
+  const devHtml = withDoor(html.replace(/<html([^>]*)>/,
+    (m, attrs) => '<html' + attrs.replace(/\s*data-dev(-[a-z]+)?="[^"]*"/g, '') + '>')
+    .replace('<html',
+    '<html data-dev="1" data-dev-key="' + DEV_KEY_HASH + '"'),
+    'window.__x = {Picross, picOnDay, picClue, picGrid, PIC_BANK, PIC_DIFFS, PIC_EPOCH,'
+    + ' Arcade, dailyGet, dailyDef, dailyShift, pktNow, pktNum, pktAt, DAILY_DONE, PIC_SIZE, PIC_TITLES,'
+    + ' Embers, LOG, logProgress, logClose, devHash, devUnlocked,'
+    + ' EMB_LIGHTS, EMB_SOUNDS, FACES, EMB_SND, EMB_FACE, BUD_COST, budItemId};');
+  const { window: xw, errors: xErr } = boot(devHtml);
+  await wait(600);
+  const X = xw.__x;
+  const $x = (id) => xw.document.getElementById(id);
+
+  /* **Thirty of each, and every string the size it says it is.** A puzzle one
+     character short would fold into a different picture than the one the solver
+     approved, and nothing else would notice. */
+  {
+    /* **The three sizes stay level with each other.** The count is allowed to
+       grow — a bank is appended to, and a day takes one of each — but a size
+       that has fallen behind would run out first and start showing encores
+       while the others were still on new puzzles. So the number is read from
+       the bank rather than written here, and what is insisted on is that all
+       three agree and none has shrunk below the thirty it shipped with. */
+    /* The sizes come from the game, not from a list written here: they have
+       changed once already — 5, 10 and 15 became 10, 15 and 20 — and a suite
+       that keeps its own copy of them checks the bank it remembers rather than
+       the bank that shipped. */
+    const bankSizes = X.PIC_DIFFS.map((d) => X.PIC_SIZE[d]);
+    const counts = bankSizes.map((n) => (X.PIC_BANK[n] || []).length);
+    const want = Math.max(...counts);
+    const sizes = bankSizes.map((n) => [n, want]);
+    const wrong = [];
+    if (want < 30) wrong.push('the bank has shrunk to ' + want);
+    for (const [n, _] of sizes) {
+      const list = X.PIC_BANK[n] || [];
+      if (list.length !== want) wrong.push(n + 'x' + n + ' has ' + list.length + ' of ' + want);
+      for (const flat of list) {
+        if (flat.length !== n * n) { wrong.push(n + 'x' + n + ' has a puzzle of ' + flat.length); break; }
+        if (/[^01]/.test(flat)) { wrong.push(n + 'x' + n + ' has a puzzle with something other than 0 and 1'); break; }
+      }
+    }
+    check('the picross bank is level across its three sizes, every puzzle the right shape',
+      wrong.length === 0, wrong.join('; ') || 'ok');
+  }
+
+  /* The day decides the puzzle, counting from the day picross shipped. */
+  {
+    const before = X.pktAt(X.pktNum(X.PIC_EPOCH) - 1);
+    const first = X.PIC_EPOCH;
+    const later = X.pktAt(X.pktNum(X.PIC_EPOCH) + 7);
+    /* A day past the end of the bank, counted from the bank rather than from a
+       number written here: the lists are appended to, and a hard-coded 30 made
+       this check quietly measure the wrong day the moment they grew. */
+    const wrapped = X.pktAt(X.pktNum(X.PIC_EPOCH) + X.PIC_BANK[X.PIC_SIZE.easy].length);
+    /* The epoch is relative to itself in the checks below, so it is pinned
+       here too: put back to the crossword's and the game would claim a month of
+       puzzles from before it existed, every one of them a missed day in a
+       streak nobody could have kept. */
+    check('picross starts on the day its bank was made, not before',
+      X.pktNum(X.PIC_EPOCH) >= X.pktNum('2026-09-19'), X.PIC_EPOCH);
+    check('nothing was published before picross existed',
+      X.picOnDay('easy', before).i === -1, JSON.stringify(X.picOnDay('easy', before)));
+    check('and each day after it is the next puzzle in the bank',
+      X.picOnDay('easy', first).i === 0 && X.picOnDay('easy', later).i === 7
+      && !X.picOnDay('easy', later).encore,
+      [X.picOnDay('easy', first).i, X.picOnDay('easy', later).i].join(','));
+    /* **Every day from here on has a puzzle, at every size.** The bank is
+       finite and the schedule is not: a day past the end wraps to the start and
+       is marked as an encore rather than left empty, so there is no date — this
+       year or in ten — that opens picross to nothing. */
+    {
+      const epoch = X.pktNum(X.PIC_EPOCH);
+      const gaps = [];
+      for (const ahead of [0, 1, 239, 240, 241, 500, 1000, 3650]) {
+        const day = X.pktAt(epoch + ahead);
+        for (const d of X.PIC_DIFFS) {
+          if (X.picOnDay(d, day).i < 0) gaps.push(d + ' on day ' + ahead);
+        }
+      }
+      check('every day from the epoch onwards has a puzzle at each size',
+        gaps.length === 0, gaps.join(', ') || 'no empty days');
+    }
+    check('and once the bank runs out it goes round, and says so',
+      X.picOnDay('easy', wrapped).i === 0 && X.picOnDay('easy', wrapped).encore === true,
+      JSON.stringify(X.picOnDay('easy', wrapped)));
+  }
+
+  /* Clues are read off the picture rather than stored beside it. */
+  check('a clue is the runs in its line, and an empty line asks for nothing',
+    X.picClue([1, 1, 0, 1, 1]).join(',') === '2,2' && X.picClue([0, 0, 0]).join(',') === '0'
+    && X.picClue([1, 1, 1]).join(',') === '3',
+    [X.picClue([1, 1, 0, 1, 1]), X.picClue([0, 0, 0])].join(' | '));
+
+  /* And the game itself, through the arcade. */
+  $x('arcade-open').click();
+  await wait(120);
+  await X.Arcade.pick('picross');
+  await wait(250);
+  const P = X.Picross;
+
+  /* **Nothing answers to a name twice.** Picross shipped using the same `pic-`
+     ids pictionary already had, and `getElementById` hands back the first one
+     in the page: its size chooser was being drawn inside pictionary's hidden
+     toolbar, its Fill button wired to pictionary's paint bucket, and its win
+     banner set on a banner nobody could see. Every test passed, because the
+     tests looked the element up the same wrong way the game did. A collision
+     anywhere is worth failing over, so this counts the whole page. */
+  {
+    const tally = new Map();
+    xw.document.querySelectorAll('[id]').forEach((el) => tally.set(el.id, (tally.get(el.id) || 0) + 1));
+    const twice = [...tally].filter(([, n]) => n > 1).map(([k, n]) => k + ' ×' + n);
+    check('no two elements in the app answer to the same id',
+      twice.length === 0, twice.join(', ') || tally.size + ' ids, all different');
+  }
+  /* **A button does not paint its label in its own background.** The shared
+     rule gives `.mini-btn.on` the accent behind and dark text on it; picross
+     added an override that set the *text* to the accent as well, so the chosen
+     mode — "Fill", the one you start in — was accent on accent and could not be
+     read. Any override of that class doing the same thing is the same bug. */
+  {
+    /* **The stylesheet only, not the page.** `[^{}]*` backtracks across every
+       stretch with no braces in it, and the picross bank is one: 369,000
+       characters of 0s and 1s between its opening and closing brace. Over the
+       whole bundle this one regex ran for more than ten minutes at full CPU and
+       looked exactly like a hung test. */
+    const flat = (html.match(/<style[^>]*>[\s\S]*?<\/style>/g) || []).join(' ').replace(/\s*\n\s*/g, ' ');
+    const bad = [...flat.matchAll(/([^{}]*\.mini-btn\.on)\s*\{([^}]*)\}/g)]
+      .filter(([, sel, body]) => /color\s*:\s*var\(--accent\)/.test(body.replace(/(border|background)-color/g, ''))
+        && !/background/.test(body))
+      .map(([, sel]) => sel.trim());
+    check('no button paints its label in the colour it was given to sit on',
+      bad.length === 0, bad.join(' | ') || 'none');
+  }
+  /* And the other half of that: picross's own controls are on picross's screen,
+     not merely present somewhere in the page. */
+  check('and picross\'s controls are on picross\'s screen',
+    ['pix-sizes', 'pix-grid', 'pix-banner', 'pix-meta', 'pix-clear', 'pix-fill', 'pix-mark']
+      .every((id) => $x(id) && $x(id).closest('#game-picross')),
+    ['pix-sizes', 'pix-grid', 'pix-banner', 'pix-meta', 'pix-clear', 'pix-fill', 'pix-mark']
+      .filter((id) => !($x(id) && $x(id).closest('#game-picross'))).join(', ') || 'all seven');
+
+  check('the picross card opens a grid of its own size, with a clue for every line',
+    $x('pix-grid').querySelectorAll('.pix-cell').length === P.size * P.size
+    && $x('pix-grid').querySelectorAll('.pix-rc').length === P.size
+    && $x('pix-grid').querySelectorAll('.pix-cc').length === P.size,
+    P.size + ' / ' + $x('pix-grid').querySelectorAll('.pix-cell').length);
+
+  /* ---- the clue numbers cross themselves off ----
+     Dimming only when the whole line was right left a fifteen-number row fully
+     lit with fourteen of its runs settled, which is exactly when the counting
+     is hardest. Runs are matched to numbers from both ends, and the board is
+     re-read on every change so a number lights again when its run stops
+     matching. The rules below are the ones that were wrong first time. */
+  {
+    const settled = (line, clue) => P._settled(line, clue).map((v) => (v ? 'x' : '-')).join('');
+    check('a clue number crosses off when its own run is settled',
+      settled([1, 1, 1, 0, 1, 1, 0, 0], [3, 2]) === 'xx'
+      && settled([0, 0, 0, 0, 1, 1, 0, 1], [2, 1]) === 'xx',
+      settled([1, 1, 1, 0, 1, 1, 0, 0], [3, 2]));
+    /* One run may only settle one number: matching from both ends without that
+       let a single five cross off both halves of "5 5", so the second was
+       struck through before the player had touched it. */
+    check('but one run cannot cross off two numbers',
+      settled([1, 1, 1, 1, 1, 0, 0, 0, 0, 0], [5, 5]) === 'x-',
+      settled([1, 1, 1, 1, 1, 0, 0, 0, 0, 0], [5, 5]));
+    check('and a broken line lights up again',
+      settled([1, 1, 1, 0, 1, 1, 0, 1], [3, 2]) === '--'
+      && settled([0, 0, 0, 0], [0]) === '-',
+      settled([1, 1, 1, 0, 1, 1, 0, 1], [3, 2]));
+    /* And the board actually paints it, not just the arithmetic. */
+    {
+      let row = -1;
+      for (let y = 0; y < P.size; y++) if (P.rows[y].length >= 2) { row = y; break; }
+      if (row >= 0) {
+        let x = 0;
+        while (P.sol[row][x] !== 1) x++;
+        for (let k = 0; k < P.rows[row][0]; k++) P._put(row * P.size + x + k, 1);
+        P._paintClues();
+        const el = $x('pix-grid').querySelector('[data-rc="' + row + '"]');
+        const marks = [...el.querySelectorAll('i')].map((i) => i.classList.contains('done'));
+        check('the first run alone crosses off the first number on the screen',
+          marks[0] === true && marks.slice(1).every((v) => v === false),
+          marks.map((v) => (v ? 'x' : '-')).join(''));
+        for (let k = 0; k < P.rows[row][0]; k++) P._put(row * P.size + x + k, 0);
+        P._paintClues();
+      }
+    }
+  }
+
+  /* ---- a drag does not paint over the other kind of mark ----
+     It painted whatever it crossed: a fill stroke through a column of crosses
+     wiped the notes, a stroke of crosses across a filled row emptied it. A
+     stroke that puts something down lands only on blank squares; a stroke that
+     takes something away takes only what it started on. jsdom has no layout,
+     so `elementFromPoint` is pointed at the square the finger is "over". */
+  {
+    const n = P.size;
+    const grid = $x('pix-grid');
+    const cellsEl = grid.querySelector('.pix-cells');
+    const sq = (i) => grid.querySelector('[data-i="' + i + '"]');
+    const ev = (type) => new xw.MouseEvent(type, { bubbles: true, cancelable: true });
+    const realFrom = xw.document.elementFromPoint;
+    const stroke = (mode, path) => {
+      P.setMode(mode);
+      sq(path[0]).dispatchEvent(ev('pointerdown'));
+      for (const i of path.slice(1)) {
+        xw.document.elementFromPoint = () => sq(i);
+        cellsEl.dispatchEvent(ev('pointermove'));
+      }
+    };
+    const lift = () => cellsEl.dispatchEvent(ev('pointerup'));
+    const set = (vals) => vals.forEach((v, k) => P._put(k, v));
+    const got = () => [0, 1, 2].map((k) => P.cells[k]).join('');
+
+    set([0, 2, 0]);
+    stroke(1, [0, 1, 2]); lift();
+    check('a fill stroke goes round a crossed-off square instead of over it', got() === '121', got());
+
+    set([0, 1, 0]);
+    stroke(2, [0, 1, 2]); lift();
+    check('a stroke of crosses leaves a filled square alone', got() === '212', got());
+
+    set([1, 2, 1]);
+    stroke(1, [0, 1, 2]); lift();
+    check('and rubbing out fills does not rub out the crosses in between', got() === '020', got());
+
+    /* ---- where you are, across and down ----
+       Under a finger the square itself is hidden and its clues are far away;
+       the row and column through it light up, out to both clue boxes. */
+    set([0, 0, 0]);
+    const at = n + 2;                          // row 1, column 2
+    stroke(1, [0, at]);
+    const row = grid.querySelector('.pix-aim-row'), col = grid.querySelector('.pix-aim-col');
+    const rcAim = grid.querySelector('[data-rc="1"]').classList.contains('aim');
+    const ccAim = grid.querySelector('[data-cc="2"]').classList.contains('aim');
+    const lit = grid.querySelectorAll('.pix-rc.aim, .pix-cc.aim').length;
+    check('the row and column under the finger are marked, clue boxes and all',
+      !!row && !!col && !row.hidden && !col.hidden && rcAim && ccAim && lit === 2,
+      [row && !row.hidden, col && !col.hidden, rcAim, ccAim, lit].join(','));
+    check('and the bands sit on that row and that column',
+      row.style.top === (100 / n) + '%' && col.style.left === (2 * 100 / n) + '%',
+      row.style.top + ' / ' + col.style.left);
+    lift();
+    check('and go when a finger lifts',
+      row.hidden && col.hidden && grid.querySelectorAll('.aim').length === 0,
+      [row.hidden, col.hidden, grid.querySelectorAll('.aim').length].join(','));
+    xw.document.elementFromPoint = realFrom;
+    set([0, 0, 0]);
+    P.setMode(1);
+    for (let k = 0; k < n * n; k++) if (P.cells[k] !== 0) P._put(k, 0);
+  }
+
+  /* ---- being told where you went wrong, and being told one square ----
+     A picross board gives no feedback of its own: a square filled in error sits
+     there looking exactly like a right one until the clues stop adding up
+     twenty squares later. Check says how many are wrong without saying which
+     are missing, and Fix a square puts one right — taking back a wrong square
+     before giving away a right one, because a wrong square is usually what the
+     person is stuck on. */
+  {
+    const n = P.size;
+    let blank = -1;
+    for (let y = 0; y < n && blank < 0; y++) {
+      for (let x = 0; x < n; x++) if (P.sol[y][x] === 0) { blank = y * n + x; break; }
+    }
+    P._put(blank, 1);                       // a square the picture does not have
+    const found = P.check();
+    await wait(60);
+    check('check counts the squares that are wrong',
+      found === 1 && !!P.wrong && P.wrong.has(blank), found + ' wrong');
+    check('and marks them on the board',
+      $x('pix-grid').querySelector('[data-i="' + blank + '"]').classList.contains('bad'),
+      $x('pix-grid').querySelector('[data-i="' + blank + '"]').className);
+
+    const was = P.hints;
+    P.reveal();
+    await wait(60);
+    check('fixing a square takes back a wrong one before giving one away',
+      P.cells[blank] === 0 && P.hints === was + 1, 'cell ' + P.cells[blank] + ', hints ' + P.hints);
+    check('and clears the check marks, which are about a board that has changed',
+      P.wrong === null, String(P.wrong));
+
+    P.reveal();
+    await wait(60);
+    const right = P._progress();
+    check('with nothing wrong left, it fills a square the picture does have',
+      P.hints === was + 2 && right.c >= 1, 'hints ' + P.hints + ', right ' + right.c);
+
+    /* **And the archive says where the board stands.** "Started" is the same
+       word for two squares in and two from the end. */
+    P.persist();
+    const rec = X.dailyGet('picross', P.diff, P.day);
+    const line = X.dailyDef('picross').line(rec);
+    check('the calendar shows how far in the day got, and what was revealed',
+      /\d+ of \d+ squares/.test(line) && /revealed/.test(line), line);
+  }
+
+  /* Filling in the picture finishes it — and only the filled squares matter,
+     which is what "crossing off is a note to yourself" has to mean. */
+  {
+    const n = P.size;
+    P._put(0, 2);                       // a cross in a square that stays empty
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) if (P.sol[y][x] === 1) P._put(y * n + x, 1);
+    }
+    P._check();
+    await wait(80);
+    const rec = X.dailyGet('picross', P.diff, P.day);
+    check('filling in the picture finishes it, whatever is pencilled around it',
+      P.done === true && !!rec && rec.s === X.DAILY_DONE,
+      P.done + ' / ' + JSON.stringify(rec));
+    check('and the banner says so',
+      !$x('pix-banner').classList.contains('hide'), $x('pix-banner').className);
+    /* **Then it is a picture, not a worksheet**: no grid lines, no crosses.
+       Both are read off the stylesheet. jsdom does not expand the `border`
+       shorthand, so a square's computed border style is "none" with or
+       without the rule — a check built on it passed with the class removed. */
+    {
+      const grid = $x('pix-grid');
+      const flat = (html.match(/<style[^>]*>[\s\S]*?<\/style>/g) || []).join(' ').replace(/\s*\n\s*/g, ' ');
+      check('a finished picross drops its grid lines',
+        grid.classList.contains('solved')
+          && /\.pix-wrap\.solved \.pix-cell\s*\{[^}]*border-style:\s*none/.test(flat),
+        grid.className);
+      check('and its crosses',
+        /\.pix-wrap\.solved \.pix-cell\.off::after\s*\{\s*display:\s*none/.test(flat),
+        'no rule hiding them');
+    }
+    /* **And now it can be named.** The name is the answer while the grid is
+       unsolved, so it is kept out of the bank's reach until this moment — and
+       withheld after it, "there it is" leaves you looking at a shape. */
+    {
+      const what = (X.PIC_TITLES[P.size] || [])[P.idx] || '';
+      check('the finish screen says what the picture was',
+        !!what && $x('pix-win-sub').textContent.toLowerCase().includes(what.toLowerCase()),
+        what + ' / ' + $x('pix-win-sub').textContent);
+      check('and counts anything that was revealed',
+        !P.hints || /revealed/.test($x('pix-win-sub').textContent),
+        P.hints + ' revealed / ' + $x('pix-win-sub').textContent);
+    }
+  }
+
+  /* **The archive is reachable without finishing today's.** Picross registered
+     with the daily system from the start — records, streaks, per-day stats —
+     but the only door to the calendar was the win banner, so every other day
+     was behind today's puzzle. The crossword has carried a History button on
+     its screen all along; this is the same button in the same place. */
+  {
+    const cal = () => $x('dcal') || $x('dcal-overlay');
+    $x('pix-close')?.click();
+    check('picross offers its archive on the screen, not only after a win',
+      !!$x('pix-list') && !$x('pix-list').classList.contains('hide'),
+      $x('pix-list') ? $x('pix-list').textContent : 'no button');
+    $x('pix-list').click();
+    await wait(150);
+    check('and the button opens the calendar',
+      !!cal() && !cal().classList.contains('hide'),
+      cal() ? cal().className : 'no calendar');
+    /* **Finished, a row is called what the picture was.** "Small" is all it
+       can say before, because the name is the answer; afterwards it is the
+       one thing about the day worth reading back. The unfinished sizes keep
+       their edition names. */
+    {
+      const rows = [...$x('dcal-day').querySelectorAll('.dcal-row')];
+      const at = X.PIC_DIFFS.indexOf(P.diff);
+      const raw = (X.PIC_TITLES[P.size] || [])[P.idx] || '';
+      const named = rows[at] ? rows[at].querySelector('b').textContent : '';
+      check('a finished picross is listed in the history by its picture\'s name',
+        !!raw && named.toLowerCase() === raw.toLowerCase(), named + ' / ' + raw);
+      const others = rows.filter((_, k) => k !== at).map((r) => r.querySelector('b').textContent);
+      check('and one not yet finished keeps its size name',
+        others.length > 0 && others.every((t) => ['Small', 'Middling', 'Big'].includes(t)),
+        others.join(', '));
+    }
+    ($x('dcal-close') || { click() {} }).click();
+    await wait(80);
+  }
+
+  /* **Square squares.** The first version sized the rows with the same
+     percentage as the columns, and a percentage on a grid row resolves against
+     the container's height — every cell came out a slightly wrong rectangle,
+     which jsdom cannot see and the eye can. */
+  check('a picross square is square by ratio, not by a length used twice',
+    /\.pix-cell\{[^}]*aspect-ratio:\s*1/.test(html.replace(/\s*\n\s*/g, '')),
+    (html.match(/\.pix-cell\{[^}]*\}/) || ['no rule'])[0].slice(0, 90));
+
+  /* ---- the developer page ---- */
+  /* **And no way it reaches anybody else.** The stamp comes from `.env.local`,
+     which is in .gitignore, and every path that builds something to hand out
+     turns it off: ship-release.ps1 sets FOCUS_RELEASE, and the publish scripts
+     build with --release. A new publish script that forgot would be the way
+     this quietly ships, so the scripts are checked rather than trusted. */
+  {
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    const leaky = Object.keys(pkg.scripts).filter((k) => /^publish:(win|mac|linux)$/.test(k)
+      && !/npm run build:release/.test(pkg.scripts[k]));
+    const src = readFileSync(join(root, 'tools', 'build.mjs'), 'utf8');
+    check('nothing that builds a release can carry the developer stamp',
+      leaky.length === 0 && /FOCUS_RELEASE/.test(src) && /--release/.test(src)
+      && /\.env\.local/.test(src),
+      leaky.join(', ') || 'guarded');
+    const ship = readFileSync(join(root, 'tools', 'ship-release.ps1'), 'utf8');
+    check('and the release script says so out loud before it builds',
+      /FOCUS_RELEASE = '1'/.test(ship), 'ship-release.ps1');
+  }
+
+  check('the developer row is there on a stamped build',
+    !!$x('d-dev') && !$x('d-dev').classList.contains('hide'),
+    $x('d-dev') ? $x('d-dev').className : 'no row');
+  $x('d-dev').click();
+  await wait(150);
+
+  /* **A stamp says where the build came from, not who is holding it.** A debug
+     APK, a copied folder or a lent phone all carry it, so the page itself is
+     locked: a key, hashed into the build, typed once on each device. Until it
+     is right there are no tools on the page and no `devFill` to call. */
+  check('but the page is shut until the key is given',
+    /Locked/.test($x('dev-body').textContent) && !/Version/.test($x('dev-body').textContent)
+    && typeof xw.devFill === 'undefined',
+    $x('dev-body').textContent.slice(0, 60));
+  {
+    /* Defensive on purpose: with the lock broken there is no field to type in,
+       and the checks below have to go *red* rather than throw and take the rest
+       of the suite with them. A crash is a failure nobody can read. */
+    const put = (v) => {
+      const field = $x('dev-key'), form = $x('dev-keyform');
+      if(!field || !form) return false;
+      field.value = v;
+      form.dispatchEvent(new xw.Event('submit', { bubbles: true, cancelable: true }));
+      return true;
+    };
+    const asked = put('not the key');
+    await wait(120);
+    check('and a wrong one gets nowhere',
+      asked && !/Version/.test($x('dev-body').textContent) && typeof xw.devFill === 'undefined',
+      asked ? $x('dev-body').textContent.slice(0, 40) : 'it never asked');
+    put(DEV_KEY);
+    await wait(150);
+    check('the right one opens it, and is remembered on this device alone',
+      /Version/.test($x('dev-body').textContent) && X.devUnlocked()
+      && xw.localStorage.getItem('focus_dev_unlock') === DEV_KEY_HASH,
+      typeof xw.devFill);
+  }
+  /* The app hashes the key itself, because crypto.subtle does not exist on
+     Electron's file:// pages. Two implementations of SHA-256 that disagree
+     would lock the developer out of their own build, so they are compared. */
+  check('and the app hashes exactly as the build tool does',
+    ['', 'abc', 'a'.repeat(56), DEV_KEY, 'ünicode ✓'].every((s) =>
+      X.devHash(s) === createHash('sha256').update(s, 'utf8').digest('hex')),
+    X.devHash('abc').slice(0, 16));
+
+  check('and opens a page that says what this build is',
+    !$x('dev-overlay').classList.contains('hide') && /Version/.test($x('dev-body').textContent),
+    $x('dev-body').textContent.slice(0, 80));
+  {
+    /* The one tool that cannot be had any other way: a daily puzzle is a day
+       away, and a streak is a fortnight. */
+    const was = X.pktNow();
+    $x('dev-body').querySelector('[data-day="1"]').click();
+    await wait(120);
+    const moved = X.pktNow();
+    check('and can move what the whole app calls today',
+      X.pktNum(moved) === X.pktNum(was) + 1
+      && X.picOnDay('easy', moved).i === X.picOnDay('easy', was).i + 1,
+      was + ' -> ' + moved);
+    $x('dev-body').querySelector('[data-day="0"]').click();
+    await wait(120);
+    check('and put it back', X.pktNow() === was && X.dailyShift() === 0, X.pktNow());
+  }
+  /* ---- what the developer page does to the balance ----
+
+     The balance is derived — focus time, claimed achievements, and `adjust` for
+     anything from outside both — minus what everything owned cost. So the two
+     ways this page can touch it are the two ways it got them wrong: a credit
+     that only existed in memory and was gone by the next start, and a shelf
+     full of things nobody paid for, which is a hole the next few thousand
+     earned embers fall into. To anyone playing, that is "embers do not go up". */
+  {
+    const E = X.Embers;
+    X.logProgress(1200); X.logClose(true);      // twenty minutes, honestly earned
+    await wait(120);
+    /* From the derived balance, not the running one: a running total is allowed
+       to be ahead of what the inputs explain, and `reconcile` is entitled to
+       pull it back. What is being tested is that the grant is one of the
+       inputs — so start where the next start would start. */
+    E.reconcile();
+    const before = E.have;
+
+    $x('dev-body').querySelector('[data-embers="1000"]').click();
+    await wait(120);
+    const after = E.have;
+    E.reconcile();                              // what the next start would compute
+    check('a developer grant is still there after a restart',
+      after === before + 1000 && E.have === after, before + ' → ' + after + ' → ' + E.have);
+
+    $x('dev-body').querySelector('#dev-own').click();
+    await wait(200);
+    const owned = E.have;
+    E.reconcile();
+    X.logProgress(600); X.logClose(true);
+    await wait(120);
+    E.reconcile();
+    check('and owning everything does not swallow what you earn afterwards',
+      E.own.length > 50 && owned === after && E.have > owned,
+      'own=' + E.own.length + ' have=' + owned + ' → ' + E.have);
+
+    /* And the way out for a copy already in that state — the shelf granted by
+       an older build, with nothing recorded as having paid for it. The running
+       total has to be cleared along with `adjust`, or `reconcile` does its own
+       rescue: a stored balance above what the inputs explain is taken as
+       history from before any of this was derivable and written into `adjust`,
+       which is right for a device that has been running for years and would
+       hide the hole being tested for here. */
+    E.adjust = 0; E.earned = 0; E.have = 0;
+    E.reconcile();
+    const stuck = E.have;
+    X.logProgress(600); X.logClose(true);
+    await wait(120);
+    E.reconcile();
+    const stillStuck = E.have;
+    const wroteOff = E.settle();
+    X.logProgress(600); X.logClose(true);
+    await wait(120);
+    E.reconcile();
+    check('and a balance already in the hole can be put right, once',
+      stuck === 0 && stillStuck === 0 && wroteOff > 1000 && E.have > 0 && E.settle() === 0,
+      'stuck at ' + stuck + ', wrote off ' + wroteOff + ', now ' + E.have);
+  }
+  check('and nothing went wrong on either', xErr.length === 0, xErr.slice(0, 2).join(' | '));
+
+  /* **The strongest lock the build offers: the account it belongs to.** With
+     `FOCUS_DEV_WHO` set, the page does not open for anybody else even with the
+     key, and signing out closes it. */
+  {
+    const who = createHash('sha256').update('someone-else', 'utf8').digest('hex');
+    const { window: ow } = boot(withDoor(html.replace(/<html([^>]*)>/,
+      (m, attrs) => '<html' + attrs.replace(/\s*data-dev(-[a-z]+)?="[^"]*"/g, '') + '>')
+      .replace('<html',
+      '<html data-dev="1" data-dev-key="' + DEV_KEY_HASH + '" data-dev-who="' + who + '"'),
+      'window.__o = {devTry, devUnlocked};'));
+    await wait(600);
+    ow.document.getElementById('d-dev').click();
+    await wait(150);
+    const body = ow.document.getElementById('dev-body');
+    check('a build that belongs to an account stays shut for anybody else',
+      /one account/.test(body.textContent) && !body.querySelector('#dev-key')
+      && ow.__o.devTry(DEV_KEY) === false && !ow.__o.devUnlocked()
+      && typeof ow.devFill === 'undefined',
+      body.textContent.slice(0, 60));
+  }
+}
+
+/* ---- the terms, and the seven languages -----------------------------------
+
+   Two features that meet in one place: the page shown before anything else on
+   a first start, and the fact that it — and everything behind it — can be read
+   in six languages besides English.
+
+   **English has to be untouched.** No table is read, no observer is attached,
+   and every check above this one is asserting English text on the same build.
+   That is the first thing checked here, because a translation layer that
+   changes the untranslated app is a translation layer that has to come out. */
+{
+  const door = 'window.__lang = {I18N, LANGS, LANG, T, Tn, langDow, langDayHead,'
+    + ' termsAccepted, aboutDoc, TERMS_VERSION};';
+  const langHtml = withDoor(html, door);
+
+  /* ---- English, exactly as it was ---- */
+  {
+    const { window: ew, errors: eErr } = boot(langHtml);
+    await wait(400);
+    const $e = (id) => ew.document.getElementById(id);
+    check('with no language chosen the app is in English, and says so',
+      ew.document.documentElement.getAttribute('lang') === 'en'
+      && ew.document.documentElement.getAttribute('dir') === 'ltr'
+      && $e('begin').textContent === 'Begin focus'
+      && ew.__lang.LANG === 'en',
+      [$e('begin').textContent, ew.document.documentElement.getAttribute('lang')].join(' / '));
+    check('and T() in English is the string it was handed',
+      ew.__lang.T('Done in {t}', { t: '3:12' }) === 'Done in 3:12'
+      && ew.__lang.Tn('{n} square is wrong', '{n} squares are wrong', 1) === '1 square is wrong'
+      && ew.__lang.Tn('{n} square is wrong', '{n} squares are wrong', 4) === '4 squares are wrong',
+      ew.__lang.Tn('{n} square is wrong', '{n} squares are wrong', 1));
+    check('and nothing threw', eErr.length === 0, eErr.slice(0, 2).join(' | '));
+
+    /* **Every string carries all six.** One language missing from an entry is
+       one screen that falls back to English in the middle of a sentence. */
+    const langs = ew.__lang.LANGS.map((l) => l.k).filter((k) => k !== 'en');
+    const holes = [];
+    for (const en of Object.keys(ew.__lang.I18N)) {
+      const row = ew.__lang.I18N[en];
+      for (const k of langs) {
+        const v = row[k];
+        const ok = typeof v === 'string' ? !!v.length
+          : (v && typeof v === 'object') ? typeof v.other === 'string' : false;
+        if (!ok) holes.push(k + ': ' + en.slice(0, 40));
+      }
+    }
+    check('every translated string has all six languages',
+      holes.length === 0, holes.slice(0, 4).join(' | ') || Object.keys(ew.__lang.I18N).length + ' strings');
+  }
+
+  /* ---- Japanese ---- */
+  {
+    const { window: jw, errors: jErr } = boot(langHtml, { focus_lang: 'ja' });
+    await wait(500);
+    const $j = (id) => jw.document.getElementById(id);
+    check('choosing Japanese puts the whole screen in Japanese',
+      jw.document.documentElement.getAttribute('lang') === 'ja'
+      && $j('begin').textContent === '集中を始める'
+      && $j('terms-title').textContent === 'はじめる前に'
+      && [...jw.document.querySelectorAll('.drawer-item b')].some((b) => b.textContent === 'みんなで集中'),
+      $j('begin').textContent);
+    check('the app’s own name is not translated',
+      jw.document.querySelector('.wordmark').textContent.replace(/\s+/g, ' ').trim() === 'Focus Simulator',
+      jw.document.querySelector('.wordmark').textContent);
+    check('and the date is written the way Japanese writes it',
+      /月/.test($j('today-date').textContent), $j('today-date').textContent);
+    check('and the privacy policy is the Japanese one, not the English one',
+      /この端末/.test(jw.__lang.aboutDoc('privacy')) && !/What stays on this device/.test(jw.__lang.aboutDoc('privacy')),
+      jw.__lang.aboutDoc('privacy').slice(0, 40));
+    check('and nothing threw while it was drawn', jErr.length === 0, jErr.slice(0, 2).join(' | '));
+  }
+
+  /* ---- Russian, where a counted thing has three forms ---- */
+  {
+    const { window: rw } = boot(langHtml, { focus_lang: 'ru' });
+    await wait(450);
+    const one = rw.__lang.Tn('{n} day in a row', '{n} days in a row', 1);
+    const few = rw.__lang.Tn('{n} day in a row', '{n} days in a row', 3);
+    const many = rw.__lang.Tn('{n} day in a row', '{n} days in a row', 11);
+    check('a counted string takes the form its language needs',
+      one === '1 день подряд' && few === '3 дня подряд' && many === '11 дней подряд',
+      [one, few, many].join(' | '));
+  }
+
+  /* ---- Arabic, which reads the other way ---- */
+  {
+    const { window: aw } = boot(langHtml, { focus_lang: 'ar' });
+    await wait(450);
+    check('Arabic turns the interface round',
+      aw.document.documentElement.getAttribute('dir') === 'rtl'
+      && aw.document.getElementById('begin').textContent === 'ابدأ التركيز',
+      aw.document.documentElement.getAttribute('dir'));
+    /* **A board is a picture, not a sentence.** Right-to-left is right for the
+       text and wrong for a grid: read a picross from the other side and it is
+       a different puzzle. */
+    check('but a board is not turned round with it',
+      /\[dir="rtl"\][^{]*\.pix-wrap[^{]*\{[^}]*direction:ltr/.test(html.replace(/\s*\n\s*/g, '')),
+      'no rule keeping boards left to right');
+    /* Arabic keeps the same digits as the timer and the scores. */
+    check('and Arabic keeps the digits the rest of the app uses',
+      /\d/.test(aw.document.getElementById('today-date').textContent),
+      aw.document.getElementById('today-date').textContent);
+  }
+
+  /* ---- Urdu's calendar heads ---- */
+  {
+    const { window: uw } = boot(langHtml, { focus_lang: 'ur' });
+    await wait(450);
+    /* The locale's "narrow" weekday in Urdu is a Latin letter — S, M, T — which
+       no Urdu calendar prints. */
+    const head = uw.__lang.langDayHead(1);
+    check('the calendar’s day letters are in the reader’s own script',
+      !/^[A-Za-z]$/.test(head) && head.length > 0, head);
+  }
+
+  /* ---- the terms, the first time ---- */
+  {
+    const { window: tw, errors: tErr } = boot(langHtml, { focus_terms: null });
+    await wait(500);
+    const $t = (id) => tw.document.getElementById(id);
+    check('a first start shows the terms over everything',
+      !$t('terms-gate').classList.contains('hide')
+      && $t('terms-doc').textContent.length > 500
+      && tw.document.querySelectorAll('#terms-langs [data-lang]').length === 7,
+      $t('terms-doc').textContent.length + ' characters');
+    /* The privacy policy is one tap away, in the same page. */
+    tw.document.querySelector('#terms-gate [data-doc="privacy"]').click();
+    await wait(80);
+    check('and the privacy policy is right there beside them',
+      /sold, shared for advertising/.test($t('terms-doc').textContent),
+      $t('terms-doc').textContent.slice(0, 50));
+    /* **Nothing else may interrupt it.** The daily mood question waits. */
+    check('and nothing else is asked over the top of it',
+      !!$t('mood-ask') && $t('mood-ask').classList.contains('hide'),
+      $t('mood-ask') ? $t('mood-ask').className : 'no prompt');
+
+    $t('terms-agree').click();
+    await wait(80);
+    const rec = JSON.parse(tw.localStorage.getItem('focus_terms') || 'null');
+    check('agreeing puts them away and writes down which version was agreed to',
+      $t('terms-gate').classList.contains('hide') && rec && rec.v === tw.__lang.TERMS_VERSION,
+      JSON.stringify(rec));
+
+    const { window: t2 } = boot(langHtml, { focus_terms: JSON.stringify(rec) });
+    await wait(400);
+    check('and the next start goes straight to the app',
+      t2.document.getElementById('terms-gate').classList.contains('hide'),
+      t2.document.getElementById('terms-gate').className);
+    /* Still readable afterwards, next to the privacy policy. */
+    t2.document.getElementById('menu-btn').click();
+    await wait(60);
+    t2.document.getElementById('d-terms').click();
+    await wait(120);
+    check('and they stay in the menu, beside the privacy policy',
+      t2.document.getElementById('about-title').textContent === 'Terms of use'
+      && /Embers are earned by focusing/.test(t2.document.getElementById('about-body').textContent),
+      t2.document.getElementById('about-title').textContent);
+    /* A version bump asks again — that is the whole point of storing it. */
+    const { window: t3 } = boot(langHtml, { focus_terms: JSON.stringify({ v: 'older', at: 1 }) });
+    await wait(400);
+    check('and changing the terms asks again',
+      !t3.document.getElementById('terms-gate').classList.contains('hide'),
+      t3.document.getElementById('terms-gate').className);
+    check('and none of that threw', tErr.length === 0, tErr.slice(0, 2).join(' | '));
+  }
 }
 
 // --- verdict ---------------------------------------------------------------

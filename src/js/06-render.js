@@ -55,7 +55,7 @@
     if(S.mode==='setup'){
       $('f-num').textContent=S.focusMin; $('r-num').textContent=S.breakMin;
       const rs=$('rest-summary');
-      if(rs) rs.textContent = S.breakMin+' min · '+(S.repeat>0 ? '×'+S.repeat : 'endless');
+      if(rs) rs.textContent = T('{m} min', {m:S.breakMin}) + ' · ' + (S.repeat>0 ? '×'+S.repeat : T('endless'));
       $('f-minus').disabled = S.focusMin<=5; $('f-plus').disabled = S.focusMin>=120;
       $('r-minus').disabled = S.breakMin<=5; $('r-plus').disabled = S.breakMin>=30;
       markPresets();
@@ -74,14 +74,14 @@
        "PAUSED AFTER 4 — TAP PLAY TO CARRY ON", which is thirty-one characters
        and about twice the width there is. Five words, one line. */
     $('subline').textContent = S.autoHold
-      ? S.runCount+' done — tap play'
+      ? T('{n} done — tap play', {n:S.runCount})
       : S.mode==='focus'
         /* Just the count. "Session 1 of 4" spends two thirds of the line saying
            what the line is, under a clock, on a screen with nothing else it
            could be counting. */
-        ? (S.repeat>0 ? ((S.runCount+1)+' of '+S.repeat) : 'No '+(S.runCount+1))
+        ? (S.repeat>0 ? T('{a} of {b}', {a:S.runCount+1, b:S.repeat}) : T('No {n}', {n:S.runCount+1}))
         : 'Recover';
-    $('toggle-run').textContent = S.running ? 'Pause' : (S.remaining<S.total ? 'Resume' : 'Begin '+(S.mode==='focus'?'focus':'rest').toLowerCase());
+    $('toggle-run').textContent = S.running ? 'Pause' : (S.remaining<S.total ? 'Resume' : (S.mode==='focus' ? 'Begin focus' : 'Begin rest'));
     /* Keep the phone's notification in step with the timer. Keyed inside, so
        this costs a string comparison on the renders where nothing changed. */
     try{ Notify.sync(); }catch(e){}

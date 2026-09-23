@@ -61,7 +61,8 @@
     },
     render(){
       const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-      $('cal-month').textContent=months[this.m]+' '+this.y;
+      $('cal-month').textContent = LANG === 'en' ? months[this.m]+' '+this.y
+        : new Date(this.y, this.m, 1).toLocaleDateString(langLocale(), {month:'long', year:'numeric'});
       const map=this.byDay();
       const first=new Date(this.y,this.m,1), days=new Date(this.y,this.m+1,0).getDate();
       const startW=(first.getDay()+6)%7; // Monday=0
@@ -139,7 +140,7 @@
       const box=$('cal-detail');
       box.style.paddingBottom='';
       if(!this.sel){ box.innerHTML=''; return; }
-      const label=new Date(this.sel+'T00:00:00').toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
+      const label=new Date(this.sel+'T00:00:00').toLocaleDateString(langLocale(),{weekday:'long', month:'long', day:'numeric'});
       const recs=map[this.sel] ? map[this.sel].recs.slice().sort((a,b)=>a.ts-b.ts) : [];
       /* The day's name is the page's title now rather than a heading inside
          it. The month used to give way as a day filled up — a threshold on how
@@ -173,7 +174,7 @@
       }
       recs.forEach(r=>{
         const wrap=document.createElement('div'); wrap.className='cal-rec';
-        const tm=new Date(r.ts).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+        const tm=new Date(r.ts).toLocaleTimeString(langLocale(),{hour:'numeric',minute:'2-digit'});
         const head=document.createElement('div'); head.className='rechead';
         head.innerHTML='<span class="rectime">'+esc(tm)+'</span><span class="recdur">'+fmtDur(r.secs)+'</span>';
         const del=document.createElement('button'); del.className='recdel'; del.textContent='Delete';
@@ -184,7 +185,7 @@
         wrap.appendChild(head);
         if(r.with && r.with.length){
           const who=document.createElement('p'); who.className='recwith';
-          who.textContent='Studied with '+namesList(r.with);
+          who.textContent=T('Studied with {names}', {names:namesList(r.with)});
           wrap.appendChild(who);
         }
         wrap.appendChild(ta); box.appendChild(wrap);
@@ -265,7 +266,7 @@
              tap that small is worse than saying so plainly, and saying so is
              what the confirm is for. */
           const go = ()=>{ planRemove(p.id); this.render(); };
-          if(p.rep) askConfirm('Remove “' + p.text + '”?', planRepeatLabel(p) + '. Removing it removes every one of them.', 'Remove', go);
+          if(p.rep) askConfirm(T('Remove “{what}”?', {what:p.text}), T('{rule}. Removing it removes every one of them.', {rule:planRepeatLabel(p)}), 'Remove', go);
           else go();
         };
         row.appendChild(del);
@@ -362,7 +363,7 @@
         if(st.every === 'wk'){
           const dows = document.createElement('div');
           dows.className = 'plan-dows';
-          ['S','M','T','W','T','F','S'].forEach((d, i)=>{
+          (LANG === 'en' ? ['S','M','T','W','T','F','S'] : [0,1,2,3,4,5,6].map(langDayHead)).forEach((d, i)=>{
             const b = document.createElement('button');
             b.className = 'plan-dow' + (st.days.indexOf(i) >= 0 ? ' on' : '');
             b.textContent = d;

@@ -85,15 +85,14 @@ adit alit anil arum ares seta stele affine ariose imaret teredo ctenoid
 egger enate peba balas serer bonce apery baric salmi grume pavis soave amyl
 anna abohm argal aery ess ell emu gnu ogee obi oud oka orle
 anomie ague bolo citrate comer eared oiled non semi sepia scud strew glower
-elfin abed bosom fete tine ogle mow shod scab
+elfin abed fete tine ogle mow shod scab
 adsorb borate paean manse withe impute oaken lilt arty bats edged citrine
 cilium elute supine talky prewar wads bogey brig patina teem opus moire
-toter nosed basal accede decry deem laden allot corona teat lewd clod
-apogee efface ocher gird bloc peaky mien brad anus crone
+nosed basal accede decry deem laden allot corona teat clod
+apogee efface ocher gird bloc peaky mien brad
 beta zeta gamma delta sepal stamen coypu genus ester esne
-chyle dentate joss shaw roarer ovate supra blooded roughen retie intima
+chyle dentate joss shaw ovate supra blooded roughen retie intima
 bleb ology titer humic sept vas dicot plat
-feces arousal
 """.split())
 
 # `yap` was in the block above and has been taken out. It was banned as
@@ -133,8 +132,8 @@ butyl flexor halide gyrus styrene murine nitrite biotin alanine pineal
 taxon trophic ternary laminar peridot testa ataxia caries rhesus torus
 fossa apnea aortic eczema lancet lumen ligand diode basalt pyrite
 liana mouton kea coot boll chine cuddy scrim eft hod pica laver cinque
-publican chattel legate harpy gammon nunnery abbess sexton prefect plenary
-usury phallus tittle etude physic obligate simian venter
+publican chattel legate gammon nunnery abbess sexton prefect plenary
+usury tittle etude physic obligate simian venter
 fucker pecker mulatto schmuck busty bitchy spank puss gangsta sleazy
 trashy dork shiv fink hippy boozer boozy doss reefer kinky
 parr pes lees chino duchy rondo scion slough butte catchment nave
@@ -255,7 +254,7 @@ theta rhea haw chico actin
 # `omega` and the rest — and kept. Unlike any of them it has an everyday
 # non-Greek sense, the arrival time, and it is clued that way.
 BANNED |= set("""
-urine wta marc
+wta marc
 """.split())
 
 # The rebuild of those three grids reached for two more. `twat` is the crude
@@ -299,6 +298,36 @@ BANNED |= set("""
 bendis boner
 """.split())
 
+# 2026-09-21, read off this run's two sevens, and *not* banned — recorded here
+# because the reasoning is worth keeping. `amd` is a chipmaker's initials and
+# reads like the `wta` tier: letters a solver never spells out from the
+# crossings, unlike `bbc`, `fda`, `cia`, `irs`, `tsa`, `ngo`, `gdp`, `imf` and
+# `cfo`, which came through the same fill and are plainly said aloud. `lam` is
+# met only inside "on the lam", the `carte`/`haw`/`hale` fragment tier.
+#
+# Both stay, for the reason the `bel daw col` and `roe`/`pta` notes give: `amd`
+# sits in nine shipped puzzles including a 15x15 and `lam` in five, and `--prune`
+# takes fourteen grids with them — saved boards and all. Neither is crude nor
+# genuinely unknown, so neither earns that. They join `roe` and `pta` as
+# candidates for the next pass that clears the bank anyway.
+#
+# `nog` and `gui` were weighed in the same pass and kept outright: `nog` is
+# sold and named on its own at Christmas, unlike `cole`, and `gui` is said
+# aloud in the tier `isp` already sits in.
+
+# From the rebuild of those grids. `tum` is British nursery slang for the
+# stomach and is the `wally`/`tam` tier exactly — regional, childish, and never
+# assembled from crossings. Unlike `amd` and `lam` above it sat only in a grid
+# built this run, so banning it costs one nine and nothing shipped, which is
+# the whole difference.
+#
+# `deb`, `eke`, `bah`, `fab` and `hag` were read in the same pass and left
+# alone: each is arguably the same tier, but each sits in shipped puzzles and
+# none is crude or genuinely unknown. They go on the `roe`/`pta` list.
+BANNED |= set("""
+tum
+""".split())
+
 # 2026-09-04, read off this run's fill. `beth` is the second letter of the
 # Hebrew alphabet and is the same thing as the bare Greek letters already
 # banned — `beta`, `theta`, `omega` and the rest. `crore` is the South Asian
@@ -331,7 +360,7 @@ beth crore sol gen
 # `--clues` cannot see. `tom` is kept despite a gloss that leads with the male
 # turkey — the `cob`-as-swan trap — and is clued as the cat.
 BANNED |= set("""
-midget ovule
+midget
 """.split())
 
 # `atp` was banned in a third pass on 2026-09-04 and the ban was taken straight
@@ -347,6 +376,7 @@ midget ovule
 # `cfo`, `bbc`, `sms`, `atm` and `npc` came through the same fill and are kept
 # on their merits — initials a solver says out loud, the `dna`/`fbi` tier.
 
+# LIFTED 2026-09-23 (`perverted`) — see the cluster note at the end of this file.
 # Read off the regenerated nines the same day. `perverted` has an ordinary
 # "distorted" sense — perverting the course of justice — but the word a solver
 # hears is the sexual one, and that is the tier `lewd`, `bosom` and `arousal`
@@ -357,9 +387,6 @@ midget ovule
 # a garden bird a solver names on sight and is nothing like `erne`, `sod` is
 # clued as the piece of turf, and `lass` is standard rather than the `wally`
 # tier of regional slang.
-BANNED |= set("""
-perverted
-""".split())
 
 # `lei` and `swami` were read off the same nines and are the `aloha`/`agha`
 # tier the list has excluded before. Both sit in shipped 15x15s, so they join
@@ -392,6 +419,7 @@ BANNED |= set("""
 bronc kat brb
 """.split())
 
+# LIFTED 2026-09-23 (`mercer`) — see the cluster note at the end of this file.
 # Seventh pass, read off the 2026-08-23 fill. `semen` and `shag` are the crude
 # tier that `cock` and `pee` set: `shag` has innocent senses (a carpet pile, a
 # cormorant) exactly as `cock` had, and the same answer to the same objection.
@@ -406,7 +434,7 @@ bronc kat brb
 # it; the crude reading is a second sense, which is not what `shag` and `semen`
 # are. `urea` stays where `actin` went, because school biology names it.
 BANNED |= set("""
-semen shag lynch dirk mercer
+semen shag lynch dirk
 """.split())
 
 # Second read of the same fill. `autism` is not crude and not obscure, which is
@@ -421,10 +449,8 @@ semen shag lynch dirk mercer
 # a solver names without prompting, which is the `pga`/`nba` line. `sagan`,
 # `pele` and `ali` are the one-famous-person proper nouns `uma` and `cicero`
 # already settled. `rowan` is a tree that grows in gardens, not a `cole`.
-BANNED |= set("""
-autism
-""".split())
 
+# LIFTED 2026-09-23 (`cervix`) — see the cluster note at the end of this file.
 # Third read, off the 15x15 that replaced the one `autism` took out — the size
 # reaches furthest and duly surfaced three more. `cervix` is reproductive
 # anatomy, straight into `semen`. `wiener` is the sausage whose second sense is
@@ -437,7 +463,7 @@ autism
 # where `gcse` is UK-only, and one cannot stay without the other. `ump` is said
 # aloud at every ball game, unlike `bronc`.
 BANNED |= set("""
-cervix wiener mot
+wiener mot
 """.split())
 
 # Read off the 2026-08-26 fill. `faggot` is the hole `fag` left: `fag` was
@@ -458,6 +484,7 @@ BANNED |= set("""
 faggot crap
 """.split())
 
+# LIFTED 2026-09-23 (`uterus`, `roper`) — see the cluster note at the end.
 # Second read of the 2026-08-26 fill, both nines. `uterus` is reproductive
 # anatomy and goes exactly where `cervix` went one block up. `roper` is the
 # agent noun the `toter`/`mercer`/`roarer` note already drew the line at — a
@@ -473,7 +500,7 @@ faggot crap
 # `isp` and `ssd`; and `dale` is kept over `lea` and `ness` because up hill and
 # down dale is a phrase people still say.
 BANNED |= set("""
-uterus roper laird phoebe
+laird phoebe
 """.split())
 
 # Third read of the same fill, over the two nines that replaced the pruned pair.
@@ -492,6 +519,7 @@ BANNED |= set("""
 pimp
 """.split())
 
+# LIFTED 2026-09-23 (`vagina`) — see the cluster note at the end of this file.
 # Read off the 2026-09-02 fill. `vagina` is the `cock`/`pee` tier — anatomical
 # and not what anybody wants in a focus timer's crossword.
 #
@@ -500,9 +528,6 @@ pimp
 # which is an argument for writing them a clue, not for dropping the word. A
 # Malayan dagger, a chest muscle, the Hoover and your closest friends all clue
 # plainly once somebody writes the clue by hand.
-BANNED |= set("""
-vagina
-""".split())
 
 # Read off the 2026-09-02 catch-up fill. `rape` is the plant in the dictionary
 # and the assault everywhere else; no clue makes that safe in a focus timer and
@@ -1311,6 +1336,150 @@ def main():
     # Barred is the default at every size now. --walls asks for the old
     # black-square shapes, which is only useful for reproducing an older puzzle.
     generate(cw, words, n, want, budget, barred='--walls' not in args)
+
+
+
+# 2026-09-19, read off this run's 9x9 fill. `dick` is the crude tier that `cock`,
+# `twat` and `boner` set: the detective sense is real and dated, and the vulgar
+# one is what a solver hears first, which is the whole of the `wiener` argument.
+# It sat only in a nine built this run, so pruning it cost nothing already
+# shipped.
+#
+# Kept from the same fill and recorded so the next pass does not re-argue them:
+# `eek` is the interjection tier `brr` already settled; `yeet` and `eta` are both
+# explicit keeps above; `lan` joins `isp`, `gpu` and `usb` as initials said out
+# loud; `bach`, `elvis`, `euler` and `ulster` are the one-famous-thing proper
+# nouns `uma` and `cicero` settled, and all four are hand-clued below.
+BANNED |= set("""
+dick
+""".split())
+
+
+# Second read of the same fill, off the nine that replaced the pruned one.
+# `dong` is the `wiener` case again: the bell and the Vietnamese currency are
+# both real, and the vulgar sense is the one a solver lands on. It sat only in a
+# nine built this run.
+#
+# Kept here: `brr` and `ecg` are settled above, `wren` is the garden bird the
+# `phoebe` note expressly kept, and `dos` is the half of "dos and don'ts".
+BANNED |= set("""
+dong
+""".split())
+
+
+# LIFTED 2026-09-23 (`ovary`) — see the cluster note at the end of this file.
+# Third read, off the nine that replaced that one. `ovary` is where `cervix`,
+# `uterus` and `ovule` went — reproductive anatomy on one side and textbook
+# botany on the other, and neither is what anybody wants in a focus timer.
+#
+# Kept: `kinda` and `tut` are both said out loud, the `sus`/`yeet` line; `etc`
+# and `kia` are settled above.
+
+# 2026-09-22, read off the day's fill. `nog` is `cole` exactly: a word nobody
+# meets outside the compound it lives in, and clueing it means either eggnog or
+# a wooden peg. `serge` is the `chino`/`mouton`/`scrim` fabric tier, and it
+# scores at all only because the forename carries it, which is the `alexia`
+# case. Both sat only in grids built this run, so pruning cost nothing shipped.
+#
+# Kept, and checked against the bank rather than argued from the tier, because
+# both are genuinely the shape a ban would fit: `lee` is the `lea`/`ness`
+# headland-and-meadow tier, but it is in ten shipped puzzles including a 15x15,
+# which is where `atp` and `roe` already stand — the ban costs more than it
+# buys. `dyer` is the agent noun `mercer` and `roper` were banned at, but it
+# holds two shipped grids and a dyer is a trade people are still named for.
+# Both are the obvious candidates the day the bank is next cleared.
+#
+# Also kept on merit: `mckellen` is the one-famous-person proper noun `uma` and
+# `monet` settled, not a `byrne` shared among several; `gui` is said as a word
+# and joins `css` and `gpu`; `abc`, `nfl`, `vpn` and `isp` are the spoken-
+# initials tier; `batman` and `hydra` are ordinary culture; `alms`, `heft`,
+# `stilt`, `lorry`, `bard` and `adios` are all plain current words.
+BANNED |= set("""
+nog serge
+""".split())
+
+# LIFTED 2026-09-23 (`draper`) — see the cluster note at the end of this file.
+# Second read of the 2026-09-22 fill, over the seven and the fifteen that
+# replaced the pruned pair. `draper` is `mercer` under another name — the same
+# archaic dealer in cloth, and the note that banned `mercer` beside `toter` and
+# `roarer` decides this one without re-arguing it. `donna` is a bare forename,
+# the `merle`/`bennet`/`alexia` case where the frequency score belongs to the
+# people carrying the name and not to any common noun. Both sat only in the
+# fifteen built this run.
+#
+# Kept because the bank says so rather than the tier: `ewan` is the same bare
+# forename as `donna` but sits in six shipped grids including a 15x15, and
+# `anon` is the archaic "soon" that `oft` was banned for but sits in four
+# including a 15x15. Candidates for the day the bank is cleared, with `lee` and
+# `dyer` from the first read.
+#
+# Kept on merit: `floe` is school geography and clues plainly as floating ice,
+# not a `cole`; `peele` is the one-famous-person surname `monet` settled;
+# `lira` is current currency news the way `emir` is; `logos` is just the plural
+# of logo; `lan`, `api`, `epa` and `pbs` are the spoken-initials tier.
+BANNED |= set("""
+donna
+""".split())
+
+# Third read, off the fifteen that replaced the one `draper` took out, and the
+# clearest case the list has had: `cunt` is the most severe word in the
+# language and there is no innocent first sense to argue from the way there was
+# for `cock` and `shag`. It is also the strongest evidence yet for why step 5
+# reads a fifteen before clueing it — no frequency floor or gloss rule stopped
+# this, only a person looking.
+#
+# `obesity`, `lunatic` and `yassify` were banned in the same pass and Hashir
+# took all three back out the next day. Recorded because the reasoning was
+# wrong in a way the list should not repeat:
+#
+#   * `obesity` and `lunatic` were sent where `autism` went, but the `autism`
+#     note draws its line at a word that *names a group of people*, and neither
+#     of these does. `obesity` is a plain medical noun for a condition, which
+#     is the `coma`/`anemia` side of that line, and `lunatic` is used about
+#     traffic and weather far more than about anybody's mind. Reaching for the
+#     `perverted` test — the word a solver hears — was overreach: what a solver
+#     hears in `lunatic` is "madcap", not a diagnosis.
+#   * `yassify` was put on the `brb` side of the `yeet` line for being faddish.
+#     But `brb` was banned for being shorthand *rather than a word*, which is a
+#     different objection entirely, and `yeet`, `sus`, `fam` and `kinda` are all
+#     here on the strength of being said out loud. Newness is not obscurity.
+#
+# Kept: `broad` and `sod` have plain primary senses and are clued to them, the
+# `buns`/`stud` rule; `dole`, `hind`, `inroad`, `feisty` and `venom` are all
+# ordinary current words.
+BANNED |= set("""
+cunt
+""".split())
+
+# 2026-09-23. Hashir lifted three whole clusters. The words are gone from the
+# blocks above rather than listed here, so this note is the only record of what
+# they were and why the bans went:
+#
+#   * Anatomy and medicine: `vagina`, `cervix`, `uterus`, `ovary`, `ovule`,
+#     `anus`, `phallus`, `urine`, `feces`, `arousal`, `autism`. These went in
+#     over several passes on the argument that anatomy is "not what anybody
+#     wants in a focus timer", which is squeamishness rather than a rule about
+#     words. They are the terms a biology lesson uses. `ova` was never banned
+#     and sits in seven shipped puzzles, which is what made `ovary` beside it
+#     indefensible.
+#   * Mild pejoratives: `lewd`, `bosom`, `perverted`, `crone`, `harpy`. Each
+#     has a plain sense a clue can reach — a bosom friend, a fairy-tale crone —
+#     and the `perverted` note's own "the word a solver hears" test was being
+#     used to ban words on their worst reading rather than their ordinary one.
+#   * Agent nouns: `toter`, `roarer`, `mercer`, `roper`, `draper`. The rule was
+#     that nobody says these, but it never survived contact with the bank:
+#     `dyer` sits in shipped grids and `tucker` was expressly kept at the same
+#     shape, so the rule was only ever catching whichever one turned up next.
+#
+# All twenty-one are back in the pool and will need hand clues the first time
+# the fill reaches them — an opaque gloss is an argument for writing a clue,
+# which is the lesson the `kris`/`pec`/`vac`/`fam` note already drew.
+#
+# What this does not touch: `cunt`, `rape`, `fag`, `faggot`, `dyke`, `mulatto`,
+# `midget`, `lynch`, `pimp`, `semen` and the rest of the crude-and-slur tier.
+# Those are not on the list for being uncomfortable, which is the objection
+# that just failed three times; they are on it for being slurs or for naming
+# an assault, and no clue changes that.
 
 
 if __name__ == '__main__':

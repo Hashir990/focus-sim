@@ -174,6 +174,43 @@
     'face-digital':0, 'face-analog':40, 'face-flip':20, 'face-glass':60,
   };
 
+  /* **The wardrobe went up in the same release and was left out of the table
+     above.** Every buddy price rose two to five times in 1.3.5 while `grand`
+     only knew about lights, sounds and faces, so a shelf of coats and antics
+     bought at the old prices was re-charged at the new ones: one device holding
+     twenty-six of them was charged 4877 against 1612 earned, where what it had
+     actually paid came to 1529. The balance sat at zero, and every ember earned
+     afterwards fell into the hole — "embers keep resetting to 0".
+
+     These are the rows as they were on sale from 6 to 15 September, frozen the
+     same way and for the same reason: a receipt, not a price list. Rows are
+     indexed exactly like BUD_COST in 46-buddy.js. */
+  const EMB_WAS_BUD = {
+    e:  [0, 12, 14, 12, 16, 18, 16, 20, 22, 26, 24, 28, 26],
+    r:  [0, 16, 22, 24, 20, 28, 18, 32, 30, 34, 26],
+    h:  [0, 18, 16, 24, 30, 34, 20, 32, 38, 30, 26, 22, 44],
+    f:  [0, 26, 22, 28, 48, 30, 34, 20, 24, 38],
+    a:  [0, 14, 16, 20, 24, 22, 26, 22, 28],
+    o:  [0, 45, 50, 55, 80, 40, 60, 45, 35, 50, 42, 48, 62, 52, 38],
+    an: [100, 35, 60, 70, 85, 55, 45, 30],
+  };
+  /* **Which devices have met the wardrobe's rise**, written into `grand`
+     itself rather than into a new list beside it. `grand` already travels —
+     unioned by 47-merge.js and by the server's copy of it — so the buddy's old
+     prices reach every device on the account without the server having to
+     learn a new key first, which is the step that silently drops things. It is
+     never in `own`, so it is never priced. */
+  const EMB_BUD_MET = '@bud-rise';
+
+  /** What a thing cost before the rise, or null if it was not on sale then. */
+  function embWas(id){
+    if(EMB_WAS[id] != null) return EMB_WAS[id];
+    const m = /^bud-(an|[a-z])(\d+)$/.exec(String(id || ''));
+    const row = m && EMB_WAS_BUD[m[1]];
+    const v = row ? row[parseInt(m[2], 10)] : undefined;
+    return v != null ? v : null;
+  }
+
   function embLight(id){ return EMB_LIGHTS.find(l=>l.id === id) || EMB_LIGHTS[0]; }
   function embSound(id){ return EMB_SOUNDS.find(s=>s.id === id) || null; }
   /** Free, or bought. Asked by the ambience picker before it plays anything. */
@@ -264,6 +301,19 @@
         this.grand = (this.own || []).filter(id=>EMB_WAS[id] != null);
         try{ this.save(); }catch(e){}
       }
+      /* The same moment for the wardrobe, once. Only `bud-` ids: a light
+         bought at its new price after the first rise must not be swept in here
+         and handed its old one. Everything the device holds is taken — after
+         1.3.5 the re-priced wardrobe left every such device at zero, so almost
+         nothing can have been bought at the new prices, and the error in the
+         other direction would be charging somebody twice. */
+      if(this.grand.indexOf(EMB_BUD_MET) < 0){
+        const had = this.grand;
+        this.grand = had.concat((this.own || []).filter(id=>
+          typeof id === 'string' && id.indexOf('bud-') === 0
+          && embWas(id) != null && had.indexOf(id) < 0), [EMB_BUD_MET]);
+        try{ this.save(); }catch(e){}
+      }
       this.ready = true;
       this.paint();
       this._mark();
@@ -338,11 +388,16 @@
        the achievements page price the owned list with — `priceOf` is for
        what to write on a tile. */
     paidFor(id){
-      if(this.grand && EMB_WAS[id] != null && this.grand.indexOf(id) >= 0) return EMB_WAS[id];
+      const was = embWas(id);
+      if(this.grand && was != null && this.grand.indexOf(id) >= 0) return was;
       return this.priceOf(id);
     },
+    /* **`ACH_LIST`, and it said `ACH`.** There has never been an `ACH`: the
+       lookup threw, the catch returned 0, and every achievement was worth
+       nothing to the derivation. Claiming one still flashed "+6" through
+       `credit()`, and the next reconcile took it away again. */
     payout(id){
-      try{ const a = ACH.find(x=>x.id === id); return a ? (a.pays || 0) : 0; }catch(e){ return 0; }
+      try{ const a = ACH_LIST.find(x=>x.id === id); return a ? (a.pays || 0) : 0; }catch(e){ return 0; }
     },
 
     reconcile(){
@@ -359,6 +414,60 @@
       this.have = d.have;
       this.bank = d.bank;
       return d;
+    },
+
+    /* ---- grants, which are not payments ----
+
+       **A running total does not survive a reload; `adjust` does.** `credit()`
+       raises `have` and `earned` in memory, and the next `reconcile()` throws
+       both away and works the balance out again from the log, the claimed
+       achievements and `adjust`. That is right for everything that pays —
+       focus time and achievements are *in* those inputs — and wrong for
+       anything handed over from outside them, which is what the developer page
+       does. Its +1000 looked like it worked and was gone by the next start.
+
+       So a grant goes into `adjust`, the one input that means "embers that were
+       never in a log", and then the derivation is re-run rather than bypassed:
+       what you see afterwards is what you will still have tomorrow. */
+    grant(n, what){
+      const add = Math.round(Number(n) || 0);
+      if(!add) return this.have;
+      this.adjust = Math.max(0, this.adjust + add);
+      this.reconcile();
+      this.save();
+      this.paint();
+      this._mark();
+      try{ this.render(); }catch(e){}
+      if(add > 0) this.flash('+' + (what || add));
+      return this.have;
+    },
+
+    /* **Write off a spend that nothing can explain.**
+
+       The balance is `earned - spent`, floored at zero, and the developer page
+       can put things in `own` without anything having paid for them. Owning the
+       whole shelf that way is about fourteen thousand embers of spending
+       against an honest few hundred earned — so the balance sits at zero and
+       every ember earned afterwards disappears into the hole, which reads
+       exactly like earning being broken.
+
+       This does not invent a balance: it raises `adjust` to cover the part of
+       the spend that has no source, leaving `have` at zero and the *next*
+       ember earned worth one ember again. Returns what it had to write off. */
+    settle(){
+      const self = this;
+      const d = embersFrom(LOG, this.own, this.claimed, this.feats, this.adjust,
+        (id)=>self.paidFor(id), (id)=>self.payout(id));
+      const hole = Math.max(0, d.spent - d.earned);
+      if(hole > 0){
+        this.adjust += hole;
+        this.reconcile();
+        this.save();
+        this.paint();
+        this._mark();
+        try{ this.render(); }catch(e){}
+      }
+      return hole;
     },
 
     /** Add to the pile and say so on screen. Everything that pays goes here. */
@@ -396,16 +505,17 @@
       const l = embLight(id);
       if(this.own.indexOf(l.id) >= 0){ this.use(l.id); return; }
       if(this.have < l.cost){ toast('Not enough embers yet'); return; }
-      askConfirm('Light the ' + l.name.toLowerCase() + '?',
-        l.cost + ' embers, yours for good.',
-        'Spend ' + l.cost, ()=>{
+      const ln = LANG === 'en' ? l.name.toLowerCase() : T(l.name);
+      askConfirm(T('Light the {name}?', {name:ln}),
+        Tn('{n} embers, yours for good.', '{n} embers, yours for good.', l.cost),
+        T('Spend {n}', {n:l.cost}), ()=>{
           if(Embers.have < l.cost) return;
           Embers.have -= l.cost;
           Embers.own.push(l.id);
           Embers.light = l.id;
           Embers.save(); Embers.paint(); Embers.render();
           chime(false);
-          toast(l.name + ' is yours');
+          toast(T('{name} is yours', {name:T(l.name)}));
         });
     },
 
@@ -414,16 +524,17 @@
       const s = embSound(id);
       if(!s) return;
       if(embHasSound(id)){ if(then) then(); return; }
-      if(this.have < s.cost){ toast(s.cost + ' embers for ' + s.name.toLowerCase()); return; }
-      askConfirm('Unlock ' + s.name.toLowerCase() + '?',
-        s.cost + ' embers, yours for good — sound, colours and weather.',
-        'Spend ' + s.cost, ()=>{
+      const sn = LANG === 'en' ? s.name.toLowerCase() : T(s.name);
+      if(this.have < s.cost){ toast(T('{n} embers for {name}', {n:s.cost, name:sn})); return; }
+      askConfirm(T('Unlock {name}?', {name:sn}),
+        Tn('{n} embers, yours for good — sound, colours and weather.', '{n} embers, yours for good — sound, colours and weather.', s.cost),
+        T('Spend {n}', {n:s.cost}), ()=>{
           if(Embers.have < s.cost) return;
           Embers.have -= s.cost;
           Embers.own.push(EMB_SND + id);
           Embers.save(); Embers.render();
           chime(false);
-          toast(s.name + ' is yours');
+          toast(T('{name} is yours', {name:T(s.name)}));
           if(then) then();
         });
     },
@@ -484,7 +595,9 @@
 
     reset(){
       this.have = 0; this.earned = 0; this.bank = 0;
-      this.own = ['seaglass']; this.grand = ['seaglass']; this.light = 'seaglass';
+      /* The marker stays: without it the next load would grandfather anything
+         bought between now and then at the old wardrobe prices. */
+      this.own = ['seaglass']; this.grand = ['seaglass', EMB_BUD_MET]; this.light = 'seaglass';
       this.claimed = []; this.feats = {};
       this.save(); this.paint(); this.render();
       // a track you no longer own cannot keep playing
@@ -513,15 +626,15 @@
       const pane = (id, body)=>tab === id ? body : '';
       return '<div class="emb">'
         + '<div class="emb-count"><b>' + this.have + '</b>'
-        + '<span>ember' + (this.have === 1 ? '' : 's') + ' unspent</span></div>'
+        + '<span>' + esc(Tn('ember unspent', 'embers unspent', this.have)) + '</span></div>'
         /* **Two lines: the rate, and the thing nobody can work out.** This was
            five, then it was one, and one was too few — the leftover-minutes
            rule is the whole reason a short session is worth sitting through,
            and there is nowhere else in the app it could be inferred from. What
            was cut and stays cut is the paragraph about where bonus embers come
            from, which the achievements screen already says. */
-        + '<p class="emb-sub">' + embMark() + ' ' + this.earned + ' earned in all'
-        + (hours ? ' · about ' + hours + ' hour' + (hours === 1 ? '' : 's') + ' of focus' : '')
+        + '<p class="emb-sub">' + embMark() + ' ' + esc(T('{n} earned in all', {n:this.earned}))
+        + (hours ? ' · ' + esc(Tn('about {n} hour of focus', 'about {n} hours of focus', hours)) : '')
         + '</p>'
         + '<p class="emb-sub">One ember per ten minutes of focus. Minutes left '
         + 'over are kept and count towards the next one.</p>'
@@ -586,10 +699,10 @@
         + pane('buddy', (()=>{ try{ return budShopHtml(); }catch(e){ return ''; } })())
         + pane('antics', (()=>{ try{ return budAnticShopHtml(); }catch(e){ return ''; } })())
         + (next ? '<p class="emb-next">' + (this.have >= next.cost
-            ? 'You can afford ' + next.name.toLowerCase() + '.'
-            : embPrice(next.cost - this.have) + ' more for ' + next.name.toLowerCase()
-              + ' — about ' + Math.ceil((next.cost - this.have) * EMB_PER / 3600 * 10) / 10
-              + ' hours.') + '</p>'
+            ? esc(T('You can afford {name}.', {name:LANG === 'en' ? next.name.toLowerCase() : T(next.name)}))
+            : embPrice(next.cost - this.have) + ' ' + esc(T('more for {name} — about {h} hours.',
+                {name:LANG === 'en' ? next.name.toLowerCase() : T(next.name),
+                 h:Math.ceil((next.cost - this.have) * EMB_PER / 3600 * 10) / 10}))) + '</p>'
            : '<p class="emb-next">Every light is yours. That was a lot of hours.</p>')
         + '</div>';
     },

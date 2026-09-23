@@ -54,8 +54,21 @@
     const t = (typeof ts === 'number' && isFinite(ts)) ? ts : Date.now();
     return new Date(t + PKT_MS).toISOString().slice(0, 10);
   }
-  /** Today, in Pakistan. The one everything defaults to. */
-  function pktNow(){ return pktDay(Date.now()); }
+  /** Today, in Pakistan. The one everything defaults to.
+
+      **Shiftable, and only from the developer page.** A daily puzzle is the one
+      thing that cannot be tested by playing it: tomorrow's crossword is a day
+      away, and a streak is a fortnight. `DAILY_SHIFT` moves what the whole app
+      calls today, so every daily — the puzzle, the calendar, the streak, the
+      mood prompt — moves together and nothing has to be faked one piece at a
+      time. It is zero in any build without the developer stamp, because nothing
+      can reach `dailyShift` to set it (42-dev.js). */
+  let DAILY_SHIFT = 0;
+  function dailyShift(days){
+    if(typeof days === 'number' && isFinite(days)) DAILY_SHIFT = Math.max(-3650, Math.min(3650, Math.round(days)));
+    return DAILY_SHIFT;
+  }
+  function pktNow(){ return pktDay(Date.now() + DAILY_SHIFT * 86400000); }
   /** A day string as a count of days, so two of them can be compared or spanned. */
   function pktNum(key){
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
@@ -71,7 +84,17 @@
   function pktLabel(key){
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
     if(!m) return String(key || '');
+    if(LANG !== 'en'){
+      try{ return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString(langLocale(), {month:'short', day:'numeric', timeZone:'UTC'}); }catch(e){}
+    }
     return PKT_MON[+m[2] - 1] + ' ' + (+m[3]);
+  }
+  /** `Sep 2026`, for a month's heading, in the reader's own language. */
+  function pktMonthLabel(y, m){
+    if(LANG !== 'en'){
+      try{ return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(langLocale(), {month:'long', year:'numeric', timeZone:'UTC'}); }catch(e){}
+    }
+    return PKT_MON[m - 1] + ' ' + y;
   }
   /** Milliseconds until the next Pakistani midnight — never 0, always a wait. */
   function pktUntilRoll(ts){
@@ -321,7 +344,7 @@
     el.classList.toggle('hide', n < 1);
     if(n < 1) return;
     el.textContent = '\uD83D\uDD25 ' + n;
-    el.title = n + (n === 1 ? ' day' : ' days') + ' in a row';
+    el.title = Tn('{n} day in a row', '{n} days in a row', n);
   }
   /** The best run there has ever been, on the same rule. */
   function dailyBestStreak(game, diffs, on){
@@ -653,7 +676,7 @@
       const [y, m] = this.month.split('-').map(Number);
 
       const t = $('dcal-title');
-      if(t) t.textContent = (def.title || this.game) + ' puzzles';
+      if(t) t.textContent = T('{game} puzzles', {game:T(def.title || this.game)});
       /* **When the next one arrives is the one thing the grid cannot show.**
          The archive rule is visible — the older days are right there — but
          the turnover is not, and it is the question somebody has at eleven at
@@ -700,9 +723,9 @@
         const many = (def.diffs || []).length > 1;
         rule.classList.toggle('hide', !tiles.length);
         rule.textContent = many
-          ? ('A streak day means every ' + (def.title || this.game).toLowerCase()
-             + ' published that day, finished that day. Older ones you go back '
-             + 'to are still counted everywhere else — just not here.')
+          ? T('A streak day means every {game} published that day, finished that day. '
+              + 'Older ones you go back to are still counted everywhere else — just not here.',
+              {game:LANG === 'en' ? (def.title || this.game).toLowerCase() : T(def.title || this.game)})
           : ('A streak day means that day\u2019s puzzle, finished that day. '
              + 'Older ones you go back to are still counted everywhere else '
              + '— just not here.');
@@ -724,7 +747,7 @@
       }
 
       const mon = $('dcal-month');
-      if(mon) mon.textContent = PKT_MON[m - 1] + ' ' + y;
+      if(mon) mon.textContent = pktMonthLabel(y, m);
       const prev = $('dcal-prev'), next = $('dcal-next');
       if(next) next.disabled = this.month >= today.slice(0, 7);
       if(prev) prev.disabled = this.month <= DAILY_EPOCH.slice(0, 7);
@@ -774,8 +797,7 @@
       const day = this.sel, today = pktNow();
       const eds = this._editions(day).filter(e=>e.on);
       if(!eds.length){
-        box.innerHTML = '<p class="dcal-none">Nothing was published on '
-          + esc(pktLabel(day)) + '.</p>';
+        box.innerHTML = '<p class="dcal-none">' + esc(T('Nothing was published on {day}.', {day:pktLabel(day)})) + '</p>';
         return;
       }
       box.innerHTML = '<p class="dcal-head">' + (day === today ? 'Today' : esc(pktLabel(day)))
@@ -795,10 +817,17 @@
              `art(rec)` is the game's own; it returns markup or nothing. */
           let art = '';
           try{ art = (def.art && def.art(e.rec)) || ''; }catch(err){}
+          /* **A finished one can be called what it was.** The edition's name
+             ("Small") is all a row can say before it is played, because for
+             some games the real name is the answer. `name(day, diff, rec)` is
+             the game's chance to say more once it no longer gives anything
+             away; the dot's colour still says which edition it was. */
+          let label = e.n || def.title || '';
+          try{ if(def.name) label = def.name(day, e.k, e.rec) || label; }catch(err){}
           return '<div class="dcal-row' + (art ? ' art' : '') + '"><i class="dcal-dot'
             + (e.state === DAILY_DONE ? ' done' : e.state === DAILY_STARTED ? ' start' : '')
             + '" style="--hue:' + e.hue + '"></i>'
-            + (art || '<b>' + esc(e.n || def.title || '') + '</b>')
+            + (art || '<b title="' + esc(e.n || '') + '">' + esc(label) + '</b>')
             + '<span>' + esc(what) + '</span>'
             + '<button class="mini-btn" data-play="' + i + '">' + act + '</button></div>';
         }).join('');

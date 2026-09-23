@@ -235,7 +235,7 @@
     const can = def.canReset ? def.canReset() : true;
     if(!can) return [];
     return [{
-      label:'Reset ' + (def.title || id).toLowerCase(),
+      label:T('Reset {game}', {game:LANG === 'en' ? (def.title || id).toLowerCase() : T(def.title || id)}),
       danger:true,
       run(){
         /* **Stop the clock before asking.** A confirm over a game that is still
@@ -245,10 +245,10 @@
            you give. Games with a clock say so with `beforeReset`; the rest do
            nothing and are unaffected. */
         try{ if(def.beforeReset) def.beforeReset(); }catch(e){}
-        askConfirm('Start ' + (def.title || id) + ' again?',
+        askConfirm(T('Start {game} again?', {game:T(def.title || id)}),
           def.resetNote || 'Whatever is on the board now is lost.',
           'Reset',
-          ()=>{ def.reset(); Arcade._refresh(); toast((def.title || id) + ' reset'); });
+          ()=>{ def.reset(); Arcade._refresh(); toast(T('{game} reset', {game:T(def.title || id)})); });
       },
     }];
   }
@@ -322,6 +322,7 @@
       const n = Object.keys(GAMES).length;
       const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
                      'eight', 'nine', 'ten', 'eleven', 'twelve'];
+      if(LANG !== 'en') return Tn('{n} game, progress saved', '{n} games, progress saved', n);
       return (words[n] || n) + ' games, progress saved';
     },
     async _refresh(){
@@ -374,7 +375,7 @@
         }catch(e){ out = ''; }
         if(who.length > show.length) out += '<em>+' + (who.length - show.length) + '</em>';
         box.innerHTML = out;
-        box.title = who.map(p=>p.name).join(', ') + ' here';
+        box.title = T('{names} here', {names:who.map(p=>p.name).join(', ')});
       }
     },
     async _showGame(g){

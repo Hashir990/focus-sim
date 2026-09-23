@@ -228,7 +228,7 @@
       this.save();
       // no wipe: the first sync carries this device's work into the new account
       await this.sync(true);
-      toast('Signed in as ' + this.username);
+      toast(T('Signed in as {name}', {name:this.username}));
     },
 
     /* Ask, then sign in, then empty, then pull — in that order.
@@ -246,11 +246,10 @@
            return either, so the verb has to follow it. A dialog warning you
            about losing your work is the last place to get grammar wrong: it
            reads as machine-written, and machine-written reads as ignorable. */
-        'This device has ' + listPhrase(bits)
-        + (bits.length === 1 && /^1 /.test(bits[0]) ? ' that is' : ' that are')
-        + ' not saved to any account. Signing in replaces all of it with what is '
-        + 'in ' + (email || 'that account') + ', and there is no way back. '
-        + 'To keep it, make a new account instead — that carries this device across.',
+        T(bits.length === 1 && /^1 /.test(bits[0])
+          ? 'This device has {list} that is not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead — that carries this device across.'
+          : 'This device has {list} that are not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead — that carries this device across.',
+          {list:listPhrase(bits), acct:email || T('that account')}),
         'Clear and sign in',
         ()=>Account._signIn(email, password, done));
       return undefined;
@@ -271,7 +270,7 @@
          "borrow a login and keep the themes" hole. */
       this.wipe();
       await this.sync(true);
-      toast('Signed in as ' + this.username);
+      toast(T('Signed in as {name}', {name:this.username}));
       if(done) done(null);
     },
 
@@ -295,7 +294,7 @@
        than that it is safe. */
     signOut(){
       askConfirm(
-        'Sign out of ' + this.username + '?',
+        T('Sign out of {name}?', {name:this.username}),
         'Your history stays in the account and is cleared from this device.',
         'Sign out',
         ()=>Account._signOut());
@@ -405,13 +404,12 @@
        warning appeared every single time. */
     _localWork(){
       const bits = [];
-      if(LOG.length) bits.push(LOG.length === 1 ? '1 session' : LOG.length + ' sessions');
-      if(PLAN.length) bits.push(PLAN.length === 1 ? '1 calendar entry' : PLAN.length + ' calendar entries');
-      if(TASKS.length) bits.push(TASKS.length === 1 ? '1 task' : TASKS.length + ' tasks');
-      if(CUSTOM_QUOTES.length) bits.push(CUSTOM_QUOTES.length === 1
-        ? '1 quote you wrote' : CUSTOM_QUOTES.length + ' quotes you wrote');
+      if(LOG.length) bits.push(Tn('{n} session', '{n} sessions', LOG.length));
+      if(PLAN.length) bits.push(Tn('{n} calendar entry', '{n} calendar entries', PLAN.length));
+      if(TASKS.length) bits.push(Tn('{n} task', '{n} tasks', TASKS.length));
+      if(CUSTOM_QUOTES.length) bits.push(Tn('{n} quote you wrote', '{n} quotes you wrote', CUSTOM_QUOTES.length));
       const bought = (Embers.own || []).filter(id=>id !== 'seaglass').length;
-      if(bought) bits.push(bought === 1 ? '1 thing you have bought' : bought + ' things you have bought');
+      if(bought) bits.push(Tn('{n} thing you have bought', '{n} things you have bought', bought));
       return bits;
     },
 
@@ -423,7 +421,7 @@
       const el = $('acc-where');
       if(!el) return;
       el.textContent = this.token
-        ? 'Focus Simulator · synced to your account as ' + this.username
+        ? T('Focus Simulator · synced to your account as {name}', {name:this.username})
         : 'Focus Simulator · your data stays on this device';
     },
 
@@ -441,9 +439,9 @@
       chip.classList.toggle('out', !this.token);
       chip.classList.toggle('busy', !!this.busy);
       chip.innerHTML = this.token
-        ? '<i></i><span>' + esc(this.username) + '</span>'
+        ? '<i></i><span translate="no">' + esc(this.username) + '</span>'
         : '<span>Sign in</span>';
-      chip.setAttribute('aria-label', this.token ? 'Account — ' + this.username : 'Sign in');
+      chip.setAttribute('aria-label', this.token ? T('Account — {name}', {name:this.username}) : T('Sign in'));
     },
 
     /* ---- the panel, in Your focus ---- */
@@ -474,8 +472,8 @@
            the fuller record of any block wins. Saying so is worth four lines,
            and it is also why nobody ever needs to press this. */
         box.innerHTML = '<p class="emb-head">Account <em>your history follows you</em></p>'
-          + '<div class="acc-in"><b>' + esc(this.username) + '</b>'
-          + '<span>' + esc(this.busy ? 'Syncing…' : (this.note || 'Up to date')) + '</span>'
+          + '<div class="acc-in"><b translate="no">' + esc(this.username) + '</b>'
+          + '<span>' + esc(this.busy ? T('Syncing…') : (this.note || T('Up to date'))) + '</span>'
           + '<button class="mini-btn" id="acc-sync"' + (this.busy ? ' disabled' : '') + '>Sync now</button>'
           + '<button class="mini-btn" id="acc-pass">Change password</button>'
           + '<button class="mini-btn" id="acc-out">Sign out</button></div>'

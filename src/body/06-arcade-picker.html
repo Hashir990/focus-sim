@@ -1,5 +1,6 @@
 <!-- ============ REST ARCADE OVERLAY ============ -->
-<div class="overlay hide" id="overlay">
+<!-- data-t: words here are looked up as "games::…" first; see langWhole. -->
+<div class="overlay hide" id="overlay" data-t="games">
   <div class="ov-head">
     <button class="ov-back" id="ov-back" aria-label="Back to timer">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
@@ -74,6 +75,11 @@
         <span class="emoji">▤</span>
         <span class="pcard-text"><h3>Crossword</h3><p>Small ones daily, a big one on Sundays.</p></span>
         <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-crossword"></span></span>
+      </button>
+      <button class="pcard" data-game="picross">
+        <span class="emoji">▩</span>
+        <span class="pcard-text"><h3>Picross</h3><p>A picture behind its numbers. Three sizes, new every day.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-picross"></span></span>
       </button>
       <div class="pick-group"><h4>Together</h4><em>needs a room</em></div>
       <button class="pcard needs-room" data-game="hangman">

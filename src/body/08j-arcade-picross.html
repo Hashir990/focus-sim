@@ -1,0 +1,39 @@
+    <!-- picross. A picture behind its own row and column counts; the bank and
+         the rule that every one of them is solvable by reasoning alone are in
+         27a-picross-data.js and tools/make-picross.mjs. -->
+    <div class="game hide" id="game-picross">
+      <div class="game-top">
+        <span class="gname">Picross</span>
+        <span class="meta" id="pix-meta"></span>
+        <!-- Days in a row, painted by `dailyStreakPaint` in 09b-daily.js.
+             Hidden at zero: a streak of none is not a thing to announce. -->
+        <span class="streak hide" id="pix-streak"></span>
+        <!-- The way back to every other day. The crossword has carried one of
+             these from the start; picross only offered it from the win banner,
+             so the archive existed and could not be reached without finishing
+             today's first. -->
+        <button class="mini-btn" id="pix-list">History</button>
+        <button class="mini-btn" id="pix-clear">Clear</button>
+      </div>
+
+      <!-- Three a day, one of each size. The names say how big rather than how
+           clever: a 5×5 is not easy because you are good at it. -->
+      <div class="pix-sizes" id="pix-sizes"></div>
+
+      <div class="pix-wrap" id="pix-grid"></div>
+
+      <!-- What a tap puts down. Two buttons rather than a long press: a long
+           press on a phone is a thing you discover by accident or never. -->
+      <div class="pix-modes">
+        <button class="mini-btn on" id="pix-fill">Fill</button>
+        <button class="mini-btn" id="pix-mark">Cross off</button>
+        <!-- Check says what is wrong, never what is missing; Fix a square takes
+             back a wrong one before it gives a right one away. Both count on the
+             day's record. -->
+        <button class="mini-btn" id="pix-check">Check</button>
+        <button class="mini-btn" id="pix-hint">Fix a square</button>
+      </div>
+
+      <p class="game-note">Drag to fill a run in one go. Crossing off is only a note to yourself — the picture is finished when the filled squares are the right ones.</p>
+      <div class="banner hide" id="pix-banner"><h3>There it is.</h3><p id="pix-win-sub"></p><button class="mini-btn" id="pix-again">History</button></div>
+    </div>

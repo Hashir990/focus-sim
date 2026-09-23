@@ -274,10 +274,10 @@
       const won = v.over === 'won';
       if(won && !v.iAmSetter){
         chime(false);
-        showBanner('hm-banner', 'Got it.', 'The word was “'+v.answer+'”.');
+        showBanner('hm-banner', 'Got it.', T('The word was “{w}”.', {w:v.answer}));
       }else if(!won && v.iAmSetter){
         chime(false);
-        showBanner('hm-banner', 'They never found it.', '“'+v.answer+'” stays yours.');
+        showBanner('hm-banner', 'They never found it.', T('“{w}” stays yours.', {w:v.answer}));
       }
       setTimeout(()=>{ const b=$('hm-banner'); if(b) b.classList.add('hide'); }, 3600);
     },
@@ -290,7 +290,7 @@
       $('hm-need').classList.toggle('hide', inRoom);
       $('hm-live').classList.toggle('hide', !inRoom || !v);
       $('hm-next').classList.toggle('hide', !(v && v.phase === 'over'));
-      $('hm-meta').textContent = v ? 'Round '+(v.round+1) : '';
+      $('hm-meta').textContent = v ? T('Round {n}', {n:v.round+1}) : '';
       if(!inRoom || !v) return;
 
       // the drawing
@@ -305,9 +305,9 @@
                         : 'You set the last one. Somebody else’s turn.')
         : v.iAmSetter
           ? (v.phase === 'setting' ? 'Your word to set' : 'They’re guessing yours')
-          : 'Guessing ' + v.setterName + '’s word';
+          : T('Guessing {name}’s word', {name:v.setterName});
       $('hm-lives').textContent = (v.phase === 'claim' || v.phase === 'setting')
-        ? '' : (v.lives - v.wrong) + ' of ' + v.lives + ' left';
+        ? '' : T('{a} of {b} left', {a:v.lives - v.wrong, b:v.lives});
 
       $('hm-scores').innerHTML = v.players.map(p=>
         '<div class="hm-score'+(p.setter?' turn':'')+'">'
@@ -355,14 +355,14 @@
       $('hm-msg').textContent =
         v.alone ? 'Share your code from Focus together and they can join in.'
         : v.phase === 'over'
-          ? (v.over === 'won' ? 'Found it — the word was “'+v.answer+'”.'
-                              : 'Nobody got it. It was “'+v.answer+'”.')
+          ? (v.over === 'won' ? T('Found it — the word was “{w}”.', {w:v.answer})
+                              : T('Nobody got it. It was “{w}”.', {w:v.answer}))
         : v.phase === 'claim'
           ? (v.canClaim ? 'Whoever claims it first sets the word.'
                         : 'Waiting for somebody to claim this one.')
         : v.phase === 'setting'
           ? (v.iAmSetter ? 'Letters only. They see the length, not the word.'
-                         : 'Waiting for '+v.setterName+' to think of one.')
+                         : T('Waiting for {name} to think of one.', {name:v.setterName}))
         : v.iAmSetter ? 'Sit tight — you can’t guess your own word.' : '';
     },
   };
@@ -398,7 +398,7 @@
       if(!syncActive()) return '';
       const v = Hangman.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
-      if(v.phase === 'claim') return 'Open<span>claim to set</span>';
+      if(v.phase === 'claim') return esc(Tx('status', 'Open')) + '<span>claim to set</span>';
       if(v.phase === 'setting') return 'Setting<span>'+esc(v.setterName)+'</span>';
       if(v.phase === 'over') return 'Done<span>next round</span>';
       return (v.lives - v.wrong)+'<span>lives left</span>';

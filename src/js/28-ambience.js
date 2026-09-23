@@ -210,7 +210,7 @@
         b.classList.toggle('on', id === AMB.id);
         b.classList.toggle('locked', locked);
         const sd = locked && typeof embSound === 'function' ? embSound(id) : null;
-        b.dataset.cost = sd ? sd.cost + ' embers' : '';
+        b.dataset.cost = sd ? Tn('{n} ember', '{n} embers', sd.cost) : '';
       });
     }
     // the shelf shows which of the two is on, so it has to hear about this —

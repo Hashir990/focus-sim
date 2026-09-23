@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { buildDev } from './dev-build.mjs';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(root, 'src');
@@ -54,6 +55,63 @@ function appVersion() {
    Overridable from the environment so a fork does not have to edit source:
        FOCUS_UPDATE_URL=https://... npm run build
    See tools/make-release.mjs for what the file on the other end looks like. */
+/* **The developer menu, and why it is a file rather than a switch.**
+
+   `.env.local` is in .gitignore, so it exists on one machine and travels
+   nowhere: a clone has no dev menu, and neither does a build made from one.
+   And `FOCUS_RELEASE=1`, which tools/ship-release.ps1 sets, ignores the file
+   outright — so an installer handed to somebody else cannot carry it even
+   though it was built on the machine that has it. The menu is a row in the
+   drawer and a page behind it; without the flag neither is reachable and
+   `window.devFill` is not defined. */
+function devFlag() {
+  // --release for the publish scripts, the variable for ship-release.ps1
+  if (args.has('--release') || process.env.FOCUS_RELEASE === '1') return false;
+  if (process.env.FOCUS_DEV === '1') return true;
+  try {
+    const text = readFileSync(join(root, '.env.local'), 'utf8');
+    return /^\s*FOCUS_DEV\s*=\s*1\s*$/m.test(text);
+  } catch (e) {
+    return false;
+  }
+}
+
+/* ---- who the developer page opens for ----
+
+   The stamp alone only says "built on that machine", and a machine hands out
+   builds: a debug APK, a copied folder, a phone lent to somebody. So the build
+   also carries the hash of a key (`FOCUS_DEV_KEY`), which is typed once per
+   device, and optionally the hash of the account it belongs to
+   (`FOCUS_DEV_WHO`) — with that set, signing out closes the page.
+
+   Neither secret is in the build, only its SHA-256, and .env.local is in
+   .gitignore. `FOCUS_DEV=1` with no key builds *without* the developer page
+   rather than with an unlocked one: the failure has to be the safe way round. */
+function envLocal(name) {
+  try {
+    const text = readFileSync(join(root, '.env.local'), 'utf8');
+    const line = text.split('\n').find((l) => l.trim().startsWith(name + '='));
+    return line ? line.slice(line.indexOf('=') + 1).trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function devAttrs() {
+  if (!devFlag()) return '';
+  const key = process.env.FOCUS_DEV_KEY || envLocal('FOCUS_DEV_KEY');
+  if (!key) {
+    console.log('! FOCUS_DEV is on but there is no FOCUS_DEV_KEY in .env.local'
+      + ' — built without the developer page');
+    return '';
+  }
+  const who = (process.env.FOCUS_DEV_WHO || envLocal('FOCUS_DEV_WHO')).trim().toLowerCase();
+  return ' data-dev="1" data-dev-key="' + sha256(key) + '"'
+    + (who ? ' data-dev-who="' + sha256(who) + '"' : '');
+}
+
+const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex');
+
 function envFile(name) {
   /* `.env.release` is written by tools/setup-updates.mjs and holds the one
      setting that has to be the same in every build you hand out. Kept in a file
@@ -132,11 +190,13 @@ export function build() {
    .replace(/__PRIVACY_OWNER__/g, PRIVACY_OWNER)
    .replace(/__PRIVACY_EMAIL__/g, PRIVACY_EMAIL);
 
+  const out = html.replace(/<html([^>]*)>/, '<html$1' + devAttrs() + '>');
+
   mkdirSync(DIST, { recursive: true });
-  writeFileSync(join(DIST, 'index.html'), html, 'utf8');
+  writeFileSync(join(DIST, 'index.html'), out, 'utf8');
   // ...and the developer's copy, with everything already bought. See tools/dev-build.mjs.
   try { buildDev(); } catch (e) { console.log('! dev-unlocked.html: ' + e.message); }
-  return html;
+  return out;
 }
 
 function verify() {

@@ -97,6 +97,31 @@
       + '<p><b>PeerJS</b> carries Focus together’s direct connections (MIT). '
       + '<b>Electron</b> makes the desktop app, and <b>Capacitor</b> the phone '
       + 'ones. The server the account uses runs on <b>Cloudflare Workers</b>.</p>'
+      /* CC0 asks for nothing. Saying so anyway costs a line and is the whole
+         reason work like this keeps being given away. */
+      /* **Two of these three credits are conditions, not courtesies.**
+         game-icons.net is CC BY 3.0 and Twemoji CC BY 4.0: both licences
+         require naming the maker wherever the work is used, so this section has
+         to stay for as long as those pictures are in the bank. Kenney's are
+         CC0 and require nothing; he is named anyway. */
+      + '<h4>Pictures</h4>'
+      + '<p>The picross pictures are other people’s drawings, reduced to squares.</p>'
+      + '<p><b>game-icons.net</b> — icons by Lorc, Delapouite, John Colburn, '
+      + 'Felbrigg, John Redman, Carl Olsen, Sbed, PriorBlue, Willdabeast, '
+      + 'Viscious Speed, Lord Berandas, Irongamer, HeavenlyDog, Lucas, '
+      + 'Faithtoken, Skoll, Andy Meneely, Cathelineau, Kier Heyl, Aussiesim, '
+      + 'Sparker, Zeromancer, Rihlsul, Quoting, Guard13007, DarkZaitzev, '
+      + 'SpencerDub, GeneralAce135, Zajkonur, Catsu, Starseeker, '
+      + 'Pepijn Poolman, Pierre Leducq, Caro Asercion and SeregaCthtuf, under '
+      + '<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" '
+      + 'rel="noreferrer">CC BY 3.0</a>.</p>'
+      + '<p><b>Twemoji</b>, by Twitter and its contributors, and '
+      + '<b>Font Awesome Free</b>, by Fonticons, both under '
+      + '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" '
+      + 'rel="noreferrer">CC BY 4.0</a>. <b>Bootstrap Icons</b>, by the '
+      + 'Bootstrap authors, under the MIT licence. And icons by <b>Kenney</b> '
+      + '(kenney.nl), public domain under CC0 — credit is not required there, '
+      + 'and is here because the work was given away.</p>'
       + '<h4>The games</h4>'
       + '<p>Sudoku, the crossword, the word guess, 2048, Tetris, chess, scrabble, '
       + 'hangman, pictionary and memory are all written for this app. The rules '
@@ -184,7 +209,7 @@
       + 'replies to find out. Edit or delete any of it.</p>'
       + '<textarea id="rep-facts" rows="7" spellcheck="false">' + esc(reportFacts()) + '</textarea>'
       + '<button class="primary rep-send" id="rep-send">Write the email</button>'
-      + '<p class="about-quiet">It goes to ' + esc(REPORT_TO) + '.</p>';
+      + '<p class="about-quiet">' + esc(T('It goes to {addr}.', {addr:REPORT_TO})) + '</p>';
   }
 
   function reportBody(){
@@ -221,18 +246,39 @@
       navigator.clipboard.writeText(REPORT_TO + '\n\n' + subject + '\n\n' + body);
       toast(opened ? 'Opening your mail \u2014 also copied' : 'Copied \u2014 paste it into an email');
     }catch(e){
-      toast(opened ? 'Opening your mail' : 'Could not open mail \u2014 write to ' + REPORT_TO);
+      toast(opened ? 'Opening your mail' : T('Could not open mail \u2014 write to {addr}', {addr:REPORT_TO}));
     }
     return url;
+  }
+
+  /* ---------------- the same pages, in another language ----------------
+
+     **A policy is translated as a document, not a sentence at a time.** These
+     three pages are prose, and prose assembled from separately translated
+     fragments reads like a phrasebook. Each language registers its own whole
+     versions here from 61-docs-*.js; English, and any page a language has not
+     written yet, falls back to the functions above. */
+  const ABOUT_DOCS = {};
+  function aboutDocs(lang, docs){ ABOUT_DOCS[lang] = docs; }
+  function aboutDoc(which){
+    const own = ABOUT_DOCS[LANG] && ABOUT_DOCS[LANG][which];
+    if(own){ try{ return own(); }catch(e){} }
+    return which === 'credits' ? aboutCredits()
+      : which === 'terms' ? aboutTerms() : aboutPrivacy();
   }
 
   function aboutOpen(which){
     const t = $('about-title'), b = $('about-body');
     if(!t || !b) return;
     t.textContent = which === 'credits' ? 'Credits'
-      : which === 'report' ? 'Report a problem' : 'Privacy';
-    b.innerHTML = which === 'credits' ? aboutCredits()
-      : which === 'report' ? aboutReport() : aboutPrivacy();
+      : which === 'report' ? 'Report a problem'
+      : which === 'terms' ? 'Terms of use' : 'Privacy';
+    /* The documents arrive already in the reader's language, so the page
+       translator is told to leave them alone; the report form is interface and
+       is translated like any other screen. Set before the markup goes in, so
+       the observer sees the mark when it gets there. */
+    b.setAttribute('translate', which === 'report' ? 'yes' : 'no');
+    b.innerHTML = which === 'report' ? aboutReport() : aboutDoc(which);
     b.scrollTop = 0;
     if(which === 'report'){
       const kinds = $('rep-kinds');

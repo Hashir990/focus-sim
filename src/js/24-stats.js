@@ -89,8 +89,8 @@
       const bars = s.recent.map(r=>{
         const h = r.secs ? Math.max(4, Math.round(r.secs/max*100)) : 0;
         const when = new Date(r.key+'T00:00:00')
-          .toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
-        const much = r.secs ? fmtDur(r.secs) : 'nothing';
+          .toLocaleDateString(langLocale(),{weekday:'short', month:'short', day:'numeric'});
+        const much = r.secs ? fmtDur(r.secs) : T('nothing');
         return '<button type="button" class="sbar" data-when="'+esc(when)+'" data-much="'+esc(much)+'"'
           + ' title="'+esc(when+' · '+much)+'">'
           + '<div class="sbar-track"><div class="sbar-fill'+(r.secs?'':' empty')+'" style="height:'+h+'%"></div></div>'
@@ -100,9 +100,11 @@
       body.innerHTML =
         '<div class="stat-grid">'
         + this._card(fmtDur(s.totalSecs), 'total focused')
-        + this._card(String(s.sessions), s.sessions===1?'session':'sessions')
-        + this._card(s.streak+(s.streak===1?' day':' days'), 'current streak')
-        + this._card(String(s.days), s.days===1?'active day':'active days')
+        /* The label under a number agrees with it — "1 session", "5 сессий" —
+           so it is counted like any other string, without the number in it. */
+        + this._card(String(s.sessions), Tn('session', 'sessions', s.sessions))
+        + this._card(Tn('{n} day', '{n} days', s.streak), 'current streak')
+        + this._card(String(s.days), Tn('active day', 'active days', s.days))
         + '</div>'
         + '<p class="q-sec">Last 14 days</p>'
         + '<div class="sbars">'+bars+'</div>'
@@ -126,7 +128,7 @@
       const read = $('sbar-read');
       if(!read) return;
       const say = (b)=>{
-        read.textContent = b ? (b.dataset.when + ' · ' + b.dataset.much) : 'Tap a bar for that day';
+        read.textContent = b ? (b.dataset.when + ' · ' + b.dataset.much) : T('Tap a bar for that day');
         read.classList.toggle('on', !!b);
       };
       $('stats-body').querySelectorAll('.sbar').forEach(b=>{
@@ -148,11 +150,11 @@
       const top = s.company[0];
       const max = top.secs || 1;
       return '<p class="q-sec">Focused alongside</p>'
-        + '<p class="stat-note">'+fmtDur(s.sharedSecs)+' of your total was shared with somebody.</p>'
+        + '<p class="stat-note">'+esc(T('{d} of your total was shared with somebody.', {d:fmtDur(s.sharedSecs)}))+'</p>'
         + '<div class="stat-company">'
         + s.company.slice(0,6).map(c=>
             '<div class="scomp">'
-            + '<span class="scomp-name">'+esc(c.name)+'</span>'
+            + '<span class="scomp-name" translate="no">'+esc(c.name)+'</span>'
             + '<span class="scomp-bar"><i style="width:'+Math.max(4, Math.round(c.secs/max*100))+'%"></i></span>'
             + '<b>'+fmtDur(c.secs)+'</b>'
             + '</div>').join('')
@@ -171,7 +173,7 @@
       const shown = games.filter(g=>g.secs >= 30);
       const max = (shown[0] && shown[0].secs) || 1;
       return '<p class="q-sec">In the arcade</p>'
-        + '<p class="stat-note">' + fmtDur(total) + ' playing, in all.</p>'
+        + '<p class="stat-note">' + esc(T('{d} playing, in all.', {d:fmtDur(total)})) + '</p>'
         + '<div class="stat-company stat-games">'
         + shown.slice(0, 8).map(g=>
             '<div class="scomp" data-game="' + esc(g.id) + '">'

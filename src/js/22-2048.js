@@ -129,14 +129,14 @@
         // anything no longer in the list has been merged away
         [...layer.children].forEach(el=>{ if(!seen[el.dataset.id]) el.remove(); });
       }
-      $('g2048-meta').textContent = 'Score '+this.score+' · Best '+this.best;
+      $('g2048-meta').textContent = T('Score {s} · Best {b}', {s:this.score, b:this.best});
     },
 
     _restoreBanner(){
       const bn = $('g2048-banner');
       if(this.done){
         bn.querySelector('h3').textContent = 'No moves left.';
-        $('g2048-win-sub').textContent = 'Final score '+this.score+'.';
+        $('g2048-win-sub').textContent = T('Final score {n}.', {n:this.score});
         bn.classList.remove('hide');
       } else bn.classList.add('hide');
     },
@@ -260,7 +260,7 @@
       } else if(!this._canMove()){
         this.done = true;
         $('g2048-banner').querySelector('h3').textContent = 'No moves left.';
-        $('g2048-win-sub').textContent = 'Final score '+this.score+'.';
+        $('g2048-win-sub').textContent = T('Final score {n}.', {n:this.score});
         $('g2048-banner').classList.remove('hide');
       }
       this.persist();
@@ -293,7 +293,7 @@
     async progress(){
       const d = await readGame(G2048.key);
       if(!d || !d.board) return 'New<span>tap to start</span>';
-      if(d.done) return 'Over<span>score '+(d.score||0)+'</span>';
+      if(d.done) return 'Over<span>'+T('score {n}', {n:d.score||0})+'</span>';
       const top = Math.max.apply(null, d.board.concat([0]));
       return top+'<span>best tile</span>';
     }

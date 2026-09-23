@@ -472,7 +472,7 @@
         if(now - last > SYNC_GONE){
           const name = SYNC.roster[id] || 'Someone';
           syncDrop(id);
-          syncSetStatus(name + ' dropped out');
+          syncSetStatus(T('{name} dropped out', {name}));
         }
       }
       return;
@@ -551,15 +551,15 @@
     }
     if(SYNC.conns[id]) syncSend(SYNC.conns[id], {t:'handoff', games:snap, room});
     syncBroadcast({t:'migrate', code, leader:id, to:name});
-    syncSetStatus('Handing the room to ' + name + '…');
+    syncSetStatus(T('Handing the room to {name}…', {name}));
     /* A beat, so the announcement is off the wire before this peer is torn
        down. Both messages are on the same reliable channel, so `migrate`
        arrives before any goodbye — but only if it was sent first. */
     setTimeout(()=>{
       if(leaving){
         syncLeave(true);
-        syncSetStatus(name + ' has the room now');
-        toast('Handed to ' + name);
+        syncSetStatus(T('{name} has the room now', {name}));
+        toast(T('Handed to {name}', {name}));
       }else{
         syncFollow(code, name);
       }
@@ -693,7 +693,7 @@
          now, to peers who are actually let in. See `syncGreet`. */
       const moved = SYNC.moving;
       SYNC.moving = '';
-      syncSetStatus(moved ? 'Now in ' + moved + '’s room'
+      syncSetStatus(moved ? T('Now in {name}’s room', {name:moved})
                   : wasRejoining ? 'Back in the room'
                   : isIncoming ? 'Someone joined' : 'Connected');
     });
@@ -738,7 +738,7 @@
               buddy:(m.buddy ? budClean(m.buddy) : null), anim:(m.anim | 0),
               at:Date.now(),
             };
-            try{ chatNote((m.name || 'Someone') + ' is waiting to be let in'); }catch(e){}
+            try{ chatNote((m.name || 'Someone') + ' is waiting to be let in', 'wait', m.name || ''); }catch(e){}
             try{ if(!chatQuietHours()){ blip(); buzz(14); } }catch(e){}
           }
           try{ syncSend(conn, {t:'wait'}); }catch(e){}
@@ -1025,9 +1025,9 @@
        back to 'joined' — you press Leave, nothing appears to happen, and a
        moment later you are in the room again. */
     const era = SYNC.epoch;
-    syncSetStatus(SYNC.moving ? 'Moving to '+SYNC.moving+'’s room…'
-      : isRetry ? 'Reconnecting to '+code+' (try '+SYNC.rejoinTries+')…'
-      : 'Connecting to '+code+'…');
+    syncSetStatus(SYNC.moving ? T('Moving to {name}’s room…', {name:SYNC.moving})
+      : isRetry ? T('Reconnecting to {code} (try {n})…', {code, n:SYNC.rejoinTries})
+      : T('Connecting to {code}…', {code}));
     try{
       const mine = (SYNC.myCode || '').toLowerCase();
       const {peer} = await syncOpenPeer(mine ? SYNC_NSU + mine : undefined, true);
@@ -1562,7 +1562,7 @@
     }
     syncBroadcast(syncRosterMsg());
     syncGameRosterChanged();
-    try{ chatNote((who.name || 'Someone') + ' was let in'); }catch(e){}
+    try{ chatNote((who.name || 'Someone') + ' was let in', 'in', who.name || ''); }catch(e){}
     syncRender();
   }
   /** Turn somebody away. The connection goes; the code still works, so this is
@@ -1577,7 +1577,7 @@
       try{ syncSend(conn, {t:'refused'}); }catch(e){}
       setTimeout(()=>{ try{ conn.close(); }catch(e){} }, 120);
     }
-    try{ chatNote((who && who.name ? who.name : 'Someone') + ' was not let in'); }catch(e){}
+    try{ chatNote((who && who.name ? who.name : 'Someone') + ' was not let in', 'out', who && who.name ? who.name : ''); }catch(e){}
     syncRender();
   }
 
@@ -1597,13 +1597,15 @@
     const st = $('sync-state');
     if(st){
       // Say whose room it is, not just its code — a code is not a person.
-      const whose = SYNC.hostName ? SYNC.hostName + '’s room' : (SYNC.code || '');
       /* Waiting at the door is its own state, and saying "In Sam's room" while
          you are demonstrably not is worse than saying nothing. */
       st.textContent = SYNC.held ? 'Waiting to be let in'
         : SYNC.mode === 'hosting'
-        ? 'Hosting '+(SYNC.code||'')
-        : SYNC.mode === 'joined' ? 'In '+whose+' · '+(SYNC.code||'') : 'Not connected';
+        ? T('Hosting {code}', {code:SYNC.code || ''})
+        : SYNC.mode === 'joined'
+          ? (SYNC.hostName ? T('In {name}’s room · {code}', {name:SYNC.hostName, code:SYNC.code || ''})
+                           : T('In {code}', {code:SYNC.code || ''}))
+          : 'Not connected';
       st.className = 'sync-state' + (SYNC.held ? ' wait' : syncActive() ? ' on' : '');
     }
 
@@ -1613,7 +1615,7 @@
     if(lsub){
       const others = people2.length - 1;
       lsub.textContent = !syncIsHost()
-        ? (SYNC.hostName ? 'Stop following ' + SYNC.hostName + '’s timer' : 'Stop sharing this timer')
+        ? (SYNC.hostName ? T('Stop following {name}’s timer', {name:SYNC.hostName}) : 'Stop sharing this timer')
         : others > 0 ? 'Hand it on, or close it for everyone'
         : 'Nobody else is here, so it closes';
     }
@@ -1687,15 +1689,15 @@
       // Handing the clock over and removing someone are both hard to undo in a
       // room of three — ask first.
       pbox.querySelectorAll('[data-lead]').forEach(b=>{
-        const who = (people.find(p=>p.id === b.dataset.lead) || {}).name || 'them';
-        b.onclick = ()=>askConfirm('Give the timer to ' + who + '?',
+        const who = (people.find(p=>p.id === b.dataset.lead) || {}).name || T('them');
+        b.onclick = ()=>askConfirm(T('Give the timer to {name}?', {name:who}),
           'Their start, pause and skip will drive everyone’s clock, including yours — '
           + 'and the room moves to their code, so everybody follows them from now on.',
           'Give timer', ()=>syncHandOver(b.dataset.lead));
       });
       pbox.querySelectorAll('[data-kick]').forEach(b=>{
-        const who = (people.find(p=>p.id === b.dataset.kick) || {}).name || 'them';
-        b.onclick = ()=>askConfirm('Remove ' + who + '?',
+        const who = (people.find(p=>p.id === b.dataset.kick) || {}).name || T('them');
+        b.onclick = ()=>askConfirm(T('Remove {name}?', {name:who}),
           'They’ll be disconnected from the room. They can rejoin with the code.',
           'Remove', ()=>syncKick(b.dataset.kick));
       });
@@ -1815,8 +1817,8 @@
             + '</span>'
           : '';
         band.innerHTML = crowd + '<span class="sync-band-txt">' + esc(syncIsLeader()
-          ? 'You hold the timer · '+people.length+' here'
-          : 'Following '+((host && host.name) || 'the host')) + ' ›</span>';
+          ? T('You hold the timer · {n} here', {n:people.length})
+          : T('Following {name}', {name:(host && host.name) || T('the host')})) + ' ›</span>';
         band.setAttribute('role', 'button');
         band.setAttribute('tabindex', '0');
         band.onclick = ()=>{ try{ closeDrawer(); }catch(e){} $('sync-overlay').classList.remove('hide'); syncRender(); };
@@ -1902,8 +1904,7 @@
   function syncLeaveFlow(){
     const others = syncPeople().filter(p=>!p.me);
     if(!syncIsHost() || !others.length){
-      const whose = SYNC.hostName ? SYNC.hostName + '’s room' : 'this room';
-      askConfirm('Leave ' + whose + '?',
+      askConfirm(SYNC.hostName ? T('Leave {name}’s room?', {name:SYNC.hostName}) : T('Leave this room?'),
         syncIsHost() ? 'Nobody else is here, so the room closes.'
                      : 'Your timer goes back to being your own.',
         'Leave', ()=>{ syncLeave(); toast('Left the room'); });
@@ -1912,9 +1913,9 @@
 
     const holder = others.filter(p=>p.leader).concat(others.filter(p=>!p.leader));
     const items = holder.map(p=>({
-      label:'Hand it to ' + p.name + ' and leave',
+      label:T('Hand it to {name} and leave', {name:p.name}),
       run(){
-        askConfirm('Hand the room to ' + p.name + '?',
+        askConfirm(T('Hand the room to {name}?', {name:p.name}),
           'They get the timer, and the room moves to their code — everyone else '
           + 'moves across with it. You drop out.',
           'Hand over', ()=>{ SYNC.leaveAfterMove = true; syncHandOver(p.id); });
@@ -1924,8 +1925,8 @@
       label:'Close the room for everyone', danger:true,
       run(){
         askConfirm('Close the room?',
-          others.length + (others.length === 1 ? ' other person is' : ' other people are')
-          + ' in here. They’ll be disconnected and their timers go back to being their own.',
+          Tn('{n} other person is in here. They’ll be disconnected and their timers go back to being their own.',
+             '{n} other people are in here. They’ll be disconnected and their timers go back to being their own.', others.length),
           'Close it', ()=>{ syncLeave(); toast('Room closed'); });
       },
     });

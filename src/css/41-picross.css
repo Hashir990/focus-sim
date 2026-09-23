@@ -1,0 +1,171 @@
+/* ---- picross ----
+   **The grid is laid out from one number.** `--pix-n` is the puzzle's size and
+   everything else is worked out from it: the square's side is whatever fits the
+   width once the clue gutters have taken theirs, so a 5×5 and a 15×15 use the
+   same rules and neither has a hard-coded size to go stale. A 15 wide on a
+   narrow phone lands near 18px a square, which is still a thumb's width once
+   the gaps are counted. */
+.pix-wrap{
+  --pix-n:5; --pix-w:1; --pix-d:1;
+  --pix-gut:calc(var(--pix-w) * 1.15em + 0.4em);
+  --pix-max:30px;                     /* a square never grows past a thumb */
+  display:grid;
+  /* **The width is decided once, here.** A custom property holding a
+     percentage is not a number: it is re-resolved against whatever box uses
+     it, so the first version — one `--pix-cell` used both for this track and
+     for the cells inside it — took the gutter off twice and left the squares
+     smaller than the column they were given, a 5×5's smaller than a 10×10's.
+     The track is as wide as it can be, and the cells divide it. */
+  grid-template-columns:var(--pix-gut)
+    min(calc(var(--pix-n) * var(--pix-max)), calc(100% - var(--pix-gut)));
+  grid-template-rows:auto auto;
+  justify-content:center;
+  margin:6px auto 10px;
+  font-size:11px;
+  touch-action:none;          /* a drag across the grid paints; it must not scroll */
+}
+.pix-corner{ grid-column:1; grid-row:1 }
+
+/* The column clues sit above their own column and read downwards. */
+.pix-cols{
+  grid-column:2; grid-row:1;
+  display:grid; grid-template-columns:repeat(var(--pix-n), 1fr);
+  align-items:end;
+}
+.pix-cc{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+  min-height:calc(var(--pix-d) * 1.15em); padding-bottom:3px; color:var(--muted); line-height:1.15;
+}
+/* The row clues read across, right up against the grid. */
+.pix-rows{
+  grid-column:1; grid-row:2;
+  display:grid; grid-template-rows:repeat(var(--pix-n), 1fr);
+}
+.pix-rc{
+  display:flex; align-items:center; justify-content:flex-end; gap:.35em;
+  padding-right:5px; color:var(--muted); line-height:1;
+}
+.pix-cc i, .pix-rc i{ font-style:normal }
+/* A line that is already right stops asking. Nothing is hidden — the numbers
+   stay put, they just stop being the loudest thing on a fifteen-wide grid. */
+.pix-cc.done, .pix-rc.done{ color:color-mix(in srgb, var(--muted) 45%, transparent) }
+
+.pix-cells{
+  grid-column:2; grid-row:2;
+  position:relative;          /* the guide's bands are placed against it */
+  display:grid;
+  /* Fractions of the track above, so the grid fills exactly what it was given
+     whatever the size. */
+  grid-template-columns:repeat(var(--pix-n), 1fr);
+  /* **Square by ratio, not by the same length twice.** A percentage in
+     grid-auto-rows resolves against the container's *height*, so reusing the
+     column measure here made every cell a slightly wrong rectangle. */
+  grid-auto-rows:auto;
+}
+.pix-cell{
+  border:1px solid var(--line); background:var(--card); padding:0; margin:-0.5px 0 0 -0.5px;
+  cursor:pointer; font:inherit; position:relative; aspect-ratio:1;
+}
+.pix-cell.on{ background:var(--accent); border-color:var(--accent) }
+/* Crossed off is a note, so it is drawn like one: a light x rather than a
+   second kind of filled square.
+   **Drawn, not typed.** It was a × sized with `calc(var(--pix-cell) * .7)`,
+   and a percentage inside a font size means a percentage *of the font size* —
+   the sum came out negative, the mark rendered at 0px, and crossing a square
+   off did nothing you could see. Two diagonals take their size from the square
+   itself and cannot be resolved against the wrong thing. */
+.pix-cell.off::after{
+  content:''; position:absolute; inset:26%;
+  background:
+    linear-gradient(to bottom right, transparent calc(50% - .8px), var(--muted) calc(50% - .8px),
+                    var(--muted) calc(50% + .8px), transparent calc(50% + .8px)),
+    linear-gradient(to bottom left, transparent calc(50% - .8px), var(--muted) calc(50% - .8px),
+                    var(--muted) calc(50% + .8px), transparent calc(50% + .8px));
+}
+/* Every fifth line heavier, which is how anybody counts along a long row. */
+.pix-cells .pix-cell:nth-child(5n + 1){ border-left-color:var(--muted) }
+.pix-wrap.n10 .pix-cells .pix-cell:nth-child(n + 51):nth-child(-n + 60),
+.pix-wrap.n15 .pix-cells .pix-cell:nth-child(n + 76):nth-child(-n + 90){ border-top-color:var(--muted) }
+.pix-wrap.n15 .pix-cells .pix-cell:nth-child(n + 151):nth-child(-n + 165){ border-top-color:var(--muted) }
+.pix-wrap.n20 .pix-cells .pix-cell:nth-child(n + 101):nth-child(-n + 120),
+.pix-wrap.n20 .pix-cells .pix-cell:nth-child(n + 201):nth-child(-n + 220),
+.pix-wrap.n20 .pix-cells .pix-cell:nth-child(n + 301):nth-child(-n + 320){ border-top-color:var(--muted) }
+.pix-wrap.n30 .pix-cells .pix-cell:nth-child(n + 151):nth-child(-n + 180),
+.pix-wrap.n30 .pix-cells .pix-cell:nth-child(n + 301):nth-child(-n + 330),
+.pix-wrap.n30 .pix-cells .pix-cell:nth-child(n + 451):nth-child(-n + 480),
+.pix-wrap.n30 .pix-cells .pix-cell:nth-child(n + 601):nth-child(-n + 630),
+.pix-wrap.n30 .pix-cells .pix-cell:nth-child(n + 751):nth-child(-n + 780){ border-top-color:var(--muted) }
+
+/* **Thirty across only fits if the numbers give way.** The clue gutter is
+   measured in the grid's own font — so many numbers wide — and at 11px a
+   thirty-wide row clue takes half a phone before the puzzle starts. Shrinking
+   the type shrinks the gutter and the squares keep the room. The squares
+   themselves stop growing sooner too: thirty of them at 30px each is a grid
+   nothing but a desk monitor can show at once. */
+.pix-wrap.n30{ font-size:8.5px; --pix-max:22px }
+.pix-wrap.n30 .pix-cell.off::after{ inset:20% }
+
+.pix-sizes{ display:flex; gap:8px; justify-content:center; margin:2px 0 4px }
+.pix-size{
+  flex:1 1 0; max-width:120px; padding:7px 6px; border-radius:12px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  font:inherit; font-size:13px; line-height:1.25;
+}
+.pix-size span{ display:block; font-size:10.5px; opacity:.8 }
+.pix-size.on{ color:var(--text); border-color:var(--accent); background:color-mix(in srgb, var(--accent) 14%, transparent) }
+.pix-size.done{ color:var(--accent) }
+
+/* The chosen mode is left to `.mini-btn.on`, which the whole app uses: accent
+   behind, dark text on it. This once repainted the label in the accent as well,
+   which is the same colour as the background it had just been given — "Fill"
+   was there the whole time and invisible. */
+.pix-modes{ display:flex; gap:8px; justify-content:center; margin:0 0 6px }
+
+/* A square Check found wrong. Red enough to see at a glance, and gone a few
+   seconds later — a permanent mark would be an answer key drawn on the board. */
+.pix-cell.bad{
+  background:color-mix(in srgb, #f07070 72%, var(--accent));
+  border-color:#f07070;
+}
+
+/* **A finished puzzle is shown as the picture alone.** No borders, no crosses,
+   no card behind the empty squares: the filled ones meet edge to edge and sit
+   straight on the screen. `border-style:none` rather than a transparent colour,
+   because the every-fifth-line rules above set colours at a far higher
+   specificity and a colour here would lose to them; they cannot bring back a
+   border that has no style. */
+.pix-wrap.solved .pix-cell{ border-style:none; background:transparent; cursor:default }
+/* The shadow is the seam. Squares sit on fractional pixels, each edge is
+   anti-aliased on its own, and two part-covered edges meeting leave a faint
+   line through the middle of a solid shape. Spreading each filled square by a
+   hair in its own colour closes it without changing the outline you can see. */
+.pix-wrap.solved .pix-cell.on{ background:var(--accent); box-shadow:0 0 0 .6px var(--accent) }
+.pix-wrap.solved .pix-cell.off::after{ display:none }
+
+/* **The guide: the row and the column under the pointer.** Two translucent
+   bands laid over the squares, which is what keeps them visible across filled
+   ones as well as blank, and never in the way of a tap. The clue boxes at the
+   ends of both take the same tint, so the band visibly runs out to the numbers
+   it is about. Set in percentages by `_aim` — the squares divide the track
+   exactly, so a fraction of it is a whole number of squares. */
+.pix-aim-row, .pix-aim-col{
+  position:absolute; pointer-events:none; z-index:1;
+  background:color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pix-aim-row{ left:0; right:0 }
+.pix-aim-col{ top:0; bottom:0 }
+.pix-rc.aim, .pix-cc.aim{
+  background:color-mix(in srgb, var(--accent) 16%, transparent);
+  color:var(--text);
+}
+.pix-rc.aim{ border-radius:4px 0 0 4px }
+.pix-cc.aim{ border-radius:4px 4px 0 0 }
+
+/* A clue number whose run is settled. Struck through rather than hidden: the
+   numbers have to stay countable, because the line above and below are read
+   against them. Recomputed from the board every time, so a number that stops
+   matching lights again. */
+.pix-cc i.done, .pix-rc i.done{
+  color:color-mix(in srgb, var(--muted) 42%, transparent);
+  text-decoration:line-through;
+}

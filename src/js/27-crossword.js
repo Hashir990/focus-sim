@@ -386,8 +386,7 @@
         try{ console.error('[crossword] ' + this.lastError, e); }catch(_){}
         try{
           askConfirm('This crossword would not open',
-            this.lastError + '\u2014 starting it again rebuilds the grid from '
-            + 'its day. The letters in it go; nothing else does.',
+            T('{err}\u2014 starting it again rebuilds the grid from its day. The letters in it go; nothing else does.', {err:this.lastError}),
             'Start it again', ()=>{ try{ this.restart(); }catch(_){} });
         }catch(_){}
         return null;
@@ -409,7 +408,7 @@
         const list = this._at(size);
         if(!(t.i >= 0 && this.load(t.i, pktNow()))
            && !(list.length && this.load(list[0], ''))){
-          toast('No ' + size + '\u00d7' + size + ' to open');
+          toast(T('No {s}\u00d7{s} to open', {s:size}));
           return;
         }
       }
@@ -597,19 +596,29 @@
     },
     _hintCount(){ return this.given.filter(Boolean).length; },
 
-    /** Reveal one letter: the square you're on, or the next empty one in its word. */
+    /** Reveal one letter: the square you're on, or the next one in its word that
+        isn't right yet.
+
+        **A wrong letter counts as not right.** This used to look only for an
+        *empty* square, which meant the one moment a hint is most wanted — you
+        are sitting on a square you have filled in wrongly and stuck — was the
+        one moment it refused, skipping off to reveal something else instead.
+        A grid that was full and wrong could not be finished by hints at all:
+        every square was taken, so the button said there was nothing left to
+        reveal. A square whose letter does not match the answer is exactly the
+        square to reveal. */
+    _notRight(k){ const s = this._solAt(k); return !!s && this.user[k] !== s; },
+
     hint(){
       if(!this.puz) return;
-      let i = (this.sel >= 0 && this._solAt(this.sel) && !this.user[this.sel]) ? this.sel : -1;
+      let i = (this.sel >= 0 && this._notRight(this.sel)) ? this.sel : -1;
       if(i < 0){
         const e = this.current();
         const cells = e ? this._cellsOf(e) : [];
-        for(const c of cells) if(!this.user[c]){ i = c; break; }
+        for(const c of cells) if(this._notRight(c)){ i = c; break; }
       }
       if(i < 0){
-        for(let k=0;k<this.user.length;k++){
-          if(this._solAt(k) && !this.user[k]){ i = k; break; }
-        }
+        for(let k=0;k<this.user.length;k++) if(this._notRight(k)){ i = k; break; }
       }
       if(i < 0){ toast('Nothing left to reveal'); return; }
       this.user[i] = this._solAt(i);
@@ -631,8 +640,8 @@
       }
       this.wrong = bad;
       this.render();
-      if(bad.length) toast(bad.length+' wrong '+(bad.length===1?'letter':'letters'));
-      else if(blank) toast('All good so far — '+blank+' left');
+      if(bad.length) toast(Tn('{n} wrong letter', '{n} wrong letters', bad.length));
+      else if(blank) toast(T('All good so far — {n} left', {n:blank}));
       else toast('All correct');
     },
 
@@ -664,8 +673,8 @@
     },
     _summary(){
       const h = this._hintCount();
-      return this.puz.entries.length + ' clues in ' + fmt(this.elapsed)
-        + (h ? ' · ' + h + ' letter' + (h===1?'':'s') + ' revealed' : ' · no hints');
+      return T('{n} clues in {t}', {n:this.puz.entries.length, t:fmt(this.elapsed)})
+        + ' · ' + (h ? Tn('{n} letter revealed', '{n} letters revealed', h) : T('no hints'));
     },
 
     /** How many of a puzzle's clues are completely filled in, for the picker.
@@ -754,7 +763,7 @@
       // The letter count comes from the entry itself, so it can never drift out
       // of step with the answer.
       $('cw-clue').textContent = cur
-        ? (cur.num + ' ' + (cur.dir === 'A' ? 'across' : 'down') + ' · '
+        ? ((cur.dir === 'A' ? T('{n} across', {n:cur.num}) : T('{n} down', {n:cur.num})) + ' · '
            + crossClue(cur.answer, this.idx) + ' (' + cur.answer.length + ')')
         : 'Pick a square to start';
 
@@ -765,7 +774,7 @@
           const on = cur && cur.num === e.num && cur.dir === e.dir;
           return '<button class="cw-clue-item'+(on?' on':'')+(filled?' filled':'')+'" '
             + 'data-num="'+e.num+'" data-dir="'+e.dir+'">'
-            + '<b>'+e.num+'</b><span>'+esc(crossClue(e.answer, this.idx))
+            + '<b>'+e.num+'</b><span translate="no">'+esc(crossClue(e.answer, this.idx))
             + ' <i>('+e.answer.length+')</i></span></button>';
         }).join('');
         return '<div class="cw-clue-col"><p class="q-sec">'+label+'</p>'+items+'</div>';
@@ -792,7 +801,7 @@
 
       const h = this._hintCount();
       const hEl = $('cw-hints');
-      if(hEl) hEl.textContent = h ? h + ' revealed' : '';
+      if(hEl) hEl.textContent = h ? T('{n} revealed', {n:h}) : '';
       const hBtn = $('cw-hint');
       if(hBtn) hBtn.disabled = this.done;
 
@@ -808,7 +817,7 @@
        position is still what decides that date; it is just not something to
        read on screen. See `_dayOf` and the schedule in 09b-daily.js. */
     _label(){
-      const when = this.day === pktNow() ? 'Today' : (this.day ? pktLabel(this.day) : '');
+      const when = this.day === pktNow() ? T('Today') : (this.day ? pktLabel(this.day) : '');
       return this.size + '×' + this.size + (when ? ' · ' + when : '') + ' · ' + fmt(this.elapsed);
     },
 
@@ -937,17 +946,17 @@
   registerDaily('crossword', {
     title:'Crossword',
     diffs:CROSS_SIZES.map(n=>({k:String(n), n:n + '×' + n})),
-    /* Not every size comes out every day, and a day with nothing published is
-       not a missed day. Anything asking this game for a streak reads this. */
-    on:(day, k)=>crossReleases(+k, day),
-    /* Not every size comes out every day, so the calendar asks before it draws
-       a dot — an empty Tuesday under "9×9" is the schedule, not a gap. */
+    /* Not every size comes out every day, so a day with nothing published is
+       not a missed day: the calendar asks before it draws a dot, and a streak
+       asks before it counts one. An empty Tuesday under "9×9" is the schedule.
+       (This was written twice, as a property and as a method — the same rule
+       either way, and the second silently won.) */
     on(day, diff){ return crossReleases(+diff, day); },
     line(rec){
       if(!rec) return '';
-      const h = rec.h ? ' · ' + rec.h + ' revealed' : '';
-      if(rec.s !== 2) return (rec.c != null && rec.n ? rec.c + ' of ' + rec.n + ' clues' : 'Started') + h;
-      return (rec.n ? rec.n + ' clues' : 'Filled in') + ' in ' + fmt(rec.t || 0) + h;
+      const h = rec.h ? ' · ' + T('{n} revealed', {n:rec.h}) : '';
+      if(rec.s !== 2) return (rec.c != null && rec.n ? T('{c} of {n} clues', {c:rec.c, n:rec.n}) : T('Started')) + h;
+      return (rec.n ? T('{n} clues in {t}', {n:rec.n, t:fmt(rec.t || 0)}) : T('Filled in in {t}', {t:fmt(rec.t || 0)})) + h;
     },
     stats(all){
       const done = all.filter(r=>r.s === 2);
@@ -970,7 +979,7 @@
     open(day, diff){
       const size = +diff || 7;
       const t = crossOnDay(size, day);
-      if(t.i < 0){ toast('No ' + size + '×' + size + ' on ' + pktLabel(day)); return; }
+      if(t.i < 0){ toast(T('No {s}×{s} on {day}', {s:size, day:pktLabel(day)})); return; }
       Cross.size = size;
       Cross._chose = true;              // picked by hand; see enter()
       Cross.load(t.i, day);
@@ -988,7 +997,7 @@
       const list = crossAtSize(size);
       const done = list.filter(i=>p[crossKey(CROSS_GRIDS[i])] && p[crossKey(CROSS_GRIDS[i])].done).length;
       if(!done && !Object.keys(p).length) return 'New<span>tap to start</span>';
-      return done + '/' + list.length + '<span>' + size + '×' + size + ' done</span>';
+      return done + '/' + list.length + '<span>' + T('{s}×{s} done', {s:size}) + '</span>';
     }
   });
 

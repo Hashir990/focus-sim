@@ -144,7 +144,7 @@
         Quote.stop();
         S.mode='setup'; S.restIsLong=false; S.remaining=S.total=S.focusMin*60;
         swapView(); render();
-        toast(S.runCount+' session'+(S.runCount>1?'s':'')+' done — nice work');
+        toast(Tn('{n} session done — nice work', '{n} sessions done — nice work', S.runCount));
         return;
       }
       S.restIsLong = (S.cycle % 4 === 0);
@@ -165,7 +165,7 @@
       if(wasFocus && S.repeat === 0 && S.runCount % AUTO_CAP === 0){
         S.autoHold = true;
         render();
-        toast(S.runCount + ' blocks in — tap play when you are ready to carry on');
+        toast(Tn('{n} block in — tap play when you are ready to carry on', '{n} blocks in — tap play when you are ready to carry on', S.runCount));
         return;
       }
       setTimeout(()=>{ if(!S.running && S.mode!=='setup') start(); }, 1000);
@@ -194,7 +194,7 @@
         S.sessionsToday++;
         logSession(done, false);   // ending early is never a whole block
         tasksFlushToNote();
-        toast('Saved '+fmtDur(done)+' to your history');
+        toast(T('Saved {d} to your history', {d:fmtDur(done)}));
       }else{
         // too little to be worth a row, and nothing was ticked off or written
         // down in it; the ticks opened a record anyway, so take it back

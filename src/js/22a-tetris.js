@@ -609,17 +609,20 @@
          working out where the next piece goes, and a stopped board is that
          puzzle with the clock switched off. Hidden, and the reason said. */
       const board = $('tet-grid');
-      if(board) board.classList.toggle('away', this.paused && !this.count);
+      if(board){
+        board.classList.toggle('away', this.paused && !this.count);
+        board.dataset.paused = T('Paused');
+      }
       const meta = $('tet-meta');
       if(meta) meta.textContent = this.paused ? 'Paused'
-        : (this.score + ' · ' + this.lines + (this.lines === 1 ? ' line' : ' lines'));
+        : (this.score + ' · ' + Tn('{n} line', '{n} lines', this.lines));
       const lv = $('tet-level');
-      if(lv) lv.textContent = 'Level ' + this.level();
+      if(lv) lv.textContent = T('Level {n}', {n:this.level()});
       /* The best *including this game*, or beating your record shows the old
          one still sitting there until you lose. */
       const top = Math.max(this.best, this.score);
       const bs = $('tet-best');
-      if(bs) bs.textContent = top ? 'Best ' + top : '';
+      if(bs) bs.textContent = top ? T('Best {n}', {n:top}) : '';
       /* One, not three. Three is a planning aid for a game you sit down to;
          this one is for five minutes, and the column of previews was taller
          than the information in it. */
@@ -670,9 +673,9 @@
       if(!bn) return;
       if(!this.done){ bn.classList.add('hide'); return; }
       const title = 'Stack topped out.';
-      const sub = this.score + ' points, ' + this.lines
-        + (this.lines === 1 ? ' line' : ' lines') + '.'
-        + (this.score >= this.best && this.score > 0 ? ' A new best.' : '');
+      const sub = T('{points}, {lines}.', {points:Tn('{n} points', '{n} points', this.score),
+          lines:Tn('{n} line', '{n} lines', this.lines)})
+        + (this.score >= this.best && this.score > 0 ? ' ' + T('A new best.') : '');
       if(justLost){ showBanner('tet-banner', title, sub); return; }
       $('tet-win-title').textContent = title;
       $('tet-win-sub').textContent = sub;

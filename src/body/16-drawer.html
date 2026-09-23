@@ -36,6 +36,12 @@
       <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
       <span><b>Achievements</b><small>What the hours added up to</small></span>
     </button>
+    <!-- The developer page. Hidden unless the build carries the stamp, which
+         only a build from this machine does; see devFlag in tools/build.mjs. -->
+    <button class="drawer-item hide" id="d-dev">
+      <svg viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
+      <span><b>Developer</b><small>Finish a game, move the day, unlock the shelf</small></span>
+    </button>
     <!-- App blocking. **Ships hidden** and is shown by guardMenuRow() in
          51-guard-ui.js only on a build that has the Android plugin: on a desktop
          or in a browser it would be a row that opens a page explaining it cannot
@@ -82,9 +88,15 @@
     <div class="drawer-sec">Clock face</div>
     <div class="amb-grid" id="face-pick"></div>
 
+    <!-- Each language written in itself, filled by langRender() in 50b-terms.js.
+         Changing it restarts the app; see 00a-i18n.js for why. -->
+    <div class="drawer-sec">Language</div>
+    <div class="drawer-toggles lang-pick" id="lang-pick"></div>
+
     <div class="drawer-sec">About</div>
     <div class="drawer-toggles">
       <button class="toggle" id="d-privacy"><span class="dot"></span>Privacy</button>
+      <button class="toggle" id="d-terms"><span class="dot"></span>Terms</button>
       <button class="toggle" id="d-credits"><span class="dot"></span>Credits</button>
       <button class="toggle" id="d-report"><span class="dot"></span>Report a problem</button>
     </div>

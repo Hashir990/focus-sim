@@ -2,7 +2,9 @@
      QUOTES · SESSION LOG · CALENDAR   (v3)
      ================================================================ */
   const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const fmtDur = secs => { const m=Math.round(secs/60); if(m<60) return m+' min'; const h=Math.floor(m/60), r=m%60; return r? h+'h '+r+'m' : h+'h'; };
+  /* Through the language tables because the units are words: an hour is
+     "1 घंटा" and two are "2 घंटे", which only a counted string can say. */
+  const fmtDur = secs => { const m=Math.round(secs/60); if(m<60) return T('{m} min', {m}); const h=Math.floor(m/60), r=m%60; return r ? Tn('{h}h {r}m', '{h}h {r}m', h, {h, r}) : Tn('{h}h', '{h}h', h, {h}); };
   const dayKey = ts => { const d=new Date(ts); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
 
 
@@ -13,7 +15,7 @@
      rather than a day behind. */
   function todayLabel(d){
     const t = d || new Date();
-    return t.toLocaleDateString(undefined, {weekday:'short', day:'numeric', month:'short'});
+    return t.toLocaleDateString(langLocale(), {weekday:'short', day:'numeric', month:'short'});
   }
   function paintDate(){
     const el = $('today-date');
@@ -71,7 +73,8 @@
      afternoon. */
   function listPhrase(bits){
     const a = (bits || []).filter(Boolean);
-    if(!a.length) return 'nothing';
+    if(!a.length) return T('nothing');
     if(a.length === 1) return a[0];
+    if(LANG !== 'en') return langAnd(a);
     return a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
   }

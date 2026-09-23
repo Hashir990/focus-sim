@@ -1,0 +1,17 @@
+<!-- ============ DEVELOPER ============
+     Only reachable on a build stamped `data-dev="1"`, which comes from
+     `.env.local` on one machine and is forced off for anything published — see
+     devFlag in tools/build.mjs. The row that opens this hides itself everywhere
+     else, and 42-dev.js wires nothing at all without the stamp. -->
+<div class="overlay hide" id="dev-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="dev-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">Developer</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <div id="dev-body"></div>
+  </div>
+</div>

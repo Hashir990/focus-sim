@@ -218,6 +218,16 @@
     }).join('');
   }
 
+  /** The shape of the word as this player says it, from the lengths the host
+      sends. An older host sends only its own English sentence, which is used
+      as it is rather than guessed at. */
+  function picShapeT(v){
+    const lens = Array.isArray(v.lens) ? v.lens : null;
+    if(!lens) return v.shape || Tn('{n} letters', '{n} letters', v.length || 0);
+    if(lens.length < 2) return lens.length ? Tn('{n} letters', '{n} letters', lens[0]) : '';
+    return Tn('{n} word — {lens} letters', '{n} words — {lens} letters', lens.length,
+      {lens:LANG === 'en' ? lens.join(' and ') : langAnd(lens.map(String))});
+  }
   function picShape(w){
     const parts = String(w||'').split(' ').filter(Boolean);
     if(parts.length < 2) return parts.length ? parts[0].length + ' letters' : '';
@@ -574,6 +584,9 @@
         left, total: st.secs || picTier(st.tier).secs,
         length: picBare(st.word).length,
         shape: picShape(st.word),
+        /* The same thing as numbers, so each player can say it in their own
+           language; `shape` stays for anybody on an older build. */
+        lens: String(st.word || '').split(' ').filter(Boolean).map(p=>p.length),
         tier: st.tier,
         tierName: picTier(st.tier).label,
         bonus: picTier(st.tier).bonus,
@@ -798,7 +811,7 @@
     _cheer(v){
       if(v.gotIt || v.iAmDrawer){
         chime(false);
-        showBanner('pic-banner', v.gotIt ? 'Got it.' : 'They saw it.', 'It was “'+v.answer+'”.');
+        showBanner('pic-banner', v.gotIt ? 'Got it.' : 'They saw it.', T('It was “{w}”.', {w:v.answer}));
       }
       setTimeout(()=>{ const b=$('pic-banner'); if(b) b.classList.add('hide'); }, 3600);
     },
@@ -810,7 +823,7 @@
       $('pic-need').classList.toggle('hide', inRoom);
       $('pic-live').classList.toggle('hide', !inRoom || !v);
       $('pic-next').classList.toggle('hide', !(v && v.phase === 'over'));
-      $('pic-meta').textContent = v ? 'Round '+(v.round+1) : '';
+      $('pic-meta').textContent = v ? T('Round {n}', {n:v.round+1}) : '';
       if(!inRoom || !v) return;
 
       const drawing = v.phase === 'drawing';
@@ -818,12 +831,12 @@
       $('pic-role').textContent = v.alone ? 'Nobody else is here yet'
         : v.phase === 'claim' ? (v.canClaim ? 'Up for grabs — first to claim draws'
                                             : 'You drew the last one')
-        : choosing ? (v.iAmDrawer ? 'Pick your word' : v.drawerName + ' is picking a word')
-        : v.iAmDrawer ? 'You’re drawing' + (v.bonus ? ' · ' + v.tierName + ' (+' + v.bonus + ')' : '')
-        : v.drawerName + ' is drawing' + (v.bonus ? ' · ' + v.tierName : '');
+        : choosing ? (v.iAmDrawer ? 'Pick your word' : T('{name} is picking a word', {name:v.drawerName}))
+        : v.iAmDrawer ? T('You’re drawing') + (v.bonus ? ' · ' + T(v.tierName) + ' (+' + v.bonus + ')' : '')
+        : T('{name} is drawing', {name:v.drawerName}) + (v.bonus ? ' · ' + T(v.tierName) : '');
 
       const clock = $('pic-clock');
-      clock.textContent = drawing ? v.left + 's' : '';
+      clock.textContent = drawing ? T('{n}s', {n:v.left}) : '';
       clock.classList.toggle('low', drawing && v.left <= 10);
 
       // the word, for the one person who should see it
@@ -831,9 +844,9 @@
       const showWord = drawing && v.iAmDrawer && this.word;
       wordBox.classList.toggle('hide', !showWord);
       if(showWord){
-        wordBox.innerHTML = '<small>Draw this'
-          + (v.bonus ? ' · ' + esc(v.tierName) + ', +' + v.bonus : '')
-          + ' · ' + v.total + 's</small>' + esc(this.word);
+        wordBox.innerHTML = '<small>' + esc(T('Draw this'))
+          + (v.bonus ? ' · ' + esc(T(v.tierName)) + ', +' + v.bonus : '')
+          + ' · ' + esc(T('{n}s', {n:v.total})) + '</small>' + esc(this.word);
       }
 
       // the three on offer, and only to the person who has to pick
@@ -841,8 +854,8 @@
       $('pic-choose').classList.toggle('hide', !offering);
       if(offering){
         $('pic-offers').innerHTML = v.offer.map((o,k)=>
-          '<button class="pic-offer" data-k="'+k+'"><b>'+esc(o.w)+'</b>'
-          + '<span>'+esc(o.label)+' · '+o.secs+'s</span>'
+          '<button class="pic-offer" data-k="'+k+'"><b translate="no">'+esc(o.w)+'</b>'
+          + '<span>'+esc(T(o.label))+' · '+esc(T('{n}s', {n:o.secs}))+'</span>'
           + (o.bonus ? '<em>+'+o.bonus+'</em>' : '') + '</button>').join('');
       }
 
@@ -858,10 +871,10 @@
         over.textContent = v.alone
           ? 'Share your code from Focus together and they can join in.'
           : v.phase === 'over'
-            ? 'It was “' + v.answer + '”.'
+            ? T('It was “{w}”.', {w:v.answer})
             : choosing
               ? (v.iAmDrawer ? 'Pick one above — the clock starts when you do.'
-                             : v.drawerName + ' is choosing a word.')
+                             : T('{name} is choosing a word.', {name:v.drawerName}))
             : v.canClaim ? 'Claim it and you’ll get three words to choose from.'
                          : 'Waiting for somebody to claim this one.';
       }
@@ -869,13 +882,14 @@
       // guesses, most recent last
       $('pic-guesses').innerHTML = (v.guesses||[]).map(g=>
         '<div class="pic-guess'+(g.got?' got':g.close?' close':'')+'">'
-        + '<b>'+esc(g.who)+'</b> ' + esc(g.text) + (g.close ? ' — close' : '') + '</div>').join('');
+        + '<b>'+esc(g.who)+'</b> <span translate="no">' + esc(g.got && g.text === 'got it' ? T('got it') : g.text) + '</span>'
+        + (g.close ? ' — ' + esc(T('close')) : '') + '</div>').join('');
       const gl = $('pic-guesses');
       gl.scrollTop = gl.scrollHeight;
 
       $('pic-scores').innerHTML = v.players.map(p=>
         '<div class="pic-score'+(p.drawer?' turn':'')+(p.got?' done':'')+'">'
-        + '<span>'+esc(p.name)+(p.me?' (you)':'')+'</span><b>'+p.pts+'</b></div>').join('');
+        + '<span>'+esc(p.name)+(p.me?' '+esc(T('(you)')):'')+'</span><b>'+p.pts+'</b></div>').join('');
 
       /* Letters spaced out so `_ _ _` reads as three blanks rather than one
          long rule, and the gaps between words stay legible. */
@@ -891,9 +905,9 @@
         : !drawing ? ''
         : v.iAmDrawer ? 'No letters, no numbers — draw it.'
         : v.gotIt ? 'You got it. Sit tight.'
-        : v.hint ? 'It starts with “' + v.hint + '” — ' + (v.shape || v.length + ' letters') + '.'
-        : (v.shape || v.length + ' letters')
-          + (v.bonus ? ' · ' + v.tierName + ', worth +' + v.bonus : '') + '.';
+        : v.hint ? T('It starts with “{c}” — {shape}.', {c:v.hint, shape:picShapeT(v)})
+        : T('{shape}.', {shape:picShapeT(v)
+          + (v.bonus ? ' · ' + T('{tier}, worth +{n}', {tier:T(v.tierName), n:v.bonus}) : '')});
     },
   };
 
@@ -922,10 +936,10 @@
       if(!syncActive()) return '';
       const v = Pictionary.view;
       if(!v || v.alone) return 'Ready<span>waiting</span>';
-      if(v.phase === 'claim') return 'Open<span>claim to draw</span>';
+      if(v.phase === 'claim') return esc(Tx('status', 'Open')) + '<span>claim to draw</span>';
       if(v.phase === 'choosing') return 'Picking<span>choosing a word</span>';
       if(v.phase === 'over') return 'Done<span>next round</span>';
-      return v.left + 's<span>left</span>';
+      return T('{n}s', {n:v.left}) + '<span>left</span>';
     }
   });
 

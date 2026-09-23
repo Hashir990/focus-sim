@@ -185,18 +185,24 @@
   function planRepeatLabel(p){
     const r = p && p.rep;
     if(!r) return '';
-    const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     const n = Math.max(1, r.n | 0) || 1;
     const unit = {day:'day', week:'week', month:'month', year:'year'}[r.every] || 'week';
-    let s = n === 1 ? ('Every ' + unit) : ('Every ' + n + ' ' + unit + 's');
+    /* Whole phrases, one per unit, rather than "Every" + a unit + an "s": in
+       Russian the word for "every" agrees with what follows it, and in
+       Japanese the number comes before the unit and the "every" after both. */
+    const once = {day:'Every day', week:'Every week', month:'Every month', year:'Every year'}[unit];
+    const many = {day:['Every {n} day', 'Every {n} days'], week:['Every {n} week', 'Every {n} weeks'],
+                  month:['Every {n} month', 'Every {n} months'], year:['Every {n} year', 'Every {n} years']}[unit];
+    let s = n === 1 ? T(once) : Tn(many[0], many[1], n);
     if(r.every === 'week' && r.days && r.days.length){
-      const named = r.days.slice().sort().map(d=>DOW[d].slice(0, 3));
+      const named = r.days.slice().sort().map(d=>langDow(d, 'short'));
       const weekdays = r.days.length === 5 && [1,2,3,4,5].every(d=>r.days.indexOf(d) >= 0);
-      s = weekdays && n === 1 ? 'Every weekday'
-        : (n === 1 ? 'Every ' : 'Every ' + n + ' weeks, ') + named.join(', ');
+      s = weekdays && n === 1 ? T('Every weekday')
+        : n === 1 ? T('Every {days}', {days:named.join(langSep())})
+        : Tn('Every {n} week, {days}', 'Every {n} weeks, {days}', n, {days:named.join(langSep())});
     }
-    if(r.endOn) s += ' until ' + r.endOn;
-    else if(r.endAfter) s += ', ' + r.endAfter + ' times';
+    if(r.endOn) s = T('{rule} until {date}', {rule:s, date:r.endOn});
+    else if(r.endAfter) s = Tn('{rule}, {n} time', '{rule}, {n} times', r.endAfter, {rule:s});
     return s;
   }
 
@@ -227,7 +233,7 @@
       savePlan(); saveTasks();
       try{ tasksRender(); tasksRefresh(); }catch(e){}
       try{ toast(made === 1 ? 'A task you planned is on today’s list'
-                            : made + ' tasks you planned are on today’s list'); }catch(e){}
+                            : Tn('{n} task you planned is on today’s list', '{n} tasks you planned are on today’s list', made)); }catch(e){}
     }
     return made;
   }

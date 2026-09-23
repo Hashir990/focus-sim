@@ -4306,3 +4306,177 @@ CLUES.update({
     'weld':      'Join two bits of metal with heat',
     'wrestler':  'Grappler on the mat',
 })
+
+# 2026-09-19 run. Twenty answers off the day's fill that were still carrying a
+# WordNet gloss. The usual traps were all here: SIN glossed as the Mesopotamian
+# moon god, SPOKE as a rung of a ladder, SEAT as a centre of authority and
+# BAGEL as a glazed yeast-raised roll with a hard crust.
+CLUES.update({
+    'anyhow':    'In any case',
+    'bagel':     'Ring of bread with a hole',
+    'bistro':    'Small neighbourhood restaurant',
+    'champ':     'Title holder, for short',
+    'dough':     'What the baker kneads',
+    'gift':      'Something given',
+    'hard':      'Tough going',
+    'herd':      'Drive cattle along',
+    'ionic':     'Carrying an electric charge',
+    'polka':     'Lively dance in two-four time',
+    'publisher': 'Who brings the book out',
+    'sand':      'What the beach is made of',
+    'scent':     'Trail a hound follows',
+    'seat':      'Chair, or a place in parliament',
+    'seventy':   'Three score and ten',
+    'sin':       'Wrongdoing, in religious terms',
+    'spoke':     "Rod from a wheel's hub",
+    'tolerance': 'Putting up with difference',
+    'ulster':    'Northern Irish province',
+    'unhealthy': 'Bad for you',
+})
+
+# 2026-09-19 run: hand-written clues for the answers the day's six puzzles
+# brought in on a WordNet gloss. Glosses give the first sense, which is almost
+# never the one a solver means — SCORE came out as "Grounds", SPAT as "Spawn",
+# SMALL as "Faint".
+CLUES.update({
+    'arrow':     'Sign pointing the way',
+    'bind':      'Tie up tightly',
+    'calculate': 'Work out the sum of',
+    'coalition': 'Government made of more than one party',
+    'defense':   'Side trying to stop the other from scoring',
+    'don':       'Put on, as a coat',
+    'evenly':    'Spread the same all over',
+    'exile':     'Send out of the country for good',
+    'forth':     'Onward and out',
+    'hank':      'Coil of wool or yarn',
+    'leap':      'Jump with both feet',
+    'memorable': 'Not the sort of night you forget',
+    'onstage':   'Out where the audience can see you',
+    'pricey':    'Costing more than you hoped',
+    'score':     'Twenty, in old counting',
+    'small':     'Takes up little room',
+    'spat':      'Minor quarrel',
+})
+
+# 2026-09-20 run: the six new puzzles at 5x5, 7x7 and 9x9. Glosses here were
+# the usual wrong sense — TERM came out as "a statue", APACHE as a Parisian
+# gangster, CAMEO as a carving in low relief.
+CLUES.update({
+    'accent':    'Way of speaking that gives away where you are from',
+    'apache':    'Helicopter named for a Native American people',
+    'arson':     'Setting fire to a building as a crime',
+    'cameo':     'Brief appearance by a famous face',
+    'conductor': 'Waver of the baton in front of the orchestra',
+    'crop':      'What the farmer harvests',
+    'incur':     'Bring upon yourself, as a fine',
+    'inertia':   'Tendency to stay put',
+    'infect':    'Pass the illness on to',
+    'insisting': 'Refusing to be told otherwise',
+    'pal':       'Friend you knock about with',
+    'pet':       'Cat or dog at home',
+    'scrap':     'Throw out as no longer worth keeping',
+    'sock':      'It goes on before the shoe',
+    'teens':     'Years from thirteen to nineteen',
+    'term':      'Word used with a precise meaning',
+    'wan':       'Pale and washed out looking',
+})
+
+
+# 2026-09-21 run: the six new puzzles at 5x5, 7x7 and 9x9. The usual wrong
+# first sense — CRITERION came out as "ideal in terms of which something can be
+# judged", MASH as "to compress with violence", SPIT as "rain gently", EARLY as
+# "very young" and VAT as "large open vessel for holding or storing liquids".
+CLUES.update({
+    'avenge':     'Get even on someone else’s behalf',
+    'beam':       'Smile very widely',
+    'bikini':     'Two-piece worn on the beach',
+    'criterion':  'Standard a thing is judged against',
+    'duct':       'Pipe carrying air through a building',
+    'early':      'Ahead of the appointed time',
+    'gear':       'Equipment you take for the activity',
+    'gist':       'The main point, in a nutshell',
+    'hassle':     'Bother that is more trouble than it is worth',
+    'hex':        'Curse put on somebody',
+    'intensive':  'Concentrated and thorough',
+    'known':      'Recognised by everybody',
+    'linger':     'Stay on longer than you need to',
+    'mash':       'Crush the potatoes',
+    'merge':      'Join into one',
+    'minimally':  'Only just, and no more',
+    'relate':     'Feel what somebody else is feeling',
+    'selection':  'The one picked out of the lot',
+    'slow':       'Take your foot off the accelerator',
+    'snipe':      'Take a potshot in words',
+    'spit':       'What the rain does before it pours',
+    'tape':       'Sticky roll for mending the parcel',
+    'troop':      'Band of soldiers on the move',
+    'vat':        'Great tub the brewer works with',
+    'water':      'What comes out of the tap',
+})
+
+# 2026-09-22. The day's two nines and two sevens; the fifteen did not land, so
+# nothing here comes from one. REEL takes a tuple because it turned up in both
+# a seven and a nine this run, and the two senses — the thing the line winds
+# onto and the stagger — are far enough apart to be two real questions.
+CLUES.update({
+    'ambulance':  'Van that runs with its siren on',
+    'auxiliary':  'Kept in reserve as a backup',
+    'baby':       'Newest arrival in the family',
+    'brokerage':  'Firm that buys and sells shares for you',
+    'chemical':   'Substance in a lab bottle',
+    'disturbed':  'Woken when you wanted to be left alone',
+    'extension':  'Extra time to finish, or a room added on',
+    'helm':       'Where the ship is steered from',
+    'introduce':  'Say who somebody is',
+    'rainy':      'The kind of day you save up for',
+    'rebel':      'One who refuses to fall in line',
+    'reel':       ('Spool the fishing line winds onto',
+                   'Stagger after a blow to the head'),
+    'schedule':   'What the day is planned out on',
+    'tacky':      'In poor taste, or not yet dry',
+    'tax':        'What the government takes from your pay',
+    'volcano':    'Mountain that can erupt',
+})
+
+# The 2026-09-22 fifteen, which finally landed on 2026-09-23 once `obesity`,
+# `lunatic` and `yassify` went back into the pool. Nothing in this grid needed
+# banning: `ova` was the one candidate and it holds seven shipped puzzles, so it
+# stays where `atp` and `roe` do.
+CLUES.update({
+    'abuser':     'One who misuses a thing or a person',
+    'altered':    'Changed from how it was',
+    'cheat':      'Break the rules to win',
+    'damaged':    'Harmed, and showing it',
+    'dilemma':    'Choice between two bad options',
+    'eternal':    'Going on for ever',
+    'fable':      'Short story with a moral and animals',
+    'fact':       'Something that is simply true',
+    'locator':    'Device that finds where a thing is',
+    'mild':       'Gentle on the tongue, not hot',
+    'moss':       'Green growth on a damp wall',
+    'muddy':      'Churned up and hard to walk on',
+    'mutual':     'Felt the same way by both',
+    'nutty':      'Tasting of almonds, or slightly mad',
+    'oblige':     'Do somebody the favour they asked',
+    'pillow':     'What your head goes on at night',
+    'seafood':    'Prawns, mussels and the rest',
+    'shocked':    'Unable to believe what you just saw',
+    'stopped':    'No longer moving',
+    'stride':     'Long confident step',
+    'tactics':    'How the plan gets carried out',
+})
+
+# 2026-09-23: two new puzzles each at 5x5, 7x7 and 9x9. Nothing banned this run
+# (no 15x15 was due — day 266 isn't divisible by 5).
+CLUES.update({
+    'apart':      'Separated by some distance',
+    'beaded':     'Covered in tiny drops, as with sweat',
+    'dried':      'Preserved by removing all moisture',
+    'evidenced':  'Backed up by proof',
+    'ink':        'What a fountain pen holds',
+    'lynx':       'Wildcat with tufted ears',
+    'mason':      'Builder who works with brick or stone',
+    'milky':      'Pale and cloudy, like some coffee',
+    'treble':     'British word for triple',
+    'void':       'Empty, or to make invalid',
+})

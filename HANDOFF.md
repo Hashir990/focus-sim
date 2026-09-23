@@ -192,6 +192,34 @@ of them run in the sandbox.
   lock until the permissions are done. If a phone does get stuck, safe mode
   disables every accessibility service.
 
+- **A percentage on a grid row is a percentage of the height.** The picross
+  squares were sized with one custom property used for both
+  `grid-template-columns` and `grid-auto-rows`; against the column axis it means
+  the width, against the row axis the height, so every square came out a
+  slightly wrong rectangle. jsdom has no layout and could not see it. Square
+  cells want `aspect-ratio:1`, not the same length written twice.
+
+- **A custom property holding a percentage is not a length.** It is re-resolved
+  against whatever box — or *property* — uses it, and the same
+  `--pic-cell:min(30px, calc((100% - gut)/n))` gave three different answers in
+  one screen: the wrap's track took the gutter off once, the cells inside it
+  took it off again and came up short, and `font-size:calc(var(--pic-cell)*.7)`
+  resolved the `100%` against the **parent font size**, went negative, and drew
+  the cross-off mark at 0px — crossing a square off did nothing you could see
+  for the whole of the feature's first day. Size a track once where the
+  percentage means what you think, let `1fr` divide it, and never put a
+  percentage-bearing property into a font size. Draw marks that must scale with
+  a box (gradients, ratios), rather than typing them at a computed size.
+
+- **Two screens cannot share an id prefix.** Picross was written with `pic-`
+  ids, which pictionary already had: `pic-meta`, `pic-sizes`, `pic-fill`,
+  `pic-clear`, `pic-banner`, `pic-win-sub`. `getElementById` returns the first
+  in the page, so picross drew its size chooser inside pictionary's hidden
+  toolbar, wired Fill to pictionary's paint bucket, and set its win banner on
+  one nobody could see — and the tests passed, because they looked the elements
+  up the same wrong way the game did. Picross is `pix-` now, and the suite
+  counts every id in the built page and fails on a repeat.
+
 - **`opacity` on a box has no opt-out.** "Not yours yet" and "you cannot afford
   this" were both drawn by fading the whole tile, which faded the price — the
   one line the person is there to read — and flattened the ember mark's glow,
@@ -276,6 +304,42 @@ of them run in the sandbox.
   `adjust` does not work** — `adjust` merges by `max` and two devices updating
   weeks apart each add the credit, so the second one doubles it. Anything
   derived has to stay derived.
+  **It happened twice in one release.** 1.3.5 raised the buddy's wardrobe and
+  antics two to five times as well, and `EMB_WAS` only listed lights, sounds
+  and faces — so `bud-` items were re-charged in full and one real device sat
+  at zero with 4877 charged against 1612 earned. `EMB_WAS_BUD` now freezes the
+  wardrobe rows as sold 6–15 September, and the one-time migration is marked
+  by `'@bud-rise'` *inside* `grand` rather than by a new key, because `grand`
+  already merges on both sides and a new key would be dropped by any server
+  not yet redeployed. **Before changing any price, check every catalogue that
+  `priceOf` reads** — lights, sounds, faces, `BUD_COST` — not just the one in
+  front of you.
+
+- **A translation layer has three blind spots, and all three bit.** Text that
+  never becomes a text node cannot be swapped where it meets the page: a word
+  in a CSS `content:` rule (Tetris's "Paused"), a string drawn from a `data-`
+  attribute by CSS (the ambience prices), and a sentence split across a tag
+  boundary so that neither half is a whole string (the achievements line, and
+  `<em>and</em>` inside one sentence of the Pictionary rules). The first two are
+  written from JS through `T()` now; the third is fixed by not splitting the
+  sentence. `tools/i18n-coverage.mjs` is what finds them — it opens every
+  screen in every language and lists what is still in English.
+- **One English word can be two different things.** Tetris's "Next" is the
+  piece coming up; the crossword's is the next puzzle. A game's "History" is
+  its own archive, not your sessions. An element marked `data-t="tetris"` has
+  its text looked up as `tetris::Next` first and falls back to the plain key,
+  which is how both can be right without renaming anything in English.
+- **`Tn()` files a counted string under its plural form.** `Tn('{n} ember',
+  '{n} embers', n)` looks up `'{n} embers'`; filing the entry under the
+  singular means the English falls through in every language, which is exactly
+  what happened to the shop's "embers unspent" and is why the coverage tool
+  exists.
+- **A `try` around a lookup hides a misspelt name for ever.** `Embers.payout`
+  read `ACH`, which never existed (the list is `ACH_LIST`); the ReferenceError
+  was caught and returned as 0 from 21 August to 21 September, so every claimed
+  achievement flashed its "+N" and was reconciled away on the next start. The
+  smoke test now boots with claimed achievements and asserts they are in
+  `earned`.
 
 - **`A r r 0 0 1` is the small arc, and the small arc is not the one you want
   over a head.** Two points 32.5 apart on a circle of 16.4 admit two centres;
@@ -1310,6 +1374,234 @@ main timer screen.** That is the only outstanding request.
 ## 9. Log
 
 Newest first. One line each.
+
+- **2026-09-23** — **Terms of use on the first start, and the whole app in
+  seven languages.** A first launch now opens on the terms, with the privacy
+  policy one tap away in the same page and every language listed above them,
+  so somebody who cannot read English can find their own before they have to
+  read anything. Agreeing records the version (`TERMS_VERSION`, 50b-terms.js),
+  which is what re-asks everybody when the terms change; afterwards both pages
+  live in the menu under About.
+  **Languages: English, 日本語, 简体中文, Русский, हिन्दी, اردو, العربية.**
+  The design is in 00a-i18n.js: whole strings are translated where they meet
+  the page — one walk at startup and a MutationObserver after it — and
+  anything *built* out of pieces goes through `T()`/`Tn()` with named slots, so
+  a translation can put the pieces where its own grammar wants them. Counted
+  strings carry every plural form their language has (Russian three, Arabic
+  six). Changing language restarts the app, because everything already drawn
+  was drawn in the old one. **English costs nothing**: no table is read, no
+  observer attached, and the 1,200 checks that assert English text still pass
+  unchanged.
+  The prose pages are written as whole documents per language (61-docs-*.js),
+  not assembled from fragments — a policy translated a sentence at a time reads
+  like a phrasebook. Terminology follows what each language's own apps use
+  (集中/休憩, 专注/休息, 数独, 数织, «Японский кроссворд», 神経衰弱), and the
+  word games say plainly in their description that they are played in English,
+  because the words, clues and dictionary are.
+  `tools/i18n-coverage.mjs` opens every screen in every language and lists what
+  is still in English; it found the last twelve, including two real bugs — an
+  achievements line split across a text node boundary and a plural filed under
+  its singular. `tools/look-lang.mjs` renders the screens for looking at, which
+  is how the right-to-left pass was done.
+
+- **2026-09-21 (2)** — **Embers stuck at zero, and picross gets the tools a
+  long puzzle needs.** Embers: two separate faults, both found by loading the
+  desktop app's own saved record into the build (read-only). 1.3.5 raised the
+  buddy's prices without grandfathering what was already owned, so the balance
+  was re-derived at the new prices and floored at zero — every ember earned
+  after that fell into the hole, which is what "resetting to 0" was. And
+  `payout()` looked up `ACH` instead of `ACH_LIST`, so achievements never
+  counted towards the derived balance at all. That record now comes out at 192
+  (631 from focus, 109 from twelve achievements, 981 carried, 1529 actually
+  paid) instead of 0. See §6 for both.
+  Picross: **Check** marks wrong squares for four seconds and never missing
+  ones; **Fix a square** takes back a wrong square before it gives a right one;
+  both are counted and the calendar row for an unfinished day says how many
+  squares are right out of how many. **Each clue number crosses off on its
+  own** as its run settles, matched from both ends, one run per number, and
+  relights the moment the line breaks. The finish banner and, now, the History
+  row name the picture once it is done (`name(day, diff, rec)` on a daily def;
+  before that the row still says Small/Middling/Big). **A drag only paints the
+  state it was meant for** — fills and crosses never overwrite each other
+  mid-stroke, a rub-out takes only what it started on. **A row-and-column
+  guide** follows the pointer: two translucent bands through the square and
+  both clue boxes lit, positioned as percentages of the grid; it goes when a
+  finger or pen lifts and stays under a hovering mouse. **A finished board is
+  the picture alone** — `.solved` drops the borders (`border-style:none`, since
+  the every-fifth-line rules win any colour fight) and the crosses, and a 0.6px
+  same-colour shadow closes the anti-aliasing seams between filled squares.
+  Test fix: the "no button paints its label" check ran `[^{}]*` over the whole
+  bundle, and the picross bank is 369,000 characters without a brace — the
+  suite sat at 100% CPU for ten minutes after the duplicate-id check. It reads
+  only the `<style>` blocks now.
+
+- **2026-09-19** — **A developer page that is only on this machine, and
+  picross.** The dev tools were a separate file (`dist/dev-unlocked.html`) and a
+  console function, which is no use on a phone: they are a page in the app now —
+  what this build is, finish the open game, end the block, embers and the whole
+  shelf, force an update check, and **move what the app calls today**, which is
+  the only way to test a daily puzzle without waiting a day. It is stamped in
+  from `.env.local` (git-ignored, so a clone has none) and forced off by
+  `--release` and `FOCUS_RELEASE`, so nothing published can carry it.
+  **Picross**: a picture behind its row and column counts, 5×5, 10×10 and 15×15,
+  one of each a day from a bank of thirty apiece. The designs are ours and live
+  in `tools/picross-designs.mjs`; the generator solves each one the way a person
+  does and refuses any that needs a guess, which is also what proves the answer
+  is unique. Names are in the tool only — in the app the picture is the answer.
+
+- **2026-09-21** — **An SVG renderer, 720 puzzles, and one subject only once.**
+  Every large library of named, drawn objects is SVG, and this repo could read
+  none of it. `tools/svg-raster.mjs` is a small renderer — path data including
+  arcs, curves flattened, nonzero winding fill, horizontal coverage measured
+  exactly rather than sampled because a one-unit line in a 512-unit drawing is
+  thinner than a sample step. That unlocked game-icons.net (CC BY 3.0, 4,229
+  icons), Bootstrap Icons (MIT) and Font Awesome Free (CC BY 4.0), on top of
+  Twemoji and Kenney. **Those credits are licence conditions; the About page
+  carries them and they stay.** Remix Icon was rejected: its licence permits
+  redistribution only where the icons are not "the primary value of the
+  product", which in a puzzle app is not a reading to lean on. A brand filter
+  went in too — icon sets carry company logos, and a trademark is a poor puzzle
+  answer whatever the file licence says.
+  **A subject now appears once in the whole bank**, not once per size: meeting
+  the same key at 15 and again at 30 is meeting the same puzzle twice. That is
+  what caps the bank — five libraries all draw a key, so ~2,800 named
+  candidates collapse to ~750 distinct subjects. 240 a size, not the 392 asked
+  for, and more sources barely moved it.
+  Allocation is **round-robin across sizes**. Filling one size at a time meant
+  whoever went last took leftovers: the 15s came out 205 while the 30s were
+  full, purely from loop order. Taking turns was worth 35 puzzles a size.
+  Order is **shuffled with a fixed seed** — random to a player, identical on
+  every rebuild, so regenerating does not reshuffle what has already gone out.
+  This deliberately reset the published days; the waterline rule in CLAUDE.md
+  was overridden on purpose, with the bank already churning daily.
+  Picross also got the **History button its screen never had**: it has
+  registered with the daily calendar since it shipped — records, streaks,
+  stats — but the only door was the win banner, so the archive sat behind
+  today's puzzle.
+
+- **2026-09-20 (6)** — **10×10 out, 30×30 in.** The small size was throwing away
+  most of a drawing to fit, so its pictures arrived as lumps; the sizes are
+  15×15, 20×20 and 30×30 now. **Thirty across only fits a phone because the clue
+  numbers give way**: the gutter is measured in the grid's own font, so `.n30`
+  drops to 8.5px type and caps a square at 22px. Measured rather than reasoned —
+  on a 375px phone, with the widest clue gutter in the whole size (seven numbers
+  on a row), the squares come out 9.8px, the grid 279px, the gutter 72px, and
+  nothing scrolls sideways. Small under a thumb, and it is the honest limit of
+  thirty squares on a phone. `look/n30.html` is the page that was measured; the
+  browser pane refuses the big sheets, so a small one is the way to check layout.
+  Three tools had the sizes written into them again — the importer's allowed
+  list, the picker's, and the generator's table — and the picker also wrote its
+  output with `out[10]`, `out[15]`, `out[20]` hard-coded, which is the fourth
+  place this same mistake has been made in two days.
+
+- **2026-09-20 (5)** — **The bank is things with names, and mostly not Kenney.**
+  The pipeline had no idea what it was drawing — only that it was one connected
+  shape — so it kept choosing walls, dice outlines and token stacks. The fix is
+  that **only sources which name their files are used at all**: a pack shipping
+  `tile_0042.png` can be checked by eye and no other way, so those are out of
+  the bank entirely. The name then carries through to the designs file, where it
+  is the evidence that the bank is made of things. Three rules on top of the
+  geometry: the name must not be a shape or a piece of interface, run-together
+  names are split first (`arrowDown` sails past a filter that rejects `arrow`),
+  and **one thing appears once per size** — a rule the shape signature cannot
+  enforce, because two drawings of a duck are two different grids.
+  Sources are now Twemoji (**CC BY 4.0 — attribution is a condition, and the
+  About page carries it**) and Kenney's icon packs (CC0). Rejected on the way:
+  game-icons.net is SVG only and there is no renderer here; Noto Emoji is under
+  a font licence and its image paths 404.
+  **The balance is not what it should be**: about 180 of the 200 at 20×20 are
+  Twemoji, because after the name filter there are not a hundred named
+  non-emoji candidates at that size. The cap counts source *families* now (one
+  emoji set read three ways was dodging it), but a cap cannot invent supply —
+  when a size cannot fill, the top-up relaxes the cap and never the name rule.
+  Two tests were fixed rather than re-run: the account client waited a fixed
+  900ms for a panel redrawn after a wipe, and a crossword check compared a
+  snapshot string containing elapsed seconds, so a second turning mid-test
+  failed it. Both now wait for the thing, or allow the tick, and both were
+  broken on purpose afterwards to confirm they still catch what they are for.
+
+- **2026-09-20 (4)** — **Six hundred puzzles, and "one thing" made mechanical.**
+  Two hundred at each size, which is half a year before anything repeats. The
+  quality rule is no longer taste: a picture has to be a **single connected
+  shape** with **at least one pocket of space inside it**, which is the
+  difference between a subject and a scattering of marks — that one test threw
+  out 946 of the 1,078 tiles in the first pack, all of them walls, pips and
+  corners that solve perfectly well and are nothing to look at. Near-twins go
+  too: each picture reduces to a coarse signature and at most two may share one,
+  because a pack has nine barrels. Seven CC0 packs, each licence read inside the
+  download and not just on the page (one of them spells the file `license.txt`
+  in lower case, which a check for `License.txt` misses). The 20×20 tier was the
+  one that starved, so the pixel packs were harvested a second way for it —
+  scaled to fill the grid rather than centred in it, which yields different
+  grids from the same art. `tools/picross-pick.mjs` merges every harvest,
+  scores, dedupes and writes the designs file; the bank is still generated from
+  that, so all 600 had to prove solvable by line logic alone. The built file
+  grew 110 KB.
+
+- **2026-09-20 (3)** — **The sizes moved up, and the pictures are Kenney's.**
+  5×5 is gone: too few arrangements for the clues to hide anything, and five
+  squares can only draw a symbol. The tiers are 10×10, 15×15 and 20×20 now.
+  Every picture in the bank comes from a CC0 pack — Micro Roguelike at 10,
+  1-Bit Pack at 15, Board Game Icons at 20 — each chosen because it is *drawn*
+  at about the size of its grid, which turned out to be the thing that decides
+  whether a picture survives the reduction. The 16-pixel pack at 20×20 was
+  tried both ways first: centred it leaves a dead border, stretched it goes
+  coarse. Kenney is credited on the About page; CC0 does not require it.
+  **Saved boards from before do not carry over** — a difficulty points at a
+  different grid size, and `enter()` discards a board whose length is not its
+  puzzle's, which is the behaviour that makes the change safe.
+  Three places had the sizes written into them (two checks and the contact
+  sheet) and each broke on the change; all three read them from the game now.
+
+- **2026-09-20 (2)** — **A picture can become a puzzle without going through
+  me.** `tools/picross-import.mjs` takes a PNG (or a text file of `#` and `.`),
+  reduces it to 5, 10 or 15 squares by box average, and runs it through the same
+  solver the hand-drawn designs face — imported from `make-picross.mjs`, which
+  now exports rather than only running, so there is one solver and not two that
+  drift. It refuses anything needing a guess and names the flag that fixes a
+  picture imported the wrong way round. The PNG reader is written out (8-bit,
+  non-interlaced): one dependency for one tool is a poor trade. Rights are the
+  importer's to check — whatever is appended ends up in a published app.
+
+- **2026-09-20** — **Sixty-two picross designs redrawn.** The first bank was
+  too abstract: silhouettes with nothing inside them, and at 10×10 and 15×15 a
+  blob is not a picture. The new ones are built the way a good nonogram is —
+  a clear outline with a hole or two in it, an eye, a window, a handle — which
+  is also what makes the clues interesting rather than long. Every one is ours;
+  nothing was copied from any puzzle site, and the reason is in §"Your part":
+  those grids are other people's work whatever a site's front page implies.
+  The six 5×5s that were patterns rather than pictures (a frame, a ladder, a
+  hash, two corners, a set of bars) went too. **Days already published were
+  left alone** — see the picross rule in CLAUDE.md — and the generator's output
+  was compared against the previous bank to prove it.
+
+- **2026-09-19 (3)** — **The developer page has a lock, and it no longer breaks
+  the balance.** The stamp said which machine built a copy, not who was holding
+  it, so a debug APK or a copied folder carried the page: the build now also
+  carries the SHA-256 of a key from `.env.local` (typed once per device) and,
+  when `FOCUS_DEV_WHO` is set, the hash of the account it belongs to — signed
+  out or signed in as anyone else and the page does not open. `FOCUS_DEV=1`
+  with no key builds *without* the page rather than with an open one. And the
+  balance: `credit()` only raises a running total that the next start derives
+  away, so the page's grants vanished, while "Own everything" added about
+  fourteen thousand embers of *spending* nothing had paid for — the balance sat
+  at zero and everything earned afterwards fell into the hole. Grants go
+  through `Embers.grant()` into `adjust` now, owning everything grants what it
+  would have cost, and `Embers.settle()` writes off an existing hole once.
+
+- **2026-09-19 (2)** — **Three things that only a browser could see.** Drawing
+  the bank out as a contact sheet (`tools/look-picross.mjs`) and the screens out
+  as real markup under real CSS (`tools/look-screens.mjs`) found what 1400 jsdom
+  checks could not: the squares came out a different size at every board size,
+  the cross-off mark rendered at 0px so crossing a square off did nothing
+  visible, and "Fill" was accent text on an accent background. Worse, picross's
+  ids collided with pictionary's — the size chooser was being drawn inside
+  pictionary's hidden toolbar — and the tests passed because they looked
+  elements up the same wrong way the game did. Picross is `pix-` now; the suite
+  counts every id in the page, insists picross's controls are on picross's
+  screen, and refuses a button that paints its label in its own background.
+  The screens sheet measures itself when opened, so the next layout bug of this
+  kind announces itself.
 
 - **2026-09-15 (3)** — **App blocking had never reached a phone, and now does
   what ScreenZen does.** Two reasons it was never seen. The only APK ever built

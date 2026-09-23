@@ -109,7 +109,7 @@
       $('ch-resign').onclick = ()=>{
         const g = this.view && this.view.game;
         if(!g || g.over) return;
-        askConfirm('Resign to ' + g.oppName + '?', 'They win this one. The game is over.',
+        askConfirm(T('Resign to {name}?', {name:g.oppName}), 'They win this one. The game is over.',
           'Resign', ()=>syncGameSend(Chess.key, {a:'resign'}));
       };
       $('ch-again').onclick = ()=>syncGameSend(this.key, {a:'again'});
@@ -126,7 +126,7 @@
       const p = (v.people || []).find(x=>x.code === code);
       if(p && p.invitedMe){ syncGameSend(this.key, {a:'accept', from:code}); return; }
       if(p && p.game){ this.lobby = false; this.sel = -1; this.render(); return; }
-      if(p && p.busy){ toast(p.name + ' is in a game'); return; }
+      if(p && p.busy){ toast(T('{name} is in a game', {name:p.name})); return; }
       if(!p){ toast('They’re not here right now'); return; }
 
       const s = this.saved[code];
@@ -141,7 +141,7 @@
     decline(code){ syncGameSend(this.key, {a:'decline', from:code}); },
     forget(code){
       const s = this.saved[code];
-      askConfirm('Forget the game with ' + ((s && s.name) || 'them') + '?',
+      askConfirm(T('Forget the game with {name}?', {name:(s && s.name) || T('them')}),
         'The moves go with it. There’s no getting it back.',
         'Forget', ()=>{ delete Chess.saved[code]; Chess.persist(); Chess.render(); });
     },
@@ -414,11 +414,11 @@
       const won = g.over.winner && g.over.by === this.view.me;
       chime(false);
       showBanner('ch-banner',
-        !g.over.winner ? 'A draw.' : won ? 'You won.' : g.oppName + ' won.',
+        !g.over.winner ? 'A draw.' : won ? 'You won.' : T('{name} won.', {name:g.oppName}),
         g.over.reason === 'resignation'
-          ? (won ? g.oppName + ' resigned.' : 'You resigned.')
+          ? (won ? T('{name} resigned.', {name:g.oppName}) : 'You resigned.')
           : g.over.reason === 'checkmate' ? 'Checkmate.'
-          : 'Drawn by ' + g.over.reason + '.');
+          : T('Drawn by {why}.', {why:T(g.over.reason)}));
       setTimeout(()=>{ const b = $('ch-banner'); if(b) b.classList.add('hide'); }, 4200);
     },
 
@@ -450,7 +450,7 @@
           : p.iInvited ? 'Asked — waiting for them'
           : p.game ? 'You’re playing'
           : p.busy ? 'In a game with someone else'
-          : half ? 'Left off at move ' + Math.ceil(half / 2)
+          : half ? T('Left off at move {n}', {n:Math.ceil(half / 2)})
           : 'Free';
         const cta = p.invitedMe ? 'Accept' : p.game ? 'Open' : p.iInvited ? 'Asked'
           : p.busy ? '—' : half ? 'Pick it up' : 'Play';
@@ -468,7 +468,7 @@
       $('ch-saved').innerHTML = away.map(c=>{
         const s = saved[c];
         const n = (s.moves || []).length;
-        const sub = s.over ? 'Finished' : n ? 'Move ' + Math.ceil(n / 2) + ' · they’re not here' : 'Not started';
+        const sub = s.over ? 'Finished' : n ? T('Move {n} · they’re not here', {n:Math.ceil(n / 2)}) : 'Not started';
         return '<div class="ch-person away">'
           + '<button class="ch-pick" data-code="'+esc(c)+'" disabled>'
           + '<b>'+esc(s.name || 'Someone')+'</b><em>'+esc(sub)+'</em></button>'
@@ -515,21 +515,26 @@
       $('ch-taken-top').innerHTML = this._takenRow(theirs, -edge);
       $('ch-taken-bottom').innerHTML = this._takenRow(mineTaken, edge);
 
-      $('ch-vs').innerHTML = '<b>'+esc(g.oppName)+'</b><em>you play '
-        + (side === 'w' ? 'White' : 'Black') + '</em>';
+      $('ch-vs').innerHTML = '<b>'+esc(g.oppName)+'</b><em>'
+        + esc(T(side === 'w' ? 'you play White' : 'you play Black')) + '</em>';
 
       const turn = $('ch-turn');
       turn.textContent = g.over ? 'Over'
         : mine ? (chessInCheck(pos) ? 'Your move — check' : 'Your move')
-        : g.oppName + '’s move';
+        : T('{name}’s move', {name:g.oppName});
       turn.classList.toggle('yours', mine && !g.over);
 
       $('ch-msg').textContent = g.over
-        ? (!g.over.winner ? 'Drawn by ' + g.over.reason + '.'
-           : (g.over.by === this.view.me ? 'You won' : g.oppName + ' won')
-             + (g.over.reason === 'checkmate' ? ' by checkmate.'
-                : g.over.reason === 'resignation' ? ' — ' + (g.over.by === this.view.me ? 'they' : 'you') + ' resigned.'
-                : ' by ' + g.over.reason + '.'))
+        ? (!g.over.winner ? T('Drawn by {why}.', {why:T(g.over.reason)})
+           /* Whole sentences per outcome: who won, how, and who resigned
+              change places between languages, so no two of them are glued. */
+           : g.over.by === this.view.me
+             ? (g.over.reason === 'checkmate' ? T('You won by checkmate.')
+                : g.over.reason === 'resignation' ? T('You won — they resigned.')
+                : T('You won by {why}.', {why:T(g.over.reason)}))
+             : (g.over.reason === 'checkmate' ? T('{name} won by checkmate.', {name:g.oppName})
+                : g.over.reason === 'resignation' ? T('{name} won — you resigned.', {name:g.oppName})
+                : T('{name} won by {why}.', {name:g.oppName, why:T(g.over.reason)})))
         : this.sel >= 0 ? 'Tap a highlighted square, or tap the piece again to put it back.'
         : mine ? 'Tap a piece to see where it can go.'
         : 'Leave it here and come back — it keeps its place.';

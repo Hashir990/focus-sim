@@ -119,8 +119,8 @@
       if(!this.done){ bn.classList.add('hide'); return; }
       const title = this.won ? 'Nice.' : 'So close.';
       const sub = this.won
-        ? ('Found it in '+this.guesses.length+'/6.')
-        : ('The word was '+this.answer.toUpperCase()+'.');
+        ? T('Found it in {n}/6.', {n:this.guesses.length})
+        : T('The word was {w}.', {w:this.answer.toUpperCase()});
 
       if(justWon && this.won){ showBanner('wdl-banner', title, sub); return; }
       $('wdl-win-title').textContent = title;
@@ -150,7 +150,7 @@
     line(rec){
       if(!rec) return '';
       if(rec.s !== 2) return 'Started';
-      return rec.w ? ('Found in ' + (rec.g || '?') + '/6') : 'Missed';
+      return rec.w ? T('Found in {n}/6', {n:rec.g || '?'}) : 'Missed';
     },
     /* The grid, drawn from the five-characters-a-guess string. This is the
        picture people screenshot: it says how close each try was without ever

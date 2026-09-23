@@ -224,6 +224,10 @@ Run 'node' @('tools/publish-check.mjs')
 # that the upload is done by the one thing that reads the release back
 # afterwards, and so that a build is never thrown away because an upload failed.
 Step 'Build the Windows installer'
+# The developer menu is stamped in from .env.local, which exists on the machine
+# this is usually run from. Never into anything handed out: see devFlag in
+# tools/build.mjs, which ignores that file when FOCUS_RELEASE is set.
+$env:FOCUS_RELEASE = '1'
 Run 'npm' @('run', 'build')
 # Not fatal on its own: electron-builder can exit non-zero having still written
 # a perfectly good installer -- typically while trying to publish something it

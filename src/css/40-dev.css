@@ -1,0 +1,39 @@
+/* ---- the developer page ----
+   Deliberately plain. It is not part of the app anybody is handed, and every
+   minute spent making it pretty is a minute not spent on the thing it is for.
+   It borrows the shapes the rest of the app already has. */
+.dev-note{ margin:10px 0 14px; color:var(--muted); font-size:12.5px; line-height:1.6 }
+.dev-facts{
+  display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:0 0 6px;
+  padding:11px 12px; border-radius:12px; background:var(--track);
+  font-size:12px; line-height:1.6;
+}
+.dev-facts b{ color:var(--muted); font-weight:500 }
+.dev-facts span{ color:var(--text); word-break:break-word }
+.dev-row{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px }
+.dev-btn{
+  flex:1 1 auto; min-width:96px; padding:11px 12px; border-radius:12px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:13px;
+}
+.dev-btn:hover{ border-color:var(--accent); background:var(--track) }
+.dev-btn.warn{ color:#f0a0a0; border-color:color-mix(in srgb, #f07070 40%, var(--line)) }
+.dev-day{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin:0 0 12px; padding:9px 11px; border-radius:12px; border:1px solid var(--line);
+  background:var(--card);
+}
+.dev-day b{ font-size:14px; font-weight:600 }
+.dev-day small{ display:block; color:var(--muted); font-size:11.5px; margin-top:2px }
+.dev-day.off b{ color:var(--accent) }
+
+/* The lock. One field, the same shape as a row of buttons, because it stands
+   where the tools would be and nothing else is on the page until it is right. */
+.dev-key{ display:flex; gap:8px; margin:0 0 12px }
+.dev-key input{
+  flex:1 1 auto; min-width:0; padding:11px 12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+  font:inherit; font-size:13px; letter-spacing:.06em;
+}
+.dev-key input:focus{ outline:none; border-color:var(--accent) }
+.dev-key .dev-btn{ flex:0 0 auto }

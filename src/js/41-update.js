@@ -69,14 +69,14 @@
      clock. */
   function updWhen(at){
     const mins = Math.floor((Date.now() - at) / 60000);
-    if(mins < 2) return 'just now';
-    if(mins < 60) return mins + ' minutes ago';
+    if(mins < 2) return T('just now');
+    if(mins < 60) return Tn('{n} minutes ago', '{n} minutes ago', mins);
     const hrs = Math.floor(mins / 60);
-    if(hrs < 24) return hrs === 1 ? 'an hour ago' : hrs + ' hours ago';
+    if(hrs < 24) return hrs === 1 ? T('an hour ago') : Tn('{n} hours ago', '{n} hours ago', hrs);
     const days = Math.floor(hrs / 24);
-    if(days === 1) return 'yesterday';
-    if(days < 7) return days + ' days ago';
-    return 'on ' + new Date(at).toLocaleDateString(undefined, {day:'numeric', month:'short'});
+    if(days === 1) return T('yesterday');
+    if(days < 7) return Tn('{n} days ago', '{n} days ago', days);
+    return T('on {date}', {date:new Date(at).toLocaleDateString(langLocale(), {day:'numeric', month:'short'})});
   }
 
   function updNewer(there, here){
@@ -205,7 +205,7 @@
         const pct = Math.max(0, Math.min(100, n.percent | 0));
         box.dataset.have = UPD_VERSION;
         box.innerHTML = n.state === 'ready'
-          ? '<div class="upd new"><b>Version ' + esc(n.version || '') + ' is ready</b>'
+          ? '<div class="upd new"><b>' + esc(T('Version {v} is ready', {v:n.version || ''})) + '</b>'
             + '<em>It goes in next time you close the app — or now, if you like.</em>'
             + '<button type="button" class="upd-get" id="upd-restart">Restart now</button>'
             + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
@@ -216,14 +216,13 @@
              check; the download is exactly when somebody wants to know what
              they are getting. */
           : n.state === 'downloading'
-            ? '<div class="upd new"><b>Downloading version ' + esc(n.version || '') + '</b>'
+            ? '<div class="upd new"><b>' + esc(T('Downloading version {v}', {v:n.version || ''})) + '</b>'
               + ((this.latest && this.latest.notes) ? '<em>' + esc(this.latest.notes) + '</em>' : '')
               + '<div class="upd-bar"><i style="width:' + pct + '%"></i></div>'
-              + '<p class="upd-safe">' + pct + '% done. It goes in when you next '
-              + 'close the app.</p></div>'
+              + '<p class="upd-safe">' + esc(T('{p}% done. It goes in when you next close the app.', {p:pct})) + '</p></div>'
             : n.state === 'checking'
               ? '<button type="button" class="upd-check" disabled>Checking…'
-                + '<span>version ' + esc(UPD_VERSION) + '</span></button>'
+                + '<span>' + esc(T('version {v}', {v:UPD_VERSION})) + '</span></button>'
               : '<button type="button" class="upd-check" id="upd-check">Check for updates'
                 + '<span>could not reach the update server</span></button>';
         const r = $('upd-restart');
@@ -240,10 +239,10 @@
          for them is how this looked broken: the automatic path was invisible
          and the visible path was the wrong one. */
       box.innerHTML = v
-        ? '<div class="upd new"><b>Version ' + esc(v.version) + ' is out</b>'
-          + '<em>You have ' + esc(UPD_VERSION) + '.'
-          + (v.notes ? ' ' + esc(v.notes) : '')
-          + (shellAuto ? ' It is downloading on its own — nothing to do.' : '') + '</em>'
+        ? '<div class="upd new"><b>' + esc(T('Version {v} is out', {v:v.version})) + '</b>'
+          + '<em>' + esc(T('You have {v}.', {v:UPD_VERSION}))
+          + (v.notes ? ' <span translate="no">' + esc(v.notes) + '</span>' : '')
+          + (shellAuto ? ' ' + esc(T('It is downloading on its own — nothing to do.')) : '') + '</em>'
           + (v.url && !shellAuto ? '<a class="upd-get" href="' + esc(v.url)
               + '" target="_blank" rel="noopener">Get it</a>' : '')
           + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
@@ -259,8 +258,8 @@
            button stays, because looking again is a reasonable thing to want. */
         : '<button type="button" class="upd-check" id="upd-check">'
           + (this.checking ? 'Checking…' : (this.last ? 'You are up to date' : 'Check for updates'))
-          + '<span>version ' + esc(UPD_VERSION)
-          + (this.last && !this.checking ? ' · checked ' + updWhen(this.last) : '')
+          + '<span>' + esc(T('version {v}', {v:UPD_VERSION})
+          + (this.last && !this.checking ? ' · ' + T('checked {when}', {when:updWhen(this.last)}) : ''))
           + '</span></button>';
       const b = $('upd-check');
       if(b) b.onclick = ()=>Update.check(false);
