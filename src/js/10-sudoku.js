@@ -264,7 +264,7 @@
       this.wrong=bad;
       this.render();
       if(bad.length) toast(Tn('{n} wrong cell', '{n} wrong cells', bad.length));
-      else if(blank) toast(T('All good so far — {n} left', {n:blank}));
+      else if(blank) toast(T('All good so far, {n} left', {n:blank}));
       else toast('All correct');
     },
     erase(){ if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)) return;
@@ -335,7 +335,7 @@
     },
     checkDone(){
       if(this.grid.includes(0)) return;
-      for(let i=0;i<81;i++) if(this.grid[i]!==this.sol[i]){ toast('Not quite — check the reds'); return; }
+      for(let i=0;i<81;i++) if(this.grid[i]!==this.sol[i]){ toast('Not quite, check the reds'); return; }
       this.done=true; this.stop(); this.persist();
       dailyMark('sudoku', this.diff, this.day, DAILY_DONE, {t:this.elapsed, h:this.shown.length});
       /* Finished, so it comes off the shelf — it can be rebuilt from its day
@@ -407,7 +407,7 @@
       return [
         {v:String(run), n:'day streak'},
         {v:String(done.length), n:'solved'},
-        {v:best ? fmt(best) : '—', n:'best'},
+        {v:best ? fmt(best) : ', ', n:'best'},
       ];
     },
   });

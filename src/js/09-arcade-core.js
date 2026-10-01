@@ -99,7 +99,7 @@
     saveBroke = true;
     /* Once. A toast on every keystroke of a game that cannot be saved is its
        own kind of broken. */
-    try{ toast('This device has stopped saving \u2014 your progress may not be kept'); }catch(e){}
+    try{ toast('This device has stopped saving. Your progress may not be kept'); }catch(e){}
   }
 
   /** **Free room, so a full store is a hiccup and not the end of the game.**

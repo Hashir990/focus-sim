@@ -52,9 +52,9 @@
         + '年齢を問わず、誰かを分析するような仕組みは入っていません。</p>'
 
         + '<h4>問い合わせ先</h4>'
-        + '<p>このアプリを作り、運営しているのは ' + aboutWho(ABOUT_OWNER, 'the developer')
-        + ' です。ご質問、訂正、アカウント削除のご依頼は '
-        + aboutWho(ABOUT_EMAIL, 'the contact address for this build') + ' までお願いします。</p>'
+        + '<p>ご質問、訂正、アカウント削除のご依頼は、設定の「このアプリについて」にある'
+        + '「問題を報告」からお送りください。お使いのメールアプリが本文の入った状態で開くので、'
+        + '送信する前に内容も宛先も確かめられます。</p>'
         + '<p class="about-date">最終更新：' + ABOUT_UPDATED + '。'
         + '内容が変われば、この日付も変わります。</p>';
     },
@@ -63,7 +63,8 @@
       return ''
         + '<p class="about-lede">Focus Simulator は、休憩用のゲームコーナーが付いた無料の集中タイマーです。'
         + 'この規約は、あなたと本アプリの作者との間の取り決めです。読まれることを前提に書いています。'
-        + 'わかりにくい部分があれば、それは規約の側の落ち度です。末尾の連絡先までお知らせください。</p>'
+        + 'わかりにくい部分があれば、それは規約の側の落ち度です。'
+        + '設定の「このアプリについて」にある「問題を報告」からお知らせください。</p>'
 
         + '<h4>同意について</h4>'
         + '<p>本アプリを使うことで、この規約と、データの扱いを説明したプライバシーポリシーに同意したことになります。'
@@ -86,7 +87,8 @@
         + 'そこで交わされる内容を本アプリの運営者が見ることも、監視することもできません。'
         + '送った内容の責任はあなたにあります。嫌がらせ、脅迫、差別的な発言、'
         + '18歳未満が関わる性的な内容、スパム、違法なものは書かないでください。'
-        + '不快なルームからは退出してください。誰かを通報する場合は、下の連絡先までお知らせください。</p>'
+        + '不快なルームからは退出してください。誰かを通報する場合は、'
+        + '設定の「このアプリについて」にある「問題を報告」をお使いください。</p>'
 
         + '<h4>エンバーとショップ</h4>'
         + '<p>エンバーは、集中と実績によって貯まります。購入・売却はできず、'
@@ -136,9 +138,9 @@
         + 'あなたがお住まいの国で認められている権利には影響しません。</p>'
 
         + '<h4>問い合わせ先</h4>'
-        + '<p>このアプリを作り、運営しているのは ' + aboutWho(ABOUT_OWNER, 'the developer')
-        + ' です。この規約についてのご質問は '
-        + aboutWho(ABOUT_EMAIL, 'the contact address for this build') + ' までお願いします。</p>'
+        + '<p>この規約についてのご質問は、設定の「このアプリについて」にある'
+        + '「問題を報告」からお送りください。お使いのメールアプリが本文の入った状態で開くので、'
+        + '送信する前に内容も宛先も確かめられます。</p>'
         + '<p class="about-date">最終更新：' + TERMS_UPDATED + '。'
         + '内容が変われば、この日付も変わります。</p>';
     },
@@ -156,7 +158,7 @@
         + 'アカウントのサーバーは <b>Cloudflare Workers</b> 上で動いています。</p>'
         + '<h4>絵</h4>'
         + '<p>ピクロスの絵は、ほかの人たちが描いたものをマス目に落とし込んだものです。</p>'
-        + '<p><b>game-icons.net</b> — Lorc, Delapouite, John Colburn, Felbrigg, John Redman, '
+        + '<p><b>game-icons.net</b>: Lorc, Delapouite, John Colburn, Felbrigg, John Redman, '
         + 'Carl Olsen, Sbed, PriorBlue, Willdabeast, Viscious Speed, Lord Berandas, Irongamer, '
         + 'HeavenlyDog, Lucas, Faithtoken, Skoll, Andy Meneely, Cathelineau, Kier Heyl, Aussiesim, '
         + 'Sparker, Zeromancer, Rihlsul, Quoting, Guard13007, DarkZaitzev, SpencerDub, GeneralAce135, '

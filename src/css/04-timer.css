@@ -11,21 +11,79 @@
    Off unless that light is burning: it is one theme's furniture, not part of
    the timer. Absolutely placed rather than laid out, because `.dial-wrap` is a
    centring flex row — as a sibling in the flow it sat *beside* the dial and
-   pushed it off centre. Wider than the dial so the outer ring runs away behind
-   it instead of stopping in a visible circle, and masked to nothing at the rim
-   for the same reason.
+   pushed it off centre.
 
-   Deliberately faint. It is behind a countdown, and anything you can read at a
-   glance here is competing with the numbers. */
+   **It used to be a mask, and that was the thing that made this theme look
+   borrowed from somewhere else.** A filled red disc with eyes on it sat at the
+   centre of the dial, which is to say directly under the digits, and the clock
+   read over the top of a picture. Every other look in the shop is a room lit
+   one colour with weather drifting through it; this one was an illustration
+   with a countdown printed on it, and next to the others that is exactly what
+   it looked like.
+
+   So the web is an annulus now rather than a disc: nothing at all behind the
+   numbers, webbing in the band the ring runs through, and nothing again past
+   the rim so it never stops in a visible circle. The suit is still unmistakably
+   there — deep navy, red, and its own webbing round the clock — without
+   anything being *drawn* at you while you work. */
 .dial-web{ display:none }
 body[data-light="spiderman"] .dial-web{
   display:block; position:absolute; left:50%; top:50%;
   width:min(104vw,400px); aspect-ratio:1;
   transform:translate(-50%,-50%);
   pointer-events:none; z-index:0;
-  -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 40%, transparent 74%);
-  mask-image:radial-gradient(circle at 50% 50%, #000 40%, transparent 74%);
+  -webkit-mask-image:radial-gradient(circle at 50% 50%,
+    transparent 28%, #000 48%, #000 63%, transparent 84%);
+  mask-image:radial-gradient(circle at 50% 50%,
+    transparent 28%, #000 48%, #000 63%, transparent 84%);
 }
+/* ---- the signal ----
+
+   Fixed to the window rather than to the dial, large, and up for about four
+   seconds in every hundred: twice in quick succession, the way a signal is
+   flashed rather than left on, and then nothing for a minute and a half. A
+   thing that appears constantly is wallpaper; a thing that appears twice and
+   stops is an event, and the second one is what makes it read as somebody
+   signalling rather than as the screen glitching.
+
+   **High, and clear of the digits.** It sits in the upper third, which on the
+   timer screen is sky; where it grazes the top of the ring it passes behind
+   it. The time is the one thing here that has to be readable at every moment,
+   and a mask fading across the digits would be the old mistake again in a
+   slower form.
+
+   Red on the room's own blue, with a glow, because the thing in the photograph
+   is a light. Nothing here is interactive and nothing can be hit. */
+.spidey-signal{ display:none }
+body[data-light="spiderman"] .spidey-signal{
+  /* Big, high, and *behind* everything: z-index 0 puts it under the stage,
+     so the ring and the digits draw over the top of it and stay crisp while it
+     passes. That is what lets it be this size without being the old mask under
+     the clock again — it is light on the wall behind, not a plate in front. */
+  display:block; position:fixed; left:50%; top:1%;
+  width:min(46vw,210px); aspect-ratio:1;
+  /* **Half the width, negated — not min() of two negatives.** min(-23vw,-105px)
+     takes whichever is *smaller*, which for negatives is the larger offset, so
+     on anything wider than 456px it shoved the mark a long way left of centre.
+     One expression derived from the width cannot disagree with it. */
+  margin-left:calc(min(46vw,210px) / -2);
+  z-index:0; pointer-events:none; opacity:0;
+  filter:drop-shadow(0 0 26px rgba(224,27,36,.6));
+  animation-name:spidey-signal; animation-duration:97s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+}
+@keyframes spidey-signal{
+  0%, 1%   { opacity:0; transform:scale(.92) }
+  3%       { opacity:.62; transform:scale(1) }
+  5%       { opacity:.5 }
+  7%       { opacity:0; transform:scale(1.03) }
+  9%       { opacity:0; transform:scale(.94) }
+  11%      { opacity:.52; transform:scale(1) }
+  14%      { opacity:0; transform:scale(1.03) }
+  100%     { opacity:0; transform:scale(.92) }
+}
+body.away .spidey-signal{ animation-play-state:paused }
+
 /* ---- the corner webs ----
    Fixed to the corners of the window, not to the stage, so they frame the room
    rather than the content — and off entirely under every other light. Mirrored
@@ -33,9 +91,12 @@ body[data-light="spiderman"] .dial-web{
 .corner-web{ display:none }
 body[data-light="spiderman"] .corner-web{
   display:block; position:fixed; top:var(--winbar); z-index:0; pointer-events:none;
-  /* Smaller than it was: at 190px the web reached a third of the way across a
-     phone and stopped being a corner. */
-  width:min(26vw,132px); height:min(26vw,132px);
+  /* Bigger again, now that it is a torn web rather than a solid fan. The old
+     note here said 190px reached a third of the way across a phone and stopped
+     being a corner, and that was true of a dense quarter-disc: at that size it
+     read as a panel. An irregular one with holes in it does not fill the space
+     it covers, so it can be larger and still be a corner. */
+  width:min(34vw,190px); height:min(34vw,190px);
   -webkit-mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
   mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
 }
@@ -61,22 +122,52 @@ body[data-light="spiderman"] .corner-web-r{
   0%{ opacity:.26 } 34%{ opacity:.9 } 57%{ opacity:.4 } 78%{ opacity:.72 } 100%{ opacity:.26 }
 }
 body.away .corner-web{ animation-play-state:paused }
-/* White, not the accent. Red web on a blue ground reads as a stain in the
-   corner; white reads as web. The dial's own web stays red — that one is
-   continuous with the mask and has to match it. */
-.corner-web-spokes,
-.corner-web-rings{ fill:none; stroke:#fff; stroke-linejoin:round; opacity:.30 }
-.corner-web-spokes{ stroke-width:1.1 }
-.corner-web-rings{ stroke-width:1.3 }
+/* **The webs take whichever colour the ring is not.** The dial turns over
+   between the suit's two colours on an eleven-second swing; the webs run the
+   same swing inverted, so there is always exactly one white thing and one red
+   thing on the screen and they swap over without either ever disappearing into
+   the other. One keyframe set, read backwards.
 
+   Longhand rather than the `animation` shorthand, for the same reason as the
+   ring: jsdom does not expand it, so written that way the suite cannot see
+   these rules exist at all. */
+/* **Only the dial's web trades colour with the ring.** The corners were doing
+   it too and they should not: red web on a blue ground reads as a stain in the
+   corner, which is why they were white to begin with, and the pair of them
+   turning red together made the whole room pulse. The dial's web is a frame
+   round the clock and belongs to it; the corners are the room, and a room does
+   not change colour. */
 .dial-web-spokes,
-.dial-web-rings{ fill:none; stroke:var(--accent); stroke-linejoin:round; opacity:.22 }
-.dial-web-spokes{ stroke-width:.9 }
-.dial-web-rings{ stroke-width:1.1 }
-/* The mask is the centre of the dial, so it sits at the centre of the viewBox
-   and the clock reads over it. Kept low enough that the digits still win: this
-   is a ground, not a picture. */
-.dial-web-mask{ opacity:.5 }
+.dial-web-rings{
+  fill:none; stroke-linejoin:round;
+  animation-name:spidey-web; animation-duration:11s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  animation-direction:alternate;
+}
+.corner-web-spokes,
+.corner-web-rings{ fill:none; stroke:#fff; stroke-linejoin:round }
+@keyframes spidey-web{
+  0%{ stroke:#e01b24 } 45%{ stroke:#e01b24 } 100%{ stroke:#fff }
+}
+body.away .dial-web-spokes, body.away .dial-web-rings{ animation-play-state:paused }
+/* The corners are thinner and fainter than the dial's: they frame the room and
+   the dial's one frames the clock, and a corner you can read is a corner
+   competing with the thing in the middle. */
+.corner-web-spokes{ stroke-width:1.1; opacity:.34 }
+.corner-web-rings{ stroke-width:1.3; opacity:.34 }
+
+/* A little stronger than it was, because it no longer has to share the middle
+   of the dial with anything. The colour is set by the swap above. */
+.dial-web-spokes{ stroke-width:.9; opacity:.42 }
+.dial-web-rings{ stroke-width:1.1; opacity:.42 }
+/* **The mask is gone.** The face, the webbing struck across it and the eyes
+   were all one group drawn at the centre of the dial, which is where the time
+   is. It is kept in the markup rather than cut out of it: the drawing is sound
+   and somebody may want it somewhere that is not underneath a countdown. */
+/* The group kept its name when it moved out of the dial; what it is now is
+   the signal's drawing. Full strength, because a signal that is faint is a
+   signal nobody is sending. */
+.spidey-signal .dial-web-mask{ opacity:1 }
 .dw-mask-face{ fill:var(--accent); stroke:none }
 /* Webbing *on* the mask, struck from the same centre and the same twelve spokes
    as the web outside it, so the two line up exactly at the rim. Drawn in the

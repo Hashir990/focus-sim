@@ -24,7 +24,7 @@ const ok = (label, cond, detail = '') => {
 /** Just enough D1 to run this Worker. */
 function fakeDB() {
   const accounts = new Map();   // id -> row
-  const vaults = new Map();     // account -> {snapshot, rev, at}
+  const vaults = new Map();     // account -> {snapshot, rev, at, focus, adj}
   const sessions = new Map();   // token_hash -> {account}
   const throttle = new Map();   // k -> {n, until}
 
@@ -71,11 +71,15 @@ function fakeDB() {
     }
 
     if (s.startsWith('SELECT snapshot, rev FROM vaults')) return { first: vaults.get(a[0]) || null };
+    /* `SELECT *` on purpose in the Worker, so it survives a database that has
+       not had `focus` added yet. The stub answers it the same way: whatever
+       the row happens to hold. */
+    if (s.startsWith('SELECT * FROM vaults')) return { first: vaults.get(a[0]) || null };
     if (s.startsWith('INSERT INTO vaults')) {
-      vaults.set(a[0], { snapshot: a[1], rev: a[2], at: a[3] }); return { changes: 1 };
+      vaults.set(a[0], { snapshot: a[1], rev: a[2], at: a[3], focus: a[4], adj: a[5] }); return { changes: 1 };
     }
     if (s.startsWith('UPDATE vaults SET snapshot')) {
-      vaults.set(a[3], { snapshot: a[0], rev: a[1], at: a[2] }); return { changes: 1 };
+      vaults.set(a[5], { snapshot: a[0], rev: a[1], at: a[2], focus: a[3], adj: a[4] }); return { changes: 1 };
     }
     if (s.startsWith('DELETE FROM vaults WHERE account')) { vaults.delete(a[0]); return { changes: 1 }; }
 
@@ -228,6 +232,112 @@ console.log('\nthe vault');
 {
   const empty = await call('/vault/get', { token });
   ok('a new account has nothing in it yet', empty.body.ok && empty.body.rev === 0 && empty.body.snapshot === null);
+
+  /* ---- focus cannot arrive faster than time passes ----
+
+     The per-record rules live in the merge and are checked there. This is the
+     one that only the server can enforce, because it is the only one that
+     needs a memory: between two writes a few seconds apart, the log may not
+     have grown by an afternoon.
+
+     It is checked through the endpoint rather than against `logBudget`
+     directly, because the interesting half is the bookkeeping around it —
+     taking the mark, storing it, and the fact that the first write has no mark
+     to be held to. */
+  {
+    const t = (await call('/account/new',
+      { email: 'budget@example.com', username: 'budget', password: 'hunter2hunter2' })).body.token;
+    const day = '2026-09-20';
+    const recs = (n, secs) => {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        out.push({ id: 'b' + i, secs, ts: Date.now() - (n - i) * 1000, at: Date.now(), day: day });
+      }
+      return out;
+    };
+    const put = (log, rev) => call('/vault/put', {
+      token: t, rev, snapshot: { log, own: [], grand: [], claimed: [], feats: {}, adjust: 0 },
+    });
+
+    /* Nothing to compare a first write against, so it is taken as it stands —
+       somebody may have used the app for months before making an account. */
+    const one = await put(recs(3, 1200), 0);
+    ok('a first write has no mark to be held to, and is taken as it comes',
+      one.body.snapshot.log.length === 3, `${one.body.snapshot.log.length} of 3`);
+    ok('and the mark is taken from it', DB._vaults.get([...DB._vaults.keys()]
+      .find((k) => JSON.parse(DB._vaults.get(k).snapshot).log.some((r) => r.id === 'b0'))).focus === 3600,
+      String(DB._vaults.get([...DB._vaults.keys()]
+        .find((k) => JSON.parse(DB._vaults.get(k).snapshot).log.some((r) => r.id === 'b0'))).focus));
+
+    /* And now the wall. Four more hours, a moment later, on a machine that has
+       had no time to do them. */
+    const two = await put(recs(3, 1200).concat([
+      { id: 'faked', secs: 4 * 3600, ts: Date.now(), at: Date.now(), day: day },
+    ]), 1);
+    ok('but four hours of focus in the second since the last sync is refused',
+      !two.body.snapshot.log.some((r) => r.id === 'faked'),
+      two.body.snapshot.log.map((r) => r.id).join(','));
+    ok('and what was already there is left alone',
+      two.body.snapshot.log.length === 3, `${two.body.snapshot.log.length} of 3`);
+
+    /* The other half of having no false positives: a block that fits inside
+       the time that has actually passed goes through. The grace is what covers
+       a device whose clock is minutes out from this one. */
+    const three = await put(recs(3, 1200).concat([
+      { id: 'real', secs: 300, ts: Date.now(), at: Date.now(), day: day },
+    ]), 2);
+    ok('while a block that fits in the time that has passed goes through',
+      three.body.snapshot.log.some((r) => r.id === 'real'),
+      three.body.snapshot.log.map((r) => r.id).join(','));
+
+    /* ---- and the input that is not made of time ----
+
+       `adjust` is the short way to a free balance: one number, no sessions
+       to invent and no clock to beat. It cannot be verified — the three
+       things that write to it are all client-side and all legitimate — so
+       what is checked instead is that it stops moving after the first
+       write, which is where the one-time migration has already happened. */
+    {
+      const tA = (await call('/account/new',
+        { email: 'adj@example.com', username: 'adjust', password: 'hunter2hunter2' })).body.token;
+      const snap = (adjust) => ({
+        log: [], own: [], grand: [], claimed: [], feats: {}, adjust,
+      });
+      const push = (adjust, rev) => call('/vault/put', { token: tA, rev, snapshot: snap(adjust) });
+
+      /* Somebody who used the app for a year before making an account may
+         genuinely arrive with a large one, and there is nothing to check it
+         against. The first write is what it says it is. */
+      const a1 = await push(1200, 0);
+      ok('what an account arrives holding is taken at its word',
+        a1.body.snapshot.adjust === 1200, String(a1.body.snapshot.adjust));
+
+      /* And then it is a baseline. A settle covering a hole is small and
+         has room; a hundred thousand does not. */
+      const a2 = await push(1400, 1);
+      ok('and a small rise after it is allowed, for a hole to be written off',
+        a2.body.snapshot.adjust === 1400, String(a2.body.snapshot.adjust));
+      const a3 = await push(99999, 2);
+      ok('but the number cannot simply be typed in',
+        a3.body.snapshot.adjust === 1700, String(a3.body.snapshot.adjust));
+
+      /* The ceiling is on the total, not on the step. Sending it again and
+         again must not walk it up — which is exactly what storing the
+         current value as the baseline would have done. */
+      const a4 = await push(99999, 3);
+      const a5 = await push(99999, 4);
+      ok('and asking over and over does not walk it up',
+        a5.body.snapshot.adjust === 1700,
+        a4.body.snapshot.adjust + ' then ' + a5.body.snapshot.adjust);
+
+      await call('/account/gone', { token: tA, password: 'hunter2hunter2' });
+    }
+    /* Tidied away again. The deletion block near the end of this file asserts
+       that the tables are empty once the one account it made has gone, and an
+       account left lying about here fails it there — a red three hundred lines
+       from anything that mentions vaults. */
+    await call('/account/gone', { token: t, password: 'hunter2hunter2' });
+  }
 
   const first = await call('/vault/put', {
     token, rev: 0,

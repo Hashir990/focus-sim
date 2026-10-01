@@ -113,6 +113,7 @@
     _drag:0,           // what a drag across the grid is painting, 0 when not dragging
     _over:0,           // the only state a drag may paint over; see _wire
     _aimAt:-1,         // the square the row-and-column guide is drawn through
+    _pick:false,       // armed: the next square touched is revealed, not painted
     built:false,
     /* Squares revealed rather than worked out. Kept with the board, so the
        count survives leaving the screen, and reported to the calendar — a
@@ -286,6 +287,10 @@
         const i = at(e);
         if(i < 0 || this.done) return;
         e.preventDefault();
+        /* Armed by "Fix a square". This tap spends the hint on the square you
+           chose and paints nothing — and starts no drag, so a finger that
+           slides off it afterwards does not smear fills across the board. */
+        if(this._pick){ this.revealAt(i); return; }
         const was = this.cells[i];
         const put = was === this.mode ? PIC_EMPTY : this.mode;
         this._drag = put + 1;               // +1 so "paint nothing" is still truthy
@@ -481,6 +486,18 @@
         const want = b.id === 'pix-fill' ? PIC_FILL : PIC_MARK;
         b.classList.toggle('on', this.mode === want);
       }
+      /* Armed is a state, so it has to look like one. The button lights up and
+         says what it is now waiting for, and the board says the same thing in
+         its cursor — a board that has quietly changed what a tap does, with
+         nothing on screen admitting it, is how you lose a square you meant to
+         fill. */
+      const h = $('pix-hint');
+      if(h){
+        h.classList.toggle('on', this._pick);
+        h.textContent = this._pick ? T('Pick a square') : T('Fix a square');
+      }
+      const box = $('pix-grid');
+      if(box) box.classList.toggle('picking', this._pick);
     },
 
     setMode(v){ this.mode = v; this._paintMode(); },
@@ -558,9 +575,59 @@
       return bad.length;
     },
 
-    /** **One square, put right.** Takes back a square that should not be filled
-        before it gives one away, because a wrong square is what a person is
-        usually stuck on and correcting it costs them nothing they had. */
+    /** **Arm the board instead of choosing for them.**
+
+        This button used to do the choosing: take back the first wrong square,
+        or failing that fill in the first missing one, reading top-left to
+        bottom-right. That is a good guess surprisingly often and the wrong one
+        exactly when it matters — the square somebody is stuck on is rarely the
+        first in reading order, and a hint spent on a corner they had already
+        worked out is a hint wasted. They can see where they are stuck; the code
+        cannot.
+
+        So pressing it now reveals nothing. It arms the next tap, and pressing
+        it again disarms. `reveal()` is kept below for the tests and for
+        anything that wants the old automatic behaviour. */
+    pick(){
+      if(this.idx < 0 || this.done) return false;
+      this._pick = !this._pick;
+      this.render();
+      return this._pick;
+    },
+
+    /** **One square, told the truth.** Filled if the picture fills it, crossed
+        off if it does not — a cross is information too, and on a wide row it is
+        often the more useful of the two.
+
+        A square that is already right is not a reveal: it costs nothing, says
+        so, and leaves the board armed so the next tap can go somewhere useful.
+        Spending somebody's hint on a square they had already solved, silently,
+        is the one outcome this whole change exists to avoid. */
+    revealAt(i){
+      if(this.idx < 0 || this.done) return false;
+      const n = this.size;
+      const y = Math.floor(i / n), x = i % n;
+      if(i < 0 || !this.sol[y]) return false;
+      const want = this.sol[y][x] === 1 ? PIC_FILL : PIC_MARK;
+      if(this.cells[i] === want){
+        try{ toast(T('That one is already right')); }catch(e){}
+        return false;
+      }
+      this.cells[i] = want;
+      this.hints++;
+      this._pick = false;
+      this.wrong = null;
+      this.persist();
+      this._mark();
+      this.render();
+      this._check();
+      return true;
+    },
+
+    /** **One square, put right, chosen by the board.** Takes back a square that
+        should not be filled before it gives one away. No longer on a button —
+        see `pick()` — but kept because it is the same rule the hint count and
+        the day's record were always built on. */
     reveal(){
       if(this.idx < 0 || this.done) return false;
       const n = this.size;
@@ -663,7 +730,7 @@
       return [
         {v:String(dailyStreak('picross', PIC_DIFFS)), n:'day streak'},
         {v:String(done.length), n:'finished'},
-        {v:best ? fmt(best) : '—', n:'best'},
+        {v:best ? fmt(best) : ', ', n:'best'},
       ];
     },
   });
@@ -675,4 +742,4 @@
   if($('pix-again')) $('pix-again').onclick = ()=>{ try{ dailyCalOpen('picross'); }catch(e){} };
   if($('pix-list')) $('pix-list').onclick = ()=>{ try{ dailyCalOpen('picross'); }catch(e){} };
   if($('pix-check')) $('pix-check').onclick = ()=>Picross.check();
-  if($('pix-hint')) $('pix-hint').onclick = ()=>Picross.reveal();
+  if($('pix-hint')) $('pix-hint').onclick = ()=>Picross.pick();

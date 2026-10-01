@@ -23,6 +23,10 @@ const FINE = [
   /^[A-Z]$/, /^[a-z]$/,                                     // single letters: keyboards, boards
   /^(Developer|Finish a game, move the day, unlock the shelf)$/,  // the dev row, this machine only
   /^(PeerJS|Electron|Capacitor|Cloudflare Workers|Google Fonts)$/,
+  /* A brand keeps its own name where its owner uses one. Marvel is マーベル in
+     Japanese and 漫威 in Chinese and those are in the table, but in Russian it
+     is written "Marvel" — which is Latin, so it looks untranslated and is not. */
+  /^Marvel$/,
   /^(CC BY|MIT|CC0|SIL)/,
 ];
 
@@ -79,6 +83,7 @@ async function sweep(w) {
     ['d-history', 'cal-close', 'history'],
     ['d-ach', 'ach-close', 'achievements'],
     ['d-quotes', 'q-back', 'quotes'],
+    ['d-settings', 'settings-close', 'settings'],
     ['d-account', 'acct-close', 'account'],
     ['emb-spend-row', 'shop-close', 'shop'],
     ['d-sync', 'sync-close', 'focus together'],
@@ -93,12 +98,26 @@ async function sweep(w) {
     collect(where);
     click(close); await wait(60);
   }
+  /* The shop opens on Looks, and only the open shelf is in the DOM — so every
+     other shelf has to be asked for by name or it is never read. Quote packs
+     live on one of them, and so do the buddy's clothes and his antics; all of
+     those were being swept as an empty tab. */
+  for (const tab of ['sounds', 'faces', 'quotes', 'buddy', 'antics']) {
+    click('menu-btn'); await wait(40);
+    click('emb-spend-row'); await wait(140);
+    const t = w.document.querySelector('[data-tab="' + tab + '"]');
+    if (t) t.click();
+    await wait(140);
+    collect('shop/' + tab);
+    click('shop-close'); await wait(60);
+  }
+
   click('chat-btn'); await wait(80); collect('chat'); click('chat-close'); await wait(40);
 
   /* The arcade, and every game in it. */
   click('arcade-open'); await wait(120); collect('arcade');
   const games = ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'picross', 'memory',
-                 'hangman', 'scrabble', 'chess', 'pictionary', 'spymaster'];
+                 'hangman', 'scrabble', 'chess', 'pictionary', 'spymaster', 'mrwhite'];
   for (const g of games) {
     try { await w.__cov.Arcade.pick(g); } catch (e) { continue; }
     await wait(160);

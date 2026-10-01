@@ -165,7 +165,34 @@ function buildStamp() {
 }
 
 export function build() {
-  const head = readFileSync(join(SRC, 'head.html'), 'utf8');
+  /* ---- the icon, from the one file that draws it ----
+     `assets/icon.svg` is the mark on its tile. It goes into the page three
+     times — favicon, apple-touch-icon, and the icon inside the web manifest —
+     and each of those used to be its own hand-pasted base64 copy of the same
+     drawing, which is three places to change an icon and two of them easy to
+     forget. The manifest is built here for the same reason: its icon is a data
+     URI *inside* a data URI, which is exactly the kind of thing nobody edits
+     twice correctly. tools/make-icon.mjs draws the same geometry to PNG for the
+     installer, because electron-builder cannot use an SVG. */
+  /* Comments stripped on the way in: the file's own explanation is worth having
+     where the drawing is, and worth nothing base64'd into the page three
+     times. */
+  const iconSvg = readFileSync(join(root, 'assets', 'icon.svg'), 'utf8')
+    .replace(/<!--[\s\S]*?-->/g, '').replace(/\s*\n\s*/g, ' ').trim();
+  const iconUri = 'data:image/svg+xml;base64,' + Buffer.from(iconSvg, 'utf8').toString('base64');
+  const manifest = {
+    name: 'Focus Simulator', short_name: 'Focus',
+    description: 'A focus timer with a rest arcade, fading quotes, and a progress calendar.',
+    start_url: '.', scope: '.', display: 'standalone', orientation: 'portrait',
+    background_color: '#0b1220', theme_color: '#0b1220',
+    icons: [{ src: iconUri, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+  };
+  const manifestUri = 'data:application/manifest+json;base64,'
+    + Buffer.from(JSON.stringify(manifest), 'utf8').toString('base64');
+
+  const head = readFileSync(join(SRC, 'head.html'), 'utf8')
+    .replace(/__ICON_URI__/g, iconUri)
+    .replace(/__MANIFEST_URI__/g, manifestUri);
   const css = readDirJoined('css', '.css');
   const body = readDirJoined('body', '.html');
   const js = readDirJoined('js', '.js');

@@ -77,7 +77,7 @@
 
       if(!s.sessions){
         body.innerHTML = '<p class="q-empty">No finished sessions yet. Complete a focus block '
-          + 'and this fills in — total time, streaks, and your best hours.</p>'
+          + 'and this fills in: total time, streaks, and your best hours.</p>'
           + this._arcade();
         return;
       }
@@ -110,7 +110,7 @@
         + '<div class="sbars">'+bars+'</div>'
         + '<p class="sbar-read" id="sbar-read">Tap a bar for that day</p>'
         + '<div class="stat-lines">'
-        + '<div><span>Best day</span><b>'+(s.bestDay?esc(s.bestDay)+' · '+fmtDur(s.bestSecs):'—')+'</b></div>'
+        + '<div><span>Best day</span><b>'+(s.bestDay?esc(s.bestDay)+' · '+fmtDur(s.bestSecs):', ')+'</b></div>'
         + '<div><span>Average day</span><b>'+fmtDur(s.perDay)+'</b></div>'
         + '<div><span>Average session</span><b>'+fmtDur(Math.round(s.totalSecs/s.sessions))+'</b></div>'
         + '</div>'

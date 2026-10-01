@@ -219,8 +219,8 @@
        a web view or on a desktop. Said plainly, once, rather than drawing a
        page of controls that cannot do anything. */
     if(!Guard.on){
-      box.innerHTML = '<p class="blk-note">App blocking needs the Android app —'
-        + ' a browser and the desktop app have no way to see which app is in front'
+      box.innerHTML = '<p class="blk-note">App blocking needs the Android app.'
+        + ' A browser and the desktop app have no way to see which app is in front'
         + ' of you, or to stand in front of it.</p>';
       return;
     }
@@ -253,7 +253,7 @@
        whole page exists to make visible. */
     const missing = GUARD_PERMS.filter(p=>!Guard.status[p.id]);
     if(c.on && missing.length){
-      h += '<p class="blk-warn">Nothing is being blocked yet — '
+      h += '<p class="blk-warn">Nothing is being blocked yet, '
          + esc(missing.map(m=>m.name.toLowerCase()).join(' and ')) + ' still to go.</p>';
     }
 
@@ -271,7 +271,7 @@
 
     h += '<p class="q-sec">Rules</p>';
     if(!w.rules.length){
-      h += '<p class="blk-note">No rules yet. A rule is a group of apps and websites with one set of settings — make one per app for per-app settings.</p>';
+      h += '<p class="blk-note">No rules yet. A rule is a group of apps and websites with one set of settings. Make one per app for per-app settings.</p>';
     }else{
       h += '<div class="blk-rules">' + w.rules.map(r=>{
         const icons = r.apps.slice(0, 5).map(id=>guardAppIcon(id)
@@ -445,7 +445,7 @@
          moment of locking is asked about, once. */
       if(!Guard.cfg.lock.on){
         askConfirm('Lock blocking?',
-          'From now on every change — including unlocking — waits ' + guardWorking().lock.delay
+          'From now on every change, including unlocking, waits ' + guardWorking().lock.delay
           + ' min before it happens.', 'Lock it', ()=>guardChange(c=>{ c.lock.on = true; }));
         return;
       }
@@ -502,6 +502,29 @@
       + '<span class="blk-knob"></span><b>' + esc(title) + '</b><small>' + esc(why) + '</small></button>';
   }
 
+  /* **A rule is sixteen settings and it used to be sixteen headings.**
+
+     Name, on or off, apps, websites, when, how hard, the pause, the question
+     it asks, what you have to do first, how long it opens for, quick looks,
+     two limits, what happens at a limit, the cooldown, the odds, and delete —
+     one flat column of them, every one as loud as the next. Everything a rule
+     can do was on the screen at once, so nothing was, and the four settings
+     that matter were somewhere in the middle of it.
+
+     Four drawers instead. The first three are open because they are what a
+     rule *is*: what it covers, when it is in force, and how hard it stops you.
+     The rest is how you get past it, which is worth having and is not worth
+     reading every time, so it starts shut.
+
+     The same `<details>` the quote packs use, so the page behaves the one way
+     throughout rather than inventing a second kind of fold. */
+  function guardSec(title, open, body){
+    if(!body) return '';
+    return '<details class="blk-sec"' + (open ? ' open' : '') + '>'
+      + '<summary><b>' + esc(T(title)) + '</b></summary>'
+      + '<div class="blk-sec-body">' + body + '</div></details>';
+  }
+
   function guardPaintRule(){
     const box = $('block-rule-body');
     if(!box) return;
@@ -514,62 +537,68 @@
       h += '<p class="blk-warn">Blocking is locked. Changes here wait ' + Guard.cfg.lock.delay + ' min before they happen.</p>';
     }
 
-    h += '<p class="q-sec">Name</p>'
-       + '<input class="blk-find blk-field" id="blr-name" maxlength="40" placeholder="' + esc(guardRuleTitle(Object.assign({}, r, {name:''}))) + '" value="' + esc(r.name) + '">';
-    h += guardSwitch('blr-off', !r.off, r.off ? 'This rule is off' : 'This rule is on',
-      r.off ? 'Nothing in it is blocked.' : 'Everything in it is blocked when it is in force.');
-
-    h += '<p class="q-sec">Apps</p>';
+    /* ---- what it covers ---- */
+    let cover = '<p class="blk-lab">Name</p>'
+      + '<input class="blk-find blk-field" id="blr-name" maxlength="40" placeholder="' + esc(guardRuleTitle(Object.assign({}, r, {name:''}))) + '" value="' + esc(r.name) + '">'
+      + guardSwitch('blr-off', !r.off, r.off ? 'This rule is off' : 'This rule is on',
+        r.off ? 'Nothing in it is blocked.' : 'Everything in it is blocked when it is in force.')
+      + '<p class="blk-lab">Apps</p>';
     if(r.apps.length){
-      h += '<div class="blk-chosen">' + r.apps.map(id=>
+      cover += '<div class="blk-chosen">' + r.apps.map(id=>
         '<button class="blk-chip" data-rdrop-app="' + esc(id) + '" title="Take it out of this rule">'
         + (guardAppIcon(id) ? '<img src="' + esc(guardAppIcon(id)) + '" alt="">' : '')
         + '<span>' + esc(guardAppName(id)) + '</span><i>&times;</i></button>').join('') + '</div>';
     }
-    h += '<button class="blk-pick" id="blr-pick">' + (Guard.appsBusy ? 'Reading your apps…' : 'Choose apps') + '</button>';
-
-    h += '<p class="q-sec">Websites</p>';
+    cover += '<button class="blk-pick" id="blr-pick">' + (Guard.appsBusy ? 'Reading your apps…' : 'Choose apps') + '</button>'
+      + '<p class="blk-lab">Websites</p>';
     if(r.sites.length){
-      h += '<div class="blk-chosen">' + r.sites.map(s=>
+      cover += '<div class="blk-chosen">' + r.sites.map(s=>
         '<button class="blk-chip" data-rdrop-site="' + esc(s) + '" title="Take it out of this rule">'
         + '<span>' + esc(s) + '</span><i>&times;</i></button>').join('') + '</div>';
     }
-    h += '<div class="blk-addsite"><input class="blk-find blk-field" id="blr-site" placeholder="youtube.com" autocomplete="off" autocapitalize="off" spellcheck="false">'
-       + '<button class="blk-go" id="blr-site-add">Add</button></div>'
-       + '<p class="blk-sub">Covers the site and everything under it. Works in Chrome, Firefox, Samsung Internet, Edge, Brave, Opera and DuckDuckGo.</p>';
+    cover += '<div class="blk-addsite"><input class="blk-find blk-field" id="blr-site" placeholder="youtube.com" autocomplete="off" autocapitalize="off" spellcheck="false">'
+      + '<button class="blk-go" id="blr-site-add">Add</button></div>'
+      + '<p class="blk-sub">Covers the site and everything under it. Works in Chrome, Firefox, Samsung Internet, Edge, Brave, Opera and DuckDuckGo.</p>';
+    h += guardSec('What it covers', true, cover);
 
-    h += '<p class="q-sec">In force</p>' + guardToggles('rwhen', GUARD_WHEN, r.when);
+    /* ---- when ---- */
+    let force = guardToggles('rwhen', GUARD_WHEN, r.when);
     if(r.when === 'schedule'){
-      h += '<div class="blk-days">' + GUARD_DAYS.map(d=>
+      force += '<div class="blk-days">' + GUARD_DAYS.map(d=>
         '<button class="blk-day' + (r.days.indexOf(String(d[0])) >= 0 ? ' on' : '') + '" data-rday="' + d[0] + '">' + d[1] + '</button>').join('') + '</div>'
-         + '<div class="blk-times"><label>From <input type="time" id="blr-from" value="' + esc(r.from) + '"></label>'
-         + '<label>to <input type="time" id="blr-to" value="' + esc(r.to) + '"></label></div>'
-         + '<p class="blk-sub">An end earlier than the start runs overnight. The same time twice is all day.</p>';
+        + '<div class="blk-times"><label>From <input type="time" id="blr-from" value="' + esc(r.from) + '"></label>'
+        + '<label>to <input type="time" id="blr-to" value="' + esc(r.to) + '"></label></div>'
+        + '<p class="blk-sub">An end earlier than the start runs overnight. The same time twice is all day.</p>';
     }
+    h += guardSec('When it is in force', true, force);
 
-    h += guardSwitch('blr-hard', r.hard, 'Block outright',
-      'No way through at all while this rule is in force — just the screen and Close.');
-
+    /* ---- how hard ---- */
+    let hard = guardSwitch('blr-hard', r.hard, 'Block outright',
+      'No way through at all while this rule is in force. Just the screen and Close.');
     if(!r.hard){
-      h += '<p class="q-sec">The pause</p>' + guardSteps(r, ['pause', 'step']);
-      h += '<p class="blk-sub">What it asks you</p>'
-         + '<input class="blk-find blk-field" id="blr-prompt" maxlength="120" placeholder="Take a breath." value="' + esc(r.prompt) + '">';
+      hard += '<p class="blk-lab">The pause</p>' + guardSteps(r, ['pause', 'step'])
+        + '<p class="blk-lab">What it asks you</p>'
+        + '<input class="blk-find blk-field" id="blr-prompt" maxlength="120" placeholder="Take a breath." value="' + esc(r.prompt) + '">';
+    }
+    h += guardSec('How hard it stops you', true, hard);
 
-      h += '<p class="q-sec">Before it opens</p>' + guardToggles('rtask', GUARD_TASKS, r.task);
+    /* ---- and the rest, which is how you get past it ---- */
+    if(!r.hard){
+      const through = '<p class="blk-lab">Before it opens</p>' + guardToggles('rtask', GUARD_TASKS, r.task)
+        + '<p class="blk-lab">Open it for</p><div class="blk-chips">' + GUARD_OPEN_CHOICES.map(m=>
+          '<button class="blk-opt' + (r.open.indexOf(m) >= 0 ? ' on' : '') + '" data-ropen="' + m + '">' + m + ' min</button>').join('') + '</div>'
+        + guardSwitch('blr-quick', r.quick, 'Quick looks',
+          'Three one-minute looks a day that do not count as opens, for checking one message.')
+        + '<p class="blk-lab">Unlock odds</p><div class="blk-chips">' + GUARD_ODDS.map(n=>
+          '<button class="blk-opt' + (r.odds === n ? ' on' : '') + '" data-rodds="' + n + '">' + n + '%</button>').join('') + '</div>'
+        + '<p class="blk-sub">The chance the way through is offered at all. When it is not, it stays shut for a minute.</p>';
+      h += guardSec('Getting through it', false, through);
 
-      h += '<p class="q-sec">Open it for</p><div class="blk-chips">' + GUARD_OPEN_CHOICES.map(m=>
-        '<button class="blk-opt' + (r.open.indexOf(m) >= 0 ? ' on' : '') + '" data-ropen="' + m + '">' + m + ' min</button>').join('') + '</div>';
-      h += guardSwitch('blr-quick', r.quick, 'Quick looks',
-        'Three one-minute looks a day that do not count as opens, for checking one message.');
-
-      h += '<p class="q-sec">Limits</p>' + guardSteps(r, ['opens', 'minutes']);
-      h += '<p class="blk-sub">At a limit</p>'
-         + guardToggles('rafter', [{id:'block', n:'Block until tomorrow'}, {id:'pause', n:'Keep pausing'}], r.after);
-      h += guardSteps(r, ['cooldown']);
-
-      h += '<p class="q-sec">Unlock odds</p><div class="blk-chips">' + GUARD_ODDS.map(n=>
-        '<button class="blk-opt' + (r.odds === n ? ' on' : '') + '" data-rodds="' + n + '">' + n + '%</button>').join('') + '</div>'
-         + '<p class="blk-sub">The chance the way through is offered at all. When it is not, it stays shut for a minute.</p>';
+      const caps = guardSteps(r, ['opens', 'minutes'])
+        + '<p class="blk-lab">At a limit</p>'
+        + guardToggles('rafter', [{id:'block', n:'Block until tomorrow'}, {id:'pause', n:'Keep pausing'}], r.after)
+        + guardSteps(r, ['cooldown']);
+      h += guardSec('Daily limits', false, caps);
     }
 
     h += '<button class="blk-delete" id="blr-delete">Delete this rule</button>';

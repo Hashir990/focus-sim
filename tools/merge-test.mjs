@@ -324,5 +324,134 @@ console.log('\nthe plan and the checklist');
     mergeSnapshots({ mood: A }, { mood: B }).mood['2026-09-03'] === '\u{1F634}');
 }
 
+/* ---- what a session can possibly be ---------------------------------------
+
+   Embers are derived from the log, and so are the streak, the calendar and
+   half the achievements — which makes `focus_log` the one thing in the whole
+   save worth forging. These rules cannot stop somebody writing to their own
+   storage and nothing can; what they do is stop the result being believed.
+
+   Every check here is also a check that the rule has **no false positive**:
+   the pairs are the impossible thing next to the unremarkable thing it must
+   not take down with it. */
+{
+  const at = Date.parse('2026-09-29T12:00:00Z');
+  const rec = (id, secs, ts, day) => ({ id, secs, ts, at: ts, day });
+  const day = '2026-09-29';
+  const D = (h) => Date.parse('2026-09-29T0' + h + ':00:00Z');
+
+  check('a block longer than any block can be is dropped',
+    mergeSnapshots({ log: [rec('a', 7 * 3600, D(1), day)] }, {}, at).log.length === 0);
+  check('and one that is merely long is kept',
+    mergeSnapshots({ log: [rec('a', 5 * 3600, D(1), day)] }, {}, at).log.length === 1);
+
+  check('a session finished in the future is dropped',
+    mergeSnapshots({ log: [rec('a', 600, at + 48 * 3600 * 1000, day)] }, {}, at).log.length === 0);
+  /* A device whose clock is a few hours out is ordinary and is not evidence of
+     anything. Losing that person's afternoon would be the app calling them a
+     liar for having the wrong time zone. */
+  check('but a clock a few hours fast is a wrong clock, not a forgery',
+    mergeSnapshots({ log: [rec('a', 600, at + 3 * 3600 * 1000, day)] }, {}, at).log.length === 1);
+
+  /* The one with teeth. Without it the two rules above still allow a forged
+     log to claim every waking hour of every day it cares to invent. */
+  const many = [];
+  for (let i = 0; i < 20; i++) many.push(rec('x' + i, 2 * 3600, D(0) + i * 1000, day));
+  const held = mergeSnapshots({ log: many }, {}, at).log;
+  check('a day cannot hold more focus than a day has',
+    held.reduce((n, r) => n + r.secs, 0) <= 16 * 3600,
+    `${Math.round(held.reduce((n, r) => n + r.secs, 0) / 3600)}h of 40h claimed`);
+  check('and the cap is reached by dropping what arrived last, not what came first',
+    held[0] && held[0].id === 'x0', held[0] && held[0].id);
+  /* Sixteen hours is past anything a person does, and it is set there rather
+     than at eight so that a phone and a laptop running together — which is
+     real, and does overlap — never trips it. */
+  check('two devices running the same afternoon are not a forgery',
+    mergeSnapshots({ log: [rec('a', 3600, D(1), day), rec('b', 3600, D(1), day)] }, {}, at)
+      .log.length === 2);
+
+  /* Different days are different budgets, which is the whole reason the cap is
+     per day rather than per log. */
+  /* Three five-hour blocks is fifteen hours, which fits — twice over, on two
+     days. A cap on the log rather than on the day would keep three of the six. */
+  const twoDays = [];
+  for (let i = 0; i < 3; i++) twoDays.push(rec('p' + i, 5 * 3600, D(1) + i * 1000, '2026-09-28'));
+  for (let i = 0; i < 3; i++) twoDays.push(rec('q' + i, 5 * 3600, D(2) + i * 1000, day));
+  check('and yesterday has a budget of its own',
+    mergeSnapshots({ log: twoDays }, {}, at).log.length === 6,
+    String(mergeSnapshots({ log: twoDays }, {}, at).log.length) + ' of 6');
+
+  /* The merge has always been callable without a clock — nothing in that file
+     reads one of its own. A merge asked to happen without one still has to be
+     a merge; it simply cannot ask whether a record is in the future. */
+  check('and with no clock handed in, what is left is still merged',
+    mergeSnapshots({ log: [rec('a', 600, D(1), day)] }, {}).log.length === 1);
+}
+
+/* ---- the two copies of these rules ----------------------------------------
+
+   They exist twice on purpose — the app merges before it uploads so it can
+   work offline, and the server merges because it is the only arbiter two
+   devices can both reach. CLAUDE.md has said since the beginning that the two
+   have to agree, and until now nothing checked it.
+
+   **What is not checked here is the wording.** The two files are written in
+   different houses — `function f(a, b){` here and `function f(a, b) {` there,
+   declarations split in one and joined in the other — and a character-for-
+   character comparison is red on the day it is written and red for ever, which
+   is worse than no check at all. Proving two function bodies mean the same
+   thing needs a parser, and that is a great deal of machinery for a problem
+   that has never once been how these drift.
+
+   How they drift is by **one side learning something the other does not**, and
+   that is exactly what is checked. The comment already in server/accounts.js
+   says it plainly: a key added to the app's merge and not to the server's is
+   dropped from every snapshot the server stores, a first write looks like it
+   worked, and every write after it throws the lot away. */
+{
+  const client = readFileSync(join(R, '47-merge.js'), 'utf8');
+  const server = readFileSync(join(R, '..', '..', 'server', 'accounts.js'), 'utf8');
+
+  /* The keys `mergeSnapshots` rebuilds a snapshot out of. Anything absent from
+     one side is a section of somebody's account that stops syncing, silently
+     and only once two devices are involved. */
+  const keys = (text) => {
+    const at = text.indexOf('function mergeSnapshots(');
+    const end = text.indexOf('\nfunction ', at + 10);
+    const body = text.slice(at, end < 0 ? text.length : end);
+    return [...body.matchAll(/^\s{4,6}([a-z]+):/gm)].map((m) => m[1]).sort();
+  };
+  const a = keys(client), b = keys(server);
+  const short = a.filter((k) => b.indexOf(k) < 0).concat(b.filter((k) => a.indexOf(k) < 0));
+  check('every part of a snapshot the app merges, the server merges too',
+    a.length > 10 && short.length === 0,
+    short.length ? 'only one side has: ' + short.join(' ') : a.length + ' keys, both sides');
+
+  /* And that the rules themselves are on both sides at all. A function the
+     server has never heard of is a rule that holds until somebody syncs. */
+  const has = (text, n) => text.indexOf('function ' + n + '(') >= 0;
+  const shared = ['mergeLog', 'mergeSet', 'mergeFeats', 'mergeSim', 'mergeById',
+    'mergeGone', 'mergeGames', 'mergeDaily', 'mergeFriends', 'mergeMood',
+    'logSecs', 'logPossible', 'logSane'];
+  const missing = shared.filter((n) => !has(client, n) || !has(server, n));
+  check('and every rule it merges by is in both copies',
+    missing.length === 0, missing.join(' ') || shared.length + ' rules, both sides');
+
+  /* The numbers are as much the rule as the code is: a server that caps a
+     block at six hours and an app that caps it at eight disagree about every
+     long session anybody records, and the person sees it as the server taking
+     embers off them. The server is allowed extras — `LOG_GRACE` belongs to the
+     one rule that only it can enforce — but nothing the app knows may differ. */
+  const nums = (text) => Object.fromEntries((text.match(/const (LOG_[A-Z]+) = ([^;]+);/g) || [])
+    .map((l) => l.match(/const (LOG_[A-Z]+) = ([^;]+);/).slice(1, 3))
+    .map(([k, v]) => [k, v.replace(/\s+/g, ' ').trim()]));
+  const A = nums(client), B = nums(server);
+  const off = Object.keys(A).filter((k) => A[k] !== B[k]);
+  check('and the numbers they are written against are the same numbers',
+    Object.keys(A).length >= 3 && off.length === 0,
+    off.length ? off.map((k) => k + ': ' + A[k] + ' vs ' + (B[k] || 'not there')).join(', ')
+      : Object.keys(A).length + ' shared');
+}
+
 console.log('\n' + pass + '/' + (pass + fails.length) + ' merge checks passed');
 if (fails.length) { fails.forEach((f) => console.log('   ' + f)); process.exit(1); }

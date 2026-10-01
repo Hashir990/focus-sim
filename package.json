@@ -62,7 +62,9 @@
       "dist/**/*",
       "electron/**/*",
       "package.json",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/@capacitor/**",
+      "!**/focus-guard/**"
     ],
     "asarUnpack": [
       "dist/audio/**"

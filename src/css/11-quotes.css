@@ -15,6 +15,11 @@
 }
 .q-sec:first-child{ margin-top:0 }
 .q-list{ display:flex; flex-direction:column; gap:8px; }
+/* Your own quotes wear the pack's clothes: same border, same summary row, same
+   open-and-shut. The list inside keeps its own padding because the items are
+   taller than a pack's lines — they carry a delete button. */
+.q-mine > .q-list{ padding:0 10px 10px }
+.q-mine > summary .q-pack-name em{ margin-left:8px }
 .q-item{ display:flex; align-items:flex-start; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:12px 13px; }
 .q-item .qbody{ flex:1; }
 .q-item .qbody b{ font-family:'Fraunces',serif; font-style:italic; font-weight:400; font-size:14.5px; }
@@ -35,3 +40,48 @@
 .q-share span{ font-size:12.5px; color:var(--muted); line-height:1.5 }
 .q-share b{ display:block; font-size:13.5px; color:var(--text); font-weight:600; margin-bottom:2px }
 .q-item.lent{ opacity:.8; border-style:dashed }
+
+/* ---- packs ----
+   Bought in the shop, switched on and off here. A fold per pack, because ten
+   packs unfolded is a hundred and twenty quotes and a screen nobody scrolls to
+   the bottom of. Markup in 10-quotes-overlay.html, filled by renderQuotePacks()
+   in 16-quotes-ui.js. */
+.q-pack{
+  border:1px solid var(--line); border-radius:14px; background:var(--card);
+  margin-bottom:8px; overflow:hidden;
+}
+.q-pack > summary{
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  padding:12px 13px; list-style:none;
+}
+.q-pack > summary::-webkit-details-marker{ display:none }
+.q-pack-name{ flex:1; min-width:0 }
+.q-pack-name b{ font-weight:600; font-size:14px; display:block }
+.q-pack-name em{
+  font-style:normal; font-size:11px; color:var(--muted);
+  font-variant-numeric:tabular-nums; letter-spacing:.06em;
+}
+/* The pack's own switch, borrowed from the setup screen's chips. `flex:1` is
+   right in a row of three and wrong beside a name, so it is taken back here. */
+.q-pack > summary .toggle{ flex:0 0 auto; padding:7px 11px; font-size:12px }
+/* A pack in the rotation says so on its edge, so a folded list still reads at
+   a glance rather than needing every one opened. */
+.q-pack.on{ border-color:color-mix(in srgb, var(--accent) 42%, transparent) }
+
+.q-pack-list{ padding:0 10px 10px; display:flex; flex-direction:column; gap:6px }
+.q-pick{
+  width:100%; text-align:left; cursor:pointer; font:inherit; color:var(--text);
+  align-items:center;
+}
+.q-pick .q-tick{
+  flex:0 0 auto; width:18px; height:18px; border-radius:6px;
+  border:1px solid var(--line); display:grid; place-items:center;
+}
+.q-pick .q-tick::after{
+  content:''; width:9px; height:9px; border-radius:3px; background:var(--accent);
+  box-shadow:0 0 8px var(--glow);
+}
+/* Switched off: still listed, still readable, plainly not in the rotation.
+   Hiding it would leave no way back to it. */
+.q-pick.off{ opacity:.45 }
+.q-pick.off .q-tick::after{ background:transparent; box-shadow:none }

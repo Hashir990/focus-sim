@@ -293,3 +293,37 @@
 }
 .blk-app.on{ border-color:color-mix(in srgb, var(--accent) 45%, transparent) }
 .blk-app.on .blk-box{ background:var(--accent); border-color:var(--accent) }
+
+/* ---- the rule editor, in drawers ----
+   Sixteen settings in one column meant every one shouted as loudly as the
+   next, so the four that matter were lost among the twelve that do not. These
+   are the same <details> the quote packs use; what is new here is only that
+   the summary is a row you can hit with a thumb and that the body is indented
+   so an open drawer reads as a drawer rather than as the page continuing. */
+.blk-sec{
+  border:1px solid var(--line); border-radius:14px; background:var(--card);
+  margin:12px 0 0; overflow:hidden;
+}
+.blk-sec > summary{
+  list-style:none; cursor:pointer; padding:13px 14px;
+  display:flex; align-items:center; gap:10px;
+}
+.blk-sec > summary::-webkit-details-marker{ display:none }
+.blk-sec > summary b{ flex:1; font-size:14px; font-weight:600 }
+/* The chevron, which is the only thing saying this opens. Turned by the
+   attribute rather than by a class, because <details> keeps that itself. */
+.blk-sec > summary::after{
+  content:""; width:7px; height:7px; flex:0 0 auto;
+  border-right:1.8px solid var(--muted); border-bottom:1.8px solid var(--muted);
+  transform:rotate(45deg) translate(-2px,-2px); transition:transform .18s ease;
+}
+.blk-sec[open] > summary::after{ transform:rotate(-135deg) translate(-2px,-2px) }
+.blk-sec[open] > summary{ border-bottom:1px solid var(--line) }
+.blk-sec-body{ padding:4px 14px 14px }
+/* A label inside a drawer, where q-sec was doing the job of a heading one
+   level up from where it now sits. */
+.blk-lab{
+  margin:14px 2px 7px; font-size:11px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--muted);
+}
+.blk-sec-body > .blk-lab:first-child{ margin-top:6px }

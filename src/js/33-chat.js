@@ -497,7 +497,7 @@
       $('chat-who').textContent = dm
         ? (this._idFor(this.thread) ? T('Just you and {name}', {name:this._nameFor(this.thread)})
            : waiting ? Tn('{n} message waiting to reach {name}', '{n} messages waiting to reach {name}', waiting, {name:this._nameFor(this.thread)})
-           : T('{name} isn’t here — they’ll get it when they’re back', {name:this._nameFor(this.thread)}))
+           : T('{name} isn’t here, they’ll get it when they’re back', {name:this._nameFor(this.thread)}))
         : people.length > 1
           ? people.filter(p=>!p.me).map(p=>p.name).join(langSep())
           : 'Nobody else is here yet';
@@ -510,7 +510,7 @@
            how to add a friend and what happens to a room thread — three
            paragraphs on an empty screen, which reads as an apology. */
         box.innerHTML = '<p class="chat-empty">' + (dm
-          ? 'Nothing yet. Write anyway — it waits for them.'
+          ? 'Nothing yet. Write anyway and it waits for them.'
           : nobody
             ? T('Nobody to write to yet. Add someone by username in {where}.', {where:'<b>' + esc(T('Focus together')) + '</b>'})
             : !room

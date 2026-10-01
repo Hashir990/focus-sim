@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+release-fix/
 
 # The full-length source recordings (hundreds of MB). Keep them locally; the
 # one-hour cuts in dist/audio are produced from them by tools/encode-audio.sh.

@@ -87,7 +87,13 @@
   function saveQuotes(){ KV.set('focus_quotes', JSON.stringify(CUSTOM_QUOTES)); }
   function saveQuoteShare(){ KV.set('focus_quotes_share', QUOTES_SHARE ? '1' : '0'); }
 
-  function allQuotes(){ return DEFAULT_QUOTES.concat(CUSTOM_QUOTES, SHARED_QUOTES); }
+  /** Everything the focus screen can draw from: the built-ins, your own, any
+      on loan from a room, and every quote from every pack switched on (see
+      14a-quote-packs.js). One flat list on purpose — picking at random from
+      the whole lot is what mixes two packs together, where drawing from each
+      source in turn would show a pack of ten every tenth quote however many
+      you owned. */
+  function allQuotes(){ return baseQuotes().concat(CUSTOM_QUOTES, SHARED_QUOTES, packQuotes()); }
 
   /** Everything I'd be willing to pass on, capped so one big bank can't flood a room. */
   function myShareableQuotes(){

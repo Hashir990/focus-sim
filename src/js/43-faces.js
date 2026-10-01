@@ -109,9 +109,22 @@
 
   /* Choosing one you own switches to it; choosing one you do not asks to buy it,
      the same shape of question the lights and the sounds ask. */
+  /* **The shelf has to be redrawn, not only the clock.**
+
+     Picking a face you already own set it, saved it and applied it, and left
+     the shop showing the previous one as the one in use: the tiles are drawn
+     from `S.face` and nothing told them it had changed. The face on the timer
+     behind the shelf was right the whole time, which is what made it read as
+     the shop being broken rather than the picker.
+
+     The bought path had the same fault the other way round. It rendered
+     *before* setting `S.face`, so the tile you had just paid for did not come
+     up as in use either. One line, after the change, on both paths. */
+  function faceShelf(){ try{ Embers.render(); }catch(e){} }
+
   function faceSet(id){
     const f = faceDef(id);
-    if(faceHas(f.id)){ S.face = f.id; save(); faceApply(); return; }
+    if(faceHas(f.id)){ S.face = f.id; save(); faceApply(); faceShelf(); return; }
     const fn = LANG === 'en' ? f.name.toLowerCase() : T(f.name);
     if(Embers.have < f.cost){ toast(T('{n} embers for the {face} face', {n:f.cost, face:fn})); return; }
     askConfirm(T('Unlock the {face} face?', {face:fn}),
@@ -121,7 +134,7 @@
         Embers.have -= f.cost;
         Embers.own.push(EMB_FACE + f.id);
         Embers.save(); Embers.render();
-        S.face = f.id; save(); faceApply();
+        S.face = f.id; save(); faceApply(); faceShelf();
         toast(T('The {face} face is yours', {face:fn}));
       });
   }

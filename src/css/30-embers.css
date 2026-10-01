@@ -184,8 +184,11 @@ body[data-light="peony"] #stats-overlay,
 body[data-light="peony"] #ach-overlay,
 body[data-light="peony"] #sync-overlay,
 body[data-light="peony"] #drawer{
-  --accent:#f28cae; --glow:rgba(242,140,174,.30);
-  --bg:#170a10; --bg2:#2d1420; --text:#f8e9ee; --muted:#a8808e;
+  /* The ground was a brown-plum and it read as mud with a pink ring on it.
+     Same depth, taken round towards the flower: there is no brown in a peony,
+     and the petals drifting through it had nothing to be pink against. */
+  --accent:#f28cae; --glow:rgba(242,140,174,.34);
+  --bg:#150811; --bg2:#3d152b; --text:#f8e9ee; --muted:#b58a9c;
 }
 body[data-light="dusk"],
 #app[data-light="dusk"],
@@ -244,6 +247,56 @@ body[data-light="fireworks"] #drawer{
   --bg:#0a0617; --bg2:#331a5e; --text:#f4f8ff; --muted:#a99bd6;
   --track:rgba(244,248,255,.08);
 }
+/* Skyline. The room is the sky over a city, which is never black — a town
+   throws enough light back up at its own cloud to turn the night a dim blue,
+   and that is what --bg2 is doing at the top of the gradient. The one warm
+   colour is window amber, and it is the accent, so every button and the dial
+   are lit by the same thing the buildings are. --track is warmed to match:
+   a neutral white track against this blue reads faintly green. */
+body[data-light="skyline"],
+#app[data-light="skyline"],
+body[data-light="skyline"] #overlay,
+body[data-light="skyline"] #quotes-overlay,
+body[data-light="skyline"] #cal-overlay,
+body[data-light="skyline"] #stats-overlay,
+body[data-light="skyline"] #ach-overlay,
+body[data-light="skyline"] #sync-overlay,
+body[data-light="skyline"] #drawer{
+  --accent:#ffc46b; --glow:rgba(255,196,107,.34);
+  --bg:#0a1122; --bg2:#212a44; --text:#f6efe2; --muted:#8a8fa4;
+  --track:rgba(255,224,182,.10);
+}
+
+/* Deep space. Nearly black, with the one lift in the gradient standing in for
+   whatever is behind you — and a blue-white accent, because the brightest
+   thing in a real sky is a hot star and hot is blue. The text is cool for the
+   same reason Fireworks' is: against a violet-black ground a warm white turns
+   pink and stops reading as white. */
+body[data-light="space"],
+#app[data-light="space"],
+body[data-light="space"] #overlay,
+body[data-light="space"] #quotes-overlay,
+body[data-light="space"] #cal-overlay,
+body[data-light="space"] #stats-overlay,
+body[data-light="space"] #ach-overlay,
+body[data-light="space"] #sync-overlay,
+body[data-light="space"] #drawer{
+  /* The glow is deliberately weaker than any other look's. Everything else
+     here is faint on purpose — stars that come and go, a galaxy you half
+     notice — and a halo at the usual strength sits in front of all of it and
+     turns the room back into a bright one with specks on it. */
+  /* **White, and the colour is somewhere else.** The one thing crossing this
+     sky is a galaxy, and it is pink, then blue, then orange. An interface
+     tinted any of those three argues with two of them for two thirds of the
+     time; white agrees with all of it, and it is also what a star is. */
+  --accent:#eef1f8; --glow:rgba(238,241,248,.18);
+  /* The lift at the top of the gradient is a dull crimson rather than a violet:
+     it is the near edge of the same cloud the weather draws, and a blue one
+     left the nebula sitting on a room it had no relationship to. */
+  --bg:#04030b; --bg2:#260c1e; --text:#eef2ff; --muted:#8c7f94;
+  --track:rgba(238,242,255,.08);
+}
+
 body[data-light="frost"],
 #app[data-light="frost"],
 body[data-light="frost"] #overlay,
@@ -296,6 +349,11 @@ body[data-light="magma"] .subline{ color:rgba(255,211,74,.62) }
 body[data-light="magma"] .primary{ background:#ffd34a; color:#3a1400 }
 body[data-light="magma"] .primary.ghost{ background:transparent; color:#ffd34a }
 body[data-light="magma"] .icon-btn{ color:#ffd34a; border-color:rgba(255,211,74,.34) }
+/* And the sign-in chip, for the same reason as everything above it: signed out
+   the chip carries the accent so it reads as an invitation, and on this one
+   look the accent is the colour of the room behind it. Orange on orange was an
+   invitation nobody could see. */
+body[data-light="magma"] .acc-chip.out{ border-color:#ffd34a; color:#ffd34a }
 
 /* Spider-Man. Red is the accent and the blue is the room, which is the way
    round that keeps the red doing work — a red ground with red buttons on it is
@@ -309,12 +367,19 @@ body[data-light="spiderman"] #stats-overlay,
 body[data-light="spiderman"] #ach-overlay,
 body[data-light="spiderman"] #sync-overlay,
 body[data-light="spiderman"] #drawer{
-  /* The costume, not a red-and-navy approximation of it. The blue is the flat,
-     slightly violet cobalt of the printed suit rather than a night sky, and it
-     is the *ground* — red stays the accent, because a red ground with red
-     buttons on it is one flat surface with nothing to press. */
-  --accent:#e01b24; --glow:rgba(224,27,36,.34);
-  --bg:#070d33; --bg2:#2438a8; --text:#eef2ff; --muted:#8e9ad6;
+  /* The costume, not a red-and-navy approximation of it. Red stays the accent,
+     because a red ground with red buttons on it is one flat surface with
+     nothing to press.
+
+     **The blue came down a long way.** It was the flat cobalt of the printed
+     suit, which is right on fabric and wrong on a screen: every other look in
+     the shop is a dark room with one colour lit in it, and this was a bright
+     field with a graphic on it. Side by side with the rest it did not look
+     like a theme from the same app. The hue is unchanged and still the suit's;
+     it is the *value* that was out, and at this depth the red finally has
+     somewhere to sit. */
+  --accent:#e01b24; --glow:rgba(224,27,36,.30);
+  --bg:#05091f; --bg2:#15265f; --text:#eef2ff; --muted:#8e9ad6;
   --track:rgba(238,242,255,.10);
 }
 
@@ -342,6 +407,14 @@ body[data-light="spiderman"] .ring-track{ stroke:rgba(255,255,255,.18) }
 body[data-light="spiderman"] .phase-name,
 body[data-light="spiderman"] .clock,
 body[data-light="spiderman"] .subline{ color:#fff }
+/* **The label on Pause, which was a shape rather than a word.** `.primary` is
+   written for the rest of the shop, where the accent is a light colour and a
+   near-black label reads on it. This red is the one accent dark enough that it
+   does not, and the button that stops your session is not the place to find
+   that out. The outline version goes the other way: on this navy a full-
+   strength red is hard to read, so it takes a lighter one. */
+body[data-light="spiderman"] .primary{ color:#fff }
+body[data-light="spiderman"] .primary.ghost{ background:transparent; color:#f2626a }
 
 /* ---- Beach: a sunset ----
 

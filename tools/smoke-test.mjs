@@ -4,11 +4,12 @@
  *
  *   npm test
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Optional argument lets you point the test at any built file:
@@ -282,7 +283,12 @@ function boot(pageHtml, seed) {
     /* A window a test has closed keeps nothing running of its own, but the
        sockets pointed at it still hold timers. Delivering to one is not a
        failure worth reporting — it is a message to somebody who has left. */
-    const gone = (conn) => !conn || (conn._win && conn._win.closed);
+    /* **A window is gone when its document is**, not when it says it is closed.
+       This asked `_win.closed`, which jsdom does not always set — a torn-down
+       window can still answer false — and a delivery that got past the guard
+       ran the app's own `$` against a `document` that was no longer there,
+       threw on a Node timer, and ended the run twenty checks from the end. */
+    const gone = (conn) => !conn || !conn._win || conn._win.closed || !conn._win.document;
 
     function mkConn(from, to) {
       const h = {};
@@ -301,7 +307,13 @@ function boot(pageHtml, seed) {
           if (window.__peerSilent) return;
           setTimeout(() => {
             if (gone(c._peerConn)) return;
-            c._peerConn._emit('data', JSON.parse(JSON.stringify(msg)));
+            /* And caught, because the window can go away *during* the delivery
+               — the app's handler runs, opens a screen, and the document is
+               pulled out from under it. Rethrown when the window is still
+               alive, so a real error in the app is still a real error. */
+            try {
+              c._peerConn._emit('data', JSON.parse(JSON.stringify(msg)));
+            } catch (e) { if (!gone(c._peerConn)) throw e; }
           }, 0);
         },
         /* **The local end closes synchronously, the far end on a tick.**
@@ -319,7 +331,10 @@ function boot(pageHtml, seed) {
         close: () => {
           c.open = false;
           c._emit('close');
-          setTimeout(() => { if (!gone(c._peerConn)) c._peerConn._emit('close'); }, 0);
+          setTimeout(() => {
+            if (gone(c._peerConn)) return;
+            try { c._peerConn._emit('close'); } catch (e) { if (!gone(c._peerConn)) throw e; }
+          }, 0);
         },
       };
       /* Kept so a test can reach a specific socket rather than only the app's
@@ -471,7 +486,10 @@ const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY
   + ' shelfTotal: () => EMB_LIGHTS.reduce((n, l) => n + l.cost, 0)'
   + '   + EMB_SOUNDS.reduce((n, x) => n + x.cost, 0) + FACES.reduce((n, f) => n + f.cost, 0)'
   + '   + Object.keys(BUD_COST).reduce((n, k) => n + BUD_COST[k].reduce((m, c) => m + c, 0), 0),'
-  + ' arcade: {writeGame, readGame}, kv: KV,'
+  + ' arcade: {writeGame, readGame}, kv: KV, backTop,'
+  + ' vfx: {vfxSet, VFX_KINDS, lights: EMB_LIGHTS},'
+  + ' quotes: {allQuotes, packQuotes, QPACKS, qpackOn, qpackOwned, qpackSet,'
+  + '   qpackQuoteSet, qpackQuoteOn, qpackLive, qpackBase}, Embers,'
   + ' gamesAdopt, gamesSnapshot, reportSend,'
   + ' dialogs: {askConfirm, closeConfirm}, arcadeReset: arcadeResetItems,'
   + ' wordleArt: (r) => dailyDef("wordle").art(r),'
@@ -1939,6 +1957,43 @@ await wait(60);
     log.length > 0 && log.every((r) => r && r.full === false), `${log.length} records`);
 }
 
+/* ---- what you tick off ends up in the note --------------------------------
+
+   The break screen is the list of what is left with the session note directly
+   under it, and ticking something off there used to go nowhere: the rule was
+   that a task ticked in a break belongs to no block. The block it belongs to
+   is the one that just ended and is still named above the note.
+
+   Ticking during the block itself already arrived here, but only when the
+   block ended and all at once. Both roads now go through the same one, which
+   is the half worth checking: two ways of writing the same line into the same
+   note is how you get it twice. */
+{
+  await wait(80);
+  const note = () => $('note-input').value;
+  check('the tasks ticked during the block are in its note when it ends',
+    /✓ write the report/.test(note()), note().slice(0, 90) || '(empty)');
+
+  const restRow = (text) => [...$('task-list-rest').querySelectorAll('.task-row')]
+    .find((r) => r.textContent.includes(text));
+  const left = restRow('Ring the dentist');
+  check('and the break lists what is still to do', !!left,
+    [...$('task-list-rest').querySelectorAll('.task-row')].map((r) => r.textContent).join(' | '));
+  left.click();
+  await wait(80);
+  check('ticking one off in the break writes it into the note below it',
+    /✓ Ring the dentist/.test(note()), note().slice(0, 140));
+  check('and into the session it belongs to, not just the box on screen',
+    JSON.parse(window.localStorage.getItem('focus_log') || '[]')
+      .some((r) => (r.note || '').includes('✓ Ring the dentist')));
+
+  /* Ticked once, written once. The end-of-block flush and the break both add
+     lines now, and the failure they can have together is the same task landing
+     in the note twice — which is why this counts rather than matches. */
+  const twice = note().split('\n').filter((l) => l === '✓ Ring the dentist').length;
+  check('and it is written once, however it got there', twice === 1, `${twice} times`);
+}
+
 /* ---- embers ----
    Paid by the minute of finished focus, banked rather than rounded — which is
    what stops "start a block, skip it, repeat" being the fastest way to earn.
@@ -1976,7 +2031,7 @@ check('written down, so they survive the app closing',
   };
   check('the shop is a shelf per kind of thing',
     [...$('emb-box').querySelectorAll('[data-tab]')].map((b) => b.dataset.tab).join(',')
-      === 'looks,sounds,faces,buddy,antics',
+      === 'looks,sounds,faces,quotes,buddy,antics',
     [...$('emb-box').querySelectorAll('[data-tab]')].map((b) => b.dataset.tab).join(','));
   const shelf = () => [...$('emb-box').querySelectorAll('[data-light]')];
   /* Counted from the catalogue in the build, not written down here. It said 8,
@@ -1992,6 +2047,198 @@ check('written down, so they survive the app closing',
   check('and every light in the catalogue has a tile on it',
     lightIds.every((id) => shelf().some((el) => el.dataset.light === id)),
     lightIds.filter((id) => !shelf().some((el) => el.dataset.light === id)).join(' '));
+  /* **And a palette to go with it.** A look owns every colour on screen, and
+     it does that through nine selectors in 30-embers.css that have to be
+     written out per light — see the note above them. Miss the `#app` one and
+     the look colours the menus and not the app; miss the lot and the tile is
+     on the shelf, the weather changes, and the interface stays teal. Nothing
+     was comparing the catalogue with the stylesheet. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('\n');
+    const scopes = (id) => ['body[data-light="' + id + '"],', '#app[data-light="' + id + '"],',
+      'body[data-light="' + id + '"] #overlay,', 'body[data-light="' + id + '"] #drawer{']
+      .filter((sel) => !css.includes(sel));
+    const short = lightIds.filter((id) => scopes(id).length);
+    check('and a palette, in every scope a look has to reach',
+      short.length === 0,
+      short.map((id) => id + ' misses ' + scopes(id).join(' ')).join(' | '));
+  }
+  /* ---- quote packs ---------------------------------------------------------
+
+     Twelve collections, bought with embers, switched on and off afterwards, and
+     shuffled into the same bowl as everything else the focus screen shows.
+
+     The order below is the order somebody meets them in: see the shelf, buy
+     one, find its lines in the rotation, buy a second and get both at once,
+     switch one line off, switch a whole pack off, and still own it. */
+  {
+    await shopTab('quotes');
+    const QP = window.__m.quotes;
+    const tiles = () => [...$('emb-box').querySelectorAll('[data-qpack]')];
+    check('quote packs are a shelf of their own',
+      tiles().length === QP.QPACKS.length && QP.QPACKS.length >= 10,
+      `${tiles().length} tiles for ${QP.QPACKS.length} packs`);
+    check('and every pack in the catalogue has one',
+      QP.QPACKS.every((p) => tiles().some((el) => el.dataset.qpack === p.id)),
+      QP.QPACKS.filter((p) => !tiles().some((el) => el.dataset.qpack === p.id)).map((p) => p.id).join(' '));
+    check('each with a price and a count of what is in it',
+      tiles().every((el) => /\d/.test(el.textContent)),
+      tiles()[0] && tiles()[0].textContent);
+
+    const stoic = QP.QPACKS.find((p) => p.id === 'stoic');
+    const marvel = QP.QPACKS.find((p) => p.id === 'marvel');
+    const base = QP.allQuotes().length;
+    const E = window.__m.Embers;
+
+    /* Enough to shop with, through `adjust` — the one input to the derivation
+       that means "from outside the focus log". Writing `have` directly would
+       be undone by the next reconcile, which is the very thing being tested
+       below. Both it and the packs are put back at the end of the block, so
+       the checks after this one still find the shelf they expect. */
+    const adjustWas = E.adjust || 0;
+    E.adjust = adjustWas + 900;
+    E.reconcile(); E.render();
+    await wait(60);
+    const had = E.have;
+    $('emb-box').querySelector('[data-qpack="stoic"]').click();
+    await wait(60);
+    check('buying one asks first', !$('confirm').classList.contains('hide'),
+      $('confirm-title').textContent);
+    $('confirm-yes').click();
+    await wait(120);
+    check('and it costs what the tile said',
+      E.have === had - stoic.cost, `${E.have}, was ${had}, price ${stoic.cost}`);
+    check('the pack is owned and switched on by the purchase',
+      QP.qpackOwned('stoic') && QP.qpackOn('stoic'),
+      `owned ${QP.qpackOwned('stoic')}, on ${QP.qpackOn('stoic')}`);
+
+    /* **Owning one is what puts it in the rotation**, and that matters most on
+       the device where it was never bought. Ownership syncs; which packs are
+       on is a per-device preference and does not. Kept as a list of the ones
+       switched *on*, a pack bought on the laptop would arrive on the phone
+       owned and silent — so it is kept as a list of the ones switched off.
+       This is that second device: the id put straight into `own`, with nothing
+       ever having been switched. */
+    {
+      E.own.push('qp-poets');
+      check('a pack that arrives already owned is in the rotation, not silent',
+        QP.qpackOn('poets'), `on ${QP.qpackOn('poets')}`);
+      E.own.splice(E.own.indexOf('qp-poets'), 1);
+    }
+
+    /* **The one that would not have been noticed.** The balance is derived —
+       `have = earned - SUM(paidFor(id) for id in own)` — so anything that can
+       land in `own` has to be priceable, or the next reconcile finds nothing
+       was spent and hands the embers back. A pack that refunds itself is free,
+       and nothing on screen would ever have said so. */
+    E.reconcile();
+    await wait(40);
+    check('and the price survives the balance being recomputed from scratch',
+      E.have === had - stoic.cost, `${E.have} after reconcile, expected ${had - stoic.cost}`);
+
+    check('its lines join the ones the focus screen draws from',
+      QP.allQuotes().length === base + stoic.quotes.length,
+      `${QP.allQuotes().length}, was ${base}`);
+
+    /* Two at once, shuffled together rather than taking turns — which is what
+       "at random" has to mean, or a pack of ten would show every tenth quote
+       however many you owned. */
+    $('emb-box').querySelector('[data-qpack="marvel"]').click();
+    await wait(60);
+    $('confirm-yes').click();
+    await wait(120);
+    const both = QP.allQuotes();
+    check('a second pack runs alongside the first, not instead of it',
+      QP.qpackOn('stoic') && QP.qpackOn('marvel')
+      && both.length === base + stoic.quotes.length + marvel.quotes.length,
+      `${both.length} quotes`);
+    check('and both packs are actually in the bowl',
+      both.some((q) => q.pack === 'stoic') && both.some((q) => q.pack === 'marvel'),
+      [...new Set(both.map((q) => q.pack || 'own'))].join(','));
+
+    /* One line off, not the other nine. */
+    const one = marvel.quotes[0];
+    QP.qpackQuoteSet(one, false);
+    check('a single line can be switched off on its own',
+      !QP.qpackQuoteOn(one)
+      && QP.allQuotes().length === both.length - 1
+      && QP.qpackLive(marvel) === marvel.quotes.length - 1,
+      `${QP.allQuotes().length} of ${both.length}`);
+
+    /* A whole pack off, and still owned: those are different questions, which
+       is why they are kept in different places. */
+    QP.qpackSet('marvel', false);
+    check('a pack can be switched off without being given up',
+      !QP.qpackOn('marvel') && QP.qpackOwned('marvel')
+      && !QP.allQuotes().some((q) => q.pack === 'marvel'),
+      `on ${QP.qpackOn('marvel')}, owned ${QP.qpackOwned('marvel')}`);
+    QP.qpackSet('marvel', true);
+    QP.qpackQuoteSet(one, true);
+
+    /* ---- the twenty the app came with ----
+       They were the one set with no way to turn anything off: always shown,
+       whether or not you wanted them, even with three packs running. They are
+       listed in the bank now like any pack — which means they need the switch
+       stored the other way round, because a bought pack is off until it is
+       bought and these are on until somebody says otherwise. */
+    {
+      const before = QP.allQuotes().length;
+      const base = QP.QPACKS.find((p) => p.id === 'base') || null;
+      check('the built-ins are not on the shelf — they are not for sale',
+        !base && QP.qpackOwned('base') && QP.qpackOn('base'),
+        `in catalogue ${!!base}, owned ${QP.qpackOwned('base')}, on ${QP.qpackOn('base')}`);
+
+      const one = { t: 'Well begun is half done.', a: 'Aristotle' };   // one of the twenty
+      QP.qpackQuoteSet(one, false);
+      check('one of them can be switched off on its own',
+        QP.allQuotes().length === before - 1
+        && !QP.allQuotes().some((q) => q.t === one.t),
+        `${QP.allQuotes().length}, was ${before}`);
+      QP.qpackQuoteSet(one, true);
+
+      QP.qpackSet('base', false);
+      const off = QP.allQuotes();
+      check('and the whole set can be switched off, leaving the bought ones',
+        !QP.qpackOn('base') && off.length === before - QP.qpackBase().quotes.length
+        && off.some((q) => q.pack === 'stoic'),
+        `${off.length} left, was ${before}`);
+      QP.qpackSet('base', true);
+      check('and back on again', QP.qpackOn('base') && QP.allQuotes().length === before,
+        `${QP.allQuotes().length} of ${before}`);
+    }
+
+    /* And the quote bank is where both switches live. */
+    click('d-quotes');
+    await wait(120);
+    const packRows = [...$('q-packs').querySelectorAll('[data-pack-on]')];
+    check('the quote bank lists the built-ins and the packs you own, with a switch each',
+      packRows.length === 3, `${packRows.length} rows`);
+    check('and every line in them has its own switch',
+      $('q-packs').querySelectorAll('[data-pack-q]').length
+        === stoic.quotes.length + marvel.quotes.length + QP.qpackBase().quotes.length,
+      `${$('q-packs').querySelectorAll('[data-pack-q]').length} switches`);
+    /* The quotes are somebody else's words, so they are kept away from the
+       translator — see the note at the top of 14a-quote-packs.js. */
+    check('the lines themselves are left out of translation',
+      [...$('q-packs').querySelectorAll('.q-pack-list')].every((el) => el.getAttribute('translate') === 'no'),
+      [...$('q-packs').querySelectorAll('.q-pack-list')].map((el) => el.getAttribute('translate')).join(','));
+    click('q-back');
+    await wait(60);
+
+    /* Put the shelf back the way the checks below expect to find it: the two
+       packs handed back, the grant taken off, and the balance recomputed from
+       what is left. Every one of those goes through the same derivation a real
+       purchase does, so the state this leaves behind is a state the app could
+       actually be in. */
+    E.own = E.own.filter((id) => id.indexOf('qp-') !== 0);
+    E.adjust = adjustWas;
+    E.reconcile(); E.save(); E.render();
+    await shopTab('looks');
+    await wait(40);
+    check('and handing the packs back leaves the balance where it started',
+      E.have === had - 900, `${E.have}, expected ${had - 900}`);
+  }
+
   /* The ambience tracks re-colour the app too, so they are on the same shelf.
      Two are free — an app with no sound at all until you have earned some is a
      worse app — and each brings its own weather. */
@@ -2245,8 +2492,22 @@ check('every card on the arcade shelf is a game, and each one only once',
   pcards.length >= 9 && pcards.every((c) => c.dataset.game)
   && new Set(pcards.map((c) => c.dataset.game)).size === pcards.length,
   pcards.map((c) => c.dataset.game || '?').join(','));
+/* And no two of them wearing the same face. Picross and Scrabble were both ▩
+   for months: nothing broke, nothing logged, and the only symptom was two rows
+   in one list that looked identical. The names above are checked for duplicates
+   already; an icon is the thing you actually navigate that list by. */
+{
+  const seen = new Map();
+  const same = [];
+  for (const c of pcards) {
+    const face = c.querySelector('.emoji').innerHTML.replace(/\s+/g, ' ').trim();
+    if (seen.has(face)) same.push(`${seen.get(face)} = ${c.dataset.game}`);
+    else seen.set(face, c.dataset.game);
+  }
+  check('and no two of them wear the same icon', same.length === 0, same.join(', '));
+}
 const byGame = Object.fromEntries(pcards.map((c) => [c.dataset.game, c]));
-check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess', 'spymaster'].every((g) => byGame[g]), Object.keys(byGame).join(','));
+check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossword', 'hangman', 'scrabble', 'pictionary', 'chess', 'spymaster', 'mrwhite'].every((g) => byGame[g]), Object.keys(byGame).join(','));
 /* **Spymaster is four to play, and the card and the start agree.** It used to
    start with one side staffed and the board playing the other, and its card
    said 2+ — true of that game. A 4+ card over a start that still let two
@@ -2255,6 +2516,15 @@ check('enabled games in picker', ['sudoku', 'wordle', 'g2048', 'tetris', 'crossw
 {
   const tag = (byGame.spymaster && byGame.spymaster.querySelector('.tag') || {}).textContent;
   check('the Spymaster card says four to play', tag === '4+', tag);
+  /* The same question of Mr White, whose minimum lives in `MW_MIN`. A card that
+     promises three and a start that waits for four is a room standing around
+     wondering what it is waiting for. */
+  {
+    const mwTag = (byGame.mrwhite.querySelector('.tag') || {}).textContent;
+    const min = (html.match(/const MW_MIN = (\d+)/) || [])[1];
+    check('and the Mr White card promises the number its start actually waits for',
+      mwTag === min + '+', `card ${mwTag}, MW_MIN ${min}`);
+  }
   const L = window.__m.smLineup;
   const seat = (team, role) => ({ team, role });
   const two = L({ a: seat('red', 'spy'), b: seat('red', 'op') });
@@ -3296,10 +3566,307 @@ check('every effect a look can choose has a rule to draw it', (() => {
   return [...new Set([...html.matchAll(/\bfx:'([a-z]+)'/g)].map((m) => m[1]))]
     .filter((k) => !css.includes(`.vfx[data-fx="${k}"] b{`)).join(' ') || 'all present';
 })());
+/* ---- the weather the two newest looks bring ----
+
+   A look is four things that have to agree: a tile on the shelf, a palette in
+   30-embers.css, a kind in 38-vfx.js and a rule in 31-vfx.css. The three checks
+   above cover the first three pairings and none of them covers the last one —
+   a kind can have a spec *and* a rule and still hand out custom properties the
+   CSS never reads, or read ones it never sets, in which case the effect builds
+   its elements and draws a row of zero-by-zero boxes. That is exactly how the
+   Office keyboard went missing, one layer down.
+
+   So these are built for real and the elements are read back. Listed by hand
+   rather than parsed out of the CSS, because half of what a rule reads is in
+   the keyframes it names and a check that has to understand that is a check
+   nobody trusts when it goes red. */
+{
+  const V = window.__m.vfx;
+  const pane = $('vfx');
+  const needs = {
+    towers: ['--w', '--s', '--x', '--o', '--t', '--d', '--dx', '--wx', '--wy', '--dk'],
+    stars: ['--s', '--x', '--y', '--o', '--t', '--d'],
+  };
+  for (const id of ['skyline', 'space']) {
+    const l = V.lights.find((x) => x.id === id);
+    check(id + ' is on the shelf, with weather of its own', !!l && !!needs[l && l.fx],
+      l ? l.fx : 'no such look');
+    if (!l || !needs[l.fx]) continue;
+    V.vfxSet(l.fx, l.fxc || l.accent, l.fxc2, l.fxm, l.fxw, l.fxpal, l.fxflick,
+             l.fxn, l.fxo, l.fxs);
+    /* `:not(.gal)` because deep space puts three galaxies in the pane as well,
+       and a galaxy is not a speck: it carries none of the per-speck numbers
+       and its rule reads none of them. Counting it here would say the field
+       was built when it was three fixed elements and nothing else. */
+    const bs = [...pane.querySelectorAll('b:not(.gal)')];
+    check('and choosing it actually builds a field of ' + l.fx,
+      bs.length >= 3 && pane.dataset.fx === l.fx,
+      `${bs.length} in the pane, fx=${pane.dataset.fx}`);
+    const short = needs[l.fx].filter((v) => bs.some((b) => !b.style.getPropertyValue(v)));
+    check('and every speck carries what its rule reads',
+      short.length === 0, short.join(' ') || 'all set');
+  }
+
+  /* **A dark accent needs a label written for it.**
+
+     `.primary` is the button that starts and stops a session, and it is one
+     rule for the whole shop: the accent as its background and a near-black
+     label on top. That works because almost every accent here is a light
+     colour. Spider-Man's is not, and the word Pause on it was a shape rather
+     than a word for as long as that look has existed.
+
+     Rather than check the one that was wrong, this checks the thing that
+     made it wrong: an accent dark enough to swallow a dark label has to
+     bring its own. Add a deep look to the shelf and this says so before
+     anybody squints at it. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('\n');
+    /* Relative luminance, the sRGB one the contrast ratios are built on.
+       Eyeballing hex is how you end up deciding #e01b24 is bright because it
+       is red. */
+    const lum = (hex) => {
+      const n = parseInt(hex.slice(1), 16);
+      const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+        const x = v / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    /* The label is #07121a, so the ratio against it is what decides. Below
+       about four and a half the word stops being readable at button size. */
+    const dark = lum('#07121a');
+    const ratio = (a) => (lum(a) + 0.05) / (dark + 0.05);
+    const short = window.__m.vfx.lights.filter((l) => {
+      if (ratio(l.accent) >= 4.5) return false;
+      const own = 'body[data-light="' + l.id + '"] .primary';
+      const at = css.indexOf(own);
+      if (at < 0) return true;
+      return css.slice(at, css.indexOf('}', at)).indexOf('color:') < 0;
+    });
+    check('a look whose accent is too dark for the usual label brings its own',
+      short.length === 0,
+      short.length
+        ? short.map((l) => l.id + ' (' + l.accent + ', ratio ' + ratio(l.accent).toFixed(1) + ')').join(' ')
+        : window.__m.vfx.lights.length + ' looks, every label reads');
+  }
+  /* **Every filter the stylesheet reaches for has to exist in the page.**
+     `filter: url(#vfx-neb)` naming an id that is not there is not an error
+     anybody sees: Chromium renders the element with no filter at all, which
+     for the nebula means it is back to being the four soft ellipses it was
+     drawn as before the noise went in — the exact thing that was wrong with
+     it. Firefox goes further and drops the element entirely. Either way the
+     look is quietly worse and nothing says so, and the two halves live in
+     different files (the defs in the shell markup, the reference in the
+     effects CSS) with nothing joining them.
+
+     Asked of the built page rather than of the source, because the build is
+     what concatenates them and the build is where they could fail to meet. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('\n');
+    const want = [...new Set([...css.matchAll(/filter:\s*url\(#([A-Za-z0-9_-]+)\)/g)]
+      .map((m) => m[1]))];
+    const missing = want.filter((id) => !window.document.getElementById(id));
+    check('every filter the effects reach for is defined in the page',
+      want.length >= 3 && missing.length === 0,
+      missing.length ? 'nothing defines: ' + missing.join(' ')
+        : want.length + ' filters, all present');
+    /* And that they are the kind of filter that draws a cloud. A def that
+       exists but turns out to be an empty <filter> passes the check above and
+       still changes nothing. */
+    check('and each of them is fractal noise pushing the shape about',
+      want.every((id) => {
+        const f = window.document.getElementById(id);
+        return f && f.querySelector('feTurbulence') && f.querySelector('feDisplacementMap');
+      }),
+      want.map((id) => {
+        const f = window.document.getElementById(id);
+        return id + ':' + (f ? [...f.children].map((n) => n.tagName).join('+') : 'gone');
+      }).join(' '));
+  }
+
+  /* The nebula is two clouds at different noise scales, and the second one is
+     an element the effect has to build — the pane's own ::before is only the
+     far one. A kind that asks for a layer and does not get it loses half the
+     depth and, again, says nothing. */
+  {
+    const sp2 = V.lights.find((x) => x.id === 'space');
+    V.vfxSet('stars', sp2.fxc, sp2.fxc2, 1, 1, sp2.fxpal);
+    check('and deep space builds the near half of its cloud, not just the far one',
+      !!pane.querySelector('.neb') && V.VFX_KINDS.stars.layer === 'neb',
+      pane.firstElementChild ? pane.firstElementChild.className || pane.firstElementChild.tagName
+        : 'empty pane');
+  }
+
+  /* Towers are silhouettes, not coloured shapes: the look hands the weather one
+     colour and the windows come from --accent, so the whole interface and the
+     city are lit by the same thing. A second colour here would be blended per
+     tower and the skyline would come out tie-dyed. */
+  const sky = V.lights.find((x) => x.id === 'skyline');
+  check('a tower takes one colour and leaves the windows to the accent',
+    !!sky && !sky.fxc2 && /var\(--accent\)/.test(
+      [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('')
+        .match(/\.vfx\[data-fx="towers"\] b\{[^}]*\}/)[0]),
+    sky ? String(sky.fxc2) : 'no skyline');
+  /* Stars take a palette for the opposite reason: a blend between two
+     near-whites is a third near-white, and what makes a sky read as a sky is
+     that a few of them are plainly blue and a few plainly warm. */
+  const sp = V.lights.find((x) => x.id === 'space');
+  check('and a star takes a discrete colour rather than a blend',
+    !!sp && !!V.VFX_KINDS.stars.pal && sp.fxpal.length >= 6
+    && new Set(sp.fxpal).size >= 4,
+    sp ? sp.fxpal.join(' ') : 'no space');
+  /* One in eight is near enough to flare. The variant is an attribute because
+     CSS can select on one and not on a custom property. */
+  V.vfxSet('stars', '#fff', '#cfe3ff', 1, 1, sp.fxpal);
+  const vs = [...pane.querySelectorAll('b')].map((b) => b.dataset.v);
+  check('and one star in eighteen is near enough to have a flare across it',
+    vs.filter((x) => x === '0').length >= 1 && new Set(vs).size >= 4,
+    `${vs.filter((x) => x === '0').length} flared of ${vs.length}`);
+  /* **And the galaxies, which are a rota rather than a fraction.**
+
+     Three, numbered, each crossing for a third of a long cycle and started a
+     third apart — so exactly one is on the screen at any moment and it is
+     always the next colour along. They used to be a variant of the star
+     field, which meant the count was whatever the arithmetic produced and
+     three could arrive at once.
+
+     The rota is the delay and nothing else, so what is checked is that the
+     three things it depends on still line up: three elements, each numbered,
+     and a rule that offsets them by their number. Break any one and the
+     effect does not fail, it just stops taking turns. */
+  {
+    const gal = [...pane.querySelectorAll('b.gal')];
+    check('three galaxies, numbered, so the stylesheet can put them on a rota',
+      gal.length === 3
+      && gal.map((b) => b.dataset.g).join(',') === '0,1,2'
+      && gal.every((b) => b.style.getPropertyValue('--gi') !== ''),
+      gal.length + ': ' + gal.map((b) => b.dataset.g + '/' + b.style.getPropertyValue('--gi')).join(' '));
+
+    const css2 = [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('');
+    /* Cut out by hand rather than by pattern: the selector is bracket pairs
+       and quoted strings, and a regexp for it is backslashes that go wrong in
+       a way nothing about the failure tells you. */
+    const head = '.vfx[data-fx="stars"] b.gal{';
+    const at2 = css2.indexOf(head);
+    const rule = at2 < 0 ? '' : css2.slice(at2, css2.indexOf('}', at2) + 1);
+    check('and each waits its turn by its number, which is the whole rota',
+      rule.includes('var(--gi) * -110s') && rule.includes('330s'),
+      rule.slice(0, 150) || 'no galaxy rule');
+
+    /* Pink, blue and orange, with a lighter one of each for the core. A core
+       in a different hue from its cloud reads as two objects rather than one
+       lit from inside. */
+    const hues = [0, 1, 2].map((k) => {
+      const h = '.vfx[data-fx="stars"] b.gal[data-g="' + k + '"]{';
+      const i = css2.indexOf(h);
+      return i < 0 ? '' : css2.slice(i + h.length, css2.indexOf('}', i));
+    });
+    check('and the three of them are three different colours',
+      hues.every((h) => /--gal:\s*#/.test(h) && /--gal2:\s*#/.test(h))
+      && new Set(hues).size === 3,
+      hues.join(' | ') || 'no hues');
+  }
+}
+
+/* **The signal, and the three ways it came out wrong.**
+
+   Spider-Man's mask used to sit under the dial's digits, which is most of
+   what made that look like an illustration with a clock printed on it. It is
+   a good drawing, so rather than delete it it was moved: it now flashes up
+   high on the screen twice a minute and a half and goes, the way a signal is
+   flashed rather than left on.
+
+   None of what follows is about whether it is pretty. Each one is a mistake
+   that was actually made moving it, each of which renders — a mark appears,
+   nothing throws, the console is clean — and each of which puts it somewhere
+   nobody would choose.
+
+   jsdom lays nothing out, so these are asked of the markup and the built CSS.
+   What it looks like is for tools/look-screens.mjs. */
+{
+  const doc = window.document;
+  const sig = doc.getElementById('spidey-signal');
+  /* One: left behind. If the group is still inside the dial as well, the old
+     plate is still under the digits and the move did nothing. */
+  check('the signal carries the drawing and the dial no longer does',
+    !!sig && !!sig.querySelector('.dial-web-mask')
+    && !doc.querySelector('.dial .dial-web-mask'),
+    sig ? (sig.querySelector('.dial-web-mask') ? 'moved' : 'empty signal')
+      + (doc.querySelector('.dial .dial-web-mask') ? ', and still in the dial' : '')
+      : 'no signal');
+
+  /* Two: a box far larger than what is in it. The drawing is a circle of
+     radius 52 about (120,120) and the viewBox it inherited was the dial's
+     full 240 — so better than three quarters of the element was empty, the
+     ink shrank to fit the rest, and a signal meant to be unmistakable came
+     out as a smudge a third of the size with a margin of nothing round it.
+     Checked as a ratio, because the numbers will move again and the rule is
+     that the box frames the drawing. */
+  const face = sig && sig.querySelector('.dw-mask-face');
+  const vb = (sig && sig.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+  const r = face ? Number(face.getAttribute('r')) : 0;
+  const side = vb.length === 4 ? Math.max(vb[2], vb[3]) : 0;
+  check('and its box is cut to the drawing rather than to the dial it left',
+    r > 0 && side > 0 && side / (r * 2) <= 1.35
+    && vb[0] <= Number(face.getAttribute('cx')) - r
+    && vb[1] <= Number(face.getAttribute('cy')) - r,
+    vb.join(' ') + ' round r' + r + ' = ' + (side / (r * 2 || 1)).toFixed(2) + '×');
+
+  /* Three: centred by an expression that disagreed with its own width.
+     `margin-left:min(-23vw,-105px)` reads as "the smaller of the two", and
+     for negative numbers the smaller is the one further from zero — so on any
+     window wider than about 450px it pulled the mark a long way off to the
+     left of the screen rather than half its width. The fix is that there is
+     only one number: the offset is the width, negated. */
+  const css3 = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('');
+  const head3 = 'body[data-light="spiderman"] .spidey-signal{';
+  const at3 = css3.indexOf(head3);
+  const rule3 = at3 < 0 ? '' : css3.slice(at3 + head3.length, css3.indexOf('}', at3));
+  const w3 = (rule3.match(/width:\s*(min\([^)]*\))/) || [])[1] || '';
+  const m3 = (rule3.match(/margin-left:\s*([^;]+)/) || [])[1] || '';
+  check('and it is centred off its own width, not a min() of two negatives',
+    !!w3 && m3.indexOf(w3) >= 0 && m3.indexOf('-2') > 0 && !/min\(\s*-/.test(m3),
+    'width ' + (w3 || '?') + ', offset ' + (m3.trim() || '?'));
+
+  /* And the corners. The web round the dial trades colour with the ring,
+     which is the point of it; the two in the corners were doing it as well,
+     and a red web on a blue wall reads as a stain. They are white and they
+     stay white, so what is checked is that the swap does not reach them. */
+  const sel = (css3.match(/([^{}]*)\{[^}]*animation-name:spidey-web/) || [])[1] || '';
+  check('the dial web changes colour and the corner webs do not',
+    sel.indexOf('dial-web') >= 0 && sel.indexOf('corner-web') < 0
+    && /\.corner-web-spokes[^{]*\{[^}]*stroke:#fff/.test(css3),
+    sel.replace(/\s+/g, ' ').trim().slice(0, 90) || 'nothing swaps');
+}
+
 // the one look that lights the whole room rather than only the sky
 check('campfire asks for the flicker and the others do not', (() => {
   const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('');
   return /\[data-flick="1"\]::before/.test(css);
+})());
+/* **What a forged `claimed` list is actually worth.**
+
+   Achievements pay embers, and nothing on the server verifies that one was
+   earned — doing so would mean a second copy of all forty-one conditions
+   over there, and the merge rules being duplicated once already is a
+   standing hazard in this repo rather than a pattern to repeat.
+
+   It is left alone because the exposure is small and *bounded by the
+   catalogue itself*: `Embers.payout` looks an id up in ACH_LIST and returns
+   nought for anything it does not recognise, so a forger cannot invent an
+   achievement, only claim a real one early. Claiming every last one is
+   worth about a third of one look.
+
+   That reasoning depends on a number, so the number is checked. A new
+   achievement worth five hundred embers would quietly make forging the
+   list worth doing, and this is what would say so. */
+check('claiming every achievement at once is worth less than one look', (() => {
+  const pays = [...html.matchAll(/pays?:\s*(\d+)/g)].map((m) => Number(m[1]));
+  const all = pays.reduce((n, x) => n + x, 0);
+  return pays.length > 20 && all <= 900;
+})(), (() => {
+  const pays = [...html.matchAll(/pays?:\s*(\d+)/g)].map((m) => Number(m[1]));
+  return pays.reduce((n, x) => n + x, 0) + ' embers across ' + pays.length + ' marks';
 })());
 check('one shared audio element, not five', window.document.querySelectorAll('audio').length === 1, `${window.document.querySelectorAll('audio').length}`);
 check('audio is not preloaded before it is chosen', window.document.querySelector('audio').preload === 'none', window.document.querySelector('audio').preload);
@@ -3371,6 +3938,118 @@ click('d-quotes'); await wait(80);
 check('quote bank opens', !$('quotes-overlay').classList.contains('hide'));
 check('quote list populated', $('q-list').children.length > 0);
 click('q-back');
+
+/* ---- settings is a page, not the bottom of the menu ------------------------
+
+   The switches, the clock faces, the seven languages and the four legal pages
+   used to hang under the menu's eight rows, below a fold nobody scrolls.
+
+   Moving them is only a move if all of them arrive. Each one is wired by id
+   from a different file — 08-events.js, 38-vfx.js, 43-faces.js, 50b-terms.js,
+   50-about.js, 20-data-io.js — so a control left behind in the drawer keeps
+   answering its handler perfectly and is simply never seen again. Nothing
+   would fail and nothing would log. Hence both halves below: everything is on
+   the new page, and nothing is still on the old one. */
+{
+  /* The locked-ambience checks above finish by tapping four tracks nobody owns,
+     which leaves the last "buy this?" question sitting on the screen. It is
+     harmless to them and not harmless here: a confirm is the topmost thing in
+     BACK_LAYERS by design, so it would answer every question below about what
+     Back reaches first. Dismissed rather than worked around. */
+  if (!$('confirm').classList.contains('hide')) { click('confirm-no'); await wait(80); }
+
+  /* Under the update box, not among the rows above it. Those rows are places
+     to go and a hand scanning them is looking for one; preferences sitting in
+     the middle of that list is one more thing to read past every time. */
+  check('the way to settings sits below the update box, out of the list of rows',
+    $('d-settings').previousElementSibling === $('upd-box')
+    && !$('d-settings').classList.contains('drawer-item'),
+    `${$('d-settings').className} after #${($('d-settings').previousElementSibling || {}).id}`);
+
+  click('d-settings'); await wait(80);
+  check('the menu opens a settings page',
+    !$('settings-overlay').classList.contains('hide'));
+
+  const moved = ['t-auto', 't-sound', 't-fx', 'face-pick', 'lang-pick',
+    'd-privacy', 'd-terms', 'd-credits', 'd-report', 'd-reset'];
+  const missing = moved.filter((id) => !$('settings-overlay').querySelector('#' + id));
+  check('carrying every control that used to be in the menu',
+    missing.length === 0, missing.join(', '));
+  const strays = moved.filter((id) => !!$('drawer').querySelector('#' + id));
+  check('and leaving none of them behind in it', strays.length === 0, strays.join(', '));
+
+  check('the clock faces are drawn on it',
+    $('face-pick').children.length > 0, `${$('face-pick').children.length}`);
+  check('and all seven languages are offered',
+    $('lang-pick').children.length === 7, `${$('lang-pick').children.length}`);
+
+  /* Ambience did not move, and that is a decision rather than an oversight: it
+     is the one thing under those headings reached for *during* a session
+     rather than set once, and the menu is where a hand already goes for it. */
+  check('ambience stays in the menu, where a hand reaches for it mid-session',
+    !!$('drawer').querySelector('#amb-grid'));
+
+  /* The four About buttons open a page *over* this one. Back has to know that:
+     with about-overlay missing from BACK_LAYERS it reached past what was on
+     the screen, closed Settings underneath, and left the prose over nothing. */
+  click('d-terms'); await wait(120);
+  check('a legal page opens over the settings page, not instead of it',
+    !$('about-overlay').classList.contains('hide')
+    && !$('settings-overlay').classList.contains('hide'),
+    `about ${$('about-overlay').className} / settings ${$('settings-overlay').className}`);
+
+  /* **The terms name nobody.** They used to end on whoever ships the build and
+     an address to write to, in seven documents; they end on Report a problem
+     now, which is one address behind one screen. A name and a personal address
+     in a document that ships to every device is a decision the maker takes on
+     purpose, and this is what stops a helpful edit taking it for them. */
+  {
+    const t = $('about-body').textContent;
+    check('and the terms send a question to the app rather than to a person',
+      /Report a problem/.test(t) && !/the contact address for this build/.test(t)
+      && $('about-body').querySelectorAll('.about-todo').length === 0,
+      `${$('about-body').querySelectorAll('.about-todo').length} gaps`);
+  }
+
+  /* **Android has to be told a press happened.** A browser announces it with
+     `popstate`, which the parked history entry turns into "close the top
+     layer". The WebView has nowhere to go back to, so Android's default is to
+     finish the activity: one press from inside a game took the running block
+     with it. MainActivity forwards the press to this instead.
+
+     Checked here because the half that can go wrong is this half. The native
+     side is three lines and names the function; if the name on this side ever
+     moves, Back goes back to closing the app and nothing says so. */
+  check('and Android\u2019s own Back has something to call',
+    typeof window.__androidBack === 'function', typeof window.__androidBack);
+  check('and it closes what is open rather than leaving the app',
+    window.__androidBack() === true
+    && $('about-overlay').classList.contains('hide'),
+    'about is ' + $('about-overlay').className);
+  click('d-terms'); await wait(120);
+
+  /* Asked of the back stack itself rather than by pressing Back. `backTop()`
+     is the whole of the decision — it walks BACK_LAYERS in order and hands
+     back the first layer that is actually on screen — and the order is the
+     thing this pair of pages depends on. Driving `history.back()` here would
+     test jsdom's history as much as the app's, and a press that closes the
+     wrong page would look the same as a press that did nothing. */
+  let top = window.__m.backTop();
+  check('Back would close what you are reading, not the page under it',
+    !!top && top.id === 'about-overlay', top ? top.id : 'nothing on the stack');
+  if (top) top.close();
+  await wait(80);
+  check('and that leaves you back on the settings page',
+    $('about-overlay').classList.contains('hide')
+    && !$('settings-overlay').classList.contains('hide'));
+
+  top = window.__m.backTop();
+  check('then the next press takes the settings page itself',
+    !!top && top.id === 'settings-overlay', top ? top.id : 'nothing on the stack');
+
+  click('settings-close'); await wait(60);
+  check('as does its own back arrow', $('settings-overlay').classList.contains('hide'));
+}
 
 click('d-history'); await wait(80);
 check('calendar opens', !$('cal-overlay').classList.contains('hide'));
@@ -3504,14 +4183,17 @@ check('and it is the privacy text', $('about-title').textContent === 'Privacy'
    the mechanism rather than the value. Stamped, there must be no gap; unstamped,
    there must be a visible one. A build that shows neither is the bad case: a
    policy that reads as finished while saying "the developer" where a name goes. */
-{
-  const gaps = [...$('about-body').querySelectorAll('.about-todo')];
-  const stamped = !/the contact address for this build/.test($('about-body').textContent);
-  check(stamped ? 'and the policy names who runs it'
-                : 'and an unstamped policy shows the gap rather than hiding it',
-    stamped ? gaps.length === 0 : gaps.length >= 1,
-    gaps.map((n) => n.textContent).join(' | '));
-}
+/* **The policy names nobody now**, the same as the terms: questions go
+   through Report a problem rather than to a person. So what is checked here is
+   that it carries no contact at all, and the red-gap guard moves to Credits,
+   which is the one page that still names whoever built it and the one place a
+   name belongs. */
+check('the policy sends a question to the app rather than to a person', (() => {
+  const t = $('about-body').textContent;
+  return /Report a problem/.test(t)
+    && !/the contact address for this build/.test(t)
+    && $('about-body').querySelectorAll('.about-todo').length === 0;
+})(), $('about-body').textContent.slice(-150));
 click('about-back'); await wait(60);
 click('d-credits'); await wait(120);
 check('Credits opens', !$('about-overlay').classList.contains('hide')
@@ -3519,6 +4201,20 @@ check('Credits opens', !$('about-overlay').classList.contains('hide')
 check('and credits the typefaces and the libraries',
   /Space Grotesk/.test($('about-body').textContent)
   && /PeerJS/.test($('about-body').textContent));
+/* **A build must not ship with the name still a placeholder**, and Credits is
+   where the name is. Blank in this repo on purpose, like the account URL, so
+   this checks the mechanism rather than the value: stamped, there must be no
+   gap; unstamped, there must be a visible one. A build that shows neither is
+   the bad case — a page that reads as finished while saying "the developer"
+   where a name goes. */
+{
+  const gaps = [...$('about-body').querySelectorAll('.about-todo')];
+  const stamped = !/the developer/.test($('about-body').textContent);
+  check(stamped ? 'and names who built it'
+                : 'and an unstamped build shows the gap rather than hiding it',
+    stamped ? gaps.length === 0 : gaps.length >= 1,
+    gaps.map((n) => n.textContent).join(' | '));
+}
 click('about-back'); await wait(60);
 /* ---- reporting something ----
    A category before the sentence, because "it does not work" is what people
@@ -4946,7 +5642,7 @@ const ROOM_EMBERS = JSON.stringify({
 });
 const roomHtml = withDoor(html, 'window.__r = {Account, SYNC, Chat, friendTake, friendCard,'
   + ' syncNormalise, syncCodeFor, syncAdoptAccount, friendFind, syncRender, syncLeave,'
-  + ' Arcade, syncInGame, Buddy,'
+  + ' Arcade, syncInGame, Buddy, MrWhite, MW_SETS, mwWords, mwOutcome, mwTopVote, Spymaster,'
   + ' friendRemove};');
 const { window: host, errors: hostErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 const { window: guest, errors: guestErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
@@ -6867,6 +7563,442 @@ check('three in the room', $h('sync-people').querySelectorAll('.sync-person').le
 check('host holds the timer to begin with', /You[\s\S]*holds the timer/.test($h('sync-people').innerHTML) || $h('sync-people').querySelector('.sync-person.lead')?.textContent.includes('you'), $h('sync-people').querySelector('.sync-person.lead')?.textContent);
 check('only the holder sees management buttons', $h('sync-people').querySelectorAll('[data-lead]').length === 2 && $g('sync-people').querySelectorAll('[data-lead]').length === 0, `host ${$h('sync-people').querySelectorAll('[data-lead]').length} / guest ${$g('sync-people').querySelectorAll('[data-lead]').length}`);
 
+/* ---- Mr White, played through ---------------------------------------------
+
+   Three windows in one room is exactly the smallest game, so it is played here
+   rather than in a fixture: a set voted for, roles dealt, a hint from each of
+   the three, a vote, and somebody out. What is checked at each step is the one
+   thing that step could get wrong.
+
+   The room is put back the way it was found, because the handover tests below
+   run in it. */
+{
+  const W = [[host, $h, 'Host'], [guest, $g, 'Friend'], [third, $t, 'Third']];
+  for (const [w, $w] of W) await openGame(w, $w, 'mrwhite');
+  await until(() => W.every(([w]) => w.__r.MrWhite.view));
+
+  const view = (w) => w.__r.MrWhite.view;
+  check('everybody in the room lands in the same lobby',
+    W.every(([w]) => view(w).phase === 'lobby' && view(w).seats === 3),
+    W.map(([w]) => `${view(w).phase}/${view(w).seats}`).join(' '));
+  /* **Counted from the catalogue, not written down here.** It said six, and
+     adding a seventh set made it say six about a list of seven — the same
+     number-that-has-to-be-edited the shop's light count taught. What matters is
+     that every set the game offers is big enough to play with, and that the
+     room is offered all of them. */
+  check('and every set it offers has a hundred words or more in it',
+    view(host).sets.length === host.__r.MW_SETS.length && view(host).sets.length >= 6
+    && view(host).sets.every((s) => s.n >= 100),
+    view(host).sets.map((s) => s.name + ':' + s.n).join(' '));
+
+  /* Everybody votes; the leader starting is what settles it. Two for animals
+     and one for food, so the count is not a tie and the winner is known. */
+  $h('mw-sets').querySelector('[data-v="animals"]').click();
+  $g('mw-sets').querySelector('[data-v="animals"]').click();
+  $t('mw-sets').querySelector('[data-v="food"]').click();
+  /* **Waited for in every window, not just the host's.** The host applies its
+     own view synchronously and the others get theirs a tick later, so a check
+     that waits on the host and then reads a guest is reading the state before
+     last. Three of these read as a broken game the first time they ran, and
+     the game was fine. */
+  const votesFor = (w, id) => (view(w).sets.find((s) => s.id === id) || {}).votes;
+  /* **Both counts, in all three windows.** Waiting only on the animals pair
+     let the check read a moment when the third vote had not landed anywhere
+     yet, and it failed saying food had nought — which reads as a lost vote and
+     is really a screenshot taken early. */
+  await until(() => W.every(([w]) => votesFor(w, 'animals') === 2 && votesFor(w, 'food') === 1));
+  check('a vote for a set is counted where everybody can see it',
+    votesFor(third, 'animals') === 2 && votesFor(third, 'food') === 1,
+    JSON.stringify(view(third).sets.map((s) => s.id + ':' + s.votes)));
+  check('and only the leader is offered the start',
+    !$h('mw-start').classList.contains('hide') && $g('mw-start').classList.contains('hide'),
+    `host ${$h('mw-start').className} / guest ${$g('mw-start').className}`);
+
+  $h('mw-start').click();
+  await until(() => W.every(([w]) => view(w).phase === 'talk'));
+  check('starting deals the game and the set the room chose wins',
+    view(host).set === 'animals', view(host).set);
+
+  /* The whole game in one line: exactly one of them does not have the word,
+     and the word is not merely hidden from them — it is not in what they were
+     sent. A view that carried it and did not draw it would be readable by
+     anybody who opened the console. */
+  const words = W.map(([w]) => view(w).word);
+  const whites = W.filter(([w]) => view(w).iAmWhite);
+  check('exactly one of the three is Mr White', whites.length === 1,
+    `${whites.length} of 3`);
+  check('the other two are shown the same word, and it is a real one',
+    words.filter(Boolean).length === 2
+    && new Set(words.filter(Boolean)).size === 1
+    && host.__r.mwWords('animals').indexOf(words.filter(Boolean)[0]) >= 0,
+    JSON.stringify(words));
+  check('and the word is absent from what Mr White was sent, not just hidden',
+    !view(whites[0][0]).word, `"${view(whites[0][0]).word}"`);
+
+  /* **The talking is not in the app.** People say their piece in the room's
+     chat or out loud across the table; all the game does is hold a clock. So
+     there is nothing to type here — only a room that is talking, and a leader
+     who can say it has finished. */
+  const secret = words.filter(Boolean)[0];
+  check('the room is given the floor and a clock, and asked for nothing',
+    W.every(([w]) => view(w).talking && view(w).deadline > Date.now())
+    && !$h('mw-talk').classList.contains('hide'),
+    W.map(([w]) => `${view(w).talking}`).join(' '));
+  check('and only the leader can call time on it',
+    view(host).canEnd && !view(guest).canEnd && !view(third).canEnd,
+    W.map(([w]) => `${view(w).canEnd}`).join(' '));
+
+  /* **Mr White's way out, open from the first second of the talk** — and the
+     one thing in this game that is deliberately not broadcast. A guess shown
+     to the room the moment it arrived would name whoever sent it, so it comes
+     back to them alone until the round it was made in has finished. That is
+     the only reason guessing early is worth doing, and it is what these three
+     checks are for. */
+  const [whiteW, $white] = whites[0];
+  const others = W.filter(([w]) => w !== whiteW);
+  check('Mr White is offered a guess while the room is still talking, and nobody else is',
+    view(whiteW).canGuess && view(whiteW).tries === 3
+    && !$white('mw-guessing').classList.contains('hide')
+    && others.every(([w]) => !view(w).canGuess),
+    `${view(whiteW).canGuess}/${view(whiteW).tries}, others ${others.map(([w]) => view(w).canGuess).join(',')}`);
+
+  /* And it is out of the vote's panel in the markup, not merely shown by
+     different rules: left inside `#mw-voting` it would carry that panel's
+     `.hide` through the whole talk and never appear, with `canGuess` true and
+     nothing on the screen. */
+  check('and the box itself is no longer a part of the ballot',
+    !$h('mw-voting').contains($h('mw-guessing')),
+    $h('mw-guessing').parentElement.id);
+
+  $white('mw-guess').value = 'definitely not the word';
+  $white('mw-guess-send').click();
+  await until(() => view(whiteW).guesses.length === 1);
+  /* The other two are given time to be told, so "still nothing" means the host
+     never sent it rather than that it has not landed yet. */
+  await wait(150);
+  check('and a guess made mid-talk goes back to nobody but whoever made it',
+    view(whiteW).guesses.length === 1 && view(whiteW).guesses[0].fresh === true
+    && others.every(([w]) => view(w).guesses.length === 0),
+    `mine ${view(whiteW).guesses.length}, theirs ${others.map(([w]) => view(w).guesses.length).join(',')}`);
+  check('and it costs one of the three',
+    view(whiteW).tries === 2, String(view(whiteW).tries));
+
+  $h('mw-done').click();
+  await until(() => W.every(([w]) => view(w).phase === 'vote'));
+  check('ending the talk takes the whole room to the vote',
+    W.every(([w]) => view(w).phase === 'vote'),
+    W.map(([w]) => view(w).phase).join(' '));
+  check('and the guess is still open through it',
+    view(whiteW).canGuess && !$white('mw-guessing').classList.contains('hide'),
+    `${view(whiteW).canGuess} / ${$white('mw-guessing').className}`);
+
+  /* The room votes the imposter out, which ends it — with one Mr White, the
+     one elimination that matters is the only one there is. */
+  /* Peer ids are the same in everybody's view, so the imposter's own row tells
+     the other two who to vote for. */
+  const whiteId = view(whiteW).players.find((p) => p.me).id;
+  for (const [, $w] of W) {
+    const row = $w('mw-ballot').querySelector('[data-v="' + whiteId + '"]');
+    if (row) row.click();
+  }
+  await until(() => W.every(([w]) => view(w).phase === 'over'), 8000);
+  check('voting the imposter out ends it, and the room has won',
+    view(host).winner === 'civ', `${view(host).winner} — ${view(host).why}`);
+  check('and only then is everybody told who was who',
+    view(third).players.filter((p) => p.role === 'white').length === 1
+    && view(third).players.every((p) => !!p.role),
+    JSON.stringify(view(third).players.map((p) => p.role)));
+  check('the word is shown at the end, to everybody including Mr White',
+    view(whiteW).word === secret, `${view(whiteW).word} / ${secret}`);
+  /* The other half of holding a guess back: the room is shown at the end what
+     was guessed. Kept quiet for the round and then never shown at all would be
+     worse than not offering the guess in the first place. */
+  check('and so is what Mr White guessed, now the round is over',
+    others.every(([w]) => view(w).guesses.length === 1
+      && view(w).guesses[0].t === 'definitely not the word'
+      && view(w).guesses[0].right === false
+      && view(w).guesses[0].fresh === false),
+    JSON.stringify(others.map(([w]) => view(w).guesses)));
+  check('and the guess box closes with the game',
+    !view(whiteW).canGuess && $white('mw-guessing').classList.contains('hide'),
+    `${view(whiteW).canGuess} / ${$white('mw-guessing').className}`);
+  /* The anonymous notice is for a round that ended with the game still going.
+     This one ended the game, so there is nothing to keep quiet any more and the
+     panel stays down while the full list goes up. */
+  check('and the anonymous notice gives way to the real one at the end',
+    others.every(([, $w]) => $w('mw-heard').classList.contains('hide')
+      && /definitely not the word/.test($w('mw-said').textContent)),
+    others.map(([, $w]) => $w('mw-heard').className).join(' | '));
+
+  /* ---- the endings that game did not take ----
+     Playing every one of them through three windows would be four more rooms
+     and four more minutes. The rules all live in two small functions and one
+     branch, so those are asked directly — which is also the only way to put
+     two imposters on a board without finding five people. */
+  {
+    const R = host.__r;
+    const at = (roles, out) => ({ roles, out: out || [] });
+    check('two imposters left against two civilians is theirs',
+      (R.mwOutcome(at({ a: 'white', b: 'white', c: 'civ', d: 'civ' })) || {}).winner === 'white',
+      JSON.stringify(R.mwOutcome(at({ a: 'white', b: 'white', c: 'civ', d: 'civ' }))));
+    check('but two against three is still anybody’s',
+      R.mwOutcome(at({ a: 'white', b: 'white', c: 'civ', d: 'civ', e: 'civ' })) === null,
+      JSON.stringify(R.mwOutcome(at({ a: 'white', b: 'white', c: 'civ', d: 'civ', e: 'civ' }))));
+    check('and the last imposter going out ends it for the room',
+      (R.mwOutcome(at({ a: 'white', b: 'civ', c: 'civ' }, ['a'])) || {}).winner === 'civ',
+      JSON.stringify(R.mwOutcome(at({ a: 'white', b: 'civ', c: 'civ' }, ['a']))));
+
+    /* A tie puts nobody out, rather than picking one of the tied. Being sent
+       home by a coin toss is the one outcome nobody accepts. */
+    check('a tied vote puts nobody out', R.mwTopVote({ a: 'b', b: 'a' }, ['a', 'b']) === null,
+      String(R.mwTopVote({ a: 'b', b: 'a' }, ['a', 'b'])));
+    check('and a clear one puts out whoever the room named',
+      R.mwTopVote({ a: 'c', b: 'c', c: 'a' }, ['a', 'b', 'c']) === 'c',
+      String(R.mwTopVote({ a: 'c', b: 'c', c: 'a' }, ['a', 'b', 'c'])));
+
+    /* Mr White naming the word wins on the spot. Checked with the wrong case
+       on purpose: somebody typing Otter for otter has still named it. */
+    const M = R.MrWhite, saved = M.state, me = R.SYNC.selfId;
+    M.state = Object.assign(M._blank(), {
+      phase: 'vote', word: 'otter', set: 'animals', round: 1, locked: true,
+      roles: { [me]: 'white' },
+    });
+    M._intent(me, { a: 'guess', t: '  Otter ' });
+    check('Mr White naming the word wins it outright, whatever the case',
+      M.state.phase === 'over' && M.state.winner === 'white',
+      `${M.state.phase} / ${M.state.winner}`);
+
+    /* The clock is a backstop, not a rule: a room that talks past it goes to
+       the vote on its own rather than sitting there. Without this a leader who
+       walked away from their phone would hold everybody indefinitely, since
+       the only other way out of the talking is their button. */
+    M.state = Object.assign(M._blank(), {
+      phase: 'talk', word: 'otter', set: 'animals', round: 1, locked: true,
+      roles: { [me]: 'civ', x: 'civ', y: 'white' },
+      deadline: Date.now() - 1,
+    });
+    M._expire();
+    check('the talking clock running out opens the vote by itself',
+      M.state.phase === 'vote' && M.state.deadline > Date.now(),
+      `${M.state.phase}, ${Math.round((M.state.deadline - Date.now()) / 1000)}s`);
+
+    /* **Three guesses, and the third wrong one is the loss.** Without a limit
+       the right play is to type a word every ten seconds until one lands, and
+       the game turns into a spelling test. It takes three guesses and a fourth
+       to show, and a room of three ends long before the third would arrive, so
+       it is asked here instead of played.
+
+       **Real seat ids, not invented ones.** `_intent` runs `_ensure` first,
+       and `_ensure` treats a role belonging to nobody in the room as somebody
+       who has walked out — so a hand-built state full of `x` and `y` is
+       emptied before the intent is read. */
+    const seatIds = view(host).players.map((q) => q.id);
+    const them = seatIds.filter((q) => q !== me);
+    const deal = (roles, extra) => {
+      M.state = Object.assign(M._blank(), {
+        phase: 'talk', word: 'otter', set: 'animals', round: 1, locked: true,
+        roles, deadline: Date.now() + 60000,
+      }, extra || {});
+    };
+    deal({ [me]: 'white', [them[0]]: 'civ', [them[1]]: 'civ' });
+    M._intent(me, { a: 'guess', t: 'badger' });
+    M._intent(me, { a: 'guess', t: 'stoat' });
+    check('two wrong guesses are two wrong guesses, and Mr White plays on',
+      M.state.phase === 'talk' && M.state.out.length === 0
+      && M.state.guesses.length === 2,
+      `${M.state.phase}, out ${M.state.out.length}, said ${M.state.guesses.length}`);
+    M._intent(me, { a: 'guess', t: 'weasel' });
+    check('the third puts Mr White out with no vote at all, and the room has won',
+      M.state.out.indexOf(me) >= 0 && M.state.phase === 'over'
+      && M.state.winner === 'civ' && M.state.lastBurn === true,
+      `${M.state.phase}/${M.state.winner}, out ${M.state.out.length}`);
+    M._intent(me, { a: 'guess', t: 'otter' });
+    check('and a fourth guess is not a way back in',
+      M.state.guesses.length === 3 && M.state.winner === 'civ',
+      `${M.state.guesses.length} guesses, ${M.state.winner}`);
+
+    /* Burning out is one player leaving, not the end of a round. `_afterOut`
+       would bump the counter and hand everybody a fresh clock, resetting the
+       talk for four people who were mid-sentence. Five players and two
+       imposters, so `_burn` is called where `_ensure` cannot reach it. */
+    M.state = Object.assign(M._blank(), {
+      phase: 'talk', word: 'otter', set: 'animals', round: 1, locked: true,
+      roles: { a: 'white', b: 'white', c: 'civ', d: 'civ', e: 'civ' },
+      deadline: Date.now() + 60000,
+    });
+    const clock = M.state.deadline;
+    M._burn(M.state, 'a');
+    check('with a second Mr White still in, burning out ends nothing but the one player',
+      M.state.phase === 'talk' && M.state.round === 1 && M.state.deadline === clock
+      && M.state.out.join() === 'a',
+      `${M.state.phase}, round ${M.state.round}, clock moved ${M.state.deadline !== clock}`);
+
+    /* Guessing right during the talk wins it there, rather than waiting for a
+       vote the room may never reach. */
+    deal({ [me]: 'white', [them[0]]: 'civ', [them[1]]: 'civ' });
+    M._intent(me, { a: 'guess', t: 'otter' });
+    check('and naming the word mid-talk wins on the spot',
+      M.state.phase === 'over' && M.state.winner === 'white',
+      `${M.state.phase}/${M.state.winner}`);
+
+    /* **Who is shown a guess, and when.** The view is the only thing holding
+       it back, so the view is what gets asked.
+
+       **The guesser is a guest here, not the host.** The host is the leader,
+       and a leader's name is public property — it is printed in the lobby as
+       "so-and-so starts it" and it sits in `leaderName` in everybody's view
+       for the whole game. Deal the imposter's role to the host and a search
+       for their name through a guest's view finds it, legitimately, and says
+       nothing at all about whether the guess leaked. Give it to somebody whose
+       name has no business being anywhere and the search means something. */
+    const spy = them[0];
+    deal({ [me]: 'civ', [spy]: 'white', [them[1]]: 'civ' });
+    M._intent(spy, { a: 'guess', t: 'badger' });
+    check('a guess is in the guesser\u2019s own view at once, and in nobody else\u2019s',
+      M._viewFor(spy).guesses.length === 1 && M._viewFor(spy).guesses[0].fresh === true
+      && M._viewFor(me).guesses.length === 0 && M._viewFor(them[1]).guesses.length === 0,
+      `theirs ${M._viewFor(spy).guesses.length}, `
+      + `others ${M._viewFor(me).guesses.length}/${M._viewFor(them[1]).guesses.length}`);
+    M.state.round = 2;
+    /* **The round ending calls the word out, and nothing else.** A name here
+       would end the game — the room would vote out whoever was named, and no
+       Mr White would guess before the vote ever again. So what crosses the
+       wire is the word on its own, and `guesses` stays empty for everybody
+       but the person who typed it. */
+    check('the round ending tells the room the word and not who said it',
+      M._viewFor(me).heard.join() === 'badger' && M._viewFor(me).guesses.length === 0,
+      `heard ${JSON.stringify(M._viewFor(me).heard)}, `
+      + `guesses ${JSON.stringify(M._viewFor(me).guesses)}`);
+    /* The roster is public and always was: everybody can see who is in the
+       room. What must not exist is the guesser's name anywhere near the guess,
+       so the roster comes out and the whole of the rest of the view is
+       searched — not only the two fields this happens to have put it in. */
+    {
+      const spyName = M._viewFor(spy).players.find((q) => q.me).name;
+      const rest = JSON.stringify(Object.assign({}, M._viewFor(me), { players: [] }));
+      check('and no name rides along with it anywhere else in the view',
+        !!spyName && !rest.includes(spyName)
+        && M._viewFor(me).heard.every((x) => typeof x === 'string'),
+        `looking for "${spyName}" in ${rest.slice(0, 180)}`);
+    }
+    /* And it reaches the screen, which is a separate question from reaching
+       the view — `heard` could be perfect and the paragraph still never drawn,
+       which is how #mw-guessing spent an afternoon being correct and invisible. */
+    {
+      const spyName = M._viewFor(spy).players.find((q) => q.me).name;
+      M.apply(M._viewFor(me));
+      check('and the room is actually shown it, with nobody named in it',
+        !$h('mw-heard').classList.contains('hide')
+        && /badger/.test($h('mw-heard').textContent)
+        && !$h('mw-heard').textContent.includes(spyName),
+        `"${$h('mw-heard').textContent}" [${$h('mw-heard').className}]`);
+    }
+    check('while the guesser keeps their own list, and is told the room has it',
+      M._viewFor(spy).guesses.length === 1 && M._viewFor(spy).guesses[0].fresh === false,
+      JSON.stringify(M._viewFor(spy).guesses));
+    /* Momentary: it is what the room heard *last* round, so the round after
+       that it is gone. A notice that stayed up would be a tally of every guess
+       ever made, which is a very different game. */
+    M.state.round = 3;
+    check('and it is gone again the round after — heard once, not kept',
+      M._viewFor(me).heard.length === 0, JSON.stringify(M._viewFor(me).heard));
+
+    M.state = saved;
+  }
+
+  /* ---- a side's notes on the board -------------------------------------
+
+     A clue of "river, 2" that the room only half solves leaves a candidate
+     nobody can write down, and by the next turn it is gone. So a side can
+     mark cards for itself — and the whole value of that rests on two things
+     being true at once: everybody on the side can see the marks, and nobody
+     off it can.
+
+     **Asked of the state and the views rather than played through the
+     screen.** A duel needs two spymasters and an operative each, which is
+     four seats, and this room has three windows. The marks do not care: the
+     rule is about the seat you hold, not about whether the board is legal,
+     so the board is set directly and the intents are real.
+
+     The seats are the three that exist, because `_ensure` drops a seat
+     belonging to nobody in the room — the same trap the Mr White block ran
+     into. */
+  {
+    const P = host.__r.Spymaster;
+    const savedSm = P.state;
+    const ids = view(host).players.map((q) => q.id);
+    const spy = host.__r.SYNC.selfId;
+    const rest = ids.filter((q) => q !== spy);
+    const ourOp = rest[0], theirOp = rest[1];
+    const words = [];
+    for (let i = 0; i < 25; i++) words.push('w' + i);
+    P.state = Object.assign(P._blank(), {
+      phase: 'play', game: 1, words,
+      key: words.map((w, i) => (i % 3 ? 'red' : 'blue')),
+      shown: words.map(() => false), first: 'red', turn: 'red',
+      seats: { [spy]: { team: 'red', role: 'spy' },
+        [ourOp]: { team: 'red', role: 'op' },
+        [theirOp]: { team: 'blue', role: 'op' } },
+    });
+
+    P._intent(ourOp, { a: 'mark', i: 4 });
+    check('an operative can mark a card, and their own side sees it',
+      P._viewFor(ourOp).marks[4] === 'ours' && P._viewFor(spy).marks[4] === 'ours',
+      'op ' + P._viewFor(ourOp).marks[4] + ', spymaster ' + P._viewFor(spy).marks[4]);
+    /* The half that matters. A mark the other side can read hands them the
+       clue you were trying to remember, and it would leak the same way the
+       key would: through the view, not through the screen. */
+    check('and the other side has no idea it is there',
+      P._viewFor(theirOp).marks[4] === undefined
+      && JSON.stringify(P._viewFor(theirOp).marks).indexOf('ours') < 0,
+      JSON.stringify(P._viewFor(theirOp).marks));
+
+    P._intent(ourOp, { a: 'mark', i: 4 });
+    P._intent(ourOp, { a: 'mark', i: 4 });
+    check('tapping it again cycles the mark rather than adding another',
+      P._viewFor(ourOp).marks[4] === 'maybe', String(P._viewFor(ourOp).marks[4]));
+    P._intent(ourOp, { a: 'mark', i: 4 });
+    check('and a fourth tap takes it off',
+      P._viewFor(ourOp).marks[4] === undefined, String(P._viewFor(ourOp).marks[4]));
+
+    /* **A spymaster marking a card is a spymaster giving the answer**, which
+       is the one thing they may not do outside their clue — and from the
+       other side of the table it would be invisible. So the seat decides, on
+       the host, rather than the button merely being hidden. */
+    P._intent(spy, { a: 'mark', i: 9 });
+    check('a spymaster cannot write on the board, whatever they send',
+      P._viewFor(spy).marks[9] === undefined && P._viewFor(spy).canNote === false,
+      P._viewFor(spy).marks[9] + ', canNote ' + P._viewFor(spy).canNote);
+
+    /* **A card that is turned over loses its marks**, both sides' — the other
+       team's was a guess about a card that has now answered for itself. Left
+       behind, they sit under the revealed colour for the rest of the game and
+       the side reads its own stale opinion as a live one. */
+    P.state.clue = { word: 'x', n: 2, team: 'red' };
+    P._intent(ourOp, { a: 'mark', i: 2 });
+    P._intent(theirOp, { a: 'mark', i: 2 });
+    P._intent(ourOp, { a: 'guess', i: 2 });
+    check('turning a card over takes both sides’ marks off it',
+      P.state.shown[2] === true && P._viewFor(ourOp).marks[2] === undefined
+      && P._viewFor(theirOp).marks[2] === undefined,
+      'shown ' + P.state.shown[2] + ', ours ' + P._viewFor(ourOp).marks[2]
+      + ', theirs ' + P._viewFor(theirOp).marks[2]);
+
+    /* A card on the table has answered for itself, so it stops being a card
+       to remember — and cannot become one again. */
+    P._intent(ourOp, { a: 'mark', i: 7 });
+    P.state.shown[7] = true;
+    P._intent(ourOp, { a: 'mark', i: 7 });
+    check('and a card already turned over cannot be marked again',
+      P._viewFor(ourOp).marks[7] === 'ours', String(P._viewFor(ourOp).marks[7]));
+
+    P.state = savedSm;
+  }
+  // back to the shelf, so the handover tests below find the room as it was
+  for (const [w, $w] of W) { $w('ov-back').click(); await wait(40); void w; }
+  await wait(120);
+}
+
 /* Something on a board, so the handover below has something to lose. The host
    owns every game, so without the handoff a change of host wiped the lot. */
 await openGame(host, $h, 'hangman');
@@ -7088,11 +8220,20 @@ const kickBtn = [...$g('sync-people').querySelectorAll('[data-kick]')].find((b) 
   const row = b.closest('.sync-person');
   return row && row.textContent.includes('Third');
 });
-kickBtn.click();
-await wait(60);
-check('removing asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
-$g('confirm-yes').click();
-await wait(400);
+/* Guarded, because it depends on the handover above having gone through: when
+   that is slow the row is simply not there yet, and reaching into it took the
+   whole run down with a TypeError twenty checks from the end. A flake should
+   cost its own check and nothing else — a crash is a failure nobody can read,
+   and it hides every check that would have run after it. */
+check('the new leader can see the third member to remove', !!kickBtn,
+  [...$g('sync-people').querySelectorAll('.sync-who')].map((x) => x.textContent).join(' | ') || 'no people list');
+if (kickBtn) {
+  kickBtn.click();
+  await wait(60);
+  check('removing asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
+  $g('confirm-yes').click();
+  await wait(400);
+}
 check('removed member is disconnected', $t('sync-state').textContent === 'Not connected', $t('sync-state').textContent);
 check('removed member is told why', /removed/i.test($t('sync-status').textContent), $t('sync-status').textContent);
 check('room is down to two', $h('sync-people').querySelectorAll('.sync-person').length === 2, `${$h('sync-people').querySelectorAll('.sync-person').length}`);
@@ -7108,11 +8249,17 @@ check('a host with company is offered a choice, not a yes/no',
 const leaveOpts = [...$g('hmenu-card').querySelectorAll('[data-i]')].map((b) => b.textContent);
 check('one option hands it on', /Hand it to Hashir/.test(leaveOpts.join(' | ')), leaveOpts.join(' | '));
 check('the other closes it', /Close the room/.test(leaveOpts.join(' | ')), leaveOpts.join(' | '));
-$g('hmenu-card').querySelector('[data-i="0"]').click();
-await wait(80);
-check('handing it on asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
-$g('confirm-yes').click();
-await wait(1200);
+/* Same guard as the removal above: the option is only there if the menu came
+   up, and reaching into it when it did not ends the run rather than the check. */
+const handOn = $g('hmenu-card').querySelector('[data-i="0"]');
+check('and the choice can be taken', !!handOn, leaveOpts.join(' | ') || 'no options');
+if (handOn) {
+  handOn.click();
+  await wait(80);
+  check('handing it on asks first', !$g('confirm').classList.contains('hide'), $g('confirm-title').textContent);
+  $g('confirm-yes').click();
+  await wait(1200);
+}
 check('the one who left is out', $g('sync-state').textContent === 'Not connected', $g('sync-state').textContent);
 check('but the room is not', $h('sync-state').textContent !== 'Not connected', $h('sync-state').textContent);
 check('it is on the remaining person’s code now',
@@ -8062,6 +9209,76 @@ await wait(200);
     check('with nothing wrong left, it fills a square the picture does have',
       P.hints === was + 2 && right.c >= 1, 'hints ' + P.hints + ', right ' + right.c);
 
+    /* ---- and which square is the person's to choose ----
+       That rule above is a good guess and the wrong one exactly when it
+       matters: the square somebody is stuck on is rarely the first in reading
+       order, and a hint spent on a corner they had already worked out is a hint
+       spent on nothing. So the button reveals nothing now — it arms the board,
+       and the next square touched is the one given away. */
+    {
+      const hintBtn = $x('pix-hint');
+      const grid = $x('pix-grid');
+      const ev = (t) => new xw.MouseEvent(t, { bubbles: true, cancelable: true });
+
+      check('the hint button starts unarmed',
+        !P._pick && /Fix/.test(hintBtn.textContent), hintBtn.textContent);
+
+      hintBtn.click();
+      await wait(50);
+      check('pressing it arms the board instead of revealing anything',
+        P._pick === true && grid.classList.contains('picking'),
+        `pick ${P._pick}, grid ${grid.className}`);
+      check('and the button says what it is now waiting for',
+        /Pick/.test(hintBtn.textContent), hintBtn.textContent);
+
+      /* Deliberately the *last* square the picture fills — the one the old rule
+         would never have chosen, which is the whole point of the change. */
+      let last = -1;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (P.sol[y][x] === 1) last = y * n + x;
+      const before = P.hints;
+      const wasArmed = P._pick;
+      grid.querySelector('[data-i="' + last + '"]').dispatchEvent(ev('pointerdown'));
+      await wait(50);
+      check('the square you chose is the square revealed',
+        P.cells[last] === 1 && P.hints === before + 1,
+        `cell ${P.cells[last]}, hints ${P.hints} was ${before}`);
+      /* `wasArmed` is in here so this cannot pass on a build that never arms at
+         all — "not armed" is trivially true of a board with no such state. */
+      check('and the board disarms itself once it has given one away',
+        wasArmed && !P._pick && !grid.classList.contains('picking')
+        && /Fix/.test(hintBtn.textContent),
+        `armed ${wasArmed} -> ${P._pick} / ${hintBtn.textContent}`);
+
+      /* A square the picture does not fill is worth knowing too: it comes back
+         crossed off, which is what a person would have pencilled there. */
+      let empty = -1;
+      for (let y = 0; y < n && empty < 0; y++) {
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x;
+          if (P.sol[y][x] === 0 && P.cells[i] === 0) { empty = i; break; }
+        }
+      }
+      hintBtn.click();
+      await wait(40);
+      grid.querySelector('[data-i="' + empty + '"]').dispatchEvent(ev('pointerdown'));
+      await wait(50);
+      check('choosing a square the picture leaves out crosses it off',
+        P.cells[empty] === 2, String(P.cells[empty]));
+
+      /* And a square already right costs nothing. Spending somebody's hint on
+         one they had solved, silently, is what this whole thing exists to
+         avoid — so it stays armed for a tap that can actually help. */
+      const spent = P.hints;
+      hintBtn.click();
+      await wait(40);
+      grid.querySelector('[data-i="' + last + '"]').dispatchEvent(ev('pointerdown'));
+      await wait(50);
+      check('choosing one that is already right spends nothing and stays armed',
+        P.hints === spent && P._pick === true, `hints ${P.hints} was ${spent}, pick ${P._pick}`);
+      hintBtn.click();                         // put it away again
+      await wait(40);
+    }
+
     /* **And the archive says where the board stands.** "Started" is the same
        word for two squares in and two from the end. */
     P.persist();
@@ -8178,12 +9395,143 @@ await wait(200);
     const ship = readFileSync(join(root, 'tools', 'ship-release.ps1'), 'utf8');
     check('and the release script says so out loud before it builds',
       /FOCUS_RELEASE = '1'/.test(ship), 'ship-release.ps1');
+
+    /* ---- one English string, one meaning ----
+
+       The tables are merged in file order, so two files defining the same key
+       means the later one silently wins. That is fine when they agree and
+       invisible when they do not: `Left` was the tetris button in the arcade
+       table and somebody leaving a room in the rooms table, and because the
+       rooms file loads later the arrow button announced itself as "has left"
+       to a screen reader in all six languages. Nothing failed, nothing logged,
+       and English — which is the key, not a translation — looked perfect.
+
+       Keys that repeat *with the same translations* are allowed: that is two
+       screens agreeing, which costs nothing. What is refused is two screens
+       disagreeing, which is a word rendered wrong on one of them. The way out
+       is the context prefix the app already has — `games::Left`. */
+    {
+      const clash = [];
+      const seen = new Map();
+      for (const f of readdirSync(join(root, 'src', 'js')).filter((n) => /^60/.test(n))) {
+        const src = readFileSync(join(root, 'src', 'js', f), 'utf8');
+        for (const m of src.matchAll(/^ {4}'((?:[^'\\]|\\.)+)':\s*(\{.*)$/gm)) {
+          const key = m[1], body = m[2].replace(/,\s*$/, '');
+          if (!seen.has(key)) { seen.set(key, [f, body]); continue; }
+          const [was, wasBody] = seen.get(key);
+          if (wasBody !== body) clash.push(`${key} (${was} vs ${f})`);
+        }
+      }
+      check('no English string is translated two different ways',
+        clash.length === 0, clash.join(', '));
+    }
+
+    /* ---- the icon ----
+       It goes into the page three times and into the installer once, and every
+       one of those used to be its own copy. The check is not "there is an
+       icon" — that was true of the pasted ones too, right up until one of them
+       was changed and the others were not. It is that what the page carries is
+       what the source file currently draws. */
+    {
+      const svg = readFileSync(join(root, 'assets', 'icon.svg'), 'utf8')
+        .replace(/<!--[\s\S]*?-->/g, '').replace(/\s*\n\s*/g, ' ').trim();
+      const want = 'data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64');
+      /* **Compared whole, not searched for.** Two earlier versions of this
+         check passed against an icon that had visibly drifted. The first built
+         a RegExp out of base64, where `+` means "one or more" and `/` ends the
+         pattern. The second looked for the wanted string inside the page — and
+         base64 of "comment + svg" contains base64 of "svg" outright whenever
+         the comment's length is a multiple of three, which this one's is. The
+         only honest question is whether the attribute *is* the string. */
+      const hrefs = [...html.matchAll(/rel="(?:icon|apple-touch-icon)" href="([^"]+)"/g)].map((m) => m[1]);
+      const uses = hrefs.filter((h) => h === want).length;
+      /* The third is nested — the manifest is a data URI, and the icon is a
+         data URI inside it — so it has to be unwrapped, which is also the copy
+         most easily left behind when the icon changes. */
+      const mm = html.match(/rel="manifest" href="data:application\/manifest\+json;base64,([A-Za-z0-9+/=]+)"/);
+      let inManifest = false;
+      try {
+        const man = JSON.parse(Buffer.from(mm[1], 'base64').toString('utf8'));
+        inManifest = man.icons[0].src === want;
+      } catch (e) { /* no manifest, or not the icon: both are the failure */ }
+      check('the icon in the page is the one the source file draws, everywhere it appears',
+        uses === 2 && inManifest, `${uses} of 2 exact, in manifest ${inManifest}`);
+      check('and the installer has one of its own instead of Electron\'s default',
+        existsSync(join(root, 'build', 'icon.png')),
+        'build/icon.png is missing — run node tools/make-icon.mjs');
+    }
+
+    /* The page moved out of the app and into the file beside it. Both ends are
+       asked, because either one alone is satisfied by a mistake: the app having
+       no row is also true if the page were deleted, and the separate build
+       having a button is also true if the row were still in the menu. */
+    const devFile = join(root, 'dist', 'dev-unlocked.html');
+    const devHtml = existsSync(devFile) ? readFileSync(devFile, 'utf8') : '';
+    check('the developer page opens from the separate build, and only from there',
+      devHtml.includes('data-go="dev"') && devHtml.includes('window.devPage')
+      && !/id="d-dev"/.test(html),
+      devHtml ? (/id="d-dev"/.test(html) ? 'the row is still in the app' : 'button missing')
+        : 'dist/dev-unlocked.html was not built');
+
+    /* **And the tool runs when you run it.** Its own header documents
+       `node tools/dev-build.mjs`, and for the whole of that file's life the
+       command did nothing and said nothing: the main-module guard compared
+       `import.meta.url` against a hand-built file:// URL, which on Windows is a
+       different string in three ways at once. Nothing failed — the file exited
+       0 having skipped its only statement — so anybody rebuilding the developer
+       copy on its own went on opening the one from last time. A build step that
+       silently does nothing is the failure no amount of reading catches, so it
+       is run here for real rather than read. */
+    try {
+      const said = execFileSync(process.execPath, ['tools/dev-build.mjs'],
+        { cwd: root, encoding: 'utf8' }).trim();
+      check('and running the developer build on its own actually builds it',
+        /^wrote /.test(said) && existsSync(devFile), said || '(it said nothing)');
+    } catch (e) {
+      check('and running the developer build on its own actually builds it',
+        false, String(e.message).slice(0, 160));
+    }
+
+    /* **And that the copy on this machine has a way in.** Every other check
+       here builds its own stamp and tests the mechanism, which is right — a
+       suite that read the developer's .env.local would go red on one laptop
+       only. But the mechanism being sound is not the same as the file on the
+       desk opening, and the two came apart: `FOCUS_DEV_WHO` was set, nobody
+       was signed in, and the page answered with a sentence and no key field at
+       all. Nothing was wrong and there was no way in.
+
+       So this asks the built file which lock it is wearing and holds it to
+       that. An account stamp means the account sentence; no stamp means a key
+       field. What it will not accept is neither. */
+    if (devHtml) {
+      const stamped = /<html[^>]*\sdata-dev-who="/.test(devHtml);
+      const { window: dw } = boot(withDoor(devHtml, 'window.__d = {devUnlocked};'));
+      await wait(600);
+      dw.devPage();
+      await wait(150);
+      const body = dw.document.getElementById('dev-body');
+      const txt = body ? body.textContent : '';
+      const field = !!(body && body.querySelector('#dev-key'));
+      check(stamped
+        ? 'and the build on this machine says which account it wants'
+        : 'and the build on this machine asks for the key, and nothing else',
+        stamped ? (/one account/.test(txt) && !field) : field,
+        (stamped ? 'stamped to an account: ' : 'key only: ') + txt.slice(0, 70));
+      dw.close();
+    }
   }
 
-  check('the developer row is there on a stamped build',
-    !!$x('d-dev') && !$x('d-dev').classList.contains('hide'),
-    $x('d-dev') ? $x('d-dev').className : 'no row');
-  $x('d-dev').click();
+  /* **No row, on any build.** The menu row used to be the way in, hidden
+     whenever the stamp was missing — safety by omission, one failed condition
+     away from shipping. The page is reached from the separate developer file
+     now, through `window.devPage`, which a build without the stamp never
+     defines. So both halves are asked here: nothing in the menu, and a way in
+     for the file that is never handed to anybody. */
+  check('no developer row in the menu, even on a stamped build',
+    !$x('d-dev'), 'the row is still in the drawer');
+  check('and the stamped build offers the way in that the separate file calls',
+    typeof xw.devPage === 'function', typeof xw.devPage);
+  xw.devPage();
   await wait(150);
 
   /* **A stamp says where the build came from, not who is holding it.** A debug
@@ -8315,7 +9663,7 @@ await wait(200);
       '<html data-dev="1" data-dev-key="' + DEV_KEY_HASH + '" data-dev-who="' + who + '"'),
       'window.__o = {devTry, devUnlocked};'));
     await wait(600);
-    ow.document.getElementById('d-dev').click();
+    ow.devPage();
     await wait(150);
     const body = ow.document.getElementById('dev-body');
     check('a build that belongs to an account stays shut for anybody else',
@@ -8358,6 +9706,65 @@ await wait(200);
       && ew.__lang.Tn('{n} square is wrong', '{n} squares are wrong', 4) === '4 squares are wrong',
       ew.__lang.Tn('{n} square is wrong', '{n} squares are wrong', 1));
     check('and nothing threw', eErr.length === 0, eErr.slice(0, 2).join(' | '));
+
+    /* ---- no em dashes in anything anybody reads ----
+
+       They were everywhere and they were asked for by name: an em dash in
+       interface copy is the single loudest tell that nobody wrote the line.
+       Taking them out once is easy; keeping them out is the part that needs a
+       check, because the house style *is* em dashes and every comment in this
+       repo is full of them. Writing a screen string in the same voice as the
+       comment above it is the natural mistake, not an unlikely one.
+
+       **Both spellings.** Eight of them were written \\u2014 rather than as the
+       character, which renders identically and is invisible to anything looking
+       for the character. They survived the first sweep entirely.
+
+       Comments are not checked and must not be: they are not the app, nobody
+       outside it reads one, and the style there is deliberate. */
+    {
+      const EM = String.fromCharCode(0x2014);
+      const bad = [];
+      /* Every string in every language, which is the whole of the app\u2019s own
+         words apart from the prose pages. */
+      const I = ew.__lang.I18N;
+      for (const k of Object.keys(I)) {
+        if (k.indexOf(EM) >= 0) bad.push('key: ' + k.slice(0, 48));
+        const row = I[k];
+        for (const lang of Object.keys(row || {})) {
+          const v = row[lang];
+          const one = typeof v === 'string' ? [v] : Object.keys(v || {}).map((f) => v[f]);
+          for (const t of one) {
+            if (typeof t === 'string' && t.indexOf(EM) >= 0) bad.push(lang + ': ' + t.slice(0, 48));
+          }
+        }
+      }
+      check('no em dash in any of the seven languages\u2019 words',
+        bad.length === 0,
+        bad.length + ' left, first: ' + bad.slice(0, 2).join(' | '));
+
+      /* And the markup, which the table never sees: every word written straight
+         into the body rather than through T().
+
+         **Not `body.textContent`.** The whole app is one <script> inside
+         <body>, so that string is the source code, comments and all, and the
+         check went red on a comment in 00a-i18n.js about labels sitting alone.
+         What is wanted is the text a reader could see: every text node that is
+         not inside a script or a style. */
+      const walk = ew.document.createTreeWalker(ew.document.body, 4 /* SHOW_TEXT */, {
+        acceptNode(n) {
+          const tag = n.parentElement && n.parentElement.tagName;
+          return (tag === 'SCRIPT' || tag === 'STYLE') ? 2 /* REJECT */ : 1 /* ACCEPT */;
+        },
+      });
+      let body = '';
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) body += n.nodeValue + ' ';
+      check('nor in anything written straight into the page',
+        body.indexOf(EM) < 0,
+        body.indexOf(EM) < 0 ? 'clean'
+          : '...' + body.slice(Math.max(0, body.indexOf(EM) - 40), body.indexOf(EM) + 40) + '...');
+    }
+
 
     /* **Every string carries all six.** One language missing from an entry is
        one screen that falls back to English in the middle of a sentence. */
@@ -8493,6 +9900,81 @@ await wait(200);
   }
 }
 
+/* ---- a block survives the app being closed -------------------------------
+
+   Android ends this app whenever it wants the memory, and coming back used to
+   put you on the setup screen at twenty-five minutes with a block eighteen
+   minutes in simply gone. The *time* was never lost — the session log writes
+   an open row within seconds of a block starting and keeps it current — but
+   the clock was, and from a chair those are the same thing.
+
+   So the clock is written down too, and read back. What is checked here is
+   the three ways that can be wrong: the block not coming back at all, coming
+   back with the wrong time left, and coming back as a *second* row in the log
+   so one block counts as two in the calendar and the streak.
+
+   Done through a real second window on the same storage, because that is what
+   a restart is. */
+{
+  const seeded = {};
+  const live = (over) => Object.assign({
+    focusMin: 25, breakMin: 5, autoContinue: true, sound: true,
+    sessionsToday: 0, cycle: 0, repeat: 4, face: 'digital',
+    at: Date.now(), day: new Date().toDateString(),
+  }, { live: over });
+
+  /* Eighteen minutes in, seven to go, still running. */
+  const began = Date.now() - 18 * 60 * 1000;
+  const row = { id: 'sresume_1', ts: began, at: Date.now(),
+    day: new Date(began).toISOString().slice(0, 10), secs: 18 * 60,
+    note: '', full: false, open: true };
+  seeded.focus_sim = JSON.stringify(live({
+    mode: 'focus', running: true, endAt: Date.now() + 7 * 60 * 1000,
+    remaining: 7 * 60, total: 25 * 60, cycle: 0, runCount: 0,
+    restIsLong: false, logId: row.id, at: Date.now(),
+  }));
+  seeded.focus_log = JSON.stringify([row]);
+
+  const { window: rw } = boot(withDoor(html,
+    /* **A getter, not the array.**  parses the stored log into a
+       *new* array and rebinds LOG to it, so a door that captured the binding
+       at splice time holds the empty one it started with and the check reads
+       nought rows for a log that is sitting right there. */
+    'window.__r2 = {S, log: () => LOG, logProgress};'), seeded);
+  await wait(900);
+  const R = rw.__r2;
+
+  check('a block that was running comes back running',
+    R.S.mode === 'focus' && R.S.running === true,
+    R.S.mode + ', running ' + R.S.running);
+  /* Within the block, not to the second. Booting the window takes time and on
+     a loaded machine it takes several seconds of it; what matters is that this
+     is plainly the seven minutes that were left and not a fresh twenty-five. */
+  check('and with the time that is actually left on it',
+    R.S.remaining > 5 * 60 && R.S.remaining <= 7 * 60,
+    R.S.remaining + 's, wanted something under 420 and over 300');
+  /* The one that would be invisible until somebody looked at their calendar a
+     week later: a second row for the same block, each with its own start, one
+     session counted as two. */
+  check('and goes on filling in the row it was already filling in',
+    R.log().filter((x) => x.open).length === 1
+    && R.log().some((x) => x.id === 'sresume_1'),
+    R.log().length + ' rows, ' + R.log().filter((x) => x.open).length + ' open');
+  rw.close();
+
+  /* And the refusals. A block whose end went by while the phone was off for
+     two hours is not a block to drop somebody back into. */
+  const { window: ow } = boot(withDoor(html, 'window.__r2 = {S};'), {
+    focus_sim: JSON.stringify(live({
+      mode: 'focus', running: true, endAt: Date.now() - 3 * 3600 * 1000,
+      remaining: 0, total: 25 * 60, at: Date.now() - 3 * 3600 * 1000,
+    })),
+  });
+  await wait(700);
+  check('but one that ran out hours ago is not resurrected',
+    ow.__r2.S.mode === 'setup', ow.__r2.S.mode);
+  ow.close();
+}
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
 log('');

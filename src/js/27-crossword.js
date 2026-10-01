@@ -386,7 +386,7 @@
         try{ console.error('[crossword] ' + this.lastError, e); }catch(_){}
         try{
           askConfirm('This crossword would not open',
-            T('{err}\u2014 starting it again rebuilds the grid from its day. The letters in it go; nothing else does.', {err:this.lastError}),
+            T('{err}Starting it again rebuilds the grid from its day. The letters in it go; nothing else does.', {err:this.lastError}),
             'Start it again', ()=>{ try{ this.restart(); }catch(_){} });
         }catch(_){}
         return null;
@@ -641,7 +641,7 @@
       this.wrong = bad;
       this.render();
       if(bad.length) toast(Tn('{n} wrong letter', '{n} wrong letters', bad.length));
-      else if(blank) toast(T('All good so far — {n} left', {n:blank}));
+      else if(blank) toast(T('All good so far, {n} left', {n:blank}));
       else toast('All correct');
     },
 

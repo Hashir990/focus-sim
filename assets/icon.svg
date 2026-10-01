@@ -1,0 +1,32 @@
+<!--
+  The app icon: the mark on its tile.
+
+  This is the one the *build* reads. tools/build.mjs base64s it into the page as
+  the favicon, the apple-touch-icon and the manifest's icon, so those three stop
+  being three hand-pasted copies of the same drawing that drift apart.
+
+  assets/logo.svg is the same mark without the tile, for putting on a background
+  of your own. tools/make-icon.mjs draws the same geometry to PNG for the
+  installer, because an SVG is not something electron-builder can use.
+
+  Five eighths bright, the rest sunk into the background, ember in the middle:
+    r = 54, stroke 12  ->  2*pi*54 = 339.29
+    5/8                =  212.06, less the 12 the round caps add back = 200.06
+
+  **The ember is deliberately tiny.** Its diagonal is a seventh of the ring's
+  width — a tenth over the eighth the drawing this came from measures, which is
+  a 16px ring with a 2px stroke and a 2px mark in the middle. Drawn much larger
+  it stops
+  being a ring with something in it and becomes a ring full of something. It
+  ceases to read as a diamond below about 24px and becomes a dot, which is the
+  right thing for it to become.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Focus Simulator">
+  <rect width="180" height="180" rx="40" fill="#0e1729"/>
+  <circle cx="90" cy="90" r="54" fill="none" stroke="#1f5450" stroke-width="12"/>
+  <circle cx="90" cy="90" r="54" fill="none" stroke="#4fe0c8" stroke-width="12"
+          stroke-linecap="round" stroke-dasharray="200.06 339.29"
+          transform="rotate(-90 90 90)"/>
+  <rect x="82.78" y="82.78" width="14.44" height="14.44" rx="2.89" fill="#4fe0c8"
+        transform="rotate(45 90 90)"/>
+</svg>

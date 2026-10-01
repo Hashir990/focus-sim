@@ -225,13 +225,13 @@
     const lens = Array.isArray(v.lens) ? v.lens : null;
     if(!lens) return v.shape || Tn('{n} letters', '{n} letters', v.length || 0);
     if(lens.length < 2) return lens.length ? Tn('{n} letters', '{n} letters', lens[0]) : '';
-    return Tn('{n} word — {lens} letters', '{n} words — {lens} letters', lens.length,
+    return Tn('{n} word, {lens} letters', '{n} words, {lens} letters', lens.length,
       {lens:LANG === 'en' ? lens.join(' and ') : langAnd(lens.map(String))});
   }
   function picShape(w){
     const parts = String(w||'').split(' ').filter(Boolean);
     if(parts.length < 2) return parts.length ? parts[0].length + ' letters' : '';
-    return parts.length + ' words — ' + parts.map(p=>p.length).join(' and ') + ' letters';
+    return parts.length + ' words, ' + parts.map(p=>p.length).join(' and ') + ' letters';
   }
 
   const Pictionary = {
@@ -829,7 +829,7 @@
       const drawing = v.phase === 'drawing';
       const choosing = v.phase === 'choosing';
       $('pic-role').textContent = v.alone ? 'Nobody else is here yet'
-        : v.phase === 'claim' ? (v.canClaim ? 'Up for grabs — first to claim draws'
+        : v.phase === 'claim' ? (v.canClaim ? 'Up for grabs: first to claim draws'
                                             : 'You drew the last one')
         : choosing ? (v.iAmDrawer ? 'Pick your word' : T('{name} is picking a word', {name:v.drawerName}))
         : v.iAmDrawer ? T('You’re drawing') + (v.bonus ? ' · ' + T(v.tierName) + ' (+' + v.bonus + ')' : '')
@@ -873,7 +873,7 @@
           : v.phase === 'over'
             ? T('It was “{w}”.', {w:v.answer})
             : choosing
-              ? (v.iAmDrawer ? 'Pick one above — the clock starts when you do.'
+              ? (v.iAmDrawer ? 'Pick one above. The clock starts when you do.'
                              : T('{name} is choosing a word.', {name:v.drawerName}))
             : v.canClaim ? 'Claim it and you’ll get three words to choose from.'
                          : 'Waiting for somebody to claim this one.';
@@ -883,7 +883,7 @@
       $('pic-guesses').innerHTML = (v.guesses||[]).map(g=>
         '<div class="pic-guess'+(g.got?' got':g.close?' close':'')+'">'
         + '<b>'+esc(g.who)+'</b> <span translate="no">' + esc(g.got && g.text === 'got it' ? T('got it') : g.text) + '</span>'
-        + (g.close ? ' — ' + esc(T('close')) : '') + '</div>').join('');
+        + (g.close ? ', ' + esc(T('close')) : '') + '</div>').join('');
       const gl = $('pic-guesses');
       gl.scrollTop = gl.scrollHeight;
 
@@ -903,9 +903,9 @@
         v.alone ? ''
         : v.phase === 'over' ? 'Tap Next round to go again.'
         : !drawing ? ''
-        : v.iAmDrawer ? 'No letters, no numbers — draw it.'
+        : v.iAmDrawer ? 'No letters, no numbers. Draw it.'
         : v.gotIt ? 'You got it. Sit tight.'
-        : v.hint ? T('It starts with “{c}” — {shape}.', {c:v.hint, shape:picShapeT(v)})
+        : v.hint ? T('It starts with “{c}”, {shape}.', {c:v.hint, shape:picShapeT(v)})
         : T('{shape}.', {shape:picShapeT(v)
           + (v.bonus ? ' · ' + T('{tier}, worth +{n}', {tier:T(v.tierName), n:v.bonus}) : '')});
     },

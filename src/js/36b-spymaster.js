@@ -135,7 +135,7 @@
   function smClueWhy(word, n, words, shown){
     const w = String(word || '').trim().toLowerCase();
     if(!w) return 'Type a clue first.';
-    if(!/^[a-z][a-z'-]{0,23}$/.test(w)) return 'One word — letters only.';
+    if(!/^[a-z][a-z'-]{0,23}$/.test(w)) return 'One word, letters only.';
     n = Number(n);
     if(!(n >= 1 && n <= SM_MAX_N && Math.floor(n) === n)) return 'Pick how many words it points at.';
     for(let i = 0; i < words.length; i++){
@@ -210,6 +210,7 @@
     built:false,
     pick:-1,            // a card tapped once, waiting for the second tap
     n:1,                // the number the spymaster has chosen for the next clue
+    noting:false,       // tapping a card writes on it instead of turning it over
 
     enter(){
       this.build();
@@ -217,7 +218,7 @@
       if(syncIsHost()) this._ensure();
       this.render();
     },
-    leave(){ this.pick = -1; },
+    leave(){ this.pick = -1; this.noting = false; },
 
     build(){
       if(this.built) return;
@@ -270,8 +271,18 @@
          on the assassin, and there is no taking a card back. */
       $('sm-grid').onclick = (e)=>{
         const b = e.target.closest('[data-i]');
-        if(!b || b.disabled) return;
+        if(!b) return;
         const i = Number(b.dataset.i);
+        /* **In notes mode a tap writes rather than guesses**, and it is allowed
+           on cards the guess handler has disabled — the whole point of a note
+           is to put it on a card you are *not* turning over this turn. */
+        if(this.noting){
+          const v = this.view;
+          if(!v || !v.canNote || v.shown[i]) return;
+          syncGameSend(this.key, {a:'mark', i});
+          return;
+        }
+        if(b.disabled) return;
         if(this.pick === i){
           this.pick = -1;
           syncGameSend(this.key, {a:'guess', i});
@@ -280,6 +291,12 @@
         }
         this.render();
       };
+      $('sm-notes').onclick = ()=>{
+        this.noting = !this.noting;
+        this.pick = -1;      // the two modes must not share a half-made choice
+        this.render();
+      };
+      $('sm-notes-clear').onclick = ()=>syncGameSend(this.key, {a:'unmark'});
       this.built = true;
     },
 
@@ -301,6 +318,9 @@
         phase:'lobby', game:0, seats:seats || {},
         words:[], key:[], shown:[], first:'red', turn:'red',
         clue:null, guessed:0, log:[], winner:null, why:'',
+        /* What each side has written on the board for itself. Two objects of
+           card index to mark; see the marks note by the intent. */
+        marks:{red:{}, blue:{}},
       };
     },
 
@@ -354,6 +374,11 @@
         canClue: play && spy && mine.team === st.turn && !st.clue,
         canGuess: turnOp && !!st.clue,
         canPass: turnOp && !!st.clue && st.guessed > 0,
+        /* Your side's notes, and only your side's. Writing is the operatives';
+           reading is the whole team's, because a mark tells a spymaster
+           nothing they do not already know. */
+        marks: (mine && st.marks && st.marks[mine.team]) ? Object.assign({}, st.marks[mine.team]) : {},
+        canNote: play && !!mine && mine.role === 'op',
         vacant: play ? {red:!line.red.spy, blue:!line.blue.spy} : {red:false, blue:false},
         log: st.log.slice(-10),
         winner: st.winner, why: st.why,
@@ -450,7 +475,46 @@
         const i = Number(m.i);
         if(!(i >= 0 && i < st.words.length) || st.shown[i]) return;
         const got = smReveal(st, st.turn, i);
+        /* A card on the table is not a card to remember. Both sides lose their
+           mark on it — the other team's too, because theirs was a guess about
+           a card that has now answered for itself. */
+        if(st.marks){ delete (st.marks.red || {})[i]; delete (st.marks.blue || {})[i]; }
         if(st.phase === 'play' && got !== 'hit') smEndTurn(st);
+        this._push();
+        return;
+      }
+
+      /* **Notes, which are a team's memory and nothing else.**
+
+         A clue of "river, 2" that the room only half solves leaves a candidate
+         nobody can write down, and next turn it is gone — so this is a mark a
+         side puts on a card for itself. Three of them, cycled by tapping:
+         ours, avoid, and a maybe.
+
+         **Only the operatives may write.** A spymaster marking a card "ours"
+         would be giving the answer, which is the one thing a spymaster may not
+         do outside their clue — and it would be undetectable from the other
+         side of the table. They can read the marks; they already know
+         everything a mark could tell them.
+
+         **And a side only ever sees its own.** They go out in `_viewFor` by
+         team, so the other side's notes are not in the view to be read off the
+         wire, which is the same rule the key itself follows. */
+      if(m.a === 'mark'){
+        if(!mine || mine.role !== 'op') return;
+        const i = Number(m.i);
+        if(!(i >= 0 && i < st.words.length) || st.shown[i]) return;
+        if(!st.marks) st.marks = {red:{}, blue:{}};
+        const mk = st.marks[mine.team] || (st.marks[mine.team] = {});
+        const was = mk[i] || '';
+        const next = was === '' ? 'ours' : was === 'ours' ? 'avoid' : was === 'avoid' ? 'maybe' : '';
+        if(next) mk[i] = next; else delete mk[i];
+        this._push();
+        return;
+      }
+      if(m.a === 'unmark'){
+        if(!mine || mine.role !== 'op') return;
+        if(st.marks) st.marks[mine.team] = {};
         this._push();
         return;
       }
@@ -538,7 +602,7 @@
       $('sm-needs').textContent = v.alone
         ? 'Share your code from Focus together and they can join in.'
         : v.mode === 'duel' ? (v.leader ? T('Two sides. Ready when you are.') : T('Two sides. Ready when {name} is.', {name:v.leaderName}))
-        : v.short ? T(v.short === 1 ? 'Four to play \u2014 one more to go.' : 'Four to play \u2014 two more to go.')
+        : v.short ? T(v.short === 1 ? 'Four to play. One more to go.' : 'Four to play. Two more to go.')
         : v.needs.map(n=>T(n)).join(' ');
       $('sm-start').classList.toggle('hide', !v.leader);
       $('sm-start').disabled = !v.canStart;
@@ -570,6 +634,12 @@
 
       /* the grid */
       $('sm-grid').dataset.spy = v.spy && !over ? '1' : '';
+      /* Notes are your side's own and are shown whoever you are on it — the
+         spymaster reading them learns nothing they were not already looking
+         at. Writing is a different question; see the intent. */
+      const marks = v.marks || {};
+      const noting = this.noting && v.canNote;
+      $('sm-grid').dataset.noting = noting ? '1' : '';
       $('sm-grid').innerHTML = v.words.map((w, i)=>{
         const c = v.colours[i];
         const shown = v.shown[i];
@@ -578,17 +648,46 @@
         if(shown) cls.push('shown');
         else if(c) cls.push('key');               // a spymaster's view, or the end
         if(i === this.pick) cls.push('pick');
-        const can = v.canGuess && !shown;
-        return '<button class="' + cls.join(' ') + '" data-i="' + i + '"' + (can ? '' : ' disabled') + '>'
-          + '<span>' + esc(w) + '</span></button>';
+        const mk = !shown && marks[i] ? marks[i] : '';
+        if(mk) cls.push('note-' + mk);
+        /* **Enabled while taking notes even when it cannot be guessed.** The
+           card you most want to write on is the one you are not turning over,
+           and a disabled button takes no taps at all. */
+        const can = noting ? !shown : (v.canGuess && !shown);
+        /* The mark reaches a screen reader through the button's label, not
+           through a hidden span: this app has no visually-hidden class and
+           inventing one for three words is a utility nothing else will use. */
+        const lab = mk ? ' aria-label="' + esc(w + ', ' + (mk === 'ours' ? T('noted: ours')
+          : mk === 'avoid' ? T('noted: avoid') : T('noted: maybe'))) + '"' : '';
+        return '<button class="' + cls.join(' ') + '" data-i="' + i + '"' + lab
+          + (can ? '' : ' disabled') + '>'
+          + '<span>' + esc(w) + '</span>'
+          + (mk ? '<i class="sm-note" aria-hidden="true"></i>' : '')
+          + '</button>';
       }).join('');
+
+      /* The row only exists for somebody who can write on the board. A
+         spectator and a spymaster both see the marks and neither can make
+         one, so neither is offered a button that would do nothing. */
+      $('sm-notes-row').classList.toggle('hide', !v.canNote);
+      $('sm-notes').classList.toggle('on', noting);
+      $('sm-notes').textContent = noting ? T('Done with notes') : T('Take notes');
+      $('sm-notes-clear').classList.toggle('hide', !(noting && Object.keys(marks).length));
+      $('sm-notes-help').textContent = noting
+        ? T('Tap a card to mark it: ours, then avoid, then a maybe.')
+        : (Object.keys(marks).length ? Tn('{n} card marked', '{n} cards marked', Object.keys(marks).length) : '');
 
       $('sm-pass').classList.toggle('hide', !v.canPass);
       $('sm-again').classList.toggle('hide', !(over && v.leader));
 
       /* one line for what you are waiting on */
       const turnName = nm(v.turn);
-      $('sm-msg').textContent = over
+      $('sm-msg').textContent = noting
+        /* In notes mode the tap does something else, so the line that tells you
+           what a tap does has to say the other thing. Both at once read as the
+           screen contradicting itself. */
+        ? T('Nothing is turned over while you are taking notes.')
+        : over
         ? (v.leader ? 'Back to teams when you are ready.' : T('Waiting for {name} to set up the next one.', {name:v.leaderName}))
         : vacant ? T(v.turn === 'red' ? 'Red has no spymaster. Somebody on Red can take over.' : 'Blue has no spymaster. Somebody on Blue can take over.')
         : v.canClue ? 'Your clue: one word, and how many of your words it points at.'

@@ -82,6 +82,16 @@
     if(t.done && S.mode==='focus'){
       if(TASKS_TICKED.indexOf(t.text) === -1) TASKS_TICKED.push(t.text);
       buzz(30);
+    } else if(t.done && S.mode==='rest'){
+      /* The break screen puts the list and the note one above the other, and
+         ticking something off there used to go nowhere — it belonged to no
+         block, said the old rule, so it wrote no note. But the block it belongs
+         to is the one that just ended and is still on the screen above it:
+         crossing a thing off in the minute after finishing it is the same
+         statement as crossing it off in the minute before. So it goes into the
+         note now, straight away, where it can be read and edited. */
+      taskNoteAdd(t.text);
+      buzz(30);
     } else if(!t.done){
       const i = TASKS_TICKED.indexOf(t.text);
       if(i !== -1) TASKS_TICKED.splice(i,1);
@@ -90,7 +100,41 @@
        reads the same whether you look at it from the timer or from History. */
     if(t.from) try{ planTick(t.from, t.on, t.done); }catch(e){}
     saveTasks(); tasksRender();
-    if(t.done && TASKS.length && TASKS.every(x=>x.done)) toast('All tasks done — nice');
+    if(t.done && TASKS.length && TASKS.every(x=>x.done)) toast('All tasks done. Nice one');
+  }
+
+  /** Write one ticked task into the session note, and into the box showing it.
+
+      The note belongs to the record, not to the textarea — the textarea is only
+      how it is shown — so this edits `rec.note` and then puts the result back
+      on screen.
+
+      **It only ever adds.** Unticking does not go and delete a line again: by
+      then the note is a thing somebody may have typed in and edited around, and
+      quietly removing a line from what they wrote is worse than leaving one
+      they can cross out themselves. Ticking twice is still only one line.
+
+      Does nothing when there is no session to write to, which is the setup
+      screen before the first block of the day. */
+  function taskNoteAdd(text){
+    const rec = S.lastLogId ? findLog(S.lastLogId) : null;
+    if(!rec) return;
+    const line = '✓ ' + text;
+    const lines = (rec.note || '').split('\n');
+    if(lines.indexOf(line) !== -1) return;
+    // a note that is empty is one empty line, not no lines
+    rec.note = (lines.length === 1 && lines[0] === '') ? line : rec.note + '\n' + line;
+    saveLog();
+    const inp = $('note-input');
+    if(!inp || inp.value === rec.note) return;
+    /* Somebody may be typing in it right now — on a phone a tap on a task does
+       not always take the keyboard away. Put the caret back where it was rather
+       than throwing them to the end of the note mid-sentence. */
+    const caret = inp.selectionStart;
+    inp.value = rec.note;
+    if(document.activeElement === inp && caret != null){
+      try{ inp.setSelectionRange(caret, caret); }catch(e){}
+    }
   }
 
   /** Called at the end of a focus block: fold ticked tasks into that session's note. */
@@ -101,12 +145,11 @@
 
   function tasksFlushToNote(){
     if(!TASKS_TICKED.length) return;
-    const rec = S.lastLogId ? findLog(S.lastLogId) : null;
-    if(rec){
-      const lines = TASKS_TICKED.map(t=>'✓ '+t).join('\n');
-      rec.note = rec.note ? (rec.note + '\n' + lines) : lines;
-      saveLog();
-    }
+    /* Through the same one line at a time, rather than pasting the lot on the
+       end. Two ways of writing the same line into the same note is how one of
+       them ends up unable to find what the other wrote — and this one now has
+       to agree with what ticking during the break already put there. */
+    for(const text of TASKS_TICKED) taskNoteAdd(text);
     TASKS_TICKED = [];
   }
 

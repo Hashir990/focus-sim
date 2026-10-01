@@ -1,0 +1,34 @@
+/* ---- settings ----
+   The page that used to be the bottom of the menu. Markup in
+   src/body/12d-settings.html, opened by src/js/52-settings.js.
+
+   There is almost nothing here, and that is the point: the page borrows the
+   menu's own furniture — `.drawer-sec` for the headings, `.toggle` and
+   `.drawer-toggles` for the chips, `.amb-grid` for the faces, `.drawer-reset`
+   for the last line — so a change to how a switch looks is still one change.
+   What is written below is only the two places where a 460px page wants
+   different proportions from a 260px column. */
+
+/* Sized to the words, then shared out. `.drawer-toggles .toggle` has a 44%
+   basis, which is right in the menu's narrow column and wrong on a page twice
+   as wide: it puts the third switch on a line of its own and the row reads as
+   two choices and an afterthought.
+
+   A fixed basis is the wrong answer in the other direction, though, because
+   these labels are translated and "Автопродолжение" is not "Chime". `auto`
+   asks each chip for the width of its own words and lets the row wrap when
+   they genuinely do not fit — three across where there is room, two and one
+   on a narrow phone, and correct in all seven languages without a number here
+   guessing at any of them. */
+#settings-overlay .set-switches .toggle{ flex:1 1 auto; white-space:nowrap }
+#settings-overlay .set-switches{ margin-top:10px }
+
+/* Seven languages at a 44% basis is four rows of two, which turns a short list
+   into a wall. Same reasoning as above, and more so: each of these is written
+   in its own script, and the only thing that knows how wide اردو is is the
+   font drawing it. */
+#settings-overlay .lang-pick .toggle{ flex:1 1 auto }
+
+/* Reset is the last thing on the page rather than a line among others, and it
+   wants the gap that says so. */
+#settings-overlay .drawer-reset{ margin-top:24px }

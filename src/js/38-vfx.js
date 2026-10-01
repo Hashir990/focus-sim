@@ -130,6 +130,43 @@
                       y:[-4, 104, '%'], dx:[-10, 10, 'vw'], dy:[-8, 8, 'vh']}},
     motes:  {n:26, v:{s:[2, 5, 'px'], t:[14, 30, 's'], o:[.10, .30],
                       y:[-4, 104, '%'], dx:[-7, 7, 'vw'], dy:[-6, 6, 'vh']}},
+    /* A city, in bands of depth. Each tower stands on the bottom edge and
+       slides a little way sideways over a minute or two — and the sliding is
+       the whole of it, because sixteen rectangles that hold still are a bar
+       chart and sixteen that cross each other are a distance. `o` is how far
+       away one is: the far ones are thin enough for the sky to come through,
+       which is what haze does and what a flat colour never manages.
+
+       `w` is how wide it stands, `wx`/`wy` the pitch of its windows, and
+       `dk` the height of the floors that have gone dark. They are per-tower
+       and they do not divide into each other, which is where the irregularity
+       comes from — see the two-gradient note in 31-vfx.css. */
+    towers: {n:16, variants:4, cap:22,
+             v:{s:[13, 48, 'vh'], w:[20, 66, 'px'], t:[58, 146, 's'], o:[.28, .95],
+                x:[-6, 100, '%'], dx:[-8, 8, 'vw'],
+                wx:[4.5, 8.5, 'px'], wy:[6.5, 11.5, 'px'], dk:[9, 30, 'px']}},
+    /* A star does not travel. What it does is change its mind about how bright
+       it is, on a clock of its own — one animated property, no blur and no
+       transform, which is why there can be fifty of these for about what a
+       dozen petals cost.
+
+       `variants` picks out the one speck in eighteen that is near enough to
+       have a flare across it. The galaxies are not specks at all — see `solo`. */
+    /* **`solo` is a fixed, counted set rather than a fraction of the field.**
+       The galaxies were a variant to begin with, which meant however many of
+       them the arithmetic happened to produce, each on a random clock — so
+       sometimes three were crossing at once and sometimes the sky was empty
+       for ten minutes. Three of them, numbered, is what lets the stylesheet
+       put them on one rota: each waits two thirds of the cycle, so there is
+       always exactly one and it is never the same colour twice running.
+       Nothing about them is random, so nothing about them is set here. */
+    /* Ninety-six was chosen on a desktop. A phone draws the same field into a
+       WebView over two clouds that each carry a filter, and the specks are the
+       part that is easy to give back: at seventy the sky is still dense and
+       that is twenty-six fewer animated layers. */
+    stars:  {n:70, pal:true, cap:88, variants:18, layer:'neb', solo:{cls:'gal', n:3},
+             v:{s:[.9, 3.6, 'px'], t:[2.6, 9, 's'], o:[.3, 1],
+                x:[-2, 102, '%'], y:[-2, 102, '%']}},
   };
 
   /* Kinds that fall or rise from a random column. The rest place themselves
@@ -249,7 +286,22 @@
         + (spec.sparks ? vfxSparks(spec) : '')
         + '</b>';
     }
-    pane.innerHTML = html;
+    /* A kind may ask for one painted layer of its own beneath the specks.
+       Deep space needs it because a nebula is not made of particles: two
+       clouds at different noise scales are what gives it depth, and the pane's
+       own ::before is only one of them. It is emitted first so it sits behind
+       everything, and it carries no inline state — the whole of it is in the
+       stylesheet, which is where a thing that never changes belongs. */
+    /* Numbered, because the whole point of them is the order they come in:
+       the stylesheet takes `--gi` for the place in the rota and `data-g` for
+       the colour, and neither of those is something to roll a die for. */
+    let solo = '';
+    if(spec.solo){
+      for(let k = 0; k < spec.solo.n; k++){
+        solo += '<b class="' + spec.solo.cls + '" data-g="' + k + '" style="--gi:' + k + '"></b>';
+      }
+    }
+    pane.innerHTML = (spec.layer ? '<div class="' + spec.layer + '"></div>' : '') + solo + html;
   }
 
   /* A burst, as a dozen or so separate sparks. Each gets an angle, a distance

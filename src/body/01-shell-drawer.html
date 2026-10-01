@@ -2,6 +2,50 @@
   <!-- The weather, behind everything and touchable by nothing. One pane: a
        light and a track are alternatives, not layers. See 31-vfx.css. -->
   <div class="vfx" id="vfx" aria-hidden="true"></div>
+  <!-- **Fractal noise, because a nebula is not a shape.** Every soft thing in
+       this app until now was a radial gradient, and a radial gradient is an
+       ellipse however faint you make it — which is why the first pass at deep
+       space came out as bubbles. What a real emission nebula looks like is
+       filaments and torn edges and dark lanes cut through the middle, and
+       nothing in CSS draws that. feTurbulence does, and `feDisplacementMap`
+       pushes an ordinary gradient around by it.
+
+       Three seeds so the clouds are not repeats of each other, and applied only
+       to elements whose animation is a transform, so the filter is evaluated
+       once and the result is composited from then on. See the nebula section of
+       31-vfx.css. -->
+  <svg class="vfx-defs" aria-hidden="true" focusable="false" width="0" height="0">
+    <defs>
+      <filter id="vfx-neb" x="-40%" y="-40%" width="180%" height="180%"
+              color-interpolation-filters="sRGB">
+        <!-- Three octaves, not four. The fourth is the finest detail in the
+             cloud and it is the half of the cost: each octave is another pass
+             over every pixel, and at this size the fourth one adds a texture
+             nobody can see from arm's length behind a countdown. -->
+        <feTurbulence type="fractalNoise" baseFrequency="0.0055 0.011"
+                      numOctaves="3" seed="17" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="230"
+                           xChannelSelector="R" yChannelSelector="G"/>
+        <feGaussianBlur stdDeviation="7"/>
+      </filter>
+      <filter id="vfx-neb2" x="-40%" y="-40%" width="180%" height="180%"
+              color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.009 0.014"
+                      numOctaves="3" seed="52" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="150"
+                           xChannelSelector="R" yChannelSelector="G"/>
+        <feGaussianBlur stdDeviation="4"/>
+      </filter>
+      <filter id="vfx-neb3" x="-40%" y="-40%" width="180%" height="180%"
+              color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.013 0.008"
+                      numOctaves="3" seed="91" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="118"
+                           xChannelSelector="R" yChannelSelector="G"/>
+        <feGaussianBlur stdDeviation="3"/>
+      </filter>
+    </defs>
+  </svg>
   <!-- The dial's outer glow, kept out of the layout so nothing can clip it.
        Positioned onto the dial by glowFit() in 39-dial-glow.js. -->
   <div class="dial-glow" id="dial-glow" aria-hidden="true"></div>
@@ -86,15 +130,54 @@
        wanders from vertex to vertex, the sag varies per span, and two of the
        rings stop a strand short instead of closing. Generated from a seeded
        jitter, not typed, so it is reproducible and not a doodle. -->
-  <svg class="corner-web corner-web-l" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-    <g>
-      <path class="corner-web-spokes" d="M0 0L123.9 0M0 0L105.5 28.1M0 0L104.1 61M0 0L80 79.7M0 0L65.2 99.8M0 0L22 107.3M0 0L0 124.1"/>
-      <path class="corner-web-rings" d="M23.1 0Q21 2.7 25.1 6.7Q19.9 8.3 21.8 12.8Q17.4 13.4 18.5 18.4Q13.5 16.6 13.3 20.3Q8.2 19.8 5.2 25.4Q2.4 23.2 0 25.7M46.4 0Q39.3 5.1 42.6 11.4Q38.9 16.2 42.2 24.8Q31.5 24.3 34.8 34.7Q26 31.9 25.7 39.4Q14.7 35.7 9.1 44.1M78.4 0Q68.1 8.9 70.4 18.8Q56.5 23.6 60 35.2Q48.7 37.6 48.8 48.6Q35.5 43.7 36.3 55.5Q22.5 54.5 14.7 71.7Q6.6 65.1 0 78M96.9 0Q84.6 11.1 96.8 25.8Q83.9 35 89.4 52.4Q73 56.3 70.8 70.6Q50.1 61.5 50.4 77.1Q30.2 73.2 18.9 92.2Q8.1 79.6 0 91.6"/>
+    
+<!-- **The signal.** Spider-Man’s mask, thrown up for a few seconds every
+     couple of minutes and gone again: somebody out there is asking.
+
+     This drawing used to sit at the centre of the dial, underneath the
+     digits, which is most of what made that theme look like an illustration
+     with a countdown printed on it. It is a good drawing and it was in the
+     wrong place, so rather than delete it, it has become the one thing it is
+     suited to being: something that appears, is unmistakable, and goes.
+
+     Off entirely under every other light, and it never crosses the clock —
+     see the keyframes in 04-timer.css. -->
+<svg class="spidey-signal" id="spidey-signal" viewBox="60 60 120 120"
+     aria-hidden="true" focusable="false">
+  <g class="dial-web-mask">
+    <defs>
+      <clipPath id="dw-face-clip"><circle cx="120" cy="120" r="52"/></clipPath>
+    </defs>
+    <circle class="dw-mask-face" cx="120" cy="120" r="52"/>
+    <g class="dw-mask-web" clip-path="url(#dw-face-clip)">
+      <path class="dw-mask-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
+      <path class="dw-mask-web-rings" d="M120 106Q123.2 108.2 127 107.9Q128.6 111.4 132.1 113Q131.8 116.8 134 120Q131.8 123.2 132.1 127Q128.6 128.6 127 132.1Q123.2 131.8 120 134Q116.8 131.8 113 132.1Q111.4 128.6 107.9 127Q108.2 123.2 106 120Q108.2 116.8 107.9 113Q111.4 111.4 113 107.9Q116.8 108.2 120 106ZM120 93Q126.1 97.3 133.5 96.6Q136.6 103.4 143.4 106.5Q142.7 113.9 147 120Q142.7 126.1 143.4 133.5Q136.6 136.6 133.5 143.4Q126.1 142.7 120 147Q113.9 142.7 106.5 143.4Q103.4 136.6 96.6 133.5Q97.3 126.1 93 120Q97.3 113.9 96.6 106.5Q103.4 103.4 106.5 96.6Q113.9 97.3 120 93ZM120 80Q129 86.4 140 85.4Q144.6 95.4 154.6 100Q153.6 111 160 120Q153.6 129 154.6 140Q144.6 144.6 140 154.6Q129 153.6 120 160Q111 153.6 100 154.6Q95.4 144.6 85.4 140Q86.4 129 80 120Q86.4 111 85.4 100Q95.4 95.4 100 85.4Q111 86.4 120 80ZM120 69Q131.5 77.1 145.5 75.8Q151.4 88.6 164.2 94.5Q162.9 108.5 171 120Q162.9 131.5 164.2 145.5Q151.4 151.4 145.5 164.2Q131.5 162.9 120 171Q108.5 162.9 94.5 164.2Q88.6 151.4 75.8 145.5Q77.1 131.5 69 120Q77.1 108.5 75.8 94.5Q88.6 88.6 94.5 75.8Q108.5 77.1 120 69Z"/>
     </g>
-  </svg>
-  <svg class="corner-web corner-web-r" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  </g>
+</svg>
+
+<!-- **Spun, not drawn.** These were regular quarter-fans: evenly spaced
+       spokes, rings that went all the way round, every segment the same. A web
+       is none of those. The strands sag between their anchors because they
+       hang; the rings stop and start because something has been through it;
+       the spacing opens up outward because that is the order it was made in.
+
+       So the paths are generated rather than drawn: jittered angles, a radius
+       that varies per spoke so no ring is a circle, catenary sag on every
+       segment, holes where a segment is missing, rings that give up early, and
+       loose ends trailing off the torn ones. Two seeds, so the corners are not
+       the same web mirrored. The recipe is in the comment on `.corner-web` in
+       04-timer.css; the output is pasted here because it is drawn once and
+       never regenerated. -->
+<svg class="corner-web corner-web-l" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
     <g>
-      <path class="corner-web-spokes" d="M0 0L121.6 0M0 0L108.8 26.3M0 0L92 77.2M0 0L65.2 95.9M0 0L31.4 107.1M0 0L0 107.4"/>
-      <path class="corner-web-rings" d="M33.1 0Q25.8 3.1 29 7Q22.9 11.6 25.3 21.2Q18 19.9 18.6 27.4Q10.9 23.1 9.4 32.1M59.2 0Q48.5 5.8 61.5 14.9Q43.6 22 42.3 35.5Q32.4 35.8 33.6 49.4Q20.6 43.5 17.1 58.3Q6.9 47.9 0 55.5M75.2 18.2Q63.3 32 64 53.7Q42.4 46.9 43.5 64Q29 61.4 25.5 86.9Q10 69.6 0 78"/>
+      <path class="corner-web-spokes" d="M0 0L139.5 -2.6M0 0L117.7 26.7M0 0L122 39.6M0 0L106.5 47.8M0 0L100.4 69.9M0 0L83.1 90.5M0 0L73.4 100M0 0L61.7 120.7M0 0L41.3 110.6M0 0L25.6 120.7M0 0L-1.5 123.9"/>
+      <path class="corner-web-rings" d="M19.2 -0.4Q15.7 1.6 15.9 3.6Q13.8 3.8 15.6 5.1Q13 5 14.1 6.3Q10.9 6.2 14.2 9.9Q10.5 9.2 11.1 12.1Q8.4 10.2 11 14.9Q7.9 12.8 8.4 16.4Q6.6 15 6.9 18.6Q4.3 15 3.8 18Q1.3 12.8 -0.2 15.3M29.2 9.5Q23.4 9 24.4 11Q17.1 9.7 19.8 13.8Q18.1 15.8 20.5 22.3Q16.8 20.5 17.7 24.1Q12.8 20.8 13.6 26.6Q8.9 20.2 10.8 29Q5.6 19.4 5 23.6Q2 20.1 -0.4 29.5M11 51.8Q4.8 48.6 -0.7 60.3M24.1 64.5Q16.6 57.1 17.1 80.5Q6.2 63.3 -1 82.6M53.8 73.3Q34.4 55.8 38.6 75.4Q33.7 76.5 37.6 100.7M67.5 73.6Q56.8 69.2 69.4 94.5M37.6 100.7Q38.1 118.1 38.6 127.1M69.4 94.5Q63.2 111.0 57 111.3"/>
     </g>
-  </svg>
+</svg>
+<svg class="corner-web corner-web-r" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+    <g>
+      <path class="corner-web-spokes" d="M0 0L118.9 2M0 0L134.4 32.4M0 0L116.8 39.1M0 0L117.7 68.1M0 0L89 74.7M0 0L75.8 85.5M0 0L58.1 102.7M0 0L55.7 127.2M0 0L24.4 112.7M0 0L2.8 136.9"/>
+      <path class="corner-web-rings" d="M17.1 0.3Q13.7 1.7 14.9 3.6Q12.1 3.5 16.8 5.6Q13.6 6.1 16.9 9.8Q13.1 9.2 12.4 10.4Q10 9.7 11.1 12.5Q9.1 12.8 9.3 16.4Q7.3 14.7 7.1 16.2Q4.2 13 4.2 19.6Q1.6 13.7 0.3 16.7M5.3 24.5Q2.8 24.1 0.6 29.8M12.5 57.5Q5.7 48.2 1.1 50.9M95.3 23Q75.8 21.8 94.3 31.6Q67.3 30.4 90.6 52.4M61 107.9Q50.7 101.4 54.4 124.2M9.8 45.2Q7.0 57.3 4.1 59.9M90.6 52.4Q91.9 66.3 93.2 62.6M54.4 124.2Q51.8 151.1 49.3 160.6"/>
+    </g>
+</svg>

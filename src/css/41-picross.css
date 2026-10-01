@@ -169,3 +169,31 @@
   color:color-mix(in srgb, var(--muted) 42%, transparent);
   text-decoration:line-through;
 }
+
+/* ---- the picker icon ----
+   Markup in src/body/06-arcade-picker.html. Two states of a cell, which is all
+   a picross board has: not filled in yet, and filled in. `.pcard .emoji svg`
+   fills everything with currentColor by default, so the empty cells have to be
+   turned back into outlines here — the same trick 39-spymaster.css uses.
+
+   The stroke is 1.4 rather than spymaster's 1.5 because these cells are bigger
+   and a heavier outline closes the hole in them: at 25px an outlined cell with
+   a thick enough stroke is indistinguishable from a filled one, which loses the
+   only thing the icon is saying. */
+.pcard[data-game="picross"] .emoji rect{ fill:none; stroke:currentColor; stroke-width:1.4 }
+/* **Filled keeps its stroke.** A stroke is centred on the path, so dropping it
+   here would make every solid box a stroke-width smaller than the open ones
+   beside it and the grid would stop being a grid. Only the fill changes. */
+.pcard[data-game="picross"] .emoji rect.fill{ fill:currentColor }
+
+/* ---- armed to reveal ----
+   "Fix a square" no longer fixes one; it waits to be pointed at the square you
+   want. A board that has quietly changed what a tap does, with nothing on
+   screen admitting it, is how somebody spends a hint on a square they meant to
+   fill — so both the pointer and the grid say so. The dashed ring is for the
+   finger, which has no cursor to read. */
+#pix-grid.picking .pix-cell{ cursor:crosshair }
+#pix-grid.picking .pix-cells{
+  outline:2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset:5px;
+}

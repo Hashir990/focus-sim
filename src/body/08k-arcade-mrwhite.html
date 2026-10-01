@@ -1,0 +1,90 @@
+    <!-- Mr White (shared — needs a room). Everybody but one is shown the same
+         word; each says something about it without saying it, then the room
+         votes somebody out. See 36d-mrwhite.js. -->
+    <div class="game hide" id="game-mrwhite">
+      <div class="game-top">
+        <span class="gname">Mr White</span>
+        <span class="meta" id="mw-round"></span>
+        <span class="mw-clock hide" id="mw-clock"></span>
+        <button class="mini-btn danger hide" id="mw-reset">Reset</button>
+      </div>
+
+      <p class="sg-need hide" id="mw-need">
+        Everybody but one is shown the same word. Say something about it without
+        saying it, then vote on who was bluffing. Open a room and the others can
+        join from their own break.
+        <button class="mini-btn" id="mw-need-go">Open Focus together</button>
+      </p>
+
+      <!-- Before a game. The room votes on a set of words; the leader starting
+           is what settles it, and shuts the door. -->
+      <div id="mw-lobby" class="hide">
+        <p class="mw-sec">Words to draw from <em>everybody votes</em></p>
+        <div class="mw-sets" id="mw-sets"></div>
+
+        <p class="mw-sec">How many are lying</p>
+        <div class="mw-opts" id="mw-whites"></div>
+
+        <p class="mw-sec">How long you get to talk</p>
+        <div class="mw-opts" id="mw-secs"></div>
+
+        <p class="mw-sec">What a turn is</p>
+        <div class="mw-opts" id="mw-say"></div>
+
+        <p class="mw-note" id="mw-lobby-note"></p>
+        <div class="mw-go">
+          <button class="mini-btn on hide" id="mw-start">Start the game</button>
+        </div>
+      </div>
+
+      <div id="mw-play" class="hide">
+        <!-- Your word, or the news that you do not have one. -->
+        <div class="mw-card" id="mw-card"></div>
+
+        <div class="mw-players" id="mw-players"></div>
+
+        <p class="mw-last hide" id="mw-last"></p>
+
+        <!-- What the room is told a round late, with no name on it. -->
+        <p class="mw-heard hide" id="mw-heard"></p>
+
+        <!-- The talking is not the app's job. People say their piece in the
+             room's chat or out loud across the table; this holds the clock and
+             gets out of the way. The leader can cut it short when the room has
+             said everything it wants to. -->
+        <div class="mw-talk hide" id="mw-talk">
+          <!-- Written by the game each round: with "Both, in turn" chosen it
+               says something different every other round. -->
+          <p class="mw-talk-note" id="mw-talk-note"></p>
+          <button class="mini-btn hide" id="mw-done">Take it to the vote</button>
+        </div>
+
+        <div class="mw-voting hide" id="mw-voting">
+          <p class="mw-sec">Who is Mr White?</p>
+          <div class="mw-ballot" id="mw-ballot"></div>
+          <p class="mw-note" id="mw-vote-note"></p>
+        </div>
+
+        <!-- Only Mr White sees this, and it is a sibling of the vote rather
+             than a part of it: the guess is open for the whole round now, so
+             it has to outlive the panel that is only there while voting. -->
+        <div class="mw-guessing hide" id="mw-guessing">
+          <p class="mw-sec">Name the word and win outright</p>
+          <div class="mw-say">
+            <input id="mw-guess" maxlength="60" autocomplete="off" autocorrect="off"
+                   spellcheck="false" placeholder="the word you think it is"
+                   aria-label="Your guess at the word">
+            <button class="mini-btn" id="mw-guess-send">Guess</button>
+          </div>
+          <p class="mw-note" id="mw-tries"></p>
+        </div>
+
+        <div class="mw-said" id="mw-said"></div>
+
+        <div class="banner hide" id="mw-banner">
+          <h3 id="mw-win"></h3>
+          <p id="mw-why"></p>
+          <button class="mini-btn hide" id="mw-again">Play again</button>
+        </div>
+      </div>
+    </div>

@@ -353,7 +353,7 @@
     // gone back to focusing — which was the whole point of sharing the timer.
     if(m.mode !== wasMode && m.mode !== 'rest' && Arcade.open){
       Arcade.close();
-      if(m.mode === 'focus') toast('Break’s over — back to it');
+      if(m.mode === 'focus') toast('Break’s over, back to it');
     }
 
     /* A follower never runs `complete()` or `stop()`, so without this it would
@@ -591,7 +591,7 @@
     SYNC.expect = expect || [];
     SYNC.expectUntil = Date.now() + SYNC_SETTLE;
     syncGamesAdopt(games);
-    syncSetStatus('The room moved to your code — you hold the timer');
+    syncSetStatus('The room moved to your code. You hold the timer');
     syncRender();
   }
 
@@ -605,13 +605,13 @@
        it didn't happen rather than dropping them out of a room that stayed. */
     if(SYNC.leaveAfterMove){
       SYNC.leaveAfterMove = false;
-      toast('They haven’t sent their code yet — the room can’t move');
+      toast('They haven’t sent their code yet. The room cannot move');
     }
     SYNC.leaderId = id;
     syncBroadcast(syncRosterMsg());
     if(syncIsLeader()) syncBroadcastState();     // took it back: re-assert at once
     syncSetStatus(id === SYNC.selfId ? 'You hold the timer'
-      : 'Timer handed over — they haven’t told us their code, so the room stays here');
+      : 'Timer handed over. They have not told us their code, so the room stays here');
   }
 
   /** Host only: drop someone from the room. */
@@ -979,7 +979,7 @@
     if(syncActive()) syncLeave(true);
     const code = useMine ? (SYNC.myCode || syncCode()) : syncCode();
     const era = SYNC.epoch;
-    syncSetStatus(attempt ? 'Your last session is still closing — trying again…' : 'Opening…');
+    syncSetStatus(attempt ? 'Your last session is still closing, trying again…' : 'Opening…');
     try{
       const {peer, id} = await syncOpenPeer(SYNC_NS + code.toLowerCase());
       if(era !== SYNC.epoch){ try{ peer.destroy(); }catch(e){} return; }
@@ -1008,7 +1008,7 @@
         : useMine && SYNC.accountCode
           ? 'Your code is in a room on another device. Leave it there, or open a one-off room.'
         : useMine ? 'Your code is still held. Give it a minute, or open a one-off room.'
-        : 'That code is already in use — try a new room');
+        : 'That code is already in use. Try a new room');
       SYNC.mode = 'off';
     }
     syncRender();
@@ -1042,7 +1042,7 @@
       setTimeout(()=>{
         if(SYNC.mode === 'joined' && !Object.keys(SYNC.conns).length){
           if(SYNC.rejoinCode) syncRetry(code);
-          else syncSetStatus('No answer — are they hosting right now?');
+          else syncSetStatus('No answer. Are they hosting right now?');
         }
       }, 8000);
     }catch(err){
@@ -1073,7 +1073,7 @@
     const wait = SYNC_RETRY_MS[Math.min(SYNC.rejoinTries, SYNC_RETRY_MS.length - 1)];
     SYNC.rejoinCode = code;
     SYNC.rejoinTries++;
-    syncSetStatus('Connection lost — trying again…');
+    syncSetStatus('Connection lost, trying again…');
     SYNC.rejoin = setTimeout(()=>{
       SYNC.rejoin = null;
       if(SYNC.rejoinCode) syncJoin(SYNC.rejoinCode, true);
@@ -1589,7 +1589,7 @@
     if(!$('sync-body')) return;
 
     const codeEl = $('sync-mycode');
-    if(codeEl) codeEl.textContent = SYNC.myCode || '——————';
+    if(codeEl) codeEl.textContent = SYNC.myCode || ', , ';
 
     const nameEl = $('sync-name');
     if(nameEl && document.activeElement !== nameEl) nameEl.value = SYNC.name;
@@ -1691,7 +1691,7 @@
       pbox.querySelectorAll('[data-lead]').forEach(b=>{
         const who = (people.find(p=>p.id === b.dataset.lead) || {}).name || T('them');
         b.onclick = ()=>askConfirm(T('Give the timer to {name}?', {name:who}),
-          'Their start, pause and skip will drive everyone’s clock, including yours — '
+          'Their start, pause and skip will drive everyone’s clock, including yours, '
           + 'and the room moves to their code, so everybody follows them from now on.',
           'Give timer', ()=>syncHandOver(b.dataset.lead));
       });
@@ -1883,7 +1883,7 @@
     try{ need = accConfigured() && !Account.token; }catch(e){}
     if(need){
       askConfirm('Sign in to focus together',
-        'Rooms, friends and shared games all hang off your account — it is what '
+        'Rooms, friends and shared games all hang off your account. It is what '
         + 'your code and your buddy belong to, and what keeps the hours you put '
         + 'in together. Signing in takes a moment.',
         'Take me there', ()=>{ try{ AcctPage.open(); }catch(e){} });
@@ -1916,7 +1916,7 @@
       label:T('Hand it to {name} and leave', {name:p.name}),
       run(){
         askConfirm(T('Hand the room to {name}?', {name:p.name}),
-          'They get the timer, and the room moves to their code — everyone else '
+          'They get the timer, and the room moves to their code. Everyone else '
           + 'moves across with it. You drop out.',
           'Hand over', ()=>{ SYNC.leaveAfterMove = true; syncHandOver(p.id); });
       },

@@ -24,7 +24,28 @@ CREATE TABLE IF NOT EXISTS vaults (
   account   TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
   snapshot  TEXT NOT NULL,            -- {log, own, claimed, feats, adjust, sim}
   rev       INTEGER NOT NULL,         -- bumped on every write
-  at        INTEGER NOT NULL
+  at        INTEGER NOT NULL,
+  -- Total focus seconds the log added up to at the last write. Everything a
+  -- person can be tempted to forge is derived from that number, and the one
+  -- bound on it that has no false positives is the clock: it cannot grow
+  -- faster than `at` does. See logBudget in accounts.js.
+  --
+  -- On a database that predates this column:
+  --   ALTER TABLE vaults ADD COLUMN focus INTEGER;
+  -- Deliberately nullable and with no default. NULL means "no mark taken yet",
+  -- and the first write after the migration takes it; a default of 0 would
+  -- read as "this account has never focused" and trim every session it had.
+  focus     INTEGER,
+  -- What `adjust` was when this account first wrote: the embers it brought
+  -- with it from before any of the maths was derivable. It is a baseline, not
+  -- a running value — it is written once and never moved, because the whole
+  -- point is that the figure stops changing. See ADJ_ROOM in accounts.js.
+  --
+  -- On a database that predates this column:
+  --   ALTER TABLE vaults ADD COLUMN adj INTEGER;
+  -- Nullable for the same reason `focus` is: NULL means "not taken yet", and
+  -- a default of 0 would tell every existing account it had brought nothing.
+  adj       INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

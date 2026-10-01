@@ -20,8 +20,11 @@
   /* Filled in by whoever ships the build. Left visible on purpose: an unfilled
      contact line in a shipped policy is worse than no policy, and it should be
      impossible to miss. See §"Your part" in HANDOFF.md. */
+  /* Only the owner is left. The address went when the privacy policy and the
+     terms both stopped printing one: questions go through Report a problem,
+     which has its own address in REPORT_TO below. The owner is still named on
+     the Credits page, which is the one place a person should be. */
   const ABOUT_OWNER = '__PRIVACY_OWNER__';
-  const ABOUT_EMAIL = '__PRIVACY_EMAIL__';
   function aboutWho(v, fallback){
     return (v && v.indexOf('__') !== 0) ? esc(v) : '<u class="about-todo">' + fallback + '</u>';
   }
@@ -49,7 +52,7 @@
       + 'other people in it. They see the name you chose, your buddy, the game '
       + 'you have open, whatever you type in the chat, and the state of the '
       + 'shared timer. Because the connection is direct, they can also see your '
-      + 'device’s network address — that is how a direct connection '
+      + 'device’s network address. That is how a direct connection '
       + 'works, and it is true of every app that makes one. A public signalling '
       + 'service is used to introduce two devices to each other; it sees the room '
       + 'code and the addresses, and not what you send afterwards. Rooms keep '
@@ -79,9 +82,10 @@
       + 'age.</p>'
 
       + '<h4>Who to ask</h4>'
-      + '<p>This app is made and run by ' + aboutWho(ABOUT_OWNER, 'the developer')
-      + '. Questions, corrections, or a request to delete an account go to '
-      + aboutWho(ABOUT_EMAIL, 'the contact address for this build') + '.</p>'
+      + '<p>Questions, corrections, or a request to delete an account go through '
+      + 'Report a problem, in Settings under About. It opens your own mail app '
+      + 'with the message ready, so you can read it and see where it is going '
+      + 'before anything is sent.</p>'
       + '<p class="about-date">Last updated ' + ABOUT_UPDATED + '. If this '
       + 'changes, the date changes with it.</p>';
   }
@@ -106,7 +110,7 @@
          CC0 and require nothing; he is named anyway. */
       + '<h4>Pictures</h4>'
       + '<p>The picross pictures are other people’s drawings, reduced to squares.</p>'
-      + '<p><b>game-icons.net</b> — icons by Lorc, Delapouite, John Colburn, '
+      + '<p><b>game-icons.net</b>: icons by Lorc, Delapouite, John Colburn, '
       + 'Felbrigg, John Redman, Carl Olsen, Sbed, PriorBlue, Willdabeast, '
       + 'Viscious Speed, Lord Berandas, Irongamer, HeavenlyDog, Lucas, '
       + 'Faithtoken, Skoll, Andy Meneely, Cathelineau, Kier Heyl, Aussiesim, '
@@ -120,7 +124,7 @@
       + '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" '
       + 'rel="noreferrer">CC BY 4.0</a>. <b>Bootstrap Icons</b>, by the '
       + 'Bootstrap authors, under the MIT licence. And icons by <b>Kenney</b> '
-      + '(kenney.nl), public domain under CC0 — credit is not required there, '
+      + '(kenney.nl), public domain under CC0, credit is not required there, '
       + 'and is here because the work was given away.</p>'
       + '<h4>The games</h4>'
       + '<p>Sudoku, the crossword, the word guess, 2048, Tetris, chess, scrabble, '
@@ -165,7 +169,7 @@
     ['room',    'Focus together',          'Rooms, joining, chat, playing with somebody'],
     ['account', 'Account and syncing',     'Signing in, or two devices disagreeing'],
     ['look',    'Looks, sounds, the shop', 'Weather, the buddy, embers, something you bought'],
-    ['idea',    'An idea or a request',    'Not a fault — something you would like'],
+    ['idea',    'An idea or a request',    'Not a fault, something you would like'],
     ['other',   'Something else',          'None of the above'],
   ];
 
@@ -192,7 +196,7 @@
   function aboutReport(){
     return ''
       + '<p class="about-lede">Pick the closest thing, then say what happened. '
-      + 'It opens your mail app with the message ready \u2014 nothing is sent '
+      + 'It opens your mail app with the message ready. Nothing is sent '
       + 'from here, and nothing goes anywhere until you press send there.</p>'
       + '<h4>What kind of thing is it</h4>'
       + '<div class="rep-kinds" id="rep-kinds">'
@@ -202,7 +206,7 @@
       + '</div>'
       + '<h4>What happened</h4>'
       + '<textarea id="rep-text" rows="6" placeholder="What you did, what you '
-      + 'expected, and what happened instead. If it happens every time, say so \u2014 '
+      + 'expected, and what happened instead. If it happens every time, say so. '
       + 'that is the most useful sentence in any report."></textarea>'
       + '<h4>Sent with it</h4>'
       + '<p class="about-quiet">These go in the message so it does not take three '
@@ -231,7 +235,7 @@
     const said = (($('rep-text') || {}).value || '').trim();
     if(!said){ toast('Say what happened first'); return ''; }
     const k = REPORT_KINDS.find(x=>x[0] === reportKind);
-    const subject = 'Focus Simulator \u2014 ' + (k ? k[1] : 'Report');
+    const subject = 'Focus Simulator: ' + (k ? k[1] : 'Report');
     const body = reportBody();
     const url = 'mailto:' + REPORT_TO
       + '?subject=' + encodeURIComponent(subject)
@@ -244,9 +248,9 @@
     try{ location.href = url; opened = true; }catch(e){ opened = false; }
     try{
       navigator.clipboard.writeText(REPORT_TO + '\n\n' + subject + '\n\n' + body);
-      toast(opened ? 'Opening your mail \u2014 also copied' : 'Copied \u2014 paste it into an email');
+      toast(opened ? 'Opening your mail. Copied it as well' : 'Copied. Paste it into an email');
     }catch(e){
-      toast(opened ? 'Opening your mail' : T('Could not open mail \u2014 write to {addr}', {addr:REPORT_TO}));
+      toast(opened ? 'Opening your mail' : T('Could not open mail. Write to {addr}', {addr:REPORT_TO}));
     }
     return url;
   }

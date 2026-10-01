@@ -360,9 +360,33 @@
      while a block lasts. Keyed so the common case — the same second arriving
      again with nothing changed — costs one string comparison, the same shape
      `Notify.sync` and `vfxSet` use. */
+  /* **Android will not post a notification nobody has said yes to.**
+
+     Since Android 13 `POST_NOTIFICATIONS` is a runtime permission, and the
+     only place in this app that ever asked for it was the App blocking screen.
+     So unless somebody had been in there and set blocking up, the ongoing
+     timer notice was built, handed to the system and dropped on the floor —
+     the channel existed, the alarm was armed, and nothing was ever drawn. You
+     put the phone down mid-block and the timer simply vanished.
+
+     Asked for the first time a block runs, which is the moment it is about to
+     be wanted and the only moment the request explains itself. Once per
+     session of the app, whatever the answer: a permission dialog that comes
+     back every time you press start is worse than no notification. */
+  let GUARD_ASKED_NOTIFY = false;
+  function guardWantNotice(){
+    if(GUARD_ASKED_NOTIFY || !Guard.on) return;
+    try{ if(Guard.status && Guard.status.notifications) return; }catch(e){ return; }
+    GUARD_ASKED_NOTIFY = true;
+    const api = guardApi();
+    if(!api) return;
+    try{ api.requestNotifications().then(()=>Guard.refresh()).catch(()=>{}); }catch(e){}
+  }
+
   function guardPushTimer(){
     if(!Guard.on) return;
     const live = S.mode !== 'setup';
+    if(live) guardWantNotice();
     const running = !!S.running && live;
     const key = live ? (S.mode + '|' + (running ? 1 : 0) + '|' + S.endAt + '|' + S.remaining) : '';
     if(key === Guard.key) return;
@@ -388,8 +412,33 @@
      pressed, and it is what the command has to be applied against. "Continue"
      an hour ago means the block has been running for an hour; working the end
      time out from *now* would silently give back the hour. */
-  function guardApply(cmd, mirror){
+  /* **Back to the clock, not to wherever you were.**
+
+     Returning from the notification or from the block screen is not the same
+     as switching back to the app. You pressed something that was *about the
+     timer* — pause, continue, stop, or "go to Focus" — so the timer is what you
+     asked to see, and landing in a half-finished crossword instead is the app
+     answering a different question.
+
+     Everything openable is already listed in order in `BACK_LAYERS`, so this
+     is the walk Back does, taken all the way down rather than one step. The
+     bound is there because a close that fails to close would otherwise spin. */
+  function guardHome(){
     try{
+      for(let i = 0; i < 12; i++){
+        const top = backTop();
+        if(!top) break;
+        top.close();
+      }
+    }catch(e){}
+  }
+
+  function guardApply(cmd, mirror){
+    /* Every command there is came from outside the app and every one of them is
+       about the clock, so the answer to all of them is the same screen. */
+    if(cmd) guardHome();
+    try{
+      if(cmd === 'home') return;
       if(cmd === 'stop'){
         if(S.mode !== 'setup') stop();
         return;

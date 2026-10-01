@@ -77,7 +77,37 @@
         <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-crossword"></span></span>
       </button>
       <button class="pcard" data-game="picross">
-        <span class="emoji">▩</span>
+        <!-- Drawn, because ▩ was a shading glyph and Scrabble was using the
+             same one.
+
+             A board half worked out: solid down the left where the picture has
+             arrived, still open on the right where it has not. That is what the
+             game looks like in the middle, and it is the one state that says
+             "this is being filled in" rather than "this is a grid".
+
+             **Every box is the same size**, which takes some care in SVG: a
+             stroke is centred on the path, so an outlined rect is a stroke-width
+             wider than a filled one drawn to the same numbers. Both states
+             therefore keep the stroke and only the fill changes — see
+             41-picross.css, where the solid rule does not say `stroke:none`. -->
+        <span class="emoji"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1.4" y="1.4" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="7" y="1.4" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="12.6" y="1.4" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="18.2" y="1.4" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="1.4" y="7" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="7" y="7" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="12.6" y="7" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="18.2" y="7" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="1.4" y="12.6" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="7" y="12.6" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="12.6" y="12.6" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="18.2" y="12.6" width="4.4" height="4.4" rx="1"></rect>
+          <rect x="1.4" y="18.2" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="7" y="18.2" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="12.6" y="18.2" width="4.4" height="4.4" rx="1" class="fill"></rect>
+          <rect x="18.2" y="18.2" width="4.4" height="4.4" rx="1"></rect>
+        </svg></span>
         <span class="pcard-text"><h3>Picross</h3><p>A picture behind its numbers. Three sizes, new every day.</p></span>
         <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-picross"></span></span>
       </button>
@@ -101,6 +131,21 @@
         <span class="emoji">✎</span>
         <span class="pcard-text"><h3>Pictionary<em class="tag">2+</em></h3><p>One draws, everyone else shouts.</p></span>
         <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-pictionary"></span></span>
+      </button>
+      <!-- The one room game where the thing you are hiding is that you do not
+           know something. Three can play, but it is a different game at six. -->
+      <button class="pcard needs-room" data-game="mrwhite">
+        <span class="emoji"><svg viewBox="0 0 24 24" aria-hidden="true">
+          <!-- Three of a kind and one that is not: the whole game in four
+               shapes. The odd one is hollow because Mr White is the one with
+               nothing inside. -->
+          <circle cx="6" cy="8" r="3.1"></circle>
+          <circle cx="15" cy="8" r="3.1"></circle>
+          <circle cx="6" cy="17" r="3.1"></circle>
+          <circle cx="15" cy="17" r="3.1" class="hollow"></circle>
+        </svg></span>
+        <span class="pcard-text"><h3>Mr White<em class="tag">3+</em></h3><p>Everybody but one knows the word. Say something about it without saying it.</p></span>
+        <span class="pcard-side"><span class="pcard-icons"></span><span class="prog" id="prog-mrwhite"></span></span>
       </button>
       <!-- Codenames-style, and the one room game that is about teams rather
            than turns. Two players is enough: the board plays the other side. -->

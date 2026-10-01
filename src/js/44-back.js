@@ -37,6 +37,12 @@
     {id:'stats-overlay',  close:()=>{ const b = $('stats-close'); if(b) b.click(); }},
     {id:'acct-overlay',   close:()=>{ const b = $('acct-close'); if(b) b.click(); }},
     {id:'shop-overlay',   close:()=>{ const b = $('shop-close'); if(b) b.click(); }},
+    /* Above Settings, because the four About pages open from it: Back closes
+       what you were reading and leaves you on the page you opened it from.
+       Without this line Back reached past what is actually on the screen and
+       closed Settings underneath it, leaving the prose stranded over nothing. */
+    {id:'about-overlay',  close:()=>{ const b = $('about-back'); if(b) b.click(); }},
+    {id:'settings-overlay', close:()=>{ const b = $('settings-close'); if(b) b.click(); }},
     /* Above the month, because it opens from it: Back closes the day and
        leaves you on the month, which is where you were. */
     {id:'day-overlay',    close:()=>{ const b = $('day-close'); if(b) b.click(); }},
@@ -100,5 +106,39 @@
     // still something underneath? park another entry for the next press
     setTimeout(backPark, 60);
   });
+
+  /* ---- Android's Back ----
+
+     A browser announces a press through `popstate`, and the parked entry above
+     is the whole reason that works. Android announces nothing: as far as the
+     WebView is concerned there is nowhere to go back to, so the default is to
+     finish the activity, and one press from inside a crossword took the block
+     with it.
+
+     MainActivity forwards every press here and decides nothing itself — see the
+     note in MainActivity.java for why it cannot. This closes the top layer if
+     there is one and asks to be put in the background if there is not.
+     Backgrounded rather than finished: a finished activity is a cold start next
+     time, and a cold start loses whatever block was running.
+
+     **The parked entry is deliberately left where it is.** On this path no
+     `popstate` ever arrives, so nothing consumes it; clearing `BACK_PARKED`
+     here would have `backWatch` push a fresh entry a few hundred milliseconds
+     later and the history would grow by one for every press of Back, for ever.
+
+     On `window` rather than in this scope because the native side reaches it
+     by name. */
+  window.__androidBack = function(){
+    const top = backTop();
+    if(top){
+      try{ top.close(); }catch(e){}
+      return true;
+    }
+    try{
+      const api = guardApi();
+      if(api && api.leave) api.leave();
+    }catch(e){}
+    return false;
+  };
 
   backWatch();

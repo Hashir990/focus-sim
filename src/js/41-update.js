@@ -206,7 +206,7 @@
         box.dataset.have = UPD_VERSION;
         box.innerHTML = n.state === 'ready'
           ? '<div class="upd new"><b>' + esc(T('Version {v} is ready', {v:n.version || ''})) + '</b>'
-            + '<em>It goes in next time you close the app — or now, if you like.</em>'
+            + '<em>It goes in next time you close the app, or now, if you like.</em>'
             + '<button type="button" class="upd-get" id="upd-restart">Restart now</button>'
             + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
           /* **Say what is in it while it comes down.** This showed a version
@@ -242,7 +242,7 @@
         ? '<div class="upd new"><b>' + esc(T('Version {v} is out', {v:v.version})) + '</b>'
           + '<em>' + esc(T('You have {v}.', {v:UPD_VERSION}))
           + (v.notes ? ' <span translate="no">' + esc(v.notes) + '</span>' : '')
-          + (shellAuto ? ' ' + esc(T('It is downloading on its own — nothing to do.')) : '') + '</em>'
+          + (shellAuto ? ' ' + esc(T('It is downloading on its own. Nothing to do.')) : '') + '</em>'
           + (v.url && !shellAuto ? '<a class="upd-get" href="' + esc(v.url)
               + '" target="_blank" rel="noopener">Get it</a>' : '')
           + '<p class="upd-safe">Nothing you have done is touched.</p></div>'

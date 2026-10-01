@@ -74,7 +74,7 @@
        "PAUSED AFTER 4 — TAP PLAY TO CARRY ON", which is thirty-one characters
        and about twice the width there is. Five words, one line. */
     $('subline').textContent = S.autoHold
-      ? T('{n} done — tap play', {n:S.runCount})
+      ? T('{n} done, tap play', {n:S.runCount})
       : S.mode==='focus'
         /* Just the count. "Session 1 of 4" spends two thirds of the line saying
            what the line is, under a clock, on a screen with nothing else it

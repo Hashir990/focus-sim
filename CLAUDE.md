@@ -33,6 +33,7 @@ node tools/make-picross.mjs   # re-check every picross design and rebuild its ba
 node tools/picross-import.mjs <pic.png> --size 15 --append "name"   # a picture → a puzzle
 node tools/picross-sheet.mjs <pack|sheet.png> --size 20 --one --holes 1 --out look/harvest/x-20.json
 node tools/picross-pick.mjs --want 200   # merge the harvest → tools/picross-designs.mjs
+node tools/make-icon.mjs                 # assets/icon.svg → build/icon.png for the installer
 node tools/i18n-coverage.mjs             # what is still in English, screen by screen
 node tools/look-lang.mjs                 # every language's screens → look/lang-<code>.html
 ```
@@ -96,6 +97,19 @@ npm run ship:release -- -Bump patch -Notes "what changed"
   is what a device records when somebody agrees; bump it and the gate comes
   back for everyone on their next start. Do that for a change that matters, and
   only then.
+- **Nothing mobile-only belongs in the desktop package.** `build.files` ships
+  `node_modules/**`, so everything in `dependencies` rides along — and
+  `@capacitor/android` carries a Gradle `build/` folder whose paths reach 258
+  characters. An update does not overwrite the old copy, it uninstalls it, and
+  the uninstaller does that by renaming every installed file into an
+  `old-install` folder under `%TEMP%`. Past 260 characters that rename fails,
+  and the uninstaller reports the one thing it cannot tell it apart from: "File
+  is busy". The installer stops with *Failed to uninstall old application files
+  ... : 2*, running it again does exactly the same, and the person is stuck on
+  the version they have — on that release and every release after it. It
+  surfaces one version *later*, on somebody else's machine, with a dialog that
+  names the wrong cause. `tools/path-check.mjs` measures the packed tree
+  between building and uploading; leave the `!` lines in `build.files` alone.
 - **The merge rules exist twice and must stay byte-identical**: `src/js/47-merge.js`
   and `server/accounts.js`. The server rebuilds the account snapshot, so a key
   the two sides disagree about is silently dropped on sync.

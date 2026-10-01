@@ -168,7 +168,7 @@
       if(!recs.length){
         const p=document.createElement('p'); p.className='cal-empty';
         p.textContent = this.sel > dayKey(Date.now())
-          ? 'No sessions on this day — it hasn’t happened yet.'
+          ? 'No sessions on this day. It hasn’t happened yet.'
           : 'No sessions on this day.';
         box.appendChild(p);
       }

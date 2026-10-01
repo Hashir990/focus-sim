@@ -447,13 +447,13 @@
         const s = saved[p.code];
         const half = s && !s.over && (s.moves || []).length;
         const sub = p.invitedMe ? (p.resuming ? 'Wants to pick your game back up' : 'Wants a game')
-          : p.iInvited ? 'Asked — waiting for them'
+          : p.iInvited ? 'Asked: waiting for them'
           : p.game ? 'You’re playing'
           : p.busy ? 'In a game with someone else'
           : half ? T('Left off at move {n}', {n:Math.ceil(half / 2)})
           : 'Free';
         const cta = p.invitedMe ? 'Accept' : p.game ? 'Open' : p.iInvited ? 'Asked'
-          : p.busy ? '—' : half ? 'Pick it up' : 'Play';
+          : p.busy ? ', ' : half ? 'Pick it up' : 'Play';
         return '<div class="ch-person'+(p.invitedMe?' asks':'')+'">'
           + '<button class="ch-pick" data-code="'+esc(p.code)+'"'+(p.busy && !p.game ? ' disabled' : '')+'>'
           + '<b>'+esc(p.name)+'</b><em>'+esc(sub)+'</em><span>'+cta+'</span></button>'
@@ -520,7 +520,7 @@
 
       const turn = $('ch-turn');
       turn.textContent = g.over ? 'Over'
-        : mine ? (chessInCheck(pos) ? 'Your move — check' : 'Your move')
+        : mine ? (chessInCheck(pos) ? 'Your move, check' : 'Your move')
         : T('{name}’s move', {name:g.oppName});
       turn.classList.toggle('yours', mine && !g.over);
 
@@ -530,14 +530,14 @@
               change places between languages, so no two of them are glued. */
            : g.over.by === this.view.me
              ? (g.over.reason === 'checkmate' ? T('You won by checkmate.')
-                : g.over.reason === 'resignation' ? T('You won — they resigned.')
+                : g.over.reason === 'resignation' ? T('You won. They resigned.')
                 : T('You won by {why}.', {why:T(g.over.reason)}))
              : (g.over.reason === 'checkmate' ? T('{name} won by checkmate.', {name:g.oppName})
-                : g.over.reason === 'resignation' ? T('{name} won — you resigned.', {name:g.oppName})
+                : g.over.reason === 'resignation' ? T('{name} won, you resigned.', {name:g.oppName})
                 : T('{name} won by {why}.', {name:g.oppName, why:T(g.over.reason)})))
         : this.sel >= 0 ? 'Tap a highlighted square, or tap the piece again to put it back.'
         : mine ? 'Tap a piece to see where it can go.'
-        : 'Leave it here and come back — it keeps its place.';
+        : 'Leave it here and come back. It keeps its place.';
 
       // the moves, in pairs, most recent visible
       const rows = [];

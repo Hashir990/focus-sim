@@ -301,7 +301,7 @@
       $('hm-role').textContent = v.alone
         ? 'Nobody else is here yet'
         : v.phase === 'claim'
-          ? (v.canClaim ? 'Up for grabs — first to claim sets it'
+          ? (v.canClaim ? 'Up for grabs: first to claim sets it'
                         : 'You set the last one. Somebody else’s turn.')
         : v.iAmSetter
           ? (v.phase === 'setting' ? 'Your word to set' : 'They’re guessing yours')
@@ -355,7 +355,7 @@
       $('hm-msg').textContent =
         v.alone ? 'Share your code from Focus together and they can join in.'
         : v.phase === 'over'
-          ? (v.over === 'won' ? T('Found it — the word was “{w}”.', {w:v.answer})
+          ? (v.over === 'won' ? T('Found it, the word was “{w}”.', {w:v.answer})
                               : T('Nobody got it. It was “{w}”.', {w:v.answer}))
         : v.phase === 'claim'
           ? (v.canClaim ? 'Whoever claims it first sets the word.'
@@ -363,7 +363,7 @@
         : v.phase === 'setting'
           ? (v.iAmSetter ? 'Letters only. They see the length, not the word.'
                          : T('Waiting for {name} to think of one.', {name:v.setterName}))
-        : v.iAmSetter ? 'Sit tight — you can’t guess your own word.' : '';
+        : v.iAmSetter ? 'Sit tight. You cannot guess your own word.' : '';
     },
   };
 

@@ -140,9 +140,11 @@
       + '<path class="emo-t emo-f" d="M21.5 32q-3.3 5.2-3.3 7.4a3.3 3.3 0 0 0 6.6 0q0-2.2-3.3-7.4Z"/>'
       + '<path class="emo-m emo-s" d="M23.5 44Q32 37 40.5 44"/>',
 
-    /* Tired. Closed eyes bend *down*, a small round mouth, and one zed in the
-       corner the head leaves free. The other two are there for the motion —
-       invisible at rest, they stream up and away when the face nods off. */
+    /* Tired. Closed eyes bend *down*, a small round mouth, and three zeds in
+       the corner the head leaves free. None of them is drawn at rest: they go
+       up one after another when the face nods off, and the corner is empty
+       again afterwards. See the note in 37-emoji.css for why none of them
+       stays. */
     tired:
       '<path class="emo-e emo-el emo-s" d="M18.5 27.5Q23 32 27.5 27.5"/>'
       + '<path class="emo-e emo-er emo-s" d="M36.5 27.5Q41 32 45.5 27.5"/>'

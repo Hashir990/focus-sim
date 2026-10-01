@@ -32,9 +32,63 @@
         });
         if(d.day===today){ S.sessionsToday=d.sessionsToday||0; S.cycle=d.cycle||0; }
         S.day = today;
+        LIVE = d.live && d.day === today ? d.live : null;
       }
     }catch(e){/* first run */}
     S.remaining = S.total = S.focusMin*60;
+    loadLive();
+  }
+
+  /* What `load` found, if anything, and the putting of it back.
+
+     **Separate from `load` because it is the one part that can decline.** A
+     saved block is only worth restoring if it still makes sense: a day old, or
+     finished an hour ago while the phone was off, and the honest answer is to
+     start fresh rather than drop somebody into a countdown that ran out while
+     they were asleep. */
+  let LIVE = null;
+
+  /* How long after a block should have ended it is still worth coming back to.
+     Inside this, the block ran out while you were away and the app should say
+     so; past it, too much has happened and the block is history. */
+  const LIVE_GRACE = 10 * 60 * 1000;
+
+  function loadLive(){
+    const v = LIVE; LIVE = null;
+    if(!v || !v.mode || v.mode === 'setup') return;
+    const now = Date.now();
+    if(v.running){
+      const left = Number(v.endAt) - now;
+      /* Ended while away, and not so long ago that it is somebody else's day:
+         land on the end of the block rather than in the middle of one that is
+         over. */
+      if(left <= 0 && left > -LIVE_GRACE){ S.remaining = 0; }
+      else if(left > 0){ S.remaining = Math.round(left / 1000); }
+      else return;                    // too old to mean anything
+      S.endAt = Number(v.endAt) || 0;
+    }else{
+      const rem = Math.round(Number(v.remaining) || 0);
+      if(rem <= 0) return;
+      S.remaining = rem;
+      S.endAt = 0;
+    }
+    S.mode = v.mode;
+    S.running = false;
+    /* **The loop is not started here.** `start()` renders, broadcasts to the
+       room and reaches for the wake lock and the ambience, none of which are up
+       while the loads are still running. init picks this flag up once
+       everything is; see 90-init.js. */
+    S.resume = !!v.running && S.remaining > 0;
+    S.total = Math.round(Number(v.total) || S.remaining) || S.remaining;
+    S.cycle = Number(v.cycle) || 0;
+    S.runCount = Number(v.runCount) || 0;
+    S.restIsLong = !!v.restIsLong;
+    /* **The same row in the log, not a new one.** The record was left open when
+       the app went, and `logProgress` opens a fresh one whenever it does not
+       know of an open row — which would cut one block into two, each with its
+       own start time, in the calendar and in the streak. */
+    if(v.logId) S.lastLogId = v.logId;
+    try{ logAdopt(v.logId); }catch(e){}
   }
   /* `stamp` is only ever passed as 0, by `Account.wipe()`.
 
@@ -59,6 +113,26 @@
         sessionsToday:S.sessionsToday, cycle:S.cycle, repeat:S.repeat,
         face:S.face, buddy:S.buddy,
         budAnim:S.budAnim|0, budShow:S.budShow !== false,
+        /* **The block that is running, so it survives being closed.**
+
+           Android ends this app whenever it wants the memory, and coming back
+           put you on the setup screen with the clock at twenty-five minutes: a
+           block eighteen minutes in simply stopped existing. The *time* was
+           never lost — the session log writes an open record within seconds of
+           a block starting and keeps it current — but the clock was, and from a
+           chair those are the same thing.
+
+           Only the fields a block is made of. Settings are already above and
+           the log looks after itself; this is the clock, the phase, and where
+           in the cycle of four it had got to. `endAt` is an instant rather
+           than a duration, so time passing while the app is dead counts, which
+           is the whole point. */
+        live:(S.mode === 'setup' ? null : {
+          mode:S.mode, running:!!S.running,
+          endAt:S.endAt, remaining:S.remaining, total:S.total,
+          cycle:S.cycle, runCount:S.runCount, restIsLong:!!S.restIsLong,
+          logId:S.lastLogId || null, at:Date.now()
+        }),
         // when this was last written; what mergeSim compares (47-merge.js)
         at:S.at,
         day:new Date().toDateString()

@@ -14,13 +14,28 @@
      anywhere in the app; rooms are unmoderated because they are peer to peer
      and nothing passes through a server; what you already own keeps its price
      because of `EMB_WAS` and `grand` in 37-embers.js. If one of those stops
-     being true, this has to change with it. */
+     being true, this has to change with it.
+
+     **They name nobody.** The terms used to end on whoever ships the build and
+     an address to write to, and now they end on Report a problem — which is in
+     the app already, opens the reader's own mail client with the message in
+     front of them, and has one address behind it rather than a line repeated
+     through seven documents. Putting a person's name and personal address into
+     a document that ships to every device is a decision the maker should get to
+     take on purpose, and the terms are not the place it gets taken by default.
+     The privacy policy still names a contact, because that one is not optional:
+     a policy with nobody to write to is the part of this the law cares about.
+
+     `TERMS_VERSION` is deliberately not bumped for that change. Nobody's
+     rights or obligations moved — only where a question goes — and re-asking
+     every person on earth to agree again is a worse outcome than a reader
+     finding the route one screen further on. */
 
   const TERMS_VERSION = '2026-09-22';
-  const TERMS_UPDATED = '22 September 2026';
+  const TERMS_UPDATED = '27 September 2026';
   /* **Which country's law.** The app keeps Pakistani time and is made there;
      whoever ships it should confirm this, the same way they fill in the owner
-     and contact lines. */
+     and contact lines in the privacy policy. */
   const TERMS_LAW = 'Pakistan';
   const TERMS_KEY = 'focus_terms';
 
@@ -39,7 +54,8 @@
       + '<p class="about-lede">Focus Simulator is a free focus timer with a rest '
       + 'arcade. These terms are the agreement between you and whoever makes it. '
       + 'They are written to be read: if anything here is unclear, that is a fault '
-      + 'in the terms, and the address at the bottom is where to say so.</p>'
+      + 'in the terms, and Report a problem, in Settings under About, is where to '
+      + 'say so.</p>'
 
       + '<h4>Agreeing to them</h4>'
       + '<p>By using the app you agree to these terms, and to the privacy policy, '
@@ -50,7 +66,7 @@
       + '<p>You may use Focus Simulator for your own personal, non-commercial '
       + 'purposes, on as many of your own devices as you like. Please do not use '
       + 'it to break the law, to harm anybody, or to interfere with the app, its '
-      + 'server, or other people’s use of them — that includes trying to get '
+      + 'server, or other people’s use of them. That includes trying to get '
       + 'into accounts that are not yours, flooding the server with requests, or '
       + 'tampering with anybody else’s progress.</p>'
 
@@ -67,13 +83,13 @@
       + 'responsible for what you send. Be decent: no harassment, threats or '
       + 'hate, nothing sexual involving anybody under 18, no spam, and nothing '
       + 'illegal. If somebody makes a room unpleasant, leave it; to report them, '
-      + 'write to the address below.</p>'
+      + 'use Report a problem, in Settings under About.</p>'
 
       + '<h4>Embers and the shop</h4>'
       + '<p>Embers are earned by focusing and by achievements. They cannot be '
       + 'bought, sold, or exchanged for money or for anything outside the app, '
       + 'and they have no cash value. What you get with them is permission to '
-      + 'use that look, sound, clock face or item inside the app — not '
+      + 'use that look, sound, clock face or item inside the app, not '
       + 'property. Prices and the shelf can change, but anything you have '
       + 'already bought stays yours at the price you paid.</p>'
 
@@ -93,8 +109,8 @@
       + '<h4>No guarantees</h4>'
       + '<p>The app is provided free and as it is, without warranties of any '
       + 'kind. It is looked after carefully, but it may have faults, features may '
-      + 'change or go away, and — although a great deal of work goes into '
-      + 'keeping progress safe — something could still be lost. Signing in keeps '
+      + 'change or go away, and, although a great deal of work goes into '
+      + 'keeping progress safe, something could still be lost. Signing in keeps '
       + 'a copy of your progress on the server, which is the best protection '
       + 'there is.</p>'
 
@@ -122,9 +138,9 @@
       + 'without affecting any rights you have where you live.</p>'
 
       + '<h4>Who to ask</h4>'
-      + '<p>This app is made and run by ' + aboutWho(ABOUT_OWNER, 'the developer')
-      + '. Questions about these terms go to '
-      + aboutWho(ABOUT_EMAIL, 'the contact address for this build') + '.</p>'
+      + '<p>Questions about these terms go through Report a problem, in Settings '
+      + 'under About. It opens your own mail app with the message ready, so you '
+      + 'can read it and see where it is going before anything is sent.</p>'
       + '<p class="about-date">Last updated ' + TERMS_UPDATED + '. If this '
       + 'changes, the date changes with it.</p>';
   }

@@ -37,6 +37,71 @@
  * tools/merge-test.mjs covers the client copy and server/accounts-test.mjs
  * checks this one against the same expectations.
  */
+/* ---- what a session can possibly be ----
+
+   **The log is the only thing anybody has a reason to forge.** Embers are
+   derived from it (see `embersFrom`), and so are the streak, the calendar
+   and a good half of the achievements — so one line typed into `focus_log`
+   from a console buys all of them at once. Nothing running on somebody's own
+   machine can be stopped from writing that line: it is their machine. What
+   can be arranged is that the server does not believe it.
+
+   These are the rules a record has to survive, and they are chosen to have
+   **no false positives**. Every one is something a person physically cannot
+   do, not something a person is unlikely to do:
+
+     * a block cannot run longer than `LOG_MAX`;
+     * it cannot have finished in the future, allowing for a device whose
+       clock is some hours out — which is ordinary, and not suspicious;
+     * and one day cannot hold more than `LOG_DAY` of focus, across every
+       device at once. Sixteen hours is far past anything a person does and
+       still leaves room for a phone and a laptop running together, which is
+       real and does overlap.
+
+   The third is the one with teeth. Without it the first two still let a
+   forged log claim every waking hour of every day it invents. */
+const LOG_SKEW = 6 * 3600 * 1000;     // a clock this far ahead is a wrong clock
+const LOG_MAX = 6 * 3600;             // seconds in one block
+const LOG_DAY = 16 * 3600;            // seconds in one day, across every device
+
+/** Total focus in a log, which is the number everything else is derived from. */
+function logSecs(log){
+  let n = 0;
+  for(const r of (log || [])) n += Math.max(0, (r && r.secs) || 0);
+  return n;
+}
+
+/** One record, on its own terms. `at` is optional: this file reads no clock
+    of its own, and a merge asked to happen without one is still a merge —
+    it simply cannot ask whether a record is in the future. */
+function logPossible(r, at){
+  if(!r || !r.id) return false;
+  const secs = Number(r.secs) || 0;
+  if(!(secs >= 0) || secs > LOG_MAX) return false;
+  if(at && (Number(r.ts) || 0) > at + LOG_SKEW) return false;
+  return true;
+}
+
+/** The whole log with the impossible taken out and each day held to its cap.
+
+    Oldest first within a day, and the cap is reached by dropping what comes
+    after: a real device wrote the early records as the day happened, and a
+    batch that arrives to fill a day up is what arrives last. */
+function logSane(log, at){
+  const day = Object.create(null);
+  const out = [];
+  for(const r of (log || []).filter(x=>logPossible(x, at))
+      .slice().sort((x, y)=>(x.ts || 0) - (y.ts || 0))){
+    const k = String(r.day || '');
+    const secs = Math.max(0, Number(r.secs) || 0);
+    const had = day[k] || 0;
+    if(k && had + secs > LOG_DAY) continue;
+    day[k] = had + secs;
+    out.push(r);
+  }
+  return out.sort((x, y)=>(x.ts || 0) - (y.ts || 0));
+}
+
 function mergeLog(a, b) {
   const by = new Map();
   const take = (r) => {
@@ -274,11 +339,73 @@ function mergeMood(a, b){
   return out;
 }
 
-function mergeSnapshots(local, remote) {
+/* **Focus cannot arrive faster than time passes.** This is the one rule that
+   lives here and nowhere else, because it is the only one that needs a memory:
+   it compares what this account's log adds up to now against what it added up
+   to at the last write, and the difference cannot be larger than the wall-clock
+   time between the two. You cannot focus for ninety minutes in the ten seconds
+   since you last synced, on any number of devices.
+
+   It has no false positives at all — the bound is real time, and real time is
+   what the sessions are made of — and it is what turns the per-record rules
+   from a nuisance into a wall. Those cap what a forged batch can claim; this
+   caps how often a forged batch can arrive.
+
+   The grace is for a device whose clock disagrees with this one by a few
+   minutes, which is common, plus the seconds a block is still running while
+   both ends round it.
+
+   **What it does when the sum is too big is drop the newest records**, not
+   reject the write. A rejection would take a legitimate device's concurrent
+   work down with the forgery; dropping from the end takes the part that
+   arrived last, which is the part that was added. */
+const LOG_GRACE = 15 * 60;            // seconds of slack for clocks and rounding
+
+/* **And the other input that is not made of time.**
+
+   `adjust` is the honest exception in the ember maths: embers that existed
+   before any of it was derivable. Three things in the app write to it — a
+   one-time migration when a stored balance is larger than the derived one, a
+   developer grant, and `settle()` writing off a hole left by a price change —
+   and not one of them is something a server can check. It is also the shortest
+   path there is to a free balance: one number in local storage, no sessions to
+   invent, no clock to beat.
+
+   What can be checked is that it stops moving. The migration happens once, on
+   the first reconcile, which is at or before the first sync — so the first
+   write establishes what this account legitimately had, and everything after
+   it is held to that figure plus a little room. The room is for `settle()`,
+   which is cumulative but should be rare and small; five hundred is more than
+   any real account should ever need and far less than anything worth forging
+   for. It is a ceiling, not an allowance per write: syncing a thousand times
+   does not raise it.
+
+   Set deliberately low rather than generously. If a real account ever reaches
+   it, that is a bug in the ember maths worth finding, and the person sees a
+   balance that is short rather than one that is invented. */
+const ADJ_ROOM = 500;
+
+function logBudget(log, had, since, at) {
+  const rows = (log || []).slice().sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  const grew = Math.max(0, Math.floor(((at || 0) - (since || 0)) / 1000));
+  const budget = Math.max(0, (Number(had) || 0) + grew + LOG_GRACE);
+  let sum = logSecs(rows);
+  while (rows.length && sum > budget) {
+    const r = rows.pop();
+    sum -= Math.max(0, Number(r && r.secs) || 0);
+  }
+  return rows;
+}
+
+function mergeSnapshots(local, remote, at) {
   const A = local || {}, B = remote || {};
   const gone = mergeGone(A.gone, B.gone);
   return {
-    log: mergeLog(A.log, B.log),
+    /* Sieved on the way out, not on the way in: a record that is impossible
+       is impossible however many devices have passed it along, and doing it
+       here means the client's copy of the balance agrees with this one rather
+       than being corrected a moment later. See logSane. */
+    log: logSane(mergeLog(A.log, B.log), at),
     own: mergeSet(A.own, B.own),
     /* Grandfathered prices, unioned exactly like `own`: a device that met the
        price rise owning ten things and one that met it owning twelve should
@@ -748,18 +875,38 @@ async function vaultPut(db, b) {
   if (!id) return bad('not signed in', 401);
   if (!b.snapshot || typeof b.snapshot !== 'object') return bad('no snapshot');
 
-  const row = await db.prepare('SELECT snapshot, rev FROM vaults WHERE account = ?').bind(id).first();
+  const at = now();
+  /* `SELECT *` rather than naming the columns, so this still runs against a
+     database that has not had `focus` added yet. A missing column reads as
+     undefined, which is treated below as "no mark taken yet" — the first write
+     after the migration sets the baseline and every write after it is held to
+     it. Naming the column instead would throw on every sync until somebody ran
+     the ALTER, which is a deployment that breaks quietly. */
+  const row = await db.prepare('SELECT * FROM vaults WHERE account = ?').bind(id).first();
   let merged = b.snapshot, rev = 1;
   if (row) {
     let mine = null;
     try { mine = JSON.parse(row.snapshot); } catch (e) { mine = null; }
-    merged = mine ? mergeSnapshots(mine, b.snapshot) : b.snapshot;
+    merged = mine ? mergeSnapshots(mine, b.snapshot, at) : b.snapshot;
+    /* No mark yet means this is the first write that could take one, and there
+       is nothing to compare against. Taking it as zero would trim everything
+       the account already had. */
+    if (row.focus != null) merged.log = logBudget(merged.log, row.focus, row.at, at);
+    /* Same reasoning for the baseline: a missing column is "not taken yet",
+       and the write that follows the migration takes it. `mergeSnapshots`
+       keeps the larger of the two adjusts, so the clamp has to come after it
+       — a forged value wins the merge and is cut back here. */
+    if (row.adj != null) {
+      merged.adjust = Math.min(Number(merged.adjust) || 0, (Number(row.adj) || 0) + ADJ_ROOM);
+    }
     rev = (row.rev || 0) + 1;
-    await db.prepare('UPDATE vaults SET snapshot = ?, rev = ?, at = ? WHERE account = ?')
-      .bind(JSON.stringify(merged), rev, now(), id).run();
+    await db.prepare('UPDATE vaults SET snapshot = ?, rev = ?, at = ?, focus = ?, adj = ? WHERE account = ?')
+      .bind(JSON.stringify(merged), rev, at, logSecs(merged.log),
+        row.adj != null ? row.adj : (Number(merged.adjust) || 0), id).run();
   } else {
-    await db.prepare('INSERT INTO vaults (account, snapshot, rev, at) VALUES (?,?,?,?)')
-      .bind(id, JSON.stringify(merged), rev, now()).run();
+    await db.prepare('INSERT INTO vaults (account, snapshot, rev, at, focus, adj) VALUES (?,?,?,?,?,?)')
+      .bind(id, JSON.stringify(merged), rev, at, logSecs(merged.log),
+        Number(merged.adjust) || 0).run();
   }
   return json({ ok: true, rev, snapshot: merged });
 }

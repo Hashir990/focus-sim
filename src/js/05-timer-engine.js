@@ -41,7 +41,10 @@
     return false;
   }
 
-  function start(){
+  /* `quiet` is for a block being picked up again after the app was closed:
+     the chime means "carrying on", and nothing was pressed, so there is nothing
+     to answer. See loadLive() in 02-persistence.js. */
+  function start(quiet){
     S.running=true;
     S.autoHold=false;      // whatever paused the run, somebody has answered it
     S.endAt = Date.now() + S.remaining*1000;
@@ -56,7 +59,7 @@
        build. Only focus: rest *is* the break, and pausing the thing somebody
        opened the break to play would be perverse. */
     if(S.mode==='focus'){ try{ Tetris.pause(true); }catch(e){} }
-    ding(true);            // up a fifth: carrying on
+    if(!quiet) ding(true); // up a fifth: carrying on
     acquireWake();
     ambStart();
     clearInterval(loop);
@@ -144,7 +147,7 @@
         Quote.stop();
         S.mode='setup'; S.restIsLong=false; S.remaining=S.total=S.focusMin*60;
         swapView(); render();
-        toast(Tn('{n} session done — nice work', '{n} sessions done — nice work', S.runCount));
+        toast(Tn('{n} session done, nice work', '{n} sessions done, nice work', S.runCount));
         return;
       }
       S.restIsLong = (S.cycle % 4 === 0);
@@ -165,7 +168,7 @@
       if(wasFocus && S.repeat === 0 && S.runCount % AUTO_CAP === 0){
         S.autoHold = true;
         render();
-        toast(Tn('{n} block in — tap play when you are ready to carry on', '{n} blocks in — tap play when you are ready to carry on', S.runCount));
+        toast(Tn('{n} block in, tap play when you are ready to carry on', '{n} blocks in, tap play when you are ready to carry on', S.runCount));
         return;
       }
       setTimeout(()=>{ if(!S.running && S.mode!=='setup') start(); }, 1000);

@@ -61,8 +61,13 @@
   const EMB_LIGHTS = [
     {id:'seaglass', name:'Sea glass', note:'Blue and teal, rising', cost:0,
      accent:'#4fe0c8', fx:'sparks', fxc:'#5ee6d0', fxc2:'#6fb6f5', fxm:1},
+    /* `fxo` holds the wash down. Four shapes the size of the screen at the
+       kind's own opacity added up to a flat ochre field with the quote and the
+       byline sitting on it at almost no contrast — the only look in the shop
+       where the weather beat the words. Lower, and it is light falling across
+       the room again rather than a coat of paint over it. */
     {id:'latesun', name:'Late sun', note:'Yellow into orange, in waves', cost:36,
-     accent:'#f7bd52', fx:'sun', fxc:'#ffe07a', fxc2:'#ff9a3c', fxm:1},
+     accent:'#f7bd52', fx:'sun', fxc:'#ffe07a', fxc2:'#ff9a3c', fxm:1, fxo:.6},
     {id:'dusk', name:'Dusk', note:'Smoke, white through to blue-black', cost:52,
      accent:'#c3cede', fx:'smoke', fxc:'#eef3fb', fxc2:'#55637a', fxm:1},
     /* Bubblegum is the quiet one of the pair: the same purple night, pink
@@ -100,6 +105,15 @@
         already starting to pull it back towards smoke. */
      fxpal:['#ff7a1e', '#ff3b0f', '#ffab3d', '#c21f07', '#ffd27a',
             '#ff5c14', '#ff9326', '#8f2a05', '#ffc266', '#1c0402']},
+    /* **A city, and it is only its windows.** The towers are one colour —
+       near enough the sky's — and everything that makes them read as buildings
+       is the grid of lit windows in them and the way they slide past each
+       other. So the look gives the weather a silhouette in `fxc` and no second
+       colour at all: the windows are drawn from --accent in the CSS, which
+       means the one warm thing on the screen is also the colour of every
+       button, and the whole interface reads as being lit by the city. */
+    {id:'skyline', name:'Skyline', note:'Towers after dark, windows lit', cost:240,
+     accent:'#ffc46b', fx:'towers', fxm:1, fxc:'#04060e'},
     {id:'bubblegum', name:'Bubblegum', note:'Pink lights on a purple night', cost:290,
      accent:'#ff8fd0', fx:'bokeh', fxc:'#ffa6dc', fxc2:'#ff62b4', fxm:1},
     {id:'peony', name:'Peony', note:'Blossom, pink on pink', cost:350,
@@ -123,6 +137,23 @@
        mark you can read at a glance is a mark that competes with the numbers. */
     {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:350,
      accent:'#e01b24', fx:'motes', fxc:'#e01b24', fxc2:'#2438a8', fxm:1},
+    /* **Stars are not white.** A field of identical white dots reads as dirt on
+       the screen; what makes a sky read as a sky is that the colours are
+       *discrete* and mostly-but-not-quite white — a blue one, a warm one, and
+       eight plain ones between them. So this takes a palette rather than a
+       blend, for the same reason Magma does and the opposite effect: there the
+       gap between the colours is the lava, here it is the sameness with a few
+       exceptions in it. The cloud behind them is painted, not thrown; see the
+       nebula note in 31-vfx.css. */
+    {id:'space', name:'Deep space', note:'Stars, and a nebula drifting through', cost:450,
+     accent:'#9fc4ff', fx:'stars', fxc:'#ffffff', fxc2:'#cfe3ff', fxm:1,
+     /* Mostly white, because stars are, with two blues and two warm ones in
+        eleven. **The accent stays blue-white on purpose**: the room it is seen
+        against is crimson now, and blue-white on crimson is the contrast the
+        photographs have — hot young stars in front of hydrogen. A red accent
+        would vanish into it. */
+     fxpal:['#ffffff', '#cfe3ff', '#ffffff', '#ffe6bd', '#b7d2ff', '#ffffff',
+            '#ffd3a0', '#e6efff', '#ffffff', '#9fc4ff', '#fff4e2']},
   ];
 ;
 
@@ -379,6 +410,12 @@
          this does not recognise is a thing that was bought for nothing. See
          `budPriceOf` in 46-buddy.js for how one is parsed. */
       if(id.indexOf(BUD_ITEM) === 0){ try{ return budPriceOf(id); }catch(e){ return 0; } }
+      /* Quote packs, for the same reason and it is not a formality: without
+         this line a pack costs its price once and then refunds itself on the
+         next reconcile, because a list priced at zero looks like nothing was
+         ever spent. That is the shape of the bug that put somebody's balance
+         on zero in 1.3.5, running the other way. */
+      if(id.indexOf(EMB_QP) === 0){ const p = qpack(id.slice(EMB_QP.length)); return p ? p.cost : 0; }
       const l = EMB_LIGHTS.find(x=>x.id === id);
       return l ? l.cost : 0;
     },
@@ -527,7 +564,7 @@
       const sn = LANG === 'en' ? s.name.toLowerCase() : T(s.name);
       if(this.have < s.cost){ toast(T('{n} embers for {name}', {n:s.cost, name:sn})); return; }
       askConfirm(T('Unlock {name}?', {name:sn}),
-        Tn('{n} embers, yours for good — sound, colours and weather.', '{n} embers, yours for good — sound, colours and weather.', s.cost),
+        Tn('{n} embers, yours for good, sound, colours and weather.', '{n} embers, yours for good, sound, colours and weather.', s.cost),
         T('Spend {n}', {n:s.cost}), ()=>{
           if(Embers.have < s.cost) return;
           Embers.have -= s.cost;
@@ -536,6 +573,38 @@
           chime(false);
           toast(T('{name} is yours', {name:T(s.name)}));
           if(then) then();
+        });
+    },
+
+    /** A quote pack. Bought once, then switched on and off for nothing —
+        tapping an owned pack toggles it rather than asking again, because the
+        only thing left to decide after buying is whether it is in the rotation
+        this week. */
+    buyPack(id){
+      const p = qpack(id);
+      if(!p) return;
+      if(qpackOwned(id)){
+        qpackSet(id, !qpackOn(id));
+        this.render();
+        try{ renderQuotesList(); }catch(e){}
+        return;
+      }
+      if(this.have < p.cost){ toast(T('{n} embers for {name}', {n:p.cost, name:T(p.name)})); return; }
+      askConfirm(T('Unlock {name}?', {name:T(p.name)}),
+        Tn('{n} embers, yours for good.', '{n} embers, yours for good.', p.cost),
+        T('Spend {n}', {n:p.cost}), ()=>{
+          if(Embers.have < p.cost) return;
+          Embers.have -= p.cost;
+          Embers.own.push(EMB_QP + id);
+          /* Owning one already puts it in the rotation, so this is only for the
+             case where it was switched off before — after a reset, say, and
+             then bought again. Nobody spends embers on something and then goes
+             looking for the switch that makes it do anything. */
+          qpackSet(id, true);
+          Embers.save(); Embers.render();
+          try{ renderQuotesList(); }catch(e){}
+          chime(false);
+          toast(T('{name} is yours', {name:T(p.name)}));
         });
     },
 
@@ -614,7 +683,7 @@
        from a purchase does not put you at the top of the wrong shelf. */
     tab:'looks',
     TABS:[['looks', 'Looks'], ['sounds', 'Sounds'], ['faces', 'Clock faces'],
-          ['buddy', 'Buddy'], ['antics', 'Antics']],
+          ['quotes', 'Quotes'], ['buddy', 'Buddy'], ['antics', 'Antics']],
 
     /** The block at the top of Your focus. */
     html(){
@@ -694,13 +763,36 @@
               + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : embPrice(f.cost)) + '</em>'
               + '<span>' + esc(f.note) + '</span></button>';
           }).join('') + '</div>')
+        /* Quote packs. Bought here; switched on and off, line by line, in the
+           quote bank — see 16-quotes-ui.js. This pane is only the shop half,
+           and it says where the other half is rather than growing a second
+           copy of it. */
+        + pane('quotes', '<p class="emb-head">' + esc(T('Quotes'))
+        + ' <em>' + esc(T('as many as you like, at once')) + '</em></p>'
+        + '<div class="emb-lights">' + embByPrice(QPACKS).map(p=>{
+            const mine = qpackOwned(p.id);
+            const on = qpackOn(p.id);
+            const afford = this.have >= p.cost;
+            return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
+              + (!mine && !afford ? ' far' : '') + '" data-qpack="' + esc(p.id) + '"'
+              + ' style="--lit:var(--accent)">'
+              + '<i class="emb-dot"></i>'
+              + '<b>' + esc(T(p.name)) + '</b>'
+              /* "owned" either way, because it is: the switch decides whether
+                 it is in the rotation, never whether you still have it. Same
+                 two words the lights and the faces use. */
+              + '<em>' + (mine ? (on ? 'showing' : 'owned') : embPrice(p.cost)) + '</em>'
+              + '<span>' + esc(T(p.note)) + ' · '
+              + esc(Tn('{n} quote', '{n} quotes', p.quotes.length)) + '</span></button>';
+          }).join('') + '</div>'
+        + '<p class="emb-note">' + esc(T('Turn single lines off in the quote bank.')) + '</p>')
         /* The wardrobe and the antics. Both are drawn by 46-buddy.js, next to
            the parts and the prices they are about — see `budShopHtml`. */
         + pane('buddy', (()=>{ try{ return budShopHtml(); }catch(e){ return ''; } })())
         + pane('antics', (()=>{ try{ return budAnticShopHtml(); }catch(e){ return ''; } })())
         + (next ? '<p class="emb-next">' + (this.have >= next.cost
             ? esc(T('You can afford {name}.', {name:LANG === 'en' ? next.name.toLowerCase() : T(next.name)}))
-            : embPrice(next.cost - this.have) + ' ' + esc(T('more for {name} — about {h} hours.',
+            : embPrice(next.cost - this.have) + ' ' + esc(T('more for {name}, about {h} hours.',
                 {name:LANG === 'en' ? next.name.toLowerCase() : T(next.name),
                  h:Math.ceil((next.cost - this.have) * EMB_PER / 3600 * 10) / 10}))) + '</p>'
            : '<p class="emb-next">Every light is yours. That was a lot of hours.</p>')
@@ -719,6 +811,9 @@
       box.innerHTML = this.html();
       box.querySelectorAll('[data-light]').forEach(b=>{
         b.onclick = ()=>Embers.buy(b.dataset.light);
+      });
+      box.querySelectorAll('[data-qpack]').forEach(b=>{
+        b.onclick = ()=>Embers.buyPack(b.dataset.qpack);
       });
       box.querySelectorAll('[data-tab]').forEach(b=>{
         b.onclick = ()=>{ Embers.tab = b.dataset.tab; Embers.render(); };

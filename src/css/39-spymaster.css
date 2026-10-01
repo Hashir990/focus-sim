@@ -93,6 +93,51 @@
    Five across on a phone is about sixty pixels a card, which is why no word in
    the bank is longer than eight letters (the test holds that line). Square-ish
    rather than square: a word is wider than it is tall. */
+/* ---- a side's notes ----
+   A mark is a small square in the corner of a card, in the one place nothing
+   else on a card uses. Not a colour wash over the whole tile: the tiles
+   already carry the key's colours for a spymaster, and a second colour system
+   painted over the first is how you end up unable to read either.
+
+   Three marks, cycled by tapping while the notes button is on. They are drawn
+   for everybody on the side that made them — a spymaster reading them learns
+   nothing they were not already looking at. */
+.sm-notes{
+  display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:10px 0 0;
+}
+.sm-notes.hide{ display:none }
+.sm-notes-help{ font-size:11.5px; color:var(--muted); line-height:1.4 }
+#sm-notes-clear.hide{ display:none }
+.sm-note{
+  position:absolute; top:5px; right:5px; width:9px; height:9px;
+  border-radius:3px; display:block;
+}
+/* Ours is filled, avoid is hollow with a line through it, a maybe is a corner
+   left open — three shapes, so the marks are still three different marks to
+   somebody who cannot tell the colours apart. */
+.sm-card.note-ours .sm-note{ background:#7ee0a8; box-shadow:0 0 0 1px rgba(0,0,0,.35) }
+.sm-card.note-avoid .sm-note{
+  background:transparent; border:1.6px solid #ff8f8f;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);
+}
+.sm-card.note-avoid .sm-note::after{
+  content:''; position:absolute; left:-1px; right:-1px; top:50%;
+  height:1.6px; background:#ff8f8f; transform:rotate(-45deg);
+}
+.sm-card.note-maybe .sm-note{
+  background:transparent; border:1.6px dashed #ffd58a;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);
+}
+/* While notes are open the board says so, because in that mode a tap does
+   something different from what it did a second ago and nothing else on the
+   screen would tell you. */
+.sm-grid[data-noting="1"] .sm-card{
+  cursor:copy;
+  outline:1px dashed color-mix(in srgb, var(--text) 22%, transparent);
+  outline-offset:-3px;
+}
+.sm-grid[data-noting="1"] .sm-card[disabled]{ outline:none }
+
 .sm-grid{
   display:grid; grid-template-columns:repeat(5, 1fr); gap:5px;
   margin:0 0 10px;

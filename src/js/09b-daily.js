@@ -724,11 +724,11 @@
         rule.classList.toggle('hide', !tiles.length);
         rule.textContent = many
           ? T('A streak day means every {game} published that day, finished that day. '
-              + 'Older ones you go back to are still counted everywhere else — just not here.',
+              + 'Older ones you go back to are still counted everywhere else, just not here.',
               {game:LANG === 'en' ? (def.title || this.game).toLowerCase() : T(def.title || this.game)})
           : ('A streak day means that day\u2019s puzzle, finished that day. '
              + 'Older ones you go back to are still counted everywhere else '
-             + '— just not here.');
+             + ', just not here.');
       }
 
       const keys = $('dcal-keys');

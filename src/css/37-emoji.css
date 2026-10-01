@@ -260,25 +260,41 @@
   25%, 38%  { transform:scale(1.55,2.1) }
   52%       { transform:scale(1,1) }
 }
+/* A long way, and bright for most of it. The old one moved thirteen pixels
+   and faded almost as soon as it arrived, which at this size is a shimmer you
+   have to already know about. */
 @keyframes emo-tired-z{
-  0%        { transform:translate(-10px,12px) scale(.4); opacity:0 }
-  25%       { opacity:1 }
-  100%      { transform:translate(3px,-6px) scale(1.1); opacity:0 }
+  0%        { transform:translate(-9px,15px) scale(.3); opacity:0 }
+  20%       { opacity:1 }
+  68%       { opacity:.95 }
+  100%      { transform:translate(9px,-16px) scale(1.55); opacity:0 }
 }
 .emo-tired.pop           { animation-name:emo-tired; transform-origin:50% 85% }
 .emo-tired.pop .emo-m    { animation-name:emo-tired-m }
-/* **The resting zed stays where it is; two more stream out past it.** All three
-   used to stream, which meant the one that lives in the corner faded out with
-   the others and was simply missing for the last part of the hold, then popped
-   back in when the class came off — a blink at the end of every yawn. Each of
-   the two is shorter than the face's motion and they start in turn, and the
-   last ends as the face does. Delays are added to `--emo-t`, not written over
-   it, or a redraw would restart the stream on its own. */
-.emo-tired.pop .emo-z2, .emo-tired.pop .emo-z3{
-  animation-name:emo-tired-z; animation-duration:.6s; animation-timing-function:ease-out;
+/* **No zed at all until the face is tapped.**
+
+   There used to be one drawn in the corner permanently with two more streaming
+   past it, and the stream was the half nobody saw: two faint marks crossing a
+   few pixels in six tenths of a second, next to a third that never moved. What
+   registered was a static zed, and a flicker beside it that read as a
+   rendering fault rather than as sleep.
+
+   So the corner is empty at rest and all three go up in turn when you ask. The
+   zed is the answer to the tap now, which is also what the other faces do —
+   the tear only falls on the bad one, the temper only shows on the hard one.
+
+   Each is shorter than the face's motion and the last ends with it: the hold
+   is 1250ms and every motion has to finish by 1100ms, which the suite checks.
+   Delays are added to `--emo-t` rather than written over it, or a redraw
+   part-way through would start the stream again from nothing. */
+.emo-tired .emo-z        { opacity:0 }
+.emo-tired.pop .emo-z{
+  animation-name:emo-tired-z; animation-duration:.58s;
+  animation-timing-function:cubic-bezier(.22,.66,.3,1);
 }
-.emo-tired.pop .emo-z2   { animation-delay:calc(.35s + var(--emo-t, 0s)) }
-.emo-tired.pop .emo-z3   { animation-delay:calc(.5s + var(--emo-t, 0s)) }
+.emo-tired.pop .emo-z1   { animation-delay:calc(.05s + var(--emo-t, 0s)) }
+.emo-tired.pop .emo-z2   { animation-delay:calc(.27s + var(--emo-t, 0s)) }
+.emo-tired.pop .emo-z3   { animation-delay:calc(.49s + var(--emo-t, 0s)) }
 
 /* ---- the row of faces ----
    **No boxes.** The face is the button: the hit area is 44px and nothing is

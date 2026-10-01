@@ -76,7 +76,7 @@
       G2048._tilesFromBoard();
       G2048.persist();
       G2048.render();
-      return 'Board set — one move left will make 2048.';
+      return 'Board set. One move left will make 2048.';
     }
 
     return 'Nothing to fill in ' + which + ' on your own; it needs a room.';
@@ -322,7 +322,7 @@
       + '</div>'
       + '<p class="dev-note">The balance is worked out from focus time and what has'
       + ' been bought, so anything handed over here is written down as carried'
-      + ' history — otherwise it is gone by the next start. Putting it right'
+      + ' history. Otherwise it is gone by the next start. Putting it right'
       + ' writes off spending nothing paid for, which is what makes embers look'
       + ' stuck at zero after owning everything.</p>'
 
@@ -373,7 +373,7 @@
       try{
         const wrote = Embers.settle();
         say(wrote > 0 ? 'Wrote off ' + wrote + ' nothing had paid for.'
-                      : 'Nothing to write off — the balance already adds up.');
+                      : 'Nothing to write off. The balance already adds up.');
       }catch(e){ say('Could not: ' + e.message); }
       devPaint();
     };
@@ -431,18 +431,22 @@
 
   /* The door, and only in the developer copy.
 
-     The row appears on a stamped build so there is somewhere to type the key,
-     and that is all it does: `devFill` is handed to the page by `devTry` after
-     the key is right, never before, so a stamped build in anybody else's hands
-     has a locked page and no console hook either. */
+     **There is no menu row.** There was one, hidden on every build without the
+     stamp, and a row whose safety is that it is hidden is a row that is one
+     failed condition away from shipping. The way in is `window.devPage`, which
+     exists only on a stamped build, and the only thing that calls it is the
+     Developer button on the bar in dist/dev-unlocked.html — a separate file
+     that is never installed, never published and never handed to anybody. The
+     app people run has the page's markup, inert, and nothing anywhere that
+     opens it.
+
+     Opening it is still not entering it: `devFill` is handed over by `devTry`
+     after the key is right, never before, so even the developer copy in
+     somebody else's hands is a locked page and no console hook. */
   try{
     if(devOn()){
       if(devUnlocked()) window.devFill = devFill;
-      const row = $('d-dev');
-      if(row){
-        row.classList.remove('hide');
-        row.onclick = ()=>{ closeDrawer(); devOpen(); };
-      }
+      window.devPage = devOpen;
       if($('dev-close')) $('dev-close').onclick = ()=>devClose();
     }
   }catch(e){}

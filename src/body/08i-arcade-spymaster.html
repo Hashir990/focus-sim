@@ -38,6 +38,13 @@
           <button class="mini-btn on" id="sm-send">Give clue</button>
         </div>
         <div class="sm-grid" id="sm-grid" translate="no"></div>
+        <!-- A side's own memory of the board. Only the guessers may write on
+             it; see the marks note in 36b-spymaster.js. -->
+        <div class="sm-notes hide" id="sm-notes-row">
+          <button class="mini-btn" id="sm-notes">Take notes</button>
+          <button class="mini-btn hide" id="sm-notes-clear">Clear ours</button>
+          <span class="sm-notes-help" id="sm-notes-help"></span>
+        </div>
         <div class="sm-act">
           <button class="mini-btn hide" id="sm-pass">End our turn</button>
           <button class="mini-btn hide" id="sm-again">Back to teams</button>

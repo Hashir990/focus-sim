@@ -187,7 +187,7 @@
       return [
         {v:String(dailyStreak('wordle', '')), n:'streak'},
         {v:String(won.length), n:'found'},
-        {v:avg ? avg.toFixed(1) : '—', n:'guesses'},
+        {v:avg ? avg.toFixed(1) : ', ', n:'guesses'},
       ];
     },
   });

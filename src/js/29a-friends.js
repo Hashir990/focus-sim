@@ -204,7 +204,7 @@
   function friendAsk(raw){
     const u = friendName(raw);
     if(u.length < 2){ toast('Type their username'); return; }
-    if(!friendMe()){ toast('Sign in first — a request comes from your account'); return; }
+    if(!friendMe()){ toast('Sign in first. A request comes from your account'); return; }
     if(u.toLowerCase() === friendMe().toLowerCase()){ toast('That is you'); return; }
     const code = friendCode(u);
     if(!code){ toast('That username will not do'); return; }

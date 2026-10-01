@@ -20,6 +20,18 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 let bad = 0;
+/** One setting out of .env.release, read the same way tools/build.mjs reads it
+    so the two cannot disagree about whether something is set. */
+function envRelease(name) {
+  try {
+    const text = readFileSync(join(root, '.env.release'), 'utf8');
+    const line = text.split('\n').find((l) => l.trim().startsWith(name + '='));
+    return line ? line.slice(line.indexOf('=') + 1).trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
 const ok = (m) => console.log('  ok    ' + m);
 const no = (m, fix) => { bad++; console.log('  ✗     ' + m); if (fix) console.log('        → ' + fix); };
 const note = (m) => console.log('  ·     ' + m);
@@ -33,6 +45,29 @@ if (!target || !target.owner || target.owner === 'OWNER') {
   no('no repository configured', 'npm run setup:updates <your-github-name> <repo-name>');
 } else {
   ok(`publishing to github.com/${target.owner}/${target.repo}`);
+}
+
+/* 1b. who to write to
+   The privacy policy and the credits name whoever runs the app and an address
+   to reach them. Unfilled, they render as red underlined "the developer" and
+   "the contact address for this build" — deliberately loud, in seven languages.
+   Loud is not the same as caught, though: it shipped that way in 1.4.0, because
+   the only thing that would have noticed was somebody opening the privacy page
+   in a release build and reading it. A policy with no one to write to is the
+   one part of this the law actually cares about, which is also why the terms
+   were allowed to drop their copy of it and this was not. */
+/* `FOCUS_PRIVACY_EMAIL` used to be here too and is not any more: neither the
+   privacy policy nor the terms prints an address, so demanding one would be
+   demanding a value nothing reads. Questions go through Report a problem, whose
+   address is REPORT_TO in 50-about.js. */
+for (const [name, what] of [['FOCUS_PRIVACY_OWNER', 'who runs the app']]) {
+  const v = (process.env[name] || envRelease(name) || '').trim();
+  if (!v) {
+    no(`${name} is not set — ${what} is blank in the privacy policy`,
+       `add ${name}=... to .env.release`);
+  } else {
+    ok(`${name} is set (${v})`);
+  }
 }
 
 // 2. the token

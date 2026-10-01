@@ -1,0 +1,27 @@
+<!--
+  Focus Simulator — the mark.
+
+  A dial five eighths of the way round, with an ember in the middle: the two
+  things the app is, in one shape. The ring is the block you are in the middle
+  of, and the ember is what an hour of it is worth.
+
+  Geometry, so it can be redrawn rather than guessed at:
+    r = 34, stroke 9  ->  circumference 2*pi*34 = 213.63
+    5/8 of that       =  133.52 of bright, 80.11 of track
+    round caps add stroke-width in total (half at each end), so the dash is
+    133.52 - 9 = 124.52 and the drawn arc measures the full five eighths.
+    rotate(-90) starts it at twelve o'clock, the way the dial does.
+
+  Colours are the focus phase's, from src/css/00-tokens-base.css:
+    #4fe0c8  accent    the part that has gone
+    #1f5450  track     the part still to go, accent sunk into the background
+    #0b1220  bg        the tile, for the versions that have one
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Focus Simulator">
+  <circle cx="48" cy="48" r="34" fill="none" stroke="#1f5450" stroke-width="9"/>
+  <circle cx="48" cy="48" r="34" fill="none" stroke="#4fe0c8" stroke-width="9"
+          stroke-linecap="round" stroke-dasharray="124.52 213.63"
+          transform="rotate(-90 48 48)"/>
+  <rect x="44.15" y="44.15" width="7.7" height="7.7" rx="1.54" fill="#4fe0c8"
+        transform="rotate(45 48 48)"/>
+</svg>

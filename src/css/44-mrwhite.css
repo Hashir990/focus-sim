@@ -1,0 +1,186 @@
+/* ---- Mr White ----
+   Markup in src/body/08k-arcade-mrwhite.html, filled by src/js/36d-mrwhite.js.
+
+   The page borrows the arcade's furniture where it can — `.mini-btn`, `.banner`,
+   `.sg-need` — so what is written here is the four things this game has that
+   nothing else does: the card that tells you who you are, the row of players
+   with their state on it, the hints as they come in, and the ballot. */
+
+/* The picker icon: three filled and one hollow. See the note in the markup. */
+.pcard[data-game="mrwhite"] .emoji circle{ fill:currentColor }
+.pcard[data-game="mrwhite"] .emoji circle.hollow{
+  fill:none; stroke:currentColor; stroke-width:1.6;
+}
+
+.mw-sec{
+  font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+  margin:16px 2px 8px;
+}
+.mw-sec em{ font-style:normal; letter-spacing:.04em; text-transform:none; opacity:.75 }
+.mw-note{ color:var(--muted); font-size:12.5px; line-height:1.5; margin:10px 2px 0 }
+
+/* ---- the lobby ---- */
+.mw-sets{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px }
+.mw-set{
+  position:relative; text-align:left; cursor:pointer; font:inherit; color:var(--text);
+  padding:11px 12px; border-radius:13px; border:1px solid var(--line); background:var(--card);
+  transition:border-color .18s ease, background .18s ease;
+}
+.mw-set:hover{ border-color:var(--accent) }
+/* The one you voted for. Everybody's vote is visible as a count, because a
+   vote nobody can see is a vote people stop casting. */
+.mw-set.mine{
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.mw-set b{ display:block; font-size:14px; font-weight:600 }
+.mw-set span{ display:block; font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.4 }
+.mw-set em{
+  display:block; font-style:normal; font-size:10.5px; color:var(--muted);
+  margin-top:6px; letter-spacing:.06em; font-variant-numeric:tabular-nums;
+}
+.mw-votes{
+  position:absolute; top:9px; right:10px; font-style:normal;
+  min-width:20px; height:20px; padding:0 5px; border-radius:10px;
+  display:grid; place-items:center; font-size:11px; font-weight:600;
+  background:var(--accent); color:#08111a; font-variant-numeric:tabular-nums;
+}
+.mw-opts{ display:flex; flex-wrap:wrap; gap:7px }
+/* Two Mr Whites needs five people. The row is dimmed rather than hidden so the
+   rule is visible before the room is big enough to use it. */
+.mw-opts.mw-dim button:last-child{ opacity:.4 }
+.mw-go{ margin-top:16px }
+
+/* ---- the card that says who you are ---- */
+.mw-card{
+  margin:4px 0 14px; padding:16px 15px; border-radius:16px; text-align:center;
+  border:1px solid var(--line); background:var(--card);
+}
+.mw-card b{
+  display:block; font-family:'Fraunces',serif; font-style:italic; font-weight:400;
+  font-size:26px; line-height:1.15; letter-spacing:-.01em;
+}
+.mw-card span{ display:block; margin-top:8px; font-size:12.5px; color:var(--muted); line-height:1.5 }
+.mw-card.civ{
+  border-color:color-mix(in srgb, var(--accent) 40%, transparent);
+  background:color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.mw-card.civ b{ color:var(--accent) }
+/* Mr White's card is the one that is not the accent colour, which is the only
+   difference anybody glancing at a neighbour's screen would notice — so it is
+   also the one nobody should be glancing at. */
+.mw-card.white{
+  border-color:rgba(240,201,138,.34); background:rgba(240,201,138,.08);
+}
+.mw-card.white b{ color:#f0c98a; font-size:21px }
+
+/* ---- who is in ---- */
+.mw-players{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px }
+.mw-player{
+  flex:1 1 118px; padding:8px 10px; border-radius:11px;
+  border:1px solid var(--line); background:var(--card); min-width:0;
+}
+.mw-player b{ display:block; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.mw-player b em{ font-style:normal; font-weight:400; color:var(--muted); font-size:11px }
+.mw-player span{ display:block; font-size:10.5px; color:var(--muted); letter-spacing:.04em; min-height:13px }
+.mw-player i{ display:block; font-style:normal; font-size:10.5px; margin-top:2px; color:var(--accent) }
+.mw-player.turn{ border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent) }
+/* Out, not gone: they can still watch, and the room can still see who it
+   removed. A row that vanished would take the argument with it. */
+.mw-player.out{ opacity:.42 }
+.mw-player.out b{ text-decoration:line-through }
+.mw-player.was-white i{ color:#f0c98a }
+
+/* ---- while the room talks ----
+   The app is not collecting anything here. It holds the clock, says what the
+   round is for, and leaves the talking to the people doing it. */
+.mw-talk{
+  margin:4px 0 14px; padding:14px 14px; border-radius:14px;
+  border:1px dashed var(--line); background:var(--card);
+}
+.mw-talk-note{ margin:0; color:var(--muted); font-size:13px; line-height:1.55 }
+.mw-talk .mini-btn{ margin-top:12px }
+
+.mw-say{ display:flex; gap:8px; margin:4px 0 }
+.mw-say input{
+  flex:1; min-width:0; padding:11px 13px; border-radius:12px; font:inherit; font-size:14px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+}
+.mw-say input::placeholder{ color:var(--muted) }
+.mw-say input:focus{ outline:none; border-color:var(--accent) }
+
+/* ---- the vote ---- */
+.mw-voting{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line) }
+.mw-ballot{ display:flex; flex-direction:column; gap:6px }
+.mw-ballot-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  width:100%; text-align:left; cursor:pointer; font:inherit; font-size:14px; color:var(--text);
+  padding:11px 13px; border-radius:12px; border:1px solid var(--line); background:var(--card);
+  transition:border-color .18s ease, background .18s ease;
+}
+.mw-ballot-row:hover{ border-color:var(--accent) }
+.mw-ballot-row.on{
+  border-color:var(--accent); background:color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.mw-ballot-row[disabled]{ opacity:.45; cursor:default }
+.mw-ballot-row em{ font-style:normal; font-size:11px; color:var(--muted) }
+
+/* ---- Mr White's guess ----
+   Out on its own rather than tucked under the ballot: it is offered for the
+   whole round now, so it needs a rule of its own above it rather than the
+   vote's. */
+.mw-guessing{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line) }
+.mw-guessing .mw-sec{ margin-top:0 }
+#mw-tries{ font-variant-numeric:tabular-nums }
+
+.mw-said{ display:flex; flex-direction:column; gap:6px; margin-top:12px }
+.mw-guess{
+  display:flex; gap:10px; align-items:baseline; font-size:13px;
+  padding:9px 11px; border-radius:11px;
+  border:1px solid rgba(240,201,138,.28); background:rgba(240,201,138,.07);
+}
+.mw-guess b{ flex:0 0 auto; font-size:11px; color:var(--muted); font-weight:500 }
+.mw-guess span{ flex:1 }
+.mw-guess em{ font-style:normal; font-size:11px; color:var(--muted) }
+.mw-guess.right{ border-color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent) }
+.mw-guess.right em{ color:var(--accent) }
+/* Your own guess, before the round it was made in has finished. Nobody else
+   has been shown it, and the dashed edge is what says so — a solid row here
+   would read as something the room already knows, which is the one thing it
+   must not do. */
+.mw-guess.fresh{ border-style:dashed }
+.mw-guess b i{ font-style:normal; opacity:.65 }
+
+.mw-last{
+  margin:0 0 12px; padding:9px 12px; border-radius:11px; font-size:13px;
+  border:1px solid var(--line); background:var(--card); color:var(--text);
+}
+/* The anonymous one. Warm like a guess rather than neutral like a result, and
+   with no name in it to look at — which is the point of it. */
+.mw-heard{
+  margin:0 0 12px; padding:9px 12px; border-radius:11px; font-size:13px;
+  border:1px dashed rgba(240,201,138,.34); background:rgba(240,201,138,.06);
+  color:var(--text);
+}
+
+/* ---- the clock ----
+   Counted down from a deadline the host set, so every screen shows the same
+   number rather than each running its own from when its message landed. */
+.mw-clock{
+  font-variant-numeric:tabular-nums; font-weight:600; font-size:13px;
+  padding:4px 9px; border-radius:9px; background:var(--card); border:1px solid var(--line);
+  color:var(--muted);
+}
+.mw-clock.low{ color:#f0a0a0; border-color:rgba(240,160,160,.35) }
+.mw-clock.hide{ display:none }
+
+/* ---- hiding ----
+   **`.hide` is not a global rule in this app.** Every component declares its
+   own (§2 of HANDOFF), and without these the whole game renders at once: the
+   "you need a room" note *and* the lobby *and* the vote, stacked, before
+   anybody has joined anything. `render()` was toggling the class correctly the
+   entire time and nothing was listening. */
+#mw-need.hide, #mw-lobby.hide, #mw-play.hide,
+#mw-talk.hide, #mw-done.hide, #mw-voting.hide, #mw-guessing.hide,
+#mw-last.hide, #mw-heard.hide, #mw-banner.hide, #mw-start.hide, #mw-again.hide,
+#mw-reset.hide{ display:none }

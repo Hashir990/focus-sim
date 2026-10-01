@@ -14,7 +14,7 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -206,6 +206,10 @@ try{
       + '<button data-go="stats">Shelf</button>'
       + '<button data-go="fill">Fill board</button>'
       + '<button data-go="lock">' + (locked() ? 'Unlock all' : 'Lock all') + '</button>'
+      /* The only way into the developer page, anywhere. It used to be a row in
+         the app's own menu, hidden on any build without the stamp; it is here
+         instead, in the file that is never installed and never published. */
+      + '<button data-go="dev">Developer</button>'
       + '<span class="sp"></span><b>embers</b>'
       + '<button data-emb="-100">−100</button>'
       + '<button data-emb="-10">−10</button>'
@@ -238,6 +242,17 @@ try{
     else if(b.dataset.go === 'begin'){ var el = $('begin'); if(el) el.click(); setTimeout(draw, 60); }
     else if(b.dataset.go === 'skip'){ var s = $('skip'); if(s) s.click(); setTimeout(draw, 60); }
     else if(b.dataset.go === 'stats'){ var d = $('d-stats'); if(d) d.click(); }
+    else if(b.dataset.go === 'dev'){
+      /* window.devPage is only defined on a stamped build — see the door at the
+         foot of src/js/42-dev.js. Without .env.local this file still builds and
+         still works; it simply has no developer page to open, and says so
+         rather than doing nothing.
+         (No backticks anywhere in here: this whole bar is one template literal,
+         and one of them ends it early and breaks the build.) */
+      var n2 = document.querySelector('.devbar .note');
+      if(typeof window.devPage === 'function') window.devPage();
+      else if(n2) n2.textContent = 'no developer page in this build — needs FOCUS_DEV_KEY in .env.local';
+    }
     else if(b.dataset.go === 'fill'){
       /* Finish whichever board is open — see devFill() in src/js/42-dev.js.
          The bar cannot do this itself: the games live inside the app's closure,
@@ -294,7 +309,14 @@ try{
   /* The one thing that tells the app this is the developer copy. `42-dev.js`
      publishes `window.devFill` only when it sees this, so the shipped
      index.html has no such function and nothing on the page can reach in. */
-  let out = html.replace(/<html([^>]*)>/, '<html$1 data-dev="1">');
+  /* Only if it is not there already. build.mjs writes this stamp too when
+     .env.local turns the developer page on, and both running left
+     `<html ... data-dev="1" ... data-dev="1">` — harmless, because a parser
+     keeps the first, and exactly the kind of thing that is harmless until
+     something reads the last one instead. */
+  let out = /<html[^>]*\sdata-dev="1"/.test(html)
+    ? html
+    : html.replace(/<html([^>]*)>/, '<html$1 data-dev="1">');
   const at = out.indexOf('<script>');
   out = at >= 0 ? out.slice(0, at) + seed + out.slice(at) : seed + out;
   out = out.replace('</body>', bar + '</body>');
@@ -305,7 +327,16 @@ try{
   return dest;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/* **Run directly, or imported by tools/build.mjs.**
+
+   `file://${process.argv[1]}` is the obvious way to write this and it is wrong
+   on Windows: `import.meta.url` is `file:///D:/Focus/tools/dev-build.mjs` and
+   the template gives `file://D:Focus	oolsdev-build.mjs` — different scheme
+   authority, backslashes, no drive slash. The two never matched, so running
+   this file on its own did nothing at all and said nothing about it, which is
+   the worst way for a build step to fail. `pathToFileURL` is what knows the
+   platform. */
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const at = buildDev();
   console.log(at ? 'wrote ' + at : 'dist/index.html not built yet');
 }

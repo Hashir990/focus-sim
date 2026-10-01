@@ -22,8 +22,23 @@
       </span>
     </label>
 
-    <p class="q-sec">Your quotes</p>
-    <div class="q-list" id="q-list"></div>
+    <!-- The packs you have bought, each opening onto its own lines. Filled by
+         renderQuotePacks() in 16-quotes-ui.js; the shop half is in Your focus.
+         Only the quote lists inside are marked translate="no" — a pack's name
+         and the line describing it are the app's words and are translated. -->
+    <div id="q-packs"></div>
+
+    <!-- **A drawer, like the packs above it.** This was a flat list, so a
+         bank with forty quotes in it was forty quotes between you and anything
+         below, and the packs — which are the same thing, bought rather than
+         typed — were one line each. The same shape for both, and the count on
+         the front answers the only question a closed drawer raises. -->
+    <details class="q-pack q-mine" id="q-mine">
+      <summary>
+        <span class="q-pack-name"><b>Your quotes</b><em id="q-mine-n"></em></span>
+      </summary>
+      <div class="q-list" id="q-list"></div>
+    </details>
     <div id="q-lent"></div>
   </div>
 </div>

@@ -177,7 +177,7 @@
       this.busy = true; this.render();
       try{
         const got = await this._post('/vault/get', {token:this.token});
-        const merged = mergeSnapshots(this.snapshot(), got.snapshot);
+        const merged = mergeSnapshots(this.snapshot(), got.snapshot, Date.now());
         this.adopt(merged);
         const put = await this._post('/vault/put', {token:this.token, rev:got.rev, snapshot:merged});
         /* The server may have merged in a third device between our get and our
@@ -247,8 +247,8 @@
            about losing your work is the last place to get grammar wrong: it
            reads as machine-written, and machine-written reads as ignorable. */
         T(bits.length === 1 && /^1 /.test(bits[0])
-          ? 'This device has {list} that is not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead — that carries this device across.'
-          : 'This device has {list} that are not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead — that carries this device across.',
+          ? 'This device has {list} that is not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead, that carries this device across.'
+          : 'This device has {list} that are not saved to any account. Signing in replaces all of it with what is in {acct}, and there is no way back. To keep it, make a new account instead, that carries this device across.',
           {list:listPhrase(bits), acct:email || T('that account')}),
         'Clear and sign in',
         ()=>Account._signIn(email, password, done));
@@ -441,7 +441,7 @@
       chip.innerHTML = this.token
         ? '<i></i><span translate="no">' + esc(this.username) + '</span>'
         : '<span>Sign in</span>';
-      chip.setAttribute('aria-label', this.token ? T('Account — {name}', {name:this.username}) : T('Sign in'));
+      chip.setAttribute('aria-label', this.token ? T('Account: {name}', {name:this.username}) : T('Sign in'));
     },
 
     /* ---- the panel, in Your focus ---- */
@@ -483,7 +483,7 @@
              it. Two lines do: the histories are put together, and where they
              disagree about one session the fuller record wins. */
           + '<p class="acc-hint">This device and your others are merged, never '
-          + 'replaced — where they disagree about a session, the fuller record '
+          + 'replaced, where they disagree about a session, the fuller record '
           + 'wins. It runs on its own; the button is only for not waiting.</p>'
           + '<div id="acc-pass-box"></div>';
         const a = $('acc-sync'); if(a) a.onclick = ()=>Account.sync(false);
@@ -491,7 +491,7 @@
         const p = $('acc-pass'); if(p) p.onclick = ()=>Account.passwordForm();
         return;
       }
-      box.innerHTML = '<p class="emb-head">Account <em>optional — carry your history between devices</em></p>'
+      box.innerHTML = '<p class="emb-head">Account <em>optional: carry your history between devices</em></p>'
         + '<div class="acc-form">'
         + '<input id="acc-email" type="email" placeholder="Email" autocomplete="email" />'
         + '<input id="acc-user" class="hide" type="text" placeholder="Username" autocomplete="username" maxlength="20" />'
@@ -527,7 +527,7 @@
            shown yet reads as a choice you have not made. */
         if(u.classList.contains('hide')){
           u.classList.remove('hide');
-          msg('Pick a username — it is what other people see.');
+          msg('Pick a username. It is what other people see.');
           u.focus();
           return;
         }

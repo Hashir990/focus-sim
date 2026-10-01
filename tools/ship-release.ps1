@@ -238,6 +238,16 @@ if ($LASTEXITCODE -ne 0) {
   Write-Host 'electron-builder exited non-zero; carrying on to the upload, which checks for the files it needs.' -ForegroundColor Yellow
 }
 
+# --- 6b. the copy it installs has to be removable again ----------------------
+# An update uninstalls the old copy before putting the new one down, and the
+# uninstaller moves every installed file into a temp folder to do it. A path
+# too long for that move fails, is reported as "File is busy", and leaves
+# everybody stranded on the version they already have -- one release later, so
+# the build that caused it is long gone. Measured before the upload, because
+# after the upload it is somebody else's problem. See tools/path-check.mjs.
+Step 'Check the packed paths'
+Run 'node' @('tools/path-check.mjs')
+
 # --- 7. upload the four files and read the release back ----------------------
 # publish-assets.ps1 finds the release for this tag including drafts, replaces
 # same-named assets, publishes the draft, sets make_latest, and then reads the

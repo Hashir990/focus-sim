@@ -1,0 +1,60 @@
+<!-- ============ SETTINGS ============
+     What you set once, taken out of the menu.
+
+     The menu had become two things wearing one coat: eight rows that take you
+     somewhere, and then four headings of switches, clock faces, languages and
+     legal text stapled underneath them. On a phone the language chips sat below
+     the fold of a list nobody thinks to scroll, which is the same as not being
+     there — the shelf learned this the hard way, and the note at the top of
+     12c-shop-overlay.html is the same argument as this one.
+
+     Nothing on this page is new. Every control is the same element with the
+     same id, moved — which is why 08-events.js, 38-vfx.js, 43-faces.js,
+     50-about.js, 50b-terms.js and 20-data-io.js still find what they wire
+     without knowing anything went anywhere.
+
+     Ambience stayed in the menu on purpose. It is reached for *during* a
+     session rather than set once and forgotten, and putting another tap in
+     front of starting the rain is putting it in the middle of the thing the
+     app is for. -->
+<div class="overlay hide" id="settings-overlay">
+  <div class="ov-head">
+    <button class="ov-back" id="settings-close" aria-label="Back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div class="ov-title">Settings</div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="ov-body">
+    <!-- No heading over these three. They sit directly under a title that
+         already says Settings, and a heading that repeats the title is
+         furniture. -->
+    <div class="drawer-toggles set-switches">
+      <button class="toggle on" id="t-auto"><span class="dot"></span>Auto‑continue</button>
+      <button class="toggle on" id="t-sound"><span class="dot"></span>Chime</button>
+      <button class="toggle on" id="t-fx"><span class="dot"></span>Effects</button>
+    </div>
+
+    <!-- Filled by faceRender() in 43-faces.js rather than written out here, so
+         the list of faces lives in one place — add one to FACES and it appears.
+         Same `.toggle` chip as the switches above; these are one-of-four rather
+         than on/off, which the highlighted one already says. -->
+    <div class="drawer-sec">Clock face</div>
+    <div class="amb-grid" id="face-pick"></div>
+
+    <!-- Each language written in itself, filled by langRender() in 50b-terms.js.
+         Changing it restarts the app; see 00a-i18n.js for why. -->
+    <div class="drawer-sec">Language</div>
+    <div class="drawer-toggles lang-pick" id="lang-pick"></div>
+
+    <div class="drawer-sec">About</div>
+    <div class="drawer-toggles">
+      <button class="toggle" id="d-privacy"><span class="dot"></span>Privacy</button>
+      <button class="toggle" id="d-terms"><span class="dot"></span>Terms</button>
+      <button class="toggle" id="d-credits"><span class="dot"></span>Credits</button>
+      <button class="toggle" id="d-report"><span class="dot"></span>Report a problem</button>
+    </div>
+
+    <button class="drawer-reset" id="d-reset">Reset progress</button>
+  </div>
+</div>

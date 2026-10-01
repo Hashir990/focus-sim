@@ -36,12 +36,11 @@
       <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
       <span><b>Achievements</b><small>What the hours added up to</small></span>
     </button>
-    <!-- The developer page. Hidden unless the build carries the stamp, which
-         only a build from this machine does; see devFlag in tools/build.mjs. -->
-    <button class="drawer-item hide" id="d-dev">
-      <svg viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
-      <span><b>Developer</b><small>Finish a game, move the day, unlock the shelf</small></span>
-    </button>
+    <!-- The developer page is not a row here any more, on any build. It lives
+         in dist/dev-unlocked.html — a separate file, built alongside this one,
+         with a button on its own bar (tools/dev-build.mjs). A menu row that is
+         hidden on every build anybody else will ever hold is a row that exists
+         to be forgotten about until the day the hiding fails. -->
     <!-- App blocking. **Ships hidden** and is shown by guardMenuRow() in
          51-guard-ui.js only on a build that has the Android plugin: on a desktop
          or in a browser it would be a row that opens a page explaining it cannot
@@ -75,35 +74,22 @@
       <input type="range" id="amb-vol" min="0" max="100" value="55" aria-label="Ambience volume" />
     </div>
 
-    <div class="drawer-sec">Settings</div>
-    <div class="drawer-toggles">
-      <button class="toggle on" id="t-auto"><span class="dot"></span>Auto‑continue</button>
-      <button class="toggle on" id="t-sound"><span class="dot"></span>Chime</button>
-      <button class="toggle on" id="t-fx"><span class="dot"></span>Effects</button>
-    </div>
-    <!-- Filled by faceRender() in 43-faces.js rather than written out here, so
-         the list of faces lives in one place — add one to FACES and it appears.
-         Same `.toggle` chip as the switches above; these are one-of-four rather
-         than on/off, which the highlighted one already says. -->
-    <div class="drawer-sec">Clock face</div>
-    <div class="amb-grid" id="face-pick"></div>
-
-    <!-- Each language written in itself, filled by langRender() in 50b-terms.js.
-         Changing it restarts the app; see 00a-i18n.js for why. -->
-    <div class="drawer-sec">Language</div>
-    <div class="drawer-toggles lang-pick" id="lang-pick"></div>
-
-    <div class="drawer-sec">About</div>
-    <div class="drawer-toggles">
-      <button class="toggle" id="d-privacy"><span class="dot"></span>Privacy</button>
-      <button class="toggle" id="d-terms"><span class="dot"></span>Terms</button>
-      <button class="toggle" id="d-credits"><span class="dot"></span>Credits</button>
-      <button class="toggle" id="d-report"><span class="dot"></span>Report a problem</button>
-    </div>
+    <!-- The switches, the clock face, the language and the legal pages used to
+         hang off the bottom of this list; they are a page of their own now (see
+         src/body/12d-settings.html). What is left here is the places you can
+         go, the one control you reach for mid-session, and the news. -->
     <!-- Only ever visible in a build that has somewhere to check. See
          41-update.js: with no update URL stamped in, this stays empty. -->
     <div id="upd-box" class="hide"></div>
-    <button class="drawer-reset" id="d-reset">Reset progress</button>
+    <!-- Below the news rather than among the rows above it. The rows are the
+         places you go *to do something*, and a hand going down that list is
+         looking for one of them; a row that only holds preferences sitting in
+         the middle of it is one more thing to read past every time. Down here
+         it is where the small print already is, and still one tap away. -->
+    <button class="drawer-settings" id="d-settings">
+      <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+      <span>Settings</span>
+    </button>
     <!-- **This line has to tell the truth.** It has always said the data stays
          on this device, and that was true. With an account it is not, so the
          claim is made by 48-account.js from what is actually the case rather

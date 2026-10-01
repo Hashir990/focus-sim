@@ -144,6 +144,27 @@
      if focus is still running, and that is correct: that time is still passing. */
   function logForget(){ OPEN = null; OPEN_PAID = 0; OPEN_SAVED = 0; OPEN_MUTE = true; }
 
+  /* **Pick a block back up after the app was killed.**
+
+     A record is written open within seconds of a block starting and kept
+     current, so the time is on disk whatever happens to the process. What is
+     not on disk is which row this run should go on accruing to, and without it
+     `logProgress` opens a second row for the same block: two half-sessions,
+     two start times, and a streak counting one block as two.
+
+     `OPEN_PAID` is set to what the row already holds, not to nought, or every
+     second already earned would be paid for twice. */
+  function logAdopt(id){
+    if(!id) return false;
+    const rec = findLog(id);
+    if(!rec || !rec.open) return false;
+    OPEN = rec.id;
+    OPEN_PAID = Math.max(0, Math.round(rec.secs || 0));
+    OPEN_SAVED = OPEN_PAID;
+    OPEN_MUTE = false;
+    return true;
+  }
+
   function logDrop(){
     const rec = OPEN ? findLog(OPEN) : null;
     OPEN = null; OPEN_PAID = 0; OPEN_SAVED = 0; OPEN_MUTE = false;

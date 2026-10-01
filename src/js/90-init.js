@@ -5,7 +5,7 @@
      the files numbered below this one. See 00a-i18n.js. */
   try{ langStart(); }catch(e){}
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
+  Promise.all([load(), loadQuotes(), loadPacks(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
     /* Anything planned for today joins the checklist before the first render,
        so it is simply there rather than appearing a moment later. */
@@ -53,6 +53,11 @@
     /* And behind the terms, the first time: one question on the screen, not
        two stacked on each other. See 50b-terms.js. */
     try{ termsGate(()=>{ try{ moodAsk(); }catch(e){} }); }catch(e){ try{ moodAsk(); }catch(err){} }
+    /* **The block that was running when the app was last closed.** Set by
+       loadLive() in 02-persistence.js, acted on here because start() needs the
+       room, the wake lock and the ambience, and none of those exist until the
+       loads above have finished. Quietly: nothing was pressed. */
+    if(S.resume){ S.resume = false; try{ start(true); }catch(e){} }
     render();
     /* Last, so the first thing it does cannot race the layers it switches off.
        See 49-rest.js: a timer left running for half an hour behind another

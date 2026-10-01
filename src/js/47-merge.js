@@ -30,6 +30,71 @@
   /** Seconds of focus per ember. Kept beside the maths that uses it. */
   const MERGE_PER = 600;
 
+  /* ---- what a session can possibly be ----
+
+     **The log is the only thing anybody has a reason to forge.** Embers are
+     derived from it (see `embersFrom`), and so are the streak, the calendar
+     and a good half of the achievements — so one line typed into `focus_log`
+     from a console buys all of them at once. Nothing running on somebody's own
+     machine can be stopped from writing that line: it is their machine. What
+     can be arranged is that the server does not believe it.
+
+     These are the rules a record has to survive, and they are chosen to have
+     **no false positives**. Every one is something a person physically cannot
+     do, not something a person is unlikely to do:
+
+       * a block cannot run longer than `LOG_MAX`;
+       * it cannot have finished in the future, allowing for a device whose
+         clock is some hours out — which is ordinary, and not suspicious;
+       * and one day cannot hold more than `LOG_DAY` of focus, across every
+         device at once. Sixteen hours is far past anything a person does and
+         still leaves room for a phone and a laptop running together, which is
+         real and does overlap.
+
+     The third is the one with teeth. Without it the first two still let a
+     forged log claim every waking hour of every day it invents. */
+  const LOG_SKEW = 6 * 3600 * 1000;     // a clock this far ahead is a wrong clock
+  const LOG_MAX = 6 * 3600;             // seconds in one block
+  const LOG_DAY = 16 * 3600;            // seconds in one day, across every device
+
+  /** Total focus in a log, which is the number everything else is derived from. */
+  function logSecs(log){
+    let n = 0;
+    for(const r of (log || [])) n += Math.max(0, (r && r.secs) || 0);
+    return n;
+  }
+
+  /** One record, on its own terms. `at` is optional: this file reads no clock
+      of its own, and a merge asked to happen without one is still a merge —
+      it simply cannot ask whether a record is in the future. */
+  function logPossible(r, at){
+    if(!r || !r.id) return false;
+    const secs = Number(r.secs) || 0;
+    if(!(secs >= 0) || secs > LOG_MAX) return false;
+    if(at && (Number(r.ts) || 0) > at + LOG_SKEW) return false;
+    return true;
+  }
+
+  /** The whole log with the impossible taken out and each day held to its cap.
+
+      Oldest first within a day, and the cap is reached by dropping what comes
+      after: a real device wrote the early records as the day happened, and a
+      batch that arrives to fill a day up is what arrives last. */
+  function logSane(log, at){
+    const day = Object.create(null);
+    const out = [];
+    for(const r of (log || []).filter(x=>logPossible(x, at))
+        .slice().sort((x, y)=>(x.ts || 0) - (y.ts || 0))){
+      const k = String(r.day || '');
+      const secs = Math.max(0, Number(r.secs) || 0);
+      const had = day[k] || 0;
+      if(k && had + secs > LOG_DAY) continue;
+      day[k] = had + secs;
+      out.push(r);
+    }
+    return out.sort((x, y)=>(x.ts || 0) - (y.ts || 0));
+  }
+
   /* ---- sessions ---- */
   function mergeLog(a, b){
     const by = new Map();
@@ -361,13 +426,17 @@
     return out;
   }
 
-  function mergeSnapshots(local, remote){
+  function mergeSnapshots(local, remote, at){
     const A = local || {}, B = remote || {};
     /* Both sides' deletions, settled before either list is built — a thing
        deleted anywhere is deleted everywhere, whichever copy still holds it. */
     const gone = mergeGone(A.gone, B.gone);
     return {
-      log: mergeLog(A.log, B.log),
+      /* Sieved on the way out, not on the way in: a record that is impossible
+         is impossible however many devices have passed it along, and doing it
+         here means the client's copy of the balance agrees with the server's
+         rather than being corrected a moment later. See logSane. */
+      log: logSane(mergeLog(A.log, B.log), at),
       own: mergeSet(A.own, B.own),
       /* Grandfathered prices, unioned exactly like `own`: a device that met
          the price rise owning ten things and one that met it owning twelve

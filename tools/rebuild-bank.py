@@ -1451,6 +1451,13 @@ BANNED |= set("""
 cunt
 """.split())
 
+# 2026-10-02 read of the fill: `sens` (slang for sinsemilla) and `ting` (a
+# dialect word for a ringing sound) are not answers a solver should be asked for.
+BANNED |= set("""
+sens ting negro
+""".split())
+# `negro` is an outdated term now considered offensive; a solver should not meet it.
+
 # 2026-09-23. Hashir lifted three whole clusters. The words are gone from the
 # blocks above rather than listed here, so this note is the only record of what
 # they were and why the bans went:

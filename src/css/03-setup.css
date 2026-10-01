@@ -64,7 +64,12 @@
   padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--card);
   color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; transition:.18s ease;
 }
-.toggle .dot{width:8px; height:8px; border-radius:50%; background:var(--muted); transition:.2s ease}
+/* `flex:0 0 auto` because the dot is a flex item in a chip that can be asked to
+   be narrower than its contents. Without it the dot is the thing that gives:
+   8px of width shrinks away, the border-radius follows the box, and a round dot
+   becomes a teal bar wedged against the label — which is what the longest
+   switch on a narrow settings page looked like. */
+.toggle .dot{width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:var(--muted); transition:.2s ease}
 .toggle.on{color:var(--text)}
 .toggle.on .dot{background:var(--accent); box-shadow:0 0 0 4px var(--glow)}
 

@@ -1638,7 +1638,7 @@
       if(have < due){ toast(due + ' embers for that lot'); return; }
       askConfirm(want.length === 1 ? 'Buy the ' + want[0].name.toLowerCase() + '?'
                                    : 'Buy all ' + want.length + '?',
-        want.map(x=>x.name).join(', ') + ' — ' + due + ' embers, yours for good.',
+        want.map(x=>x.name).join(', ') + ', ' + due + ' embers, yours for good.',
         'Spend ' + due, ()=>{
           try{
             if(Embers.have < due) return;
@@ -1806,7 +1806,7 @@
               + '<em>' + esc(BUD_ANIMS[i].n) + '</em></button>').join('')
           + '</div>'
         + (budAnim()
-            ? '<p class="bud-anim-name"><b>' + esc(budAnim().n) + '</b> — ' + esc(budAnim().d) + '</p>'
+            ? '<p class="bud-anim-name"><b>' + esc(budAnim().n) + '</b>: ' + esc(budAnim().d) + '</p>'
             /* **Nothing bought yet, so there is nothing for him to do.** Said
                here rather than left as an empty row, because an empty row reads
                as a thing that has not loaded. */

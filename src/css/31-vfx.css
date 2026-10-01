@@ -646,6 +646,305 @@ body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
   to{ transform:translate3d(var(--dx), var(--dy), 0); opacity:var(--o) }
 }
 
+/* ---- a city after dark ----
+   Rectangles standing on the bottom edge, in bands of depth, each drifting a
+   few degrees of a viewport sideways over a minute or two and coming back.
+   Nothing scrolls: a skyline that scrolls is a train window, and this is meant
+   to be a view. What the drift buys is that near towers cross far ones and the
+   gaps between them open and close, which is the only thing that turns sixteen
+   rectangles into a distance.
+
+   **Its own mask.** The pane's usual falloff is a radial centred on the dial
+   and it reaches almost to nothing at the bottom corners — which is precisely
+   where the city is, so it deleted both ends of it. This one fades downwards
+   instead: the tops of the towers go into the haze, the street stays. */
+.vfx[data-fx="towers"]{
+  -webkit-mask-image:linear-gradient(180deg, transparent 0 13%,
+    rgba(0,0,0,.45) 36%, #000 66% 100%);
+  mask-image:linear-gradient(180deg, transparent 0 13%,
+    rgba(0,0,0,.45) 36%, #000 66% 100%);
+}
+.vfx[data-fx="towers"]::after{ display:none }
+/* The light a city throws back up at its own sky. Without it the towers sit on
+   a flat ground and read as a cut-out; with it there is somewhere for them to
+   be standing. Three gradients, painted once, no animation. */
+.vfx[data-fx="towers"]::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(120% 50% at 50% 106%,
+      color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 70%),
+    radial-gradient(72% 32% at 16% 104%,
+      color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 72%),
+    radial-gradient(72% 32% at 84% 104%,
+      color-mix(in srgb, var(--accent) 11%, transparent) 0%, transparent 72%);
+}
+.vfx[data-fx="towers"] b{
+  width:var(--w); height:var(--s);
+  left:var(--x); top:auto; bottom:0;
+  border-radius:2px 2px 0 0;
+  opacity:var(--o);
+  background-color:var(--c);
+  /* Windows, and the floors that have gone dark, as two tiled gradients rather
+     than as elements. The lit grid is a radial tiled at the tower's own pitch;
+     the dark bands are a repeating linear one at a pitch that is not a multiple
+     of it, so where the two line up drifts down the building and the pattern
+     never repeats inside one tower. Sixteen towers of forty windows each would
+     otherwise be six hundred elements for a thing nobody looks at directly. */
+  background-image:
+    repeating-linear-gradient(0deg,
+      var(--c) 0 var(--dk), transparent var(--dk) calc(var(--dk) * 2.7)),
+    radial-gradient(circle calc(var(--wx) * .17) at 50% 50%,
+      var(--accent) 0 72%, transparent 74%);
+  background-size:100% 100%, var(--wx) var(--wy);
+  /* Longhand, so the smoke test can see the rule exists; see the note on the
+     keys effect above. */
+  animation-name:vfxTower; animation-duration:var(--t);
+  animation-timing-function:ease-in-out; animation-delay:var(--d);
+  animation-iteration-count:infinite; animation-direction:alternate;
+}
+@keyframes vfxTower{
+  from{ transform:translate3d(0,0,0) }
+  to{ transform:translate3d(var(--dx), 0, 0) }
+}
+/* Four rectangles that all stop flat at different heights are a bar chart. A
+   skyline is rectangles that stop *differently*: a mast on one, a setback on
+   another, and on the tall ones the red light that every tall thing has. */
+.vfx[data-fx="towers"] b[data-v="1"]::before{
+  content:''; position:absolute; left:50%; bottom:100%;
+  width:1.6px; height:calc(var(--s) * .17); margin-left:-.8px;
+  background:var(--c);
+}
+.vfx[data-fx="towers"] b[data-v="2"]::before{
+  content:''; position:absolute; left:17%; right:17%; bottom:100%;
+  height:calc(var(--s) * .12);
+  background:var(--c); border-radius:2px 2px 0 0;
+}
+.vfx[data-fx="towers"] b[data-v="3"]::before{
+  content:''; position:absolute; left:50%; bottom:100%;
+  width:2.6px; height:2.6px; margin:0 0 2px -1.3px; border-radius:50%;
+  background:#ff5a4a; box-shadow:0 0 6px 1px rgba(255,90,74,.65);
+  animation-name:vfxBeacon; animation-duration:3.4s;
+  animation-timing-function:ease-in-out; animation-delay:var(--d);
+  animation-iteration-count:infinite;
+}
+/* Mostly off, briefly on. An aircraft light is a blink, not a pulse. */
+@keyframes vfxBeacon{
+  0%, 64%{ opacity:.12 }
+  72%, 80%{ opacity:1 }
+  92%, 100%{ opacity:.12 }
+}
+
+/* ---- deep space ----
+   Stars do not travel, so nothing here does. What a star does is change its
+   mind about how bright it is, on a clock of its own — one property, no blur,
+   no transform, and therefore fifty of them for about what a dozen petals
+   cost.
+
+   **The cloud is painted, not thrown.** A nebula made of particles is a fog
+   made of particles, and a fog made of particles is noise — you can count
+   them. So it is one element, composited once, and moved by transform only.
+
+   **And it is pushed about by fractal noise.** The first version of this was
+   four soft gradients and it read as exactly that: bubbles. Every soft thing
+   in CSS is an ellipse however faint you make it, and what an emission nebula
+   looks like is the opposite of an ellipse — torn filaments, lanes of dust cut
+   through the middle, bright knots where it is collapsing. `feTurbulence` is
+   the only thing in a browser that draws that, and `feDisplacementMap` pushes
+   an ordinary gradient around by it. The filters are in the shell markup.
+
+   The cost is paid once. A filter on an element whose animation is a transform
+   is evaluated when the element is built and composited from then on; had the
+   keyframes touched anything the filter reads, it would re-run every frame and
+   this would be the most expensive thing in the app. */
+.vfx[data-fx="stars"]{
+  -webkit-mask-image:radial-gradient(150% 108% at 50% 46%,
+    #000 0 60%, rgba(0,0,0,.84) 84%, rgba(0,0,0,.6) 100%);
+  mask-image:radial-gradient(150% 108% at 50% 46%,
+    #000 0 60%, rgba(0,0,0,.84) 84%, rgba(0,0,0,.6) 100%);
+}
+.vfx[data-fx="stars"]::after{ display:none }
+/* The far cloud: crimson, because hydrogen is, with the magenta knots the
+   photographs have where new stars are lighting it from inside. Eight lobes
+   rather than four, at sizes that do not divide into each other, so that once
+   the noise has pushed them about there is no repeat to find. */
+.vfx[data-fx="stars"]::before{
+  content:''; position:absolute; inset:-34%; pointer-events:none;
+  background:
+    radial-gradient(38% 30% at 22% 26%, rgba(214,44,74,.40) 0%, transparent 66%),
+    radial-gradient(30% 25% at 34% 38%, rgba(255,58,150,.30) 0%, transparent 62%),
+    radial-gradient(44% 32% at 74% 60%, rgba(186,32,72,.34) 0%, transparent 68%),
+    radial-gradient(22% 18% at 66% 54%, rgba(255,92,176,.30) 0%, transparent 60%),
+    radial-gradient(34% 26% at 58% 12%, rgba(232,60,96,.26) 0%, transparent 70%),
+    radial-gradient(52% 34% at 46% 96%, rgba(168,28,70,.30) 0%, transparent 72%),
+    radial-gradient(26% 20% at 12% 76%, rgba(255,120,90,.16) 0%, transparent 64%),
+    radial-gradient(30% 22% at 88% 22%, rgba(120,60,200,.16) 0%, transparent 66%);
+  filter:url(#vfx-neb);
+  /* Promoted up front. Without it the first frame of the drift is when the
+     browser decides a layer is wanted, which is the one frame that also has to
+     run the filter. */
+  will-change:transform, opacity;
+  animation-name:vfxNebula; animation-duration:210s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  animation-direction:alternate;
+}
+/* The near cloud, over the top of it: a second noise seed at a finer frequency,
+   so the two disagree about where the edges are. One layer of turbulence is a
+   texture; two at different scales is depth, and depth is the only reason any
+   of this reads as being a very long way off. */
+.vfx[data-fx="stars"] .neb{
+  position:absolute; inset:-30%; pointer-events:none;
+  background:
+    radial-gradient(26% 20% at 30% 34%, rgba(255,70,140,.34) 0%, transparent 58%),
+    radial-gradient(20% 16% at 62% 22%, rgba(255,120,190,.26) 0%, transparent 56%),
+    radial-gradient(34% 24% at 72% 70%, rgba(198,36,80,.28) 0%, transparent 62%),
+    radial-gradient(16% 13% at 44% 62%, rgba(255,150,120,.22) 0%, transparent 58%),
+    /* and the dark lanes, which are the ground painted back over the cloud —
+       a nebula without them is a wash, and it is the gaps that give it a
+       shape you can describe */
+    radial-gradient(30% 9% at 40% 44%, rgba(4,3,11,.85) 0%, transparent 70%),
+    radial-gradient(22% 7% at 68% 40%, rgba(4,3,11,.75) 0%, transparent 72%),
+    radial-gradient(36% 8% at 52% 80%, rgba(4,3,11,.70) 0%, transparent 74%);
+  filter:url(#vfx-neb2);
+  will-change:transform, opacity;
+  animation-name:vfxNebulaNear; animation-duration:280s;
+  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+  animation-direction:alternate;
+}
+/* Both of them breathe, and neither of them arrives anywhere: three and a half
+   minutes out, three and a half back. Anything faster is weather. */
+/* **No `scale` in any of these, and that is the whole of why the look stopped
+   being affordable on a phone.**
+
+   A filtered element is rasterised into a layer and the compositor moves the
+   layer about: translate and opacity are free, because neither changes what was
+   drawn. `scale` does. It changes the size the layer has to be drawn at, so
+   every frame of a scaling animation re-runs the filter — and the filter here
+   is `feTurbulence` with four octaves over half again the screen, which is
+   tens of milliseconds of work each time. Sixty times a second it is not an
+   effect, it is a stall.
+
+   Nothing is lost. The breathing was always the opacity and the drift; the
+   scale was a tenth either way across three and a half minutes and nobody
+   could have told you it was there. */
+@keyframes vfxNebula{
+  from{ transform:translate3d(0,0,0); opacity:.5 }
+  to{ transform:translate3d(-3vw, 1.6vh, 0); opacity:.72 }
+}
+@keyframes vfxNebulaNear{
+  from{ transform:translate3d(2vw, -1vh, 0); opacity:.38 }
+  to{ transform:translate3d(-2vw, 1.4vh, 0); opacity:.62 }
+}
+.vfx[data-fx="stars"] b{
+  width:var(--s); height:var(--s);
+  left:var(--x); top:var(--y);
+  animation-name:vfxTwinkle; animation-duration:var(--t);
+  animation-timing-function:ease-in-out; animation-delay:var(--d);
+  animation-iteration-count:infinite;
+}
+/* Not a sine wave. A star holds, dips, comes back a little brighter and holds
+   again; the stops are uneven on purpose, because evenly spaced ones make
+   fifty independent clocks look like one string of fairy lights. */
+@keyframes vfxTwinkle{
+  0%{ opacity:calc(var(--o) * .9) }
+  14%{ opacity:calc(var(--o) * .3) }
+  27%{ opacity:var(--o) }
+  46%{ opacity:calc(var(--o) * .78) }
+  58%{ opacity:calc(var(--o) * .22) }
+  71%{ opacity:calc(var(--o) * .95) }
+  88%{ opacity:calc(var(--o) * .55) }
+  100%{ opacity:calc(var(--o) * .9) }
+}
+/* One in eighteen is near enough to have a flare across it. Two hairlines rather
+   than a halo: a blur on a two-pixel dot is a smudge, and what makes a bright
+   star read as bright is the cross, not the size. */
+.vfx[data-fx="stars"] b[data-v="0"]{
+  box-shadow:0 0 calc(var(--s) * 2.6) calc(var(--s) * .4) var(--c);
+}
+.vfx[data-fx="stars"] b[data-v="0"]::before,
+.vfx[data-fx="stars"] b[data-v="0"]::after{
+  content:''; position:absolute; left:50%; top:50%;
+  width:calc(var(--s) * 9); height:1px;
+  margin:-.5px 0 0 calc(var(--s) * -4.5);
+  background:linear-gradient(90deg, transparent, var(--c), transparent);
+  opacity:.6;
+}
+.vfx[data-fx="stars"] b[data-v="0"]::after{ transform:rotate(90deg) }
+
+/* ---- a galaxy, one at a time ----
+
+   Three of them on one rota. Each takes a third of a long cycle to cross and
+   then waits out the other two thirds, and the three are started a third of a
+   cycle apart — so there is always exactly one on the screen, it is always the
+   next colour along, and the sky is never either empty or crowded. That is
+   `--gi`, which is the place in the rota, and the delay is the whole of the
+   mechanism.
+
+   They were a fraction of the star field before, each on a clock of its own,
+   which meant the number of them was whatever the arithmetic happened to
+   produce and three could arrive together. A thing you are meant to notice
+   should not be a thing that sometimes turns up in threes.
+
+   **They are not bubbles.** Three lobes at different sizes, set off-centre
+   from each other, with a noise seed pushing the lot around — so the outline
+   is ragged, the middle is denser than the ends, and no two are the same
+   shape. The bright knot is a pseudo-element on top, because the one thing
+   every photograph of one of these has is a core brighter than anything
+   around it. */
+.vfx[data-fx="stars"] b.gal{
+  width:min(62vw, 520px); height:min(28vw, 230px);
+  left:50%; top:calc(24% + var(--gi) * 21%);
+  margin:calc(min(28vw, 230px) / -2) 0 0 calc(min(62vw, 520px) / -2);
+  border-radius:50%;
+  background:
+    radial-gradient(closest-side at 38% 44%,
+      color-mix(in srgb, var(--gal2) 92%, transparent) 0%, transparent 54%),
+    radial-gradient(closest-side at 66% 58%,
+      color-mix(in srgb, var(--gal) 74%, transparent) 0%, transparent 62%),
+    radial-gradient(closest-side,
+      color-mix(in srgb, var(--gal) 46%, transparent) 0%,
+      color-mix(in srgb, var(--gal) 16%, transparent) 48%, transparent 80%);
+  filter:url(#vfx-neb3);
+  opacity:0;
+  will-change:transform, opacity;
+  animation-name:vfxGalaxy; animation-duration:330s;
+  animation-delay:calc(var(--gi) * -110s);
+  animation-timing-function:linear; animation-iteration-count:infinite;
+}
+/* The core. Small, much brighter than the cloud, and off-centre — dead centre
+   would read as a target. */
+.vfx[data-fx="stars"] b.gal::before{
+  content:''; position:absolute; left:34%; top:40%;
+  width:22%; height:34%; margin:-17% 0 0 -11%;
+  border-radius:50%;
+  background:radial-gradient(closest-side,
+    color-mix(in srgb, var(--gal2) 96%, transparent) 0%,
+    color-mix(in srgb, var(--gal2) 40%, transparent) 50%, transparent 78%);
+  filter:blur(5px);
+}
+/* Pink, blue, orange, each with a lighter one of itself for the core. A core
+   in a different hue from the cloud around it reads as two objects rather than
+   one lit from inside. */
+.vfx[data-fx="stars"] b.gal[data-g="0"]{ --gal:#e8368f; --gal2:#ffbcdd }
+.vfx[data-fx="stars"] b.gal[data-g="1"]{ --gal:#2f7dd8; --gal2:#a9d6ff }
+.vfx[data-fx="stars"] b.gal[data-g="2"]{ --gal:#e0722a; --gal2:#ffd3a3 }
+/* A third of the cycle crossing, two thirds away. It turns a little as it goes
+   and grows as it passes, so it is coming towards you rather than sliding
+   across a pane of glass — and it is gone, not merely faint, before the next
+   one starts. */
+/* Translate and rotate only, for the reason above: a rotation turns the layer
+   that is already drawn, a scale asks for it to be drawn again. The galaxy no
+   longer grows as it passes — it was a sixth over five minutes, and it cost a
+   full re-filter every frame of those five minutes. */
+@keyframes vfxGalaxy{
+  0%{ transform:translate3d(-64vw, 7vh, 0) rotate(-14deg); opacity:0 }
+  4%{ opacity:.34 }
+  17%{ transform:translate3d(0, 0, 0) rotate(-3deg);
+       opacity:.52 }
+  29%{ opacity:.3 }
+  33%{ transform:translate3d(64vw, -8vh, 0) rotate(11deg); opacity:0 }
+  100%{ transform:translate3d(64vw, -8vh, 0) rotate(11deg); opacity:0 }
+}
+
 /* Weather is the first thing to go: somebody who has asked for less movement
    has asked for exactly this. There is also a switch in the menu. */
 @media (prefers-reduced-motion: reduce){
