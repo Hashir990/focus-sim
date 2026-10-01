@@ -61,6 +61,36 @@
      answer arrives, and released anyway if it never does. */
   const GUARD_HOLD_MS = 3000;
 
+  /* **How long a button press is still about this block.**
+
+     The native side keeps exactly one command in a preference, stamped with
+     the moment it was written, and hands it over the first time this page asks
+     for it. This page only asked on the way back in from the background — so a
+     press that arrived while the app was dead was not applied, it *waited*, and
+     the stamp it was written with was never read by anybody.
+
+     Which is how Stop on the notification, pressed on a block that had already
+     finished, could sit in that slot for six hours, survive the app being
+     killed, and then land on the next block the moment you came back from the
+     block screen: the clock reset to twenty-five minutes with nothing touched
+     and nothing to blame. The command was answered, just not the one you were
+     looking at.
+
+     Two minutes covers every honest case — a press wakes the app and it comes
+     forward in seconds, and a cold start now drains the slot rather than
+     leaving it loaded. Anything older is about a session that is over. */
+  const GUARD_CMD_FRESH = 2 * 60 * 1000;
+
+  /* A missing stamp is treated as fresh: an older build of the plugin did not
+     send one, and refusing every command because of that would be worse than
+     the fault being fixed. Anything in the future is a clock that moved, which
+     is not the command's fault either. */
+  function guardCmdFresh(at){
+    const t = Number(at);
+    if(!t) return true;
+    return Date.now() - t < GUARD_CMD_FRESH;
+  }
+
   /** The plugin, or null everywhere it does not exist. Self-contained on
       purpose — 45-notify.js calls this at load time, from a file that sorts
       before this one, so it may not read anything declared here. */
@@ -166,6 +196,7 @@
         try{ await api.releaseAdmin(); this.status.admin = false; }catch(e){}
       }
       guardPaint();
+      guardNag();
     },
 
     /* The live route. A button pressed while the app happens to be running does
@@ -182,6 +213,47 @@
       }catch(e){}
     },
   };
+
+  /* **Blocking switched on and nothing doing the blocking.**
+
+     The one permission everything rests on is the accessibility service, and
+     Android takes it away on its own: a battery optimiser, a system update, a
+     force stop, "unused app" cleanup. Nothing announces it. The switch in here
+     still says blocking is on, the rules are all still listed, and nothing has
+     been blocked for a week.
+
+     It was already written on the blocking screen, in the place somebody looks
+     once while setting this up and never again. So it is asked instead, which
+     is what being asked is for: the only honest answer to "you turned this on
+     and it is not running" is a question.
+
+     Once per time the app comes to the front, not once ever. Turned off is a
+     state rather than an event, and a state that is still wrong tomorrow is
+     still worth saying — but asking twice in one sitting is nagging, and an
+     app that nags gets its permission revoked rather than granted. */
+  let GUARD_NAGGED = false;
+  function guardNag(){
+    if(!Guard.on || GUARD_NAGGED) return;
+    const cfg = Guard.cfg;
+    /* Only when it would actually be blocking something. Switched off, or on
+       with no rules in it, there is nothing being lost. */
+    if(!cfg || !cfg.on || !cfg.rules || !cfg.rules.some(r=>!r.off)) return;
+    if(Guard.status.accessibility) return;
+    GUARD_NAGGED = true;
+    const api = guardApi();
+    try{
+      askConfirm(T('App blocking is switched off on your phone'),
+        T('Blocking is on in here, but Android has taken back the permission it needs, so nothing is being blocked. Turning it back on takes a moment in Settings.'),
+        T('Open Settings'),
+        ()=>{ try{ api.openSettings({which:'accessibility'}); }catch(e){} },
+        {no:T('Not now')});
+    }catch(e){}
+  }
+  /* Asked again the next time the app is opened or comes back, which is the
+     whole point of it being a per-visit flag rather than a per-install one. */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'hidden') GUARD_NAGGED = false;
+  });
 
   /* ---------------- what a config is allowed to be ----------------
      Everything is cleaned on the way in, because it all reaches the native side
@@ -498,8 +570,30 @@
     const bail = setTimeout(release, GUARD_HOLD_MS);
     api.takeCommand().then((r)=>{
       clearTimeout(bail);
-      if(r && r.cmd) guardApply(r.cmd, r.timer);
+      if(r && r.cmd && guardCmdFresh(r.at)) guardApply(r.cmd, r.timer);
       release();
       render();
     }).catch(()=>{ clearTimeout(bail); release(); });
+  }
+
+  /* **And the slot is emptied on the way in, not only on the way back.**
+
+     `takeCommand` hangs off visibilitychange, which does not fire on a cold
+     start — so a command written while the app was dead was still sitting
+     there at launch, waiting for the first time you switched away and back to
+     go off. Draining here applies the one case that deserves it (you pressed
+     Stop and Android started the app to do it) and throws away everything
+     older, which is the case that was doing the damage.
+
+     After the loads, because applying a command means touching a clock that
+     has to have been read back first. See 90-init.js. */
+  function guardDrain(){
+    const api = guardApi();
+    if(!api) return;
+    try{
+      api.takeCommand().then((r)=>{
+        if(r && r.cmd && guardCmdFresh(r.at)) guardApply(r.cmd, r.timer);
+        render();
+      }).catch(()=>{});
+    }catch(e){}
   }

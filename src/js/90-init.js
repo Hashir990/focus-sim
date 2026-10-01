@@ -58,6 +58,12 @@
        room, the wake lock and the ambience, and none of those exist until the
        loads above have finished. Quietly: nothing was pressed. */
     if(S.resume){ S.resume = false; try{ start(true); }catch(e){} }
+    /* **And whatever was pressed while the app was not there to hear it.**
+       After the resume above, because a Stop pressed on the notification is
+       about the block that has just been read back, not about nothing. Stale
+       commands are dropped rather than applied; see guardDrain in 50-guard.js
+       for what that was doing before anyone noticed. */
+    try{ guardDrain(); }catch(e){}
     render();
     /* Last, so the first thing it does cannot race the layers it switches off.
        See 49-rest.js: a timer left running for half an hour behind another

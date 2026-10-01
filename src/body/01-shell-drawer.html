@@ -16,30 +16,40 @@
        31-vfx.css. -->
   <svg class="vfx-defs" aria-hidden="true" focusable="false" width="0" height="0">
     <defs>
-      <filter id="vfx-neb" x="-40%" y="-40%" width="180%" height="180%"
+      <!-- **The region is the cost.** A filter region is the area the whole
+           chain is computed over, and these were 180% square on elements that
+           are already inset -34%: about nine times the screen, turbulence and
+           a blur over every pixel of it. On a phone that is twenty-odd million
+           pixels of noise for a cloud behind a countdown, and it is the reason
+           Deep space dropped frames after the scaling was taken out of the
+           keyframes. The displacement moves a pixel by at most half its
+           `scale`, so the margin only has to cover that. -->
+      <filter id="vfx-neb" x="-14%" y="-14%" width="128%" height="128%"
               color-interpolation-filters="sRGB">
-        <!-- Three octaves, not four. The fourth is the finest detail in the
-             cloud and it is the half of the cost: each octave is another pass
-             over every pixel, and at this size the fourth one adds a texture
-             nobody can see from arm's length behind a countdown. -->
+        <!-- Two octaves, not four. Each one is another pass over every
+             pixel, and the ones past the second are finer than the blur that
+             runs after them: the cost is real and the detail is thrown away
+             two filter steps later. Going from four to two is what this costs
+             now, and from arm's length behind a countdown the cloud is the
+             same cloud. -->
         <feTurbulence type="fractalNoise" baseFrequency="0.0055 0.011"
-                      numOctaves="3" seed="17" result="n"/>
+                      numOctaves="2" seed="17" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="230"
                            xChannelSelector="R" yChannelSelector="G"/>
         <feGaussianBlur stdDeviation="7"/>
       </filter>
-      <filter id="vfx-neb2" x="-40%" y="-40%" width="180%" height="180%"
+      <filter id="vfx-neb2" x="-12%" y="-12%" width="124%" height="124%"
               color-interpolation-filters="sRGB">
         <feTurbulence type="fractalNoise" baseFrequency="0.009 0.014"
-                      numOctaves="3" seed="52" result="n"/>
+                      numOctaves="2" seed="52" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="150"
                            xChannelSelector="R" yChannelSelector="G"/>
         <feGaussianBlur stdDeviation="4"/>
       </filter>
-      <filter id="vfx-neb3" x="-40%" y="-40%" width="180%" height="180%"
+      <filter id="vfx-neb3" x="-12%" y="-12%" width="124%" height="124%"
               color-interpolation-filters="sRGB">
         <feTurbulence type="fractalNoise" baseFrequency="0.013 0.008"
-                      numOctaves="3" seed="91" result="n"/>
+                      numOctaves="2" seed="91" result="n"/>
         <feDisplacementMap in="SourceGraphic" in2="n" scale="118"
                            xChannelSelector="R" yChannelSelector="G"/>
         <feGaussianBlur stdDeviation="3"/>

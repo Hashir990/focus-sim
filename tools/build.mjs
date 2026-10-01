@@ -11,6 +11,7 @@
  *   node tools/build.mjs --verify  build, then diff against the original
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, watch, existsSync } from 'node:fs';
+import { makePrivacy } from './make-privacy.mjs';
 import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
@@ -140,13 +141,19 @@ const ACCOUNT_URL = process.env.FOCUS_ACCOUNT_URL
    Privacy screen shows a red gap where the name should be — a policy that ships
    saying "the developer" is worse than one that is missing, and this makes that
    impossible to not notice. See §"Your part" in HANDOFF.md. */
+/* These two have real defaults, where the account and update URLs are blank by
+   design. The difference is what a missing value does: with no account URL the
+   app simply has no sign-in, which is a working state — whereas a policy with no
+   contact on it is a policy that fails review and leaves a deletion request
+   nowhere to go. The safe fallback for one is nothing, and for the other it is
+   the real address. Override either from the environment or .env. */
 const PRIVACY_OWNER = process.env.FOCUS_PRIVACY_OWNER
   || envFile('FOCUS_PRIVACY_OWNER')
-  || '__PRIVACY_OWNER__';
+  || 'Hashir Niamatullah';
 
 const PRIVACY_EMAIL = process.env.FOCUS_PRIVACY_EMAIL
   || envFile('FOCUS_PRIVACY_EMAIL')
-  || '__PRIVACY_EMAIL__';
+  || 'hashirniamatullah@gmail.com';
 
 const UPDATE_URL = process.env.FOCUS_UPDATE_URL
   || envFile('FOCUS_UPDATE_URL')
@@ -223,6 +230,12 @@ export function build() {
   writeFileSync(join(DIST, 'index.html'), out, 'utf8');
   // ...and the developer's copy, with everything already bought. See tools/dev-build.mjs.
   try { buildDev(); } catch (e) { console.log('! dev-unlocked.html: ' + e.message); }
+  /* ...and the public copy of the privacy policy, lifted straight out of the
+     bundle that was just written. Generated rather than kept as its own file so
+     that the page a store reviewer reads and the page the app shows cannot
+     drift apart — see tools/make-privacy.mjs for why that is the failure worth
+     designing against. */
+  try { makePrivacy(); } catch (e) { console.log('! docs/privacy.html: ' + e.message); }
   return out;
 }
 

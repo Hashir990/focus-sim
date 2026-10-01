@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy &middot; Focus Simulator</title>
+<meta name="description" content="What Focus Simulator stores, what leaves your device, and what is never collected.">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1220; --bg2:#101a2e; --card:#16203a;
+    --text:#e8eefc; --muted:#8fa0c0; --line:#243356; --accent:#4fe0c8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:radial-gradient(120% 80% at 50% -10%, var(--bg2) 0%, var(--bg) 62%) fixed;
+    color:var(--text);
+    font:16px/1.65 'Space Grotesk',system-ui,-apple-system,sans-serif;
+    padding:0 20px 72px;
+  }
+  .wrap{max-width:660px;margin:0 auto}
+  header{padding:48px 0 8px;border-bottom:1px solid var(--line);margin-bottom:28px}
+  .mark{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .mark i{width:11px;height:11px;border-radius:3px;background:var(--accent);
+    box-shadow:0 0 10px rgba(79,224,200,.5);transform:rotate(45deg);flex:0 0 auto}
+  .mark b{font-size:13px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+  h1{font-size:30px;line-height:1.2;margin:0 0 10px;font-weight:700}
+  header p{margin:0;color:var(--muted);font-size:14px}
+  h4{margin:30px 0 8px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  p{margin:0 0 12px;font-size:15px;line-height:1.7}
+  b{font-weight:600}
+  a{color:var(--accent)}
+  .about-lede{font-size:17px;line-height:1.6;margin-bottom:6px}
+  .about-date{margin-top:22px;font-size:13px;color:var(--muted)}
+  .about-todo{text-decoration:none;padding:1px 6px;border-radius:5px;
+    background:rgba(240,90,90,.16);color:#ff9d9d;font-style:normal}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
+    color:var(--muted);font-size:13.5px}
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f8fc;--bg2:#fff;--text:#16203a;--muted:#5a6a88;--line:#dde3ef;--accent:#0d9488}
+    .mark i{box-shadow:0 0 10px rgba(13,148,136,.35)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark"><i></i><b>Focus Simulator</b></div>
+    <h1>Privacy</h1>
+    <p>What the app keeps, what leaves your device, and what is never collected.</p>
+  </header>
+  <main>
+<p class="about-lede">Focus Simulator keeps what you do on the device you do it on. Nothing here is sold, shared for advertising, or measured to work out who you are. There is no analytics of any kind in this app.</p>
+<h4>What stays on this device</h4><p>Your sessions and how long they ran, your tasks and calendar, the quotes you keep, your embers and everything you have bought with them, your buddy, every saved game, and the mood you set for a day. All of it lives in this app’s own storage. If you never sign in, none of it leaves.</p>
+<h4>What leaves, only if you choose it</h4><p><b>An account.</b> Signing in sends your email address, your chosen username, and a copy of the data above to the app’s own server, so the same progress reaches your other devices. Your password is not stored as you typed it. Nobody is emailed anything except about the account itself.</p>
+<p><b>Focus together.</b> A room connects your device directly to the other people in it. They see the name you chose, your buddy, the game you have open, whatever you type in the chat, and the state of the shared timer. Because the connection is direct, they can also see your device’s network address. That is how a direct connection works, and it is true of every app that makes one. A public signalling service is used to introduce two devices to each other; it sees the room code and the addresses, and not what you send afterwards. Rooms keep nothing: close it and there is no record on any server.</p>
+<p><b>Checking for a new version.</b> The desktop app asks the releases page whether a newer build exists. That request carries nothing but the fact that some device asked.</p>
+<p><b>Typefaces.</b> The app loads two typefaces from Google Fonts when it opens, which means Google can see that a device asked for them.</p>
+<h4>What is never collected</h4><p>No advertising identifiers. No location. No contacts. No microphone or camera. No third-party analytics, crash reporting or tracking. Nothing you write in a task, a quote or a chat is read by anyone running this app.</p>
+<h4>Keeping it, and getting rid of it</h4><p><b>Reset progress</b> in this menu clears this device. If you are signed in, that empties the device and not the account. Deleting your account deletes what the server holds for it; ask at the address below and it is done. Data on the server is kept while the account exists and no longer.</p>
+<h4>Children</h4><p>This app is not aimed at children under 13, and no account should be made for one. Nothing in it is designed to profile anybody, of any age.</p>
+<h4>Who to ask</h4><p>This app is made and run by Hashir N., and questions about your data, corrections, or a request to delete your account go to hashirniamatullah@gmail.com, which is read by a person.</p>
+<p>If something is broken rather than something you want to ask, <b>Report a problem</b> in this menu is quicker: it fills in which version you are running and whether this device is saving properly, which is usually most of the answer.</p>
+<p class="about-date">Last updated 11 September 2026. If this changes, the date changes with it.</p>
+
+  </main>
+  <footer>
+    <p>Focus Simulator is made and run by Hashir N. &mdash;
+    questions, corrections, or a request to delete an account:
+    <a href="mailto:hashirniamatullah@gmail.com">hashirniamatullah@gmail.com</a>.</p>
+    <p>This page is generated from the policy inside the app, so the two always
+    say the same thing. Last updated 11 September 2026.</p>
+  </footer>
+</div>
+</body>
+</html>

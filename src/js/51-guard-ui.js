@@ -122,6 +122,31 @@
     for(const t of guardTargets(rule)) n += (day && day[t] && day[t][field]) || 0;
     return n;
   }
+  /** One target's counts for a day, with every field present. */
+  function guardOne(day, target){
+    const x = (day && day[target]) || {};
+    return {secs:x.secs || 0, opens:x.opens || 0, shown:x.shown || 0,
+            through:x.through || 0, closed:x.closed || 0, quick:x.quick || 0};
+  }
+  /* Minutes until there are enough of them to be hours. "94 min" is a number
+     to work out; "1h 34m" is a length of time. Under a minute says so rather
+     than rounding to nought, because nought reads as "this was not counted". */
+  /* `{m} min` and `{h}h {r}m` are the shell's own, already carrying all six
+     languages and already the shape the rest of the app writes a length of
+     time in. A second pair here would be two spellings of the same minute. */
+  function guardLen(secs){
+    if(secs < 60) return T('under a minute');
+    const m = Math.round(secs / 60);
+    if(m < 60) return T('{m} min', {m});
+    return T('{h}h {r}m', {h:Math.floor(m / 60), r:m % 60});
+  }
+  /* Busiest first, and the ones that were never touched last: a rule covering
+     nine apps is a list you read the top of. */
+  function guardRuleUse(day, rule){
+    return guardTargets(rule)
+      .map(t=>Object.assign({t}, guardOne(day, t)))
+      .sort((a, b)=>(b.secs - a.secs) || (b.opens - a.opens));
+  }
   /** Today's key as the phone counts it, or this device's date if it has not said. */
   function guardToday(){
     if(Guard.day) return Guard.day;
@@ -321,15 +346,29 @@
 
     /* Busiest first. A list in the order the rules were made is a list nobody
        reads past the first line, and the first line is the point. */
-    const rows = cfg.rules.map(r=>({r, secs:guardSum(day, r, 'secs'), opens:guardSum(day, r, 'through'), left:guardSum(day, r, 'closed')}))
-      .filter(x=>x.secs >= 60 || x.opens || x.left)
-      .sort((a, b)=>b.secs - a.secs);
+    /* **Two different numbers used to share the word "opens".**
+
+       `through` is how many times the way through was taken, which is what a
+       daily limit counts against. `opens` is how many times you arrived at
+       something the rule covers at all — including the times you were stopped,
+       and the times the rule was not in force. The row showed `through` under
+       the word "opens", so a rule you reached for thirty times and were
+       stopped by every time read as nought, which is the opposite of what
+       happened. Both are here now and they are named apart. */
+    const rows = cfg.rules.map(r=>({r,
+      secs:guardSum(day, r, 'secs'),
+      opens:guardSum(day, r, 'opens'),
+      through:guardSum(day, r, 'through'),
+      left:guardSum(day, r, 'closed')}))
+      .filter(x=>x.secs >= 60 || x.opens || x.through || x.left)
+      .sort((a, b)=>(b.secs - a.secs) || (b.opens - a.opens));
     if(rows.length){
       h += '<div class="blk-rows">' + rows.map(x=>{
         const mins = Math.round(x.secs / 60);
-        const bits = [(x.r.minutes ? mins + ' of ' + x.r.minutes : mins) + ' min',
-          (x.r.opens ? x.opens + ' of ' + x.r.opens : x.opens) + (x.opens === 1 && !x.r.opens ? ' open' : ' opens')];
-        if(x.left) bits.push('left it ' + x.left);
+        const bits = [x.r.minutes ? T('{n} of {max} min', {n:mins, max:x.r.minutes}) : guardLen(x.secs)];
+        if(x.opens) bits.push(Tn('{n} open', '{n} opens', x.opens));
+        if(x.r.opens) bits.push(T('{n} of {max} through', {n:x.through, max:x.r.opens}));
+        if(x.left) bits.push(T('left it {n}', {n:x.left}));
         return '<div class="blk-row"><span>' + esc(guardRuleTitle(x.r)) + '</span><i>' + esc(bits.join(' · ')) + '</i></div>';
       }).join('') + '</div>';
     }
@@ -599,6 +638,40 @@
         + guardToggles('rafter', [{id:'block', n:'Block until tomorrow'}, {id:'pause', n:'Keep pausing'}], r.after)
         + guardSteps(r, ['cooldown']);
       h += guardSec('Daily limits', false, caps);
+    }
+
+    /* ---- what this rule actually caught today ----
+
+       The summary on the blocking screen adds every rule together, which
+       answers "how is this going" and not "is this rule earning its place".
+       One app in a rule of six can be all of its minutes, and until you can
+       see which one, the only way to find out is to take apps out one at a
+       time for a week.
+
+       Counted whether or not the rule stopped you: arriving at something it
+       covers is the thing worth knowing, and the times it was not in force are
+       exactly the times a rule's hours are set wrong. */
+    {
+      const used = guardRuleUse(Guard.usage[guardToday()] || {}, r);
+      const any = used.some(u=>u.secs || u.opens || u.shown);
+      let seen = '';
+      if(!any){
+        seen = '<p class="blk-note">' + T('Nothing in this rule has been opened today.') + '</p>';
+      }else{
+        seen = '<div class="blk-rows">' + used.filter(u=>u.secs || u.opens || u.shown).map(u=>{
+          const site = u.t.indexOf('site:') === 0;
+          const name = site ? u.t.slice(5) : guardAppName(u.t);
+          const bits = [guardLen(u.secs)];
+          if(u.opens) bits.push(Tn('{n} open', '{n} opens', u.opens));
+          if(u.shown) bits.push(Tn('stopped {n} time', 'stopped {n} times', u.shown));
+          return '<div class="blk-row"><span translate="no">' + esc(name) + '</span>'
+            + '<i>' + esc(bits.join(' · ')) + '</i></div>';
+        }).join('') + '</div>';
+        const tot = used.reduce((a, u)=>({secs:a.secs + u.secs, opens:a.opens + u.opens}), {secs:0, opens:0});
+        seen += '<p class="blk-sub">' + esc(T('{t} across this rule, {n}.',
+          {t:guardLen(tot.secs), n:Tn('{n} open', '{n} opens', tot.opens)})) + '</p>';
+      }
+      h += guardSec('Today, in this rule', false, seen);
     }
 
     h += '<button class="blk-delete" id="blr-delete">Delete this rule</button>';

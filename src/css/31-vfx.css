@@ -767,8 +767,12 @@ body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
    photographs have where new stars are lighting it from inside. Eight lobes
    rather than four, at sizes that do not divide into each other, so that once
    the noise has pushed them about there is no repeat to find. */
+/* **-16%, not -34%.** The inset is there so the drift never shows an edge,
+   and the drift never carries it more than 3vw. Everything past that was area
+   filtered for nothing: the element is the filter's input, so its size
+   multiplies straight into the cost of every pixel of noise. */
 .vfx[data-fx="stars"]::before{
-  content:''; position:absolute; inset:-34%; pointer-events:none;
+  content:''; position:absolute; inset:-16%; pointer-events:none;
   background:
     radial-gradient(38% 30% at 22% 26%, rgba(214,44,74,.40) 0%, transparent 66%),
     radial-gradient(30% 25% at 34% 38%, rgba(255,58,150,.30) 0%, transparent 62%),
@@ -792,7 +796,7 @@ body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
    texture; two at different scales is depth, and depth is the only reason any
    of this reads as being a very long way off. */
 .vfx[data-fx="stars"] .neb{
-  position:absolute; inset:-30%; pointer-events:none;
+  position:absolute; inset:-14%; pointer-events:none;
   background:
     radial-gradient(26% 20% at 30% 34%, rgba(255,70,140,.34) 0%, transparent 58%),
     radial-gradient(20% 16% at 62% 22%, rgba(255,120,190,.26) 0%, transparent 56%),

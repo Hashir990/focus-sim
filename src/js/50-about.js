@@ -20,11 +20,17 @@
   /* Filled in by whoever ships the build. Left visible on purpose: an unfilled
      contact line in a shipped policy is worse than no policy, and it should be
      impossible to miss. See §"Your part" in HANDOFF.md. */
-  /* Only the owner is left. The address went when the privacy policy and the
-     terms both stopped printing one: questions go through Report a problem,
-     which has its own address in REPORT_TO below. The owner is still named on
-     the Credits page, which is the one place a person should be. */
+  /* **The address is back in the policy, and it has to be.** It went when
+     questions were routed through Report a problem, which is the better path
+     for a bug — but a privacy policy is not a bug report. Both app stores
+     require a contact for data questions; a deletion request has to reach
+     somebody even from a person who has already uninstalled the app; and
+     `mailto:` does nothing at all on a device with no mail app set up. So the
+     address is printed plainly as well as offered as a form. `REPORT_TO` below
+     is deliberately a different address: bug reports and data requests are
+     different post, and mixing them loses the one that matters legally. */
   const ABOUT_OWNER = '__PRIVACY_OWNER__';
+  const ABOUT_EMAIL = '__PRIVACY_EMAIL__';
   function aboutWho(v, fallback){
     return (v && v.indexOf('__') !== 0) ? esc(v) : '<u class="about-todo">' + fallback + '</u>';
   }
@@ -82,10 +88,17 @@
       + 'age.</p>'
 
       + '<h4>Who to ask</h4>'
-      + '<p>Questions, corrections, or a request to delete an account go through '
-      + 'Report a problem, in Settings under About. It opens your own mail app '
-      + 'with the message ready, so you can read it and see where it is going '
-      + 'before anything is sent.</p>'
+      /* One sentence, with a comma after the name rather than a full stop. A
+         name can legitimately end in an initial — "Hashir N." — and a full stop
+         straight after it reads as a typo. */
+      + '<p>This app is made and run by ' + aboutWho(ABOUT_OWNER, 'the developer')
+      + ', and questions about your data, corrections, or a request to delete '
+      + 'your account go to ' + aboutWho(ABOUT_EMAIL, 'the contact address for this build')
+      + ', which is read by a person.</p>'
+      + '<p>If something is broken rather than something you want to ask, '
+      + '<b>Report a problem</b> in this menu is quicker: it fills in which '
+      + 'version you are running and whether this device is saving properly, '
+      + 'which is usually most of the answer.</p>'
       + '<p class="about-date">Last updated ' + ABOUT_UPDATED + '. If this '
       + 'changes, the date changes with it.</p>';
   }

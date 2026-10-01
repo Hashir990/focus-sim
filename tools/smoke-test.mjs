@@ -9975,6 +9975,100 @@ await wait(200);
     ow.__r2.S.mode === 'setup', ow.__r2.S.mode);
   ow.close();
 }
+/* ---- a button pressed on the notification goes stale -----------------------
+
+   The native side keeps one command in a preference, stamped, and hands it
+   over the first time the page asks. The page only asked on the way back in
+   from the background, and nothing ever read the stamp -- so Stop, pressed on
+   a block that was already finishing, survived the app being killed and sat in
+   that slot until the next time you came back from the block screen. Then it
+   went off, on a block eighteen minutes in, and the clock read twenty-five
+   minutes again with nothing to say why.
+
+   Four presses, one window each, all on the same block read back from storage:
+   the two that should do nothing, and the two that should do exactly what they
+   say. The stale one is the regression; the fresh ones are there because the
+   cheap fix for it is refusing commands, and a Stop button that stops nothing
+   is not better. */
+{
+  const guardFake = (cmd) => `<script>
+    window.Capacitor = {Plugins: {FocusGuard: (function(){
+      let stored = null;
+      const copy = (o) => JSON.parse(JSON.stringify(o));
+      let left = ${JSON.stringify(cmd)};
+      return {
+        status: async () => ({notifications:true, overlay:true, accessibility:true, admin:false, gray:false}),
+        listApps: async () => ({apps:[]}),
+        setConfig: async (c) => { stored = copy(c); return copy(stored); },
+        getStats: async () => ({usage:{}, day:''}),
+        setTimer: async () => {}, showNotice: async () => {}, hideNotice: async () => {},
+        takeCommand: async () => { const c = left; left = {cmd:''}; return c; },
+        requestNotifications: async () => ({granted:true}),
+        openSettings: async () => {}, requestAdmin: async () => {}, releaseAdmin: async () => {},
+        setTasks: async () => {}, addListener: () => ({remove(){}}),
+      };
+    })()}};
+  </script>
+`;
+
+  /* Eighteen minutes in, seven to go, exactly as save() leaves it. */
+  const began = Date.now() - 18 * 60 * 1000;
+  const seeded = {
+    focus_sim: JSON.stringify({
+      focusMin: 25, breakMin: 5, autoContinue: true, sound: true,
+      sessionsToday: 0, cycle: 0, repeat: 4, face: 'digital',
+      at: Date.now(), day: new Date().toDateString(),
+      live: {
+        mode: 'focus', running: true, endAt: Date.now() + 7 * 60 * 1000,
+        remaining: 7 * 60, total: 25 * 60, cycle: 0, runCount: 0,
+        restIsLong: false, logId: 'gcmd_1', at: Date.now(),
+      },
+    }),
+    focus_log: JSON.stringify([{ id: 'gcmd_1', ts: began, at: Date.now(),
+      day: new Date(began).toISOString().slice(0, 10), secs: 18 * 60,
+      note: '', full: false, open: true }]),
+  };
+
+  const after = async (cmd) => {
+    const { window: cw } = boot(
+      withDoor(html.replace('<script>', guardFake(cmd) + '<script>'), 'window.__c = {S};'),
+      seeded);
+    await wait(1000);
+    /* Away and back, which is the other moment a command is taken. */
+    Object.defineProperty(cw.document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    cw.document.dispatchEvent(new cw.Event('visibilitychange'));
+    await wait(200);
+    Object.defineProperty(cw.document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    cw.document.dispatchEvent(new cw.Event('visibilitychange'));
+    await wait(700);
+    const S2 = cw.__c.S;
+    const out = { mode: S2.mode, running: !!S2.running, remaining: S2.remaining };
+    cw.close();
+    return out;
+  };
+
+  const running = (r) => r.mode === 'focus' && r.running && r.remaining > 300 && r.remaining < 420;
+  const said = (r) => r.mode + (r.running ? ' running ' : ' stopped ') + r.remaining + 's';
+
+  const stale = await after({ cmd: 'stop', at: Date.now() - 6 * 3600 * 1000 });
+  check('a Stop pressed six hours ago does not reach the block running now',
+    running(stale), said(stale));
+
+  const home = await after({ cmd: 'home', at: Date.now() });
+  check('and coming back from the block screen leaves the clock alone',
+    running(home), said(home));
+
+  /* The other half: refusing stale commands must not refuse live ones. */
+  const stop = await after({ cmd: 'stop', at: Date.now() });
+  check('while Stop, pressed just now, still stops it',
+    stop.mode === 'setup' && !stop.running, said(stop));
+
+  const paused = await after({ cmd: 'pause', at: Date.now() });
+  check('and Pause holds it where it was rather than starting it over',
+    paused.mode === 'focus' && !paused.running
+    && paused.remaining > 300 && paused.remaining < 420, said(paused));
+}
+
 // --- verdict ---------------------------------------------------------------
 const allErrors = errors.concat(errors2, hostErr, guestErr, thirdErr);
 log('');
