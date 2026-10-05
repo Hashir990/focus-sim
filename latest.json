@@ -1,6 +1,6 @@
 {
-  "version": "1.5.0",
-  "notes": "Your blocked apps now show what they actually cost you, a block survives the app being killed, Deep space runs smoothly, and the timer stops resetting when you come back from a blocked app",
+  "version": "1.5.1",
+  "notes": "Your crossword no longer loses the clues you filled in on another device, Check now fixes the squares it finds right, picross zooms in with its numbers still on screen, and the app has new type, new surfaces and a rebuilt arcade",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-10-01T21:28:38.498Z"
+  "at": "2026-10-05T18:53:20.843Z"
 }
