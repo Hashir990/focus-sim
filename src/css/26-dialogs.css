@@ -8,12 +8,48 @@
 .confirm.hide{ display:none; }
 .confirm-card{
   width:100%; max-width:320px; padding:20px 20px 16px;
-  border-radius:16px; border:1px solid var(--line);
-  background:var(--bg2); box-shadow:0 18px 44px rgba(0,0,0,.5);
+  border-radius:16px; border:0;
+  background:var(--bg2);
+  box-shadow:0 18px 44px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.3);
 }
 .confirm-card h3{ font-size:16px; font-weight:600; margin:0 0 6px; }
 .confirm-card p{ font-size:13.5px; line-height:1.55; color:var(--muted); margin:0 0 16px; }
 .confirm-card p:empty{ display:none; margin:0 0 10px; }
+/* ---- what you are buying ----
+
+   A swatch of the look itself, between the name and the price. The shop
+   sells nothing but appearances, and the confirmation used to describe one
+   in words: a name, a number, and no sight of the thing. Built by askConfirm
+   from the palette read back out of 30-embers.css, so this is the actual sky
+   and the actual accent rather than an impression of them.
+
+   Hidden by default and emptied on close, because most confirms in this app
+   are questions with nothing to show. */
+.confirm-show{
+  display:flex; align-items:center; gap:12px;
+  margin:0 0 14px; padding:10px;
+  border:1px solid var(--line); border-radius:12px;
+  background:rgba(255,255,255,.04);
+}
+.confirm-show.hide{ display:none }
+/* The sky, and a ring standing in for the dial sitting on it. Proportions
+   follow the timer screen rather than being decorative: it is recognisable
+   as the thing you are about to be looking at for twenty-five minutes. */
+.confirm-sky{
+  position:relative; flex:0 0 auto;
+  width:76px; height:52px; border-radius:9px;
+  overflow:hidden;
+}
+.confirm-ring{
+  position:absolute; left:50%; top:50%;
+  width:26px; height:26px; margin:-13px 0 0 -13px;
+  border-radius:50%; border:2px solid currentColor;
+  opacity:.92;
+}
+.confirm-words{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.confirm-words b{ font-size:14px; font-weight:600; color:var(--text) }
+.confirm-words small{ font-size:11.5px; color:var(--muted) }
+
 .confirm-acts{ display:flex; gap:8px; justify-content:flex-end; align-items:center; }
 /* **The third button has to actually go away.** There is no global
    `.hide{display:none}` in this app — every component hides its own things,

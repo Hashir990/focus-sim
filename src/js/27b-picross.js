@@ -94,6 +94,13 @@
      squares are the right ones, whatever else is pencilled around them. */
   const PIC_EMPTY = 0, PIC_FILL = 1, PIC_MARK = 2;
 
+  /* Fit, then half as big again, then twice, then three times. Thirty across on
+     a phone is about ten pixels a square at Fit, which is under a thumb and
+     under what an eye can count a run of; three times over is comfortably past
+     both. More steps than this and the button becomes a thing you press four
+     times to get anywhere. */
+  const PIC_ZOOMS = [1, 1.5, 2, 3];
+
   const Picross = {
     key:PIC_KEY,
     diff:'easy',
@@ -113,6 +120,13 @@
     _drag:0,           // what a drag across the grid is painting, 0 when not dragging
     _over:0,           // the only state a drag may paint over; see _wire
     _aimAt:-1,         // the square the row-and-column guide is drawn through
+    /* **How far in, as a multiple of whatever fits.** 1 is the old behaviour
+       exactly: the puzzle sized to the box it is given. Kept in memory rather
+       than saved, because it is a thing about this screen on this phone right
+       now and not a thing about the board -- and because the board travels
+       between devices, where a zoom that suited a phone would be nonsense on a
+       laptop. */
+    _zoom:1,
     _pick:false,       // armed: the next square touched is revealed, not painted
     built:false,
     /* Squares revealed rather than worked out. Kept with the board, so the
@@ -256,6 +270,7 @@
       this.built = true;
       this._aimAt = -1;
       this._wire();
+      this._paintZoom();
     },
 
     _wire(){
@@ -480,6 +495,215 @@
       });
     },
 
+    /* **What one square comes to once the gutter has had its share.**
+
+       Measured rather than worked out from the stylesheet: the gutter is sized
+       in the grid's own font and the font changes with the puzzle (see the n30
+       rules in 41-picross.css), so the only honest source for how wide it ended
+       up is the element itself. Falls back to the CSS cap if it is asked before
+       anything has been laid out. */
+    _fitCell(){
+      const box = $('pix-grid'), pane = $('pix-scroll');
+      if(!box || !pane) return 0;
+      const gut = box.querySelector('.pix-rows');
+      const wide = pane.clientWidth - (gut ? gut.offsetWidth : 0);
+      const n = this.size || 1;
+      return wide > 0 ? Math.floor(wide / n) : 0;
+    },
+
+    /** Hold the clue tracks against the edge of the box as it is panned. */
+    _pin(){
+      const box = $('pix-grid'), pane = $('pix-scroll');
+      if(!box || !pane) return;
+      const on = box.classList.contains('zoomed');
+      const x = on ? pane.scrollLeft : 0;
+      const y = on ? pane.scrollTop : 0;
+      const rows = box.querySelector('.pix-rows');
+      const cols = box.querySelector('.pix-cols');
+      const corner = box.querySelector('.pix-corner');
+      /* Each track is held against one edge only: the row clues against the
+         left as the picture moves sideways, the column clues against the top as
+         it moves up. The corner is held against both, because it is where they
+         meet. */
+      if(rows) rows.style.transform = x ? 'translateX(' + x + 'px)' : '';
+      if(cols) cols.style.transform = y ? 'translateY(' + y + 'px)' : '';
+      if(corner) corner.style.transform = (x || y)
+        ? 'translate(' + x + 'px,' + y + 'px)' : '';
+    },
+
+    /* ---------------- two fingers ----------------
+
+       **One finger cannot both paint and pan**, and painting is what the game
+       is, so it keeps the one finger. Everything else is given to the second:
+
+         one finger on a square   paints, as it always has
+         one finger on the clues  pans, because the gutters want no gesture
+         two fingers              pinch to zoom, and drag to pan, anywhere
+
+       The squares set `touch-action:none` so the browser hands their gestures
+       over whole, which is why the pinch has to be worked out here rather than
+       left to the page. The clue gutters do not, which is what makes a plain
+       drag over them scroll for free.
+
+       A stroke in progress is abandoned the moment a second finger lands. It is
+       not undone -- the squares already under the first finger were deliberate,
+       and taking them back would be its own surprise -- it simply stops
+       growing, so spreading two fingers never draws a line across the board. */
+    _wireGestures(){
+      const pane = $('pix-scroll');
+      if(!pane || pane._pixGest) return;
+      pane._pixGest = true;
+      const pts = new Map();
+      let from = null;
+
+      const spot = (e)=>{
+        const r = pane.getBoundingClientRect();
+        return {x:e.clientX - r.left, y:e.clientY - r.top};
+      };
+      const pair = ()=>{
+        const [a, b] = [...pts.values()];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        return {d:Math.max(1, Math.hypot(dx, dy)),
+                x:(a.x + b.x) / 2, y:(a.y + b.y) / 2};
+      };
+
+      pane.addEventListener('pointerdown', (e)=>{
+        if(e.pointerType === 'mouse') return;
+        pts.set(e.pointerId, spot(e));
+        if(pts.size === 2){
+          Picross._drag = 0;          // whatever this was, it is not a stroke
+          from = Object.assign(pair(), {z:Picross._zoom || 1,
+            l:pane.scrollLeft, t:pane.scrollTop});
+        }
+      }, {capture:true, passive:true});
+
+      pane.addEventListener('pointermove', (e)=>{
+        if(!pts.has(e.pointerId)) return;
+        pts.set(e.pointerId, spot(e));
+        if(pts.size !== 2 || !from) return;
+        e.preventDefault();
+        const now = pair();
+        /* The drag half: wherever the middle of the two fingers went, the
+           picture goes the other way. Applied before the zoom so the zoom's own
+           correction is measured from where the content actually is. */
+        pane.scrollLeft = from.l - (now.x - from.x);
+        pane.scrollTop = from.t - (now.y - from.y);
+        Picross.zoomTo(from.z * (now.d / from.d), {x:now.x, y:now.y});
+        Picross._pin();
+      }, {capture:true, passive:false});
+
+      const lift = (e)=>{
+        pts.delete(e.pointerId);
+        if(pts.size < 2) from = null;
+        /* Still one finger down after a pinch: it must not become a stroke
+           halfway through, so the next move is treated as a fresh start. */
+        if(pts.size === 1) Picross._drag = 0;
+      };
+      pane.addEventListener('pointerup', lift, {capture:true, passive:true});
+      pane.addEventListener('pointercancel', lift, {capture:true, passive:true});
+    },
+
+    /** Follow the box being panned. Bound once, to the box rather than the grid,
+        because the grid inside it is rebuilt on every puzzle. */
+    _wirePan(){
+      const pane = $('pix-scroll');
+      if(!pane || pane._pixPan) return;
+      pane._pixPan = true;
+      pane.addEventListener('scroll', ()=>{ Picross._pin(); }, {passive:true});
+    },
+
+    /** Put the current zoom on the grid, and say so on the button. */
+    _paintZoom(){
+      const box = $('pix-grid');
+      if(!box) return;
+      const z = this._zoom || 1;
+      if(z <= 1){
+        /* Back to the stylesheet's own fitting. The inline size has to be
+           cleared, not set to the fitted number: leaving a pixel value behind
+           would freeze the puzzle at whatever the box happened to be when it
+           was last zoomed, and it would stop following a window being resized. */
+        box.classList.remove('zoomed');
+        box.style.removeProperty('--pix-max');
+      }else{
+        const cell = this._fitCell();
+        if(cell > 0){
+          box.classList.add('zoomed');
+          box.style.setProperty('--pix-max', Math.round(cell * z) + 'px');
+        }
+      }
+      this._wirePan();
+      this._wireGestures();
+      this._pin();
+      const lab = $('pix-zlabel');
+      if(lab) lab.textContent = z <= 1 ? T('Fit')
+        : (Math.round(z * 10) % 10 ? z.toFixed(1) : String(Math.round(z))) + '\u00d7';
+      /* Compared against the ends rather than looked up in the list: a pinch
+         leaves the zoom between two steps, and indexOf would then say -1 and
+         light both buttons at the bottom of the range. */
+      const out = $('pix-zout'), zin = $('pix-zin');
+      if(out) out.disabled = z <= PIC_ZOOMS[0] + 0.001;
+      if(zin) zin.disabled = z >= PIC_ZOOMS[PIC_ZOOMS.length - 1] - 0.001;
+    },
+
+    /** The nearest step to where a pinch left it, so the buttons still work
+        afterwards rather than jumping back to a number nobody chose. */
+    _nearestStep(){
+      const z = this._zoom || 1;
+      let best = 0;
+      for(let i = 1; i < PIC_ZOOMS.length; i++){
+        if(Math.abs(PIC_ZOOMS[i] - z) < Math.abs(PIC_ZOOMS[best] - z)) best = i;
+      }
+      return best;
+    },
+
+    /** Straight to a number, for a pinch. Between the ends of the step list. */
+    zoomTo(z, hold){
+      const lo = PIC_ZOOMS[0], hi = PIC_ZOOMS[PIC_ZOOMS.length - 1];
+      const next = Math.max(lo, Math.min(hi, z));
+      if(Math.abs(next - (this._zoom || 1)) < 0.001) return;
+      const pane = $('pix-scroll');
+      const was = pane ? {w:pane.scrollWidth, h:pane.scrollHeight,
+                          l:pane.scrollLeft, t:pane.scrollTop} : null;
+      this._zoom = next;
+      this._paintZoom();
+      /* **Zoom about the point being held, not about the corner.** Without
+         this, pinching on the middle of the picture walks it off to the top
+         left, which on a thirty-wide grid means losing the part you were
+         working on every time you adjust. The content under the fingers is
+         kept where it is by scaling the scroll offset through that point. */
+      if(pane && was && was.w > 0 && was.h > 0 && hold){
+        const kx = pane.scrollWidth / was.w, ky = pane.scrollHeight / was.h;
+        pane.scrollLeft = (was.l + hold.x) * kx - hold.x;
+        pane.scrollTop = (was.t + hold.y) * ky - hold.y;
+        this._pin();
+      }
+    },
+
+    /** One step in or out, and keep the square you were looking at in view. */
+    setZoom(step){
+      const i = this._nearestStep();
+      const next = PIC_ZOOMS[Math.max(0, Math.min(PIC_ZOOMS.length - 1, i + step))];
+      if(next === this._zoom) return;
+      const pane = $('pix-scroll');
+      /* Where the middle of the view was, as a fraction of the whole, so
+         zooming goes in on what you were looking at rather than throwing you
+         back to the top left corner of the picture. */
+      const mid = pane && pane.scrollWidth > pane.clientWidth
+        ? {x:(pane.scrollLeft + pane.clientWidth / 2) / pane.scrollWidth,
+           y:(pane.scrollTop + pane.clientHeight / 2) / pane.scrollHeight}
+        : null;
+      this._zoom = next;
+      this._paintZoom();
+      if(pane && mid){
+        pane.scrollLeft = mid.x * pane.scrollWidth - pane.clientWidth / 2;
+        pane.scrollTop = mid.y * pane.scrollHeight - pane.clientHeight / 2;
+      }
+      /* Setting scrollLeft fires scroll asynchronously, and zooming out to Fit
+         does not fire it at all -- so the tracks are put back by hand rather
+         than waiting for an event that may not come. */
+      this._pin();
+    },
+
     _paintMode(){
       for(const b of [$('pix-fill'), $('pix-mark')]){
         if(!b) continue;
@@ -693,7 +917,7 @@
       const at = picOnDay(Picross.diff || 'easy', pktNow());
       if(at.i < 0) return 'New<span>tap to start</span>';
       const st = dailyDayCount('picross', PIC_DIFFS, null, pktNow());
-      if(st[0] >= st[1] && st[1]) return 'Done<span>all three today</span>';
+      if(st[0] >= st[1] && st[1]) return 'Done<span data-done="1">all three today</span>';
       return esc(T('{a} of {b}', {a:st[0], b:st[1]})) + '<span>today</span>';
     },
   });
@@ -741,5 +965,16 @@
   if($('pix-clear')) $('pix-clear').onclick = ()=>Picross.clear();
   if($('pix-again')) $('pix-again').onclick = ()=>{ try{ dailyCalOpen('picross'); }catch(e){} };
   if($('pix-list')) $('pix-list').onclick = ()=>{ try{ dailyCalOpen('picross'); }catch(e){} };
+  if($('pix-zin')) $('pix-zin').onclick = ()=>Picross.setZoom(1);
+  if($('pix-zout')) $('pix-zout').onclick = ()=>Picross.setZoom(-1);
+  /* A zoomed grid is sized in real pixels off the width of its box, so when
+     the box changes width the number is stale: rotate the phone and the
+     puzzle keeps the shape the other orientation gave it. Only when actually
+     zoomed, because at Fit the stylesheet is doing this by itself. */
+  try{
+    window.addEventListener('resize', ()=>{
+      if(Picross._zoom > 1) Picross._paintZoom();
+    });
+  }catch(e){}
   if($('pix-check')) $('pix-check').onclick = ()=>Picross.check();
   if($('pix-hint')) $('pix-hint').onclick = ()=>Picross.pick();

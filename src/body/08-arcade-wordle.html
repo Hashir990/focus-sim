@@ -6,10 +6,21 @@
         <!-- Days in a row, painted by `dailyStreakPaint` in 09b-daily.js.
              Hidden at zero: a streak of none is not a thing to announce. -->
         <span class="streak hide" id="wdl-streak"></span>
-        <button class="mini-btn" id="wdl-new">New</button>
+        <!-- **New had nothing to give.** There is one word a day and
+             everybody gets the same one, so a button promising a fresh puzzle
+             was promising the thing the one-a-day rule exists to refuse -- the
+             same argument that took "New puzzle" off sudoku's banner. What the
+             space is actually worth is the rules, which until now were nowhere:
+             every other game on the shelf carries a note under its board and
+             this one did not. -->
+        <button class="mini-btn" id="wdl-help" aria-expanded="false">Instructions</button>
       </div>
       <div class="wdl" id="wdl-board"></div>
       <div class="banner hide" id="wdl-banner"><h3 id="wdl-win-title"></h3><p id="wdl-win-sub"></p><button class="mini-btn" id="wdl-again">History</button></div>
       <div class="kbd" id="wdl-kbd"></div>
+      <!-- Folded away rather than always there: the other games' notes are one
+           line and this is four, which under the board every single day is a
+           paragraph you stop seeing. -->
+      <p class="game-note hide" id="wdl-note">Six tries at a five-letter word. A green tile is the right letter in the right place, a yellow one is in the word somewhere else, and a grey one is not in the word at all. Everyone gets the same word each day, and History has the ones you missed.</p>
     </div>
 

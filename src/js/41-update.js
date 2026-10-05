@@ -169,6 +169,27 @@
       }catch(e){}
     },
 
+    /* **On a phone there is nowhere for that link to go.**
+
+       The manual route is a link to the release page, which exists to hand a
+       Windows installer to somebody on Windows. Tapped on Android it opens
+       GitHub, offers a .exe, and leaves you on a web page having learnt
+       nothing -- the phone build is not installed from there and never has
+       been. So the link is simply not offered on a native build.
+
+       The news itself stays. Knowing a newer version exists is worth something
+       even when the way to get it is elsewhere; a button that goes somewhere
+       useless is worth less than nothing.
+
+       `isNativePlatform` rather than sniffing the user agent, which is the same
+       question 42-dev.js asks to decide what to call this machine. */
+    onPhone(){
+      try{
+        const C = window.Capacitor;
+        return !!(C && C.isNativePlatform && C.isNativePlatform());
+      }catch(e){ return false; }
+    },
+
     paint(){
       const box = $('upd-box');
       if(!box) return;
@@ -243,8 +264,9 @@
           + '<em>' + esc(T('You have {v}.', {v:UPD_VERSION}))
           + (v.notes ? ' <span translate="no">' + esc(v.notes) + '</span>' : '')
           + (shellAuto ? ' ' + esc(T('It is downloading on its own. Nothing to do.')) : '') + '</em>'
-          + (v.url && !shellAuto ? '<a class="upd-get" href="' + esc(v.url)
-              + '" target="_blank" rel="noopener">Get it</a>' : '')
+          + (v.url && !shellAuto && !this.onPhone()
+              ? '<a class="upd-get" href="' + esc(v.url)
+                + '" target="_blank" rel="noopener">Get it</a>' : '')
           + '<p class="upd-safe">Nothing you have done is touched.</p></div>'
         /* **Answer the question that was asked.**
 

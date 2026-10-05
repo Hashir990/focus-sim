@@ -198,7 +198,10 @@
     async progress(){
       const w = await readGame(Wordle.skey);
       if(!w) return 'New<span>tap to start</span>';
-      if(w.done) return w.won ? 'Found<span>see history</span>' : 'Missed<span>see history</span>';
+      /* Only a win is marked finished. A miss is over too, but the mark is a
+         small celebration and there is nothing to celebrate. */
+      if(w.done) return w.won ? 'Found<span data-done="1">see history</span>'
+        : 'Missed<span>see history</span>';
       return (w.guesses.length)+'/6<span>in progress</span>';
     }
   });

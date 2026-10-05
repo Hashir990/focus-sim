@@ -4682,3 +4682,56 @@ CLUES.update({
     'tint':       'Slight touch of colour',
     'tonga':      'Pacific island kingdom',
 })
+
+# 2026-10-03 run
+CLUES.update({
+    'arthritis': 'Painful stiffness in the joints',
+    'breeder':   'Kennel owner raising puppies for sale',
+    'bust':      'Sculpted head and shoulders',
+    'fireman':   'Stoker on a steam locomotive',
+    'grail':     'Quest object of the Round Table knights',
+    'juniper':   'Evergreen whose berries flavour gin',
+    'logical':   'Following sound reasoning',
+    'mite':      'Tiny relative of the spider',
+    'mojo':      'Charm or personal magnetism',
+    'mortar':    'Bowl partner of the pestle',
+    'music':     'What a band plays',
+    'nigh':      'Almost here, in old verse',
+    'nine':      'One short of ten',
+    'obviously': 'As anyone can plainly see',
+    'pivot':     'Turn on a single point',
+    'rout':      'Crushing defeat',
+    'smith':     'Forger at an anvil',
+    'supply':    'Stock on hand',
+})
+
+CLUES.update({
+    'heap':       'Untidy pile',
+    'play':       'Shakespeare work staged in a theatre',
+    'tract':      'Stretch of land or body passage',
+    'gable':      'Triangular wall under a pitched roof',
+    'aspirin':    'Common headache tablet',
+    'pie':        'Apple dessert with a pastry crust',
+    'ringing':    'Like a bell that has just been struck',
+    'agent':      'Spy or talent representative',
+    'male':       'Man or boy, as a sex',
+    'torturing':  'Causing cruel suffering to',
+    'prescribe':  'What a doctor does with medicine',
+    'laughable':  'So silly it deserves a chuckle',
+})
+
+# 2026-10-05 daily run
+CLUES.update({
+    'abbot':     'Head of a monastery',
+    'brook':     'Small stream',
+    'dragon':    'Fire-breathing beast of legend',
+    'leisure':   'Free time to enjoy',
+    'macho':     'Aggressively manly',
+    'mater':     'Alma ___ (university, to its alumni)',
+    'poke':      'Jab with a finger',
+    'rendering': 'Artist\'s impression of a design',
+    'ring':      'Wedding band',
+    'scuba':     'Diver\'s breathing gear, for short',
+    'sup':       ('Have an evening meal, old style', 'Casual greeting, "What\'s ___?"'),
+    'utter':     'Say aloud',
+})

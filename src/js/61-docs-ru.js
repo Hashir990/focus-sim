@@ -148,7 +148,7 @@
         + '<p class="about-lede">Сделано ' + aboutWho(ABOUT_OWNER, 'the developer')
         + '. Оно стоит на работе других людей.</p>'
         + '<h4>Шрифты</h4>'
-        + '<p><b>Space Grotesk</b> Флориана Карстена и <b>Fraunces</b> студии Undercase Type. '
+        + '<p><b>Plus Jakarta Sans</b> студии Tokotype, <b>Syne</b> студии Bonjour Monde и <b>Literata</b> студии TypeTogether. '
         + 'Оба, под SIL Open Font License.</p>'
         + '<h4>Код</h4>'
         + '<p><b>PeerJS</b> (MIT) держит прямые соединения «Фокуса вместе». '

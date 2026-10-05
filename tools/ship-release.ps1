@@ -248,7 +248,31 @@ if ($LASTEXITCODE -ne 0) {
 Step 'Check the packed paths'
 Run 'node' @('tools/path-check.mjs')
 
-# --- 7. upload the four files and read the release back ----------------------
+# --- 7. tag, and push the tag, BEFORE anything creates a release -------------
+# **Whoever tags first wins, and it used to be GitHub.**
+#
+# Publishing a release for a tag that does not exist on the remote makes GitHub
+# create that tag itself, at the default branch. The default branch here is
+# "main", which has one commit on it -- the initial one -- while all the work is
+# on "master". So v1.4.0 and v1.5.0 both ended up pointing at an empty tree, and
+# the Source code zip on both release pages was an empty repository. The
+# installers were fine, which is why it went unnoticed through two releases:
+# nothing that updates an installed copy reads the tag.
+#
+# Tagging here rather than at the end costs nothing -- everything that could
+# fail has already run -- and it means the tag is on the remote, at the right
+# commit, before publish-assets.ps1 gives GitHub the chance to invent one.
+Step 'Tag'
+$tag = "v$version"
+if (-not (& git tag -l $tag)) { Run 'git' @('tag', '-a', $tag, '-m', $Notes) }
+# Pushed, not just made. A tag sitting on this laptop is one GitHub cannot see,
+# and not being able to see it is the whole fault. The branch goes with it: a
+# tag on the remote naming a commit the remote does not have is the same hole
+# through a different door.
+Run 'git' @('push', 'origin', 'HEAD')
+Run 'git' @('push', 'origin', $tag)
+
+# --- 8. upload the four files and read the release back ----------------------
 # publish-assets.ps1 finds the release for this tag including drafts, replaces
 # same-named assets, publishes the draft, sets make_latest, and then reads the
 # release back and prints what is on it -- because every failure it exists for
@@ -260,11 +284,6 @@ Run 'powershell' @('-ExecutionPolicy', 'Bypass', '-File', 'tools/publish-assets.
 Step 'Re-check'
 Run 'node' @('tools/publish-check.mjs')
 
-# --- 8. tag ------------------------------------------------------------------
-Step 'Tag'
-$tag = "v$version"
-if (-not (& git tag -l $tag)) { Run 'git' @('tag', '-a', $tag, '-m', $Notes) }
-
 Write-Host ''
 if ($script:tolerated) {
   Write-Host 'Shipped with these checks knowingly red:' -ForegroundColor Yellow
@@ -272,8 +291,7 @@ if ($script:tolerated) {
   Write-Host ''
 }
 Write-Host "Released $version." -ForegroundColor Green
-Write-Host 'Push it when you are happy:' -ForegroundColor Green
-Write-Host "  git push && git push origin $tag" -ForegroundColor Green
+Write-Host "Branch and $tag are on the remote, assets are attached." -ForegroundColor Green
 Write-Host ''
 Write-Host 'Then confirm on GitHub that the release is marked "Set as the latest release"' -ForegroundColor Green
 Write-Host 'and carries all four assets:' -ForegroundColor Green

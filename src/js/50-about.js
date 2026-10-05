@@ -15,7 +15,7 @@
      honest version is "your data goes to a server over HTTPS and is held there",
      and the honest version is the one that is still true next year. */
 
-  const ABOUT_UPDATED = '11 September 2026';
+  const ABOUT_UPDATED = '3 October 2026';
 
   /* Filled in by whoever ships the build. Left visible on purpose: an unfilled
      contact line in a shipped policy is worse than no policy, and it should be
@@ -76,7 +76,7 @@
       + 'this app.</p>'
 
       + '<h4>Keeping it, and getting rid of it</h4>'
-      + '<p><b>Reset progress</b> in this menu clears this device. If you are '
+      + '<p><b>Reset progress</b> in the app’s menu clears that device. If you are '
       + 'signed in, that empties the device and not the account. Deleting your '
       + 'account deletes what the server holds for it; ask at the address below '
       + 'and it is done. Data on the server is kept while the account exists and '
@@ -95,10 +95,13 @@
       + ', and questions about your data, corrections, or a request to delete '
       + 'your account go to ' + aboutWho(ABOUT_EMAIL, 'the contact address for this build')
       + ', which is read by a person.</p>'
+      /* "in this menu" was true in the app and nonsense on the public page,
+         which is generated from this same text — see tools/make-privacy.mjs.
+         One wording that is correct in both places. */
       + '<p>If something is broken rather than something you want to ask, '
-      + '<b>Report a problem</b> in this menu is quicker: it fills in which '
-      + 'version you are running and whether this device is saving properly, '
-      + 'which is usually most of the answer.</p>'
+      + '<b>Report a problem</b> in the app’s menu is quicker: it fills in '
+      + 'which version you are running and whether that device is saving '
+      + 'properly, which is usually most of the answer.</p>'
       + '<p class="about-date">Last updated ' + ABOUT_UPDATED + '. If this '
       + 'changes, the date changes with it.</p>';
   }
@@ -108,8 +111,8 @@
       + '<p class="about-lede">Built by ' + aboutWho(ABOUT_OWNER, 'the developer')
       + '. It stands on other people’s work.</p>'
       + '<h4>Type</h4>'
-      + '<p><b>Space Grotesk</b> by Florian Karsten, and <b>Fraunces</b> by '
-      + 'Undercase Type. Both under the SIL Open Font License.</p>'
+      + '<p><b>Plus Jakarta Sans</b> by Tokotype, <b>Syne</b> by Bonjour Monde, and '
+      + '<b>Literata</b> by TypeTogether. All under the SIL Open Font License.</p>'
       + '<h4>Code</h4>'
       + '<p><b>PeerJS</b> carries Focus together’s direct connections (MIT). '
       + '<b>Electron</b> makes the desktop app, and <b>Capacitor</b> the phone '

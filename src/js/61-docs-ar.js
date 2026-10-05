@@ -138,7 +138,7 @@
         + '<p class="about-lede">من صنع ' + aboutWho(ABOUT_OWNER, 'the developer')
         + '. وهو قائم على عمل آخرين.</p>'
         + '<h4>الخطوط</h4>'
-        + '<p><b>Space Grotesk</b> لفلوريان كارستن، و<b>Fraunces</b> من Undercase Type. '
+        + '<p><b>Plus Jakarta Sans</b> من Tokotype، و<b>Syne</b> من Bonjour Monde، و<b>Literata</b> من TypeTogether. '
         + 'كلاهما تحت رخصة SIL Open Font License.</p>'
         + '<h4>الشيفرة</h4>'
         + '<p><b>PeerJS</b> (MIT) يحمل الاتصالات المباشرة في «تركيز جماعي». '

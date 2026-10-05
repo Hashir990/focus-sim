@@ -61,7 +61,7 @@
     color-mix(in srgb, var(--bg) 97%, transparent) 62%);
   transition:background 1.1s ease; animation:ovin .32s ease both;
   /* the components on top of the glass are solid, not glass themselves */
-  --card:color-mix(in srgb, var(--bg2) 82%, var(--text) 7%);
+  --card:color-mix(in srgb, #fff 6%, var(--bg));
   --line:color-mix(in srgb, var(--text) 15%, transparent);
 }
 /* Frosted, and cheap enough to leave on.
@@ -84,28 +84,30 @@ body.vfx-on .overlay{
   max-width:460px; width:100%; margin:0 auto;
 }
 .ov-back{
-  width:40px; height:40px; flex:0 0 auto; border-radius:12px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  width:40px; height:40px; flex:0 0 auto; border-radius:9px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   display:grid; place-items:center;
 }
 .ov-back svg{width:20px; height:20px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round}
 .ov-menu{
-  width:34px; height:34px; flex:0 0 auto; border-radius:11px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  width:34px; height:34px; flex:0 0 auto; border-radius:8px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   display:grid; place-items:center; transition:background .18s;
 }
-.ov-menu:hover{ background:rgba(255,255,255,.06) }
+.ov-menu:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .ov-menu svg{ width:18px; height:18px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round }
 .ov-head{ gap:9px }
 /* Upright. The one serif italic in the app belongs on the setup screen, not on
    a header you read forty times a day. */
 .ov-title{
   flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font-size:16px; font-weight:600; letter-spacing:.01em;
+  font-family:var(--title);
+  font-size:16.5px; font-weight:700; letter-spacing:-.01em;
 }
 .ov-timer{
   font-variant-numeric:tabular-nums; font-weight:600; font-size:14px; letter-spacing:.02em;
-  padding:7px 12px; border-radius:11px; background:var(--card); border:1px solid var(--line);
+  padding:7px 12px; border-radius:8px; background:var(--card); border:0;
+  box-shadow:var(--lift);
   color:var(--accent); transition:color 1.1s ease;
 }
 .ov-timer.over{color:var(--muted)}
@@ -113,11 +115,24 @@ body.vfx-on .overlay{
    handed here rather than being fought over by whatever it landed on. Games
    that genuinely need the raw gesture — the pictionary canvas — set
    `touch-action:none` on themselves and win, because they are more specific. */
+/* **`--ov-pad` so a child can work out how much room it actually has.**
+   Anything in here sized against the window is wrong by twice this: the
+   crossword asked for 96vw inside a box 40px narrower than the window and hung
+   24px off the right-hand side of a phone, with the last column and the edge of
+   the grid cut off. A child cannot read its parent's padding, so the parent
+   says it out loud. */
 .ov-body{
+  --ov-pad:20px;
   flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;
-  padding:6px 20px calc(24px + env(safe-area-inset-bottom));
+  padding:6px var(--ov-pad) calc(24px + env(safe-area-inset-bottom));
   max-width:460px; width:100%; margin:0 auto;
   display:flex; flex-direction:column;
+}
+/* On a phone those 20px either side are 10% of the screen spent on nothing, and
+   the one thing in here that wants every pixel is a fifteen-by-fifteen grid.
+   Twelve is still a margin; forty was a frame. */
+@media (max-width:460px){
+  .ov-body{ --ov-pad:12px }
 }
 .game.hide,.picker.hide{display:none}
 
@@ -132,3 +147,7 @@ body.vfx-on .overlay{
   margin:10px auto 2px; max-width:420px; text-align:center;
   font-size:12px; line-height:1.5; color:var(--muted); opacity:.85;
 }
+/* **Its own hide, because there is no global one** (HANDOFF section 2). Word
+   guess folds its rules away behind a button, and without this line the class
+   would be inert and the paragraph would simply sit there for good. */
+.game-note.hide{ display:none }

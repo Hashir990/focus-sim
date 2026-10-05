@@ -20,7 +20,22 @@
            clever: a 5×5 is not easy because you are good at it. -->
       <div class="pix-sizes" id="pix-sizes"></div>
 
-      <div class="pix-wrap" id="pix-grid"></div>
+      <!-- **The grid scrolls inside this, rather than shrinking to fit it.**
+           Thirty across on a phone is about ten pixels a square once the clue
+           gutter has taken its share, which is under a thumb and under what an
+           eye can count. Zoomed, the grid is simply bigger than the box and the
+           box is what moves. The clue rows and columns are sticky against this
+           scroller, so whatever corner of the picture you are in, the numbers
+           for that row and that column are still on screen -- which is the only
+           reason zooming a nonogram is any use at all. -->
+      <div class="pix-scroll" id="pix-scroll">
+        <div class="pix-wrap" id="pix-grid"></div>
+      </div>
+      <div class="pix-zoom" id="pix-zoom">
+        <button class="mini-btn" id="pix-zout" aria-label="Zoom out">&minus;</button>
+        <span id="pix-zlabel">Fit</span>
+        <button class="mini-btn" id="pix-zin" aria-label="Zoom in">+</button>
+      </div>
 
       <!-- What a tap puts down. Two buttons rather than a long press: a long
            press on a phone is a thing you discover by accident or never. -->

@@ -63,6 +63,12 @@
     /* Squares handed over by Reveal, and whether an older day was chosen by
        hand this run. See `reveal()` and `enter()`. */
     shown:[], _chose:false,
+    /* **Squares a check has confirmed.** A list of indices like `shown`, and
+       deliberately not the same list: `shown` is what Reveal handed over and
+       its length is the hint count on the calendar record, so putting these in
+       it would make a grid solved cold read as one solved with forty hints.
+       They lock the same way and mean the opposite thing. */
+    sure:[],
     /* The day you last had open at each difficulty. Switching difficulty and
        switching back has to hand the same grid back, clock and all. */
     seen:{},
@@ -125,7 +131,7 @@
       this.boards[this._slot(this.day, this.diff)] = {
         grid:this.grid.slice(), given:this.given.slice(), sol:this.sol.slice(),
         notes:this.notes.map(a=>a.slice()), elapsed:this.elapsed, done:this.done,
-        shown:this.shown.slice(),
+        shown:this.shown.slice(), sure:this.sure.slice(),
       };
     },
     /** **Is this actually a sudoku?** Eighty-one squares, a full solution, and
@@ -156,6 +162,7 @@
       while(this.notes.length < 81) this.notes.push([]);
       this.elapsed=b.elapsed|0; this.done=!!b.done;
       this.shown=Array.isArray(b.shown) ? b.shown.slice() : [];
+      this.sure=Array.isArray(b.sure) ? b.sure.slice() : [];
       this.sel=-1; this.wrong=null; this.diff=diff; this.day=day;
       return true;
     },
@@ -167,7 +174,7 @@
       const {puz,sol}=sMake(diff, dailyGen('sudoku', diff, d));
       this.grid=puz.slice(); this.given=puz.map(v=>!!v); this.sol=sol;
       this.notes=Array.from({length:81},()=>[]); this.sel=-1; this.done=false; this.elapsed=0;
-      this.shown=[]; this.wrong=null;
+      this.shown=[]; this.sure=[]; this.wrong=null;
       this.diff=diff; this.day=d;
       this.persist();
       dailyMark('sudoku', diff, d, DAILY_STARTED);
@@ -240,7 +247,8 @@
       /* A revealed square is as fixed as a given one. Guarding only `given`
          let you type over an answer you had just been handed, which is not a
          choice anybody makes on purpose. */
-      if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)) return;
+      if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)
+         ||this._isSure(this.sel)) return;
       const i=this.sel;
       if(this.notesMode){
         const a=this.notes[i], k=a.indexOf(n);
@@ -261,13 +269,25 @@
         if(this.grid[i]!==this.sol[i]) bad.push(i);
       }
       const blank=this.grid.filter((v,i)=>!v && !this.given[i]).length;
+      /* **What a check finds right, it fixes in place.** Checking cost nothing
+         before: it named the wrong squares and left the grid alone, so there
+         was no reason not to check after every digit. Settling the right ones
+         puts a price on it -- certainty, paid for with the ability to change
+         your mind -- and a square you have had confirmed can no longer be
+         knocked out by typing over it later. */
+      for(let i=0;i<81;i++){
+        if(this.given[i] || !this.grid[i]) continue;
+        if(this.grid[i]===this.sol[i] && !this._isSure(i)) this.sure.push(i);
+      }
       this.wrong=bad;
+      this.persist();
       this.render();
       if(bad.length) toast(Tn('{n} wrong cell', '{n} wrong cells', bad.length));
       else if(blank) toast(T('All good so far, {n} left', {n:blank}));
       else toast('All correct');
     },
-    erase(){ if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)) return;
+    erase(){ if(this.done||this.sel<0||this.given[this.sel]||this._isShown(this.sel)
+         ||this._isSure(this.sel)) return;
       this.grid[this.sel]=0; this.notes[this.sel]=[]; this._unmark(this.sel);
       this.persist(); this.render(); },
     /** **A red cross is about one square, not about the board.** Clearing the
@@ -281,6 +301,7 @@
       if(!this.wrong.length) this.wrong = null;
     },
     _isShown(i){ return !!this.shown && this.shown.indexOf(i) >= 0; },
+    _isSure(i){ return !!this.sure && this.sure.indexOf(i) >= 0; },
     /** **Hand over one square.** The crossword has had this since it shipped and
         sudoku had only Check, which tells you that you are stuck without
         helping. A revealed square is locked afterwards, the same as a given
@@ -316,6 +337,7 @@
         if(v&&this.conflict(i,v)) cls+=' bad';
         if(this.wrong && this.wrong.indexOf(i)!==-1) cls+=' wrong';
         if(this._isShown(i)) cls+=' shown';
+        else if(this._isSure(i)) cls+=' sure';
         c.className=cls;
         if(v){ c.textContent=v; }
         else if(this.notes[i].length){ c.textContent=''; const nd=document.createElement('div'); nd.className='notes'; for(let k=1;k<=9;k++){ const s=document.createElement('span'); s.textContent=this.notes[i].includes(k)?k:''; nd.appendChild(s);} c.appendChild(nd); }
@@ -375,7 +397,7 @@
       try{ d = gameSaved(this.key); }catch(e){}
       this.boards = (d && d.boards && typeof d.boards === 'object') ? d.boards : {};
       this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : {};
-      this.grid = []; this.shown = []; this.built = false;
+      this.grid = []; this.shown = []; this.sure = []; this.built = false;
       if(d && d.diff) this.diff = d.diff;
       if(d && d.day) this.day = d.day;
     }
@@ -422,7 +444,7 @@
       const d = await readGame(Sudoku.key);
       const b = d && d.boards && d.boards[(d.day || '') + '|' + (d.diff || '')];
       if(!b || !Array.isArray(b.grid)) return 'Today<span>tap to start</span>';
-      if(b.done) return 'Solved<span>see history</span>';
+      if(b.done) return 'Solved<span data-done="1">see history</span>';
       const filled = b.grid.filter((v,i)=>v && !b.given[i]).length;
       return filled>0 ? (T('{n} filled', {n:filled})+'<span>in progress</span>') : 'Today<span>tap to start</span>';
     }

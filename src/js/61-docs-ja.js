@@ -150,7 +150,7 @@
         + '<p class="about-lede">制作は ' + aboutWho(ABOUT_OWNER, 'the developer')
         + '。ほかの人たちの仕事の上に成り立っています。</p>'
         + '<h4>書体</h4>'
-        + '<p>Florian Karsten 氏による <b>Space Grotesk</b>、Undercase Type による <b>Fraunces</b>。'
+        + '<p>Tokotype による <b>Plus Jakarta Sans</b>、Bonjour Monde による <b>Syne</b>、TypeTogether による <b>Literata</b>。'
         + 'どちらも SIL Open Font License のもとで使用しています。</p>'
         + '<h4>コード</h4>'
         + '<p>「みんなで集中」の直接接続は <b>PeerJS</b>（MIT）。'

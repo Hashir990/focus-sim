@@ -327,3 +327,101 @@
   text-transform:uppercase; color:var(--muted);
 }
 .blk-sec-body > .blk-lab:first-child{ margin-top:6px }
+
+
+/* ---- saving a rule ----
+
+   Sticky to the bottom of the editor, which is five sections long. A Save
+   you have to scroll to find is a Save that does not get pressed, and the
+   whole point of drafting the change was that leaving without pressing it
+   should be possible.
+
+   It stays in place when there is nothing to save rather than vanishing:
+   a button that appears and disappears under a thumb is one that gets
+   pressed by accident, and seeing "Saved" is worth something on its own. */
+.blk-saverow{
+  position:sticky; bottom:0; z-index:2;
+  margin:14px -4px 0; padding:10px 4px calc(6px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg, transparent 0%, var(--bg) 42%);
+}
+.blk-save{
+  width:100%; padding:12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--muted);
+  font:inherit; font-size:14px; font-weight:600; cursor:default;
+}
+.blk-save.on{
+  border-color:var(--accent); cursor:pointer;
+  background:var(--accent); color:#07121a;
+}
+
+
+/* ---- the day, and the windows that make it ----
+
+   The three modes have one colour each and they are used in three places:
+   the strip, the dot on a window, and the key under the strip. Defined once
+   here so a window and the part of the bar it draws can never disagree about
+   which colour means which, which is the only thing making the strip legible.
+
+   Block borrows the accent because it is the rule doing its job; limit is a
+   cooler second colour; a break is the background showing through, because a
+   break is the absence of the rule rather than a third thing it does. */
+.blk-seg-block{ background:var(--accent) }
+.blk-seg-limit{ background:#6f7dff }
+.blk-seg-off{ background:rgba(255,255,255,.14) }
+
+.blk-bar-wrap{
+  margin:4px 0 12px; padding:10px;
+  border:1px solid var(--line); border-radius:12px;
+  background:rgba(255,255,255,.03);
+}
+/* The hour marks sit above the strip and are spread by the same flex as the
+   strip itself, so midday is over the middle of the day rather than near it. */
+.blk-bar-hours{
+  display:flex; justify-content:space-between;
+  font-size:10px; color:var(--muted); margin:0 0 4px;
+  padding-left:34px;
+}
+.blk-barrow{ display:flex; align-items:center; gap:8px }
+.blk-barrow > i{
+  flex:0 0 26px; font-style:normal; font-size:10.5px; color:var(--muted);
+}
+.blk-daystrip{
+  flex:1; display:flex; height:16px; border-radius:5px; overflow:hidden;
+  background:rgba(255,255,255,.06);
+}
+/* No gaps and no radius on the pieces: a day is continuous, and a seam
+   between two segments of the same colour would read as two things. */
+.blk-seg{ display:block; min-width:0 }
+.blk-key{
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  margin:8px 0 0; font-size:10.5px; color:var(--muted);
+}
+.blk-key span{
+  width:9px; height:9px; border-radius:3px; display:inline-block;
+}
+.blk-key span + span{ margin-left:10px }
+
+.blk-win{
+  margin:8px 0; padding:10px;
+  border:1px solid var(--line); border-radius:12px;
+  background:var(--card);
+}
+.blk-win-top{ display:flex; align-items:center; gap:8px; margin:0 0 8px }
+.blk-win-dot{ flex:0 0 auto; width:10px; height:10px; border-radius:50% }
+.blk-win-modes{ flex:1; display:flex; gap:6px; flex-wrap:wrap; margin:0 }
+.blk-win-x{
+  flex:0 0 auto; width:26px; height:26px; border-radius:8px;
+  border:1px solid var(--line); background:transparent; color:var(--muted);
+  font:inherit; font-size:15px; line-height:1; cursor:pointer;
+}
+.blk-win-x:hover{ color:var(--text) }
+/* The arrows and the sentence explaining why they are there, on one line:
+   the ordering is the grammar of the list and it is not guessable. */
+.blk-win-move{ display:flex; align-items:center; gap:6px; margin:8px 0 0 }
+.blk-win-move button{
+  width:26px; height:24px; border-radius:7px;
+  border:1px solid var(--line); background:transparent; color:var(--text);
+  font:inherit; font-size:12px; line-height:1; cursor:pointer;
+}
+.blk-win-move button:disabled{ opacity:.3; cursor:default }
+.blk-win-move small{ font-size:10.5px; color:var(--muted) }

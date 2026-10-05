@@ -39,6 +39,40 @@
     return f;
   }
   const VFX_SCALE = vfxScale();
+
+  /* **Where the noise comes off altogether.**
+
+     Cutting the filter regions and dropping an octave took about five sixths of
+     the work out of the nebula and Deep space still dropped frames on a phone,
+     which says the remaining sixth is still too much rather than that the sums
+     were wrong. Two SVG turbulence filters over most of a screen are tens of
+     milliseconds of work per rasterisation whatever you trim, and a phone has
+     to do it on a GPU sharing memory bandwidth with everything else.
+
+     So on a touch device the three nebula layers keep their gradients and lose
+     their filter. What is lost is the torn edge the noise gives the cloud; what
+     is kept is the cloud, the dark lanes, the stars and the galaxies. A soft
+     nebula at sixty frames is a better thing to look at than a detailed one at
+     twenty, and the detail was never visible behind a countdown at arm's
+     length anyway.
+
+     Keyed on the pointer rather than on width, because width is a window and
+     this is a question about the machine. A touchscreen laptop reports a fine
+     pointer, so it is not caught by this; a tablet is, and a tablet is a phone
+     for these purposes. The weak-machine hints join in for the desktops that
+     have already told us they are small. */
+  function vfxLite(){
+    try{
+      if(VFX_SCALE < 1) return true;
+      if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    }catch(e){}
+    return false;
+  }
+  /* On the root rather than the body, so it is set before anything paints and
+     the CSS can key off it without a repaint of the whole page later. */
+  try{
+    if(vfxLite()) document.documentElement.setAttribute('data-vfx-lite', '1');
+  }catch(e){}
   /** How many specks of `spec` this machine gets. Never fewer than three. */
   /* `dens` is a look's own multiplier on top of the kind's count and the
      machine's scale. The kind says what a thing is — smoke is eight big slow
@@ -60,7 +94,11 @@
      machine; it simply cannot climb past what the kind says is affordable. */
   function vfxCount(spec, dens){
     const want = Math.round(spec.n * VFX_SCALE * (dens || 1));
-    const most = spec.cap ? Math.round(spec.cap * VFX_SCALE) : Infinity;
+    let most = spec.cap ? Math.round(spec.cap * VFX_SCALE) : Infinity;
+    /* A kind that knows it is expensive may name a lower ceiling for a phone.
+       Applied as a ceiling rather than a multiplier so a look cannot ask its
+       way back past it with `dens`. */
+    if(spec.lite && vfxLite()) most = Math.min(most, spec.lite);
     return Math.max(3, Math.min(want, most));
   }
 
@@ -141,8 +179,15 @@
        `dk` the height of the floors that have gone dark. They are per-tower
        and they do not divide into each other, which is where the irregularity
        comes from — see the two-gradient note in 31-vfx.css. */
-    towers: {n:16, variants:4, cap:22,
-             v:{s:[13, 48, 'vh'], w:[20, 66, 'px'], t:[58, 146, 's'], o:[.28, .95],
+/* **No per-tower opacity.** A building is not see-through, and giving each
+       one a different amount of it was a cheap way to fake distance that read as
+       exactly what it was: the skyline behind the skyline showing through, and
+       the whole city looking like tracing paper. Depth comes from the things
+       that actually carry it here, which are height, width and how far down the
+       window grid is lit. The haze at the top of the frame is the mask on the
+       pane, and that stays. */
+    towers: {n:16, variants:4, cap:22, sort:'s',
+             v:{s:[13, 48, 'vh'], w:[20, 66, 'px'], t:[58, 146, 's'],
                 x:[-6, 100, '%'], dx:[-8, 8, 'vw'],
                 wx:[4.5, 8.5, 'px'], wy:[6.5, 11.5, 'px'], dk:[9, 30, 'px']}},
     /* A star does not travel. What it does is change its mind about how bright
@@ -164,7 +209,14 @@
        WebView over two clouds that each carry a filter, and the specks are the
        part that is easy to give back: at seventy the sky is still dense and
        that is twenty-six fewer animated layers. */
-    stars:  {n:70, pal:true, cap:88, variants:18, layer:'neb', solo:{cls:'gal', n:3},
+    /* `lite` is the ceiling on a touch device, and it is far below `cap`
+       because a star is not as cheap as it looks: each one animates its own
+       opacity, which promotes it, and seventy promoted children inside a
+       masked pane is seventy things the compositor re-reads whenever any one
+       of them changes. The field still reads as a field at twenty-six -- what
+       makes a sky look like a sky is the spread and the few bright ones, not
+       the count. */
+    stars:  {n:70, pal:true, cap:88, lite:26, variants:18, layer:'neb', solo:{cls:'gal', n:3},
              v:{s:[.9, 3.6, 'px'], t:[2.6, 9, 's'], o:[.3, 1],
                 x:[-2, 102, '%'], y:[-2, 102, '%']}},
   };
@@ -217,9 +269,11 @@
     const speed = mult || 1;
     const two = colour2 && colour2 !== colour;
     let html = '';
+    const rows = [];
     const many = vfxCount(spec, dens);
     for(let i = 0; i < many; i++){
       const bits = [];
+      let sortKey = 0;
       /* Three ways to colour a speck. A palette hands out a different colour to
          each one in turn; `alt` takes two in turn (a blend across three or four
          huge shapes would just give you four of the same in-between colour);
@@ -273,6 +327,7 @@
         // the same kind, more or less all over the place — a campfire throws its
         // sparks about in a way a spore drifting off a fern does not
         else if(spec.wob && spec.wob.indexOf(name) >= 0) n *= wob;
+        if(name === spec.sort) sortKey = n;
         bits.push('--' + name + ':' + n.toFixed(name === 'o' ? 3 : 1) + (r[2] || ''));
       }
       // negative, so the field is already in mid-flight when you arrive rather
@@ -281,7 +336,30 @@
       // the cut-out is an attribute rather than a variable: CSS can select on
       // one and not the other, and each variant is its own shape
       const v = spec.variants ? ' data-v="' + (i % spec.variants) + '"' : '';
-      html += '<b' + v + ' style="' + bits.join(';') + '">'
+      rows.push({v, bits, k: sortKey});
+    }
+    /* **Back to front, for the kinds where overlap means something.**
+
+       Specks are siblings with no z-index, so the last one written is the one
+       painted on top. For rain that is nothing: a drop in front of a drop looks
+       like a drop. For a skyline it is everything, because buildings overlap and
+       the one in front has to be the one in front.
+
+       Sorted on the kind's own named value, smallest first. Towers sort on
+       height, which makes the convention "taller is nearer" -- not true of every
+       real skyline, but true of what the eye does with it, since a nearer thing
+       subtends a bigger angle. The small ones end up at the back where they
+       belong and the big ones in front, overlapping them. */
+    if(spec.sort) rows.sort((a, b)=>a.k - b.k);
+    /* And how far back each one ended up, as a number the stylesheet can use:
+       0 at the back, 1 at the front. Worked out from the place in the sorted
+       order rather than rolled separately, so a tower's distance and its size
+       can never disagree with each other. */
+    if(spec.sort && rows.length > 1){
+      rows.forEach((row, n)=>row.bits.push('--dp:' + (n / (rows.length - 1)).toFixed(3)));
+    }
+    for(const row of rows){
+      html += '<b' + row.v + ' style="' + row.bits.join(';') + '">'
         + (spec.child ? '<i></i>' : '')
         + (spec.sparks ? vfxSparks(spec) : '')
         + '</b>';

@@ -58,21 +58,46 @@
 }
 .emb-next{ font-size:12.5px; color:var(--muted); line-height:1.5; margin:10px 0 0 }
 
+/* A section heading with the rule running off it, the way a printed list
+   divides itself. The label stops where it stops and the line carries on, which
+   costs one pseudo-element and does more for the shape of the page than a
+   heavier typeface would. */
 .emb-head{
+  display:flex; align-items:center; gap:10px;
   font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
-  margin:18px 0 0;
+  margin:22px 0 0;
+}
+.emb-head::after{
+  content:''; flex:1; height:1px; min-width:12px;
+  background:linear-gradient(90deg,
+    color-mix(in srgb, var(--text) 16%, transparent), transparent);
 }
 .emb-head em{ font-style:normal; letter-spacing:.02em; text-transform:none; opacity:.75 }
 .emb-lights{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(148px, 1fr));
   gap:8px; margin-top:9px;
 }
+/* **Each card is tinted by the thing it is selling.** Every one of these
+   already carries `--lit`, the colour of the look or the sound it stands for,
+   and it was being spent on one small dot. A shop whose entire stock is how
+   something looks should show it: the wash is faint enough to read text over
+   and strong enough that the shelf is a row of different things rather than a
+   row of identical grey boxes. */
 .emb-light{
   position:relative; text-align:left; cursor:pointer; font:inherit;
   display:grid; grid-template-columns:auto 1fr; gap:2px 9px; align-items:center;
-  padding:11px 12px; border-radius:14px;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  padding:12px 13px; border-radius:14px;
+  border:0; box-shadow:var(--lift);
+  background:
+    radial-gradient(130% 120% at 100% 0%,
+      color-mix(in srgb, var(--lit, var(--accent)) 13%, transparent) 0%,
+      transparent 70%),
+    var(--card);
+  color:var(--text);
   transition:border-color .18s ease, background .18s ease, transform .1s ease;
+}
+.emb-light:hover{
+  box-shadow:var(--lift), 0 0 0 1px color-mix(in srgb, var(--lit, var(--accent)) 50%, transparent);
 }
 .emb-light:active{ transform:scale(.99) }
 /* ---- the light itself, lit or not ----

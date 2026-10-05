@@ -3,6 +3,10 @@
 <div class="confirm hide" id="confirm">
   <div class="confirm-card">
     <h3 id="confirm-title"></h3>
+    <!-- What you are about to buy, when there is something to show. Filled by
+         askConfirm from opt.show and emptied again by closeConfirm; see
+         21-dialogs.js. Hidden for every confirm that is only a question. -->
+    <div class="confirm-show hide" id="confirm-show" aria-hidden="true"></div>
     <p id="confirm-body"></p>
     <div class="confirm-acts">
       <!-- A third way out, for the confirms where No is not "do nothing". Hidden

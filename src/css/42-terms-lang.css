@@ -40,17 +40,17 @@
 .lang-pick .lang-chip{ padding-left:12px; padding-right:12px }
 
 /* ---- other scripts ----
-   Space Grotesk and Fraunces are Latin fonts. The browser falls back glyph by
+   Plus Jakarta Sans, Syne and Literata are Latin fonts. The browser falls back glyph by
    glyph, so the digits and any Latin keep the app's face and everything else
    is drawn by the best face the system has for that script — named here so it
    is a good one rather than whatever comes first. Nothing is downloaded: the
    privacy policy promises two fonts from Google and no more. */
-:root:lang(ja) body{ font-family:'Space Grotesk', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Noto Sans JP', sans-serif }
-:root:lang(zh) body{ font-family:'Space Grotesk', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif }
-:root:lang(hi) body{ font-family:'Space Grotesk', 'Nirmala UI', 'Noto Sans Devanagari', 'Kohinoor Devanagari', 'Mangal', sans-serif }
-:root:lang(ur) body{ font-family:'Space Grotesk', 'Noto Naskh Arabic', 'Segoe UI', 'Geeza Pro', 'Tahoma', sans-serif }
-:root:lang(ar) body{ font-family:'Space Grotesk', 'Noto Naskh Arabic', 'Segoe UI', 'Geeza Pro', 'Tahoma', sans-serif }
-:root:lang(ru) body{ font-family:'Space Grotesk', 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif }
+:root:lang(ja) body{ font-family:'Plus Jakarta Sans', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Noto Sans JP', sans-serif }
+:root:lang(zh) body{ font-family:'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', sans-serif }
+:root:lang(hi) body{ font-family:'Plus Jakarta Sans', 'Nirmala UI', 'Noto Sans Devanagari', 'Kohinoor Devanagari', 'Mangal', sans-serif }
+:root:lang(ur) body{ font-family:'Plus Jakarta Sans', 'Noto Naskh Arabic', 'Segoe UI', 'Geeza Pro', 'Tahoma', sans-serif }
+:root:lang(ar) body{ font-family:'Plus Jakarta Sans', 'Noto Naskh Arabic', 'Segoe UI', 'Geeza Pro', 'Tahoma', sans-serif }
+:root:lang(ru) body{ font-family:'Plus Jakarta Sans', 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif }
 
 /* **No italics outside Latin and Cyrillic.** Japanese, Chinese, Devanagari and
    Arabic script have no italic; the browser fakes one by slanting the glyphs,

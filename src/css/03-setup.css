@@ -5,7 +5,7 @@
    italic dropdown values and a paragraph; now it's the only one, so it reads as
    a deliberate accent rather than as another font. */
 .lede h1{
-  font-family:'Fraunces',serif; font-style:italic; font-weight:400;
+  font-family:'Literata',serif; font-style:italic; font-weight:500;
   font-size:31px; line-height:1.08; letter-spacing:-.01em;
 }
 .lede p{margin-top:9px; color:var(--muted); font-size:14.5px; line-height:1.5; transition:color 1.1s ease}

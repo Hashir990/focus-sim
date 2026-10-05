@@ -3,7 +3,7 @@
   text-align:center; padding:20px; border-radius:18px; margin:14px auto 0; max-width:360px; width:100%;
   border:1px solid var(--accent); background:color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.banner h3{font-family:'Fraunces',serif; font-style:italic; font-size:22px; margin-bottom:6px}
+.banner h3{font-family:'Literata',serif; font-style:italic; font-size:22px; margin-bottom:6px}
 .banner p{font-size:13.5px; color:var(--muted); margin-bottom:14px}
 .banner.hide{display:none}
 .toast{

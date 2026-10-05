@@ -682,19 +682,39 @@ body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
   width:var(--w); height:var(--s);
   left:var(--x); top:auto; bottom:0;
   border-radius:2px 2px 0 0;
-  opacity:var(--o);
-  background-color:var(--c);
+  /* **Solid, and far away is haze rather than transparency.**
+
+     The first version faked distance by making distant towers partly
+     see-through, which is what you could see: buildings showing through
+     buildings, the whole city like tracing paper. Taking that out made them
+     solid and flat, because transparency had been carrying the depth on its
+     own.
+
+     Distance in a real skyline is atmosphere. Air between you and a thing
+     lifts its darks toward the colour of the sky and drops its contrast, and
+     it does that without making anything see-through -- so the near tower
+     still hides the far one completely, which is the other half of what was
+     missing. --dp is 0 at the back and 1 at the front; the ones at the back
+     take most of the haze and the ones at the front take none. */
+  opacity:1;
+  --haze:color-mix(in srgb, var(--bg2) 72%, var(--accent) 28%);
+  background-color:color-mix(in srgb, var(--c), var(--haze) calc((1 - var(--dp, 1)) * 64%));
   /* Windows, and the floors that have gone dark, as two tiled gradients rather
      than as elements. The lit grid is a radial tiled at the tower's own pitch;
      the dark bands are a repeating linear one at a pitch that is not a multiple
      of it, so where the two line up drifts down the building and the pattern
      never repeats inside one tower. Sixteen towers of forty windows each would
      otherwise be six hundred elements for a thing nobody looks at directly. */
+  /* The windows take the same journey. A lit window a mile off is not a
+     bright dot, it is a smudge the colour of the air -- and leaving them at
+     full strength on a hazed building is the one thing that would give the
+     trick away. */
   background-image:
     repeating-linear-gradient(0deg,
       var(--c) 0 var(--dk), transparent var(--dk) calc(var(--dk) * 2.7)),
     radial-gradient(circle calc(var(--wx) * .17) at 50% 50%,
-      var(--accent) 0 72%, transparent 74%);
+      color-mix(in srgb, var(--accent), var(--haze) calc((1 - var(--dp, 1)) * 70%)) 0 72%,
+      transparent 74%);
   background-size:100% 100%, var(--wx) var(--wy);
   /* Longhand, so the smoke test can see the rule exists; see the note on the
      keys effect above. */
@@ -928,6 +948,64 @@ body[data-light="magma"] .vfx[data-fx="smoke"] b:nth-child(5n){
 /* Pink, blue, orange, each with a lighter one of itself for the core. A core
    in a different hue from the cloud around it reads as two objects rather than
    one lit from inside. */
+/* **No turbulence on a phone**, and then rather more than that.
+
+   Taking the filters off was the obvious half and it was not enough, because
+   the filters were never the whole bill. What Deep space really costs is the
+   number of large surfaces it keeps alive at once: a mask over the entire
+   pane, two cloud layers each inset past the edge of the screen, a blur on one
+   of them, three galaxies each asking to be promoted, and seventy stars
+   animating their own opacity inside all of it. On a 1080 by 2400 screen that
+   is comfortably fifty megabytes of texture being recomposited, and a phone
+   spends its frame budget moving that about rather than drawing it.
+
+   A mask is the worst of them. It forces the whole pane into an offscreen
+   buffer that has to be rebuilt whenever anything inside it changes -- and
+   with seventy twinkling children, something is always changing. It goes
+   first, and the vignette it was drawing is done by the cloud gradients
+   instead, which are painted once and cost nothing after that. */
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"]::before,
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"] .neb,
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"] b.gal{
+  filter:none;
+}
+/* The mask, which was the single most expensive thing here. */
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"]{
+  -webkit-mask-image:none; mask-image:none;
+}
+/* **The same vignette, painted rather than masked.** Dropping the mask also
+   dropped the darkening it was doing at the edges, and without it the clouds
+   run flat into the corners. The shape is identical -- the gradient below is
+   the mask's own stops, inverted -- but a painted overlay is one static layer
+   composited once, where a mask forces the whole pane into a buffer that is
+   rebuilt whenever any child of it changes. Same picture, none of the bill.
+
+   Last among the children, so it sits over the stars the way the mask did. */
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"]::after{
+  display:block; content:''; position:absolute; inset:0;
+  pointer-events:none;
+  background:radial-gradient(150% 108% at 50% 46%,
+    transparent 0 60%,
+    color-mix(in srgb, var(--bg) 42%, transparent) 84%,
+    color-mix(in srgb, var(--bg) 70%, transparent) 100%);
+}
+/* **And nothing asks to be promoted.** `will-change` is a promise to the
+   browser that a thing is about to move, and it answers by giving it a layer
+   of its own and keeping it. Five full-screen-ish layers held open is the
+   memory this look could not afford; the drift still runs, it is simply
+   composited the ordinary way. */
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"]::before,
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"] .neb,
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"] b.gal{
+  will-change:auto;
+}
+/* The two cloud layers come in to the edge of the screen rather than hanging
+   well past it. They were inset so the drift could never show an edge; with
+   the drift at 3vw there is nothing to hide, and the difference is a surface a
+   third smaller each. */
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"]::before{ inset:-6% }
+:root[data-vfx-lite="1"] .vfx[data-fx="stars"] .neb{ inset:-5% }
+
 .vfx[data-fx="stars"] b.gal[data-g="0"]{ --gal:#e8368f; --gal2:#ffbcdd }
 .vfx[data-fx="stars"] b.gal[data-g="1"]{ --gal:#2f7dd8; --gal2:#a9d6ff }
 .vfx[data-fx="stars"] b.gal[data-g="2"]{ --gal:#e0722a; --gal2:#ffd3a3 }

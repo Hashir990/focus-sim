@@ -216,6 +216,159 @@
     if(r.when === 'session') return 'During any session';
     return 'During focus';
   }
+  /* ---------------- the day, as the phone reads it ----------------
+
+     **This is a second copy of forceMode, and that is a hazard worth naming.**
+     The decision that matters is made natively, in GuardRules.forceMode, by the
+     accessibility service with no page running. This one exists only to draw
+     the bar, and a bar that disagreed with the phone would be worse than no bar
+     at all: it would be a picture of a day you are not actually having.
+
+     They are kept honest by a check rather than by hope -- the gate walks a
+     day through both and compares, the same way the merge rules in 47-merge.js
+     are held against the server's copy. If this drifts, that goes red.
+
+     Last match wins, exactly as over there: a break written after a block is a
+     hole in it. */
+  const GUARD_WIN_MODES = ['limit', 'block', 'off'];
+
+  function guardMinutes(hhmm){
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+    if(!m) return -1;
+    return Math.min(1439, Number(m[1]) * 60 + Number(m[2]));
+  }
+  function guardOnDay(days, dow){
+    return String(days || '').indexOf(String(((dow % 7) + 7) % 7)) >= 0;
+  }
+  function guardInWindow(days, from, to, dow, minute){
+    if(from < 0 || to < 0) return false;
+    if(from === to) return guardOnDay(days, dow);          // the same time twice is all day
+    if(from < to) return guardOnDay(days, dow) && minute >= from && minute < to;
+    if(minute >= from) return guardOnDay(days, dow);
+    if(minute < to) return guardOnDay(days, dow + 6);      // and the far side of midnight
+    return false;
+  }
+  /** '', 'limit' or 'block' at this minute of this weekday. */
+  function guardWinMode(r, dow, minute){
+    if(!r) return '';
+    const plain = r.hard ? 'block' : 'limit';
+    if(r.when !== 'schedule'){
+      /* Off the clock entirely: the bar cannot say anything useful about a rule
+         that follows a timer, so it is not drawn for one. */
+      return r.when === 'always' ? plain : '';
+    }
+    const ws = Array.isArray(r.windows) ? r.windows : [];
+    if(!ws.length){
+      return guardInWindow(r.days, guardMinutes(r.from), guardMinutes(r.to), dow, minute)
+        ? plain : '';
+    }
+    let mode = '';
+    for(const w of ws){
+      if(!guardInWindow(w.d, guardMinutes(w.f), guardMinutes(w.t), dow, minute)) continue;
+      mode = w.m === 'block' ? 'block' : (w.m === 'limit' ? 'limit' : '');
+    }
+    return mode;
+  }
+
+
+  /* ---------------- the day, drawn ----------------
+
+     A list of windows is a set of rules you have to hold in your head at once,
+     and the thing you actually want to know is what the day comes out as. Two
+     windows that overlap, or one that runs past midnight, or a break sitting
+     in a gap rather than inside the block it was meant to cut -- all of those
+     read fine as a list and are obvious as a strip.
+
+     Drawn at quarter-hour resolution, which is finer than any time anybody
+     sets and coarse enough to be 96 elements rather than 1440. */
+  const GUARD_SLOT = 15;
+
+  /** Every window covers every day, so the bar speaks for all of them. */
+  function guardEveryDay(r){
+    const ws = (r.windows || []);
+    if(!ws.length) return (r.days || "") === "0123456";
+    return ws.every(w=>(w.d || "") === "0123456");
+  }
+
+  function guardBarHtml(r){
+    const dow = new Date().getDay();
+    const slots = [];
+    for(let m = 0; m < 1440; m += GUARD_SLOT) slots.push(guardWinMode(r, dow, m));
+    /* Runs rather than slots: 96 elements each one percent wide is a row of
+       hairlines a browser rounds into stripes. Joined up, a day is usually
+       five or six segments. */
+    const runs = [];
+    for(const m of slots){
+      const last = runs[runs.length - 1];
+      if(last && last.m === m) last.n++; else runs.push({m, n:1});
+    }
+    const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const label = guardEveryDay(r) ? T("Daily") : T(names[dow]);
+    return "<div class=\"blk-bar-wrap\">"
+      + "<div class=\"blk-bar-hours\"><span>12 AM</span><span>6 AM</span>"
+      + "<span>12 PM</span><span>6 PM</span><span>12 AM</span></div>"
+      + "<div class=\"blk-barrow\"><i>" + esc(label) + "</i>"
+      + "<div class=\"blk-daystrip\" role=\"img\" aria-label=\"" + esc(T("The day at a glance")) + "\">"
+      + runs.map(x=>"<span class=\"blk-seg blk-seg-" + (x.m || "off")
+          + "\" style=\"flex:" + x.n + "\"></span>").join("")
+      + "</div></div>"
+      + "<div class=\"blk-key\">"
+      + "<span class=\"blk-seg-limit\"></span>" + esc(T("Limit"))
+      + "<span class=\"blk-seg-block\"></span>" + esc(T("Strict block"))
+      + "<span class=\"blk-seg-off\"></span>" + esc(T("Break"))
+      + "</div></div>";
+  }
+
+  const GUARD_WIN_PICK = [
+    {id:"block", n:"Strict block"},
+    {id:"limit", n:"Limit"},
+    {id:"off", n:"Break"},
+  ];
+
+  /* **Numbered by position, and the position is the meaning.** Last match wins,
+     so a window’s place in the list is the difference between a hole in a block
+     and a hole in nothing. The rows carry their index and can be moved up and
+     down; they are deliberately not sortable by time. */
+  function guardWindowsHtml(r){
+    const ws = r.windows || [];
+    let h = guardBarHtml(r);
+    if(!ws.length){
+      h += "<p class=\"blk-sub\">" + esc(T("One stretch of the day, the same every week.")) + "</p>"
+        + "<div class=\"blk-days\">" + GUARD_DAYS.map(d=>
+          "<button class=\"blk-day" + (String(r.days).indexOf(String(d[0])) >= 0 ? " on" : "")
+          + "\" data-rday=\"" + d[0] + "\">" + esc(d[1]) + "</button>").join("") + "</div>"
+        + "<div class=\"blk-times\"><label>From <input type=\"time\" id=\"blr-from\" value=\""
+        + esc(r.from) + "\"></label><label>to <input type=\"time\" id=\"blr-to\" value=\""
+        + esc(r.to) + "\"></label></div>"
+        + "<p class=\"blk-sub\">" + esc(T("An end earlier than the start runs overnight. The same time twice is all day.")) + "</p>";
+    }else{
+      h += ws.map((w, i)=>
+        "<div class=\"blk-win\">"
+        + "<div class=\"blk-win-top\">"
+        + "<span class=\"blk-seg-" + esc(w.m) + " blk-win-dot\"></span>"
+        + "<div class=\"blk-chips blk-win-modes\">" + GUARD_WIN_PICK.map(o=>
+            "<button class=\"blk-opt" + (w.m === o.id ? " on" : "") + "\" data-wmode=\"" + i
+            + "\" data-wm=\"" + o.id + "\">" + esc(T(o.n)) + "</button>").join("") + "</div>"
+        + "<button class=\"blk-win-x\" data-wdrop=\"" + i + "\" aria-label=\""
+        + esc(T("Remove this window")) + "\">&times;</button>"
+        + "</div>"
+        + "<div class=\"blk-days\">" + GUARD_DAYS.map(d=>
+            "<button class=\"blk-day" + (String(w.d).indexOf(String(d[0])) >= 0 ? " on" : "")
+            + "\" data-wday=\"" + i + "\" data-wd=\"" + d[0] + "\">" + esc(d[1])
+            + "</button>").join("") + "</div>"
+        + "<div class=\"blk-times\">"
+        + "<label>From <input type=\"time\" data-wfrom=\"" + i + "\" value=\"" + esc(w.f) + "\"></label>"
+        + "<label>to <input type=\"time\" data-wto=\"" + i + "\" value=\"" + esc(w.t) + "\"></label>"
+        + "</div>"
+        + "<div class=\"blk-win-move\">"
+        + "<button data-wup=\"" + i + "\"" + (i === 0 ? " disabled" : "") + ">&uarr;</button>"
+        + "<button data-wdown=\"" + i + "\"" + (i === ws.length - 1 ? " disabled" : "") + ">&darr;</button>"
+        + "<small>" + esc(T("Later windows win where they overlap.")) + "</small>"
+        + "</div></div>").join("");
+    }
+    h += "<button class=\"blk-pick\" id=\"blr-winadd\">+ " + esc(T("Add time window")) + "</button>";
+    return h;
+  }
   function guardRuleTitle(r){
     if(r.name) return r.name;
     const names = r.apps.map(guardAppName).concat(r.sites);
@@ -504,20 +657,53 @@
 
   /* ---------------- a rule ---------------- */
 
-  function guardRule(){
+  /** The rule as saved. What Save is measured against, and what Discard
+      returns to. */
+  function guardRuleStored(){
     return guardWorking().rules.find(r=>r.id === Guard.editing) || null;
   }
-  /** Change the rule being edited, through the lock like everything else. */
+  /** The rule as the editor is showing it: the draft while one is open. */
+  function guardRule(){
+    return Guard.draft || guardRuleStored();
+  }
+  /** Change the copy. Nothing leaves this screen until Save. */
   function guardEditRule(fn){
-    const id = Guard.editing;
+    if(!Guard.draft) return;
+    fn(Guard.draft, guardWorking());
+    guardPaintRule();
+  }
+  /** Is there anything to save? */
+  function guardRuleDirty(){
+    const was = guardRuleStored();
+    if(!Guard.draft || !was) return false;
+    return JSON.stringify(guardClean({rules:[Guard.draft]}).rules[0])
+        !== JSON.stringify(guardClean({rules:[was]}).rules[0]);
+  }
+  /* **Cleaned on the way out, not on the way in.** guardClean is what turns a
+     nonsense number into a usable one, and running it on every keystroke would
+     rewrite a half-typed website address under the cursor. The draft is left
+     alone until it is committed, and the commit is the thing that has to be
+     safe. */
+  function guardSaveRule(){
+    if(!Guard.draft) return;
+    const d = JSON.parse(JSON.stringify(Guard.draft));
     guardChange(c=>{
-      const r = c.rules.find(x=>x.id === id);
-      if(r) fn(r, c);
+      const i = c.rules.findIndex(x=>x.id === d.id);
+      if(i >= 0) c.rules[i] = d; else c.rules.push(d);
     });
+    /* Read back rather than kept: guardChange may have cleaned it, and under
+       the lock it may not have applied at all. Either way the editor should now
+       be showing what is really there. */
+    const now = guardRuleStored();
+    Guard.draft = now ? JSON.parse(JSON.stringify(now)) : null;
+    guardPaintRule();
+    try{ toast(guardLocked(Guard.cfg) ? T('Saved. It takes effect after the wait.') : T('Saved')); }catch(e){}
   }
 
   function guardOpenRule(id){
     Guard.editing = id;
+    const r = guardRuleStored();
+    Guard.draft = r ? JSON.parse(JSON.stringify(r)) : null;
     const el = $('block-rule-overlay');
     if(!el) return;
     el.classList.remove('hide');
@@ -528,7 +714,23 @@
     const el = $('block-rule-overlay');
     if(el) el.classList.add('hide');
     Guard.editing = '';
+    Guard.draft = null;
     guardPaint();
+  }
+  /* **Leaving with something unsaved is three answers, not two.** Save it, throw
+     it away, or go back to what you were doing -- and a two-button dialog makes
+     the third one the close box, which nobody reads as an answer. See the note
+     on opt.alt in 21-dialogs.js.
+
+     Back on Android reaches this through the same close button, so the question
+     is asked there too rather than only on the X. */
+  function guardTryCloseRule(){
+    if(!guardRuleDirty()){ guardCloseRule(); return; }
+    askConfirm(T('Save this rule?'),
+      T('You have changed it and not saved yet.'),
+      T('Save'), ()=>{ guardSaveRule(); guardCloseRule(); },
+      {no:T('Keep editing'),
+       alt:{label:T('Throw it away'), run:()=>guardCloseRule()}});
   }
 
   function guardToggles(key, list, now){
@@ -602,13 +804,7 @@
 
     /* ---- when ---- */
     let force = guardToggles('rwhen', GUARD_WHEN, r.when);
-    if(r.when === 'schedule'){
-      force += '<div class="blk-days">' + GUARD_DAYS.map(d=>
-        '<button class="blk-day' + (r.days.indexOf(String(d[0])) >= 0 ? ' on' : '') + '" data-rday="' + d[0] + '">' + d[1] + '</button>').join('') + '</div>'
-        + '<div class="blk-times"><label>From <input type="time" id="blr-from" value="' + esc(r.from) + '"></label>'
-        + '<label>to <input type="time" id="blr-to" value="' + esc(r.to) + '"></label></div>'
-        + '<p class="blk-sub">An end earlier than the start runs overnight. The same time twice is all day.</p>';
-    }
+    if(r.when === 'schedule') force += guardWindowsHtml(r);
     h += guardSec('When it is in force', true, force);
 
     /* ---- how hard ---- */
@@ -675,6 +871,15 @@
     }
 
     h += '<button class="blk-delete" id="blr-delete">Delete this rule</button>';
+    /* Sticky, because the editor is five sections long and a Save you have to
+       scroll to find is a Save people do not press. Disabled rather than hidden
+       when there is nothing to save, so the row does not appear and disappear
+       under your thumb as you change things. */
+    const dirty = guardRuleDirty();
+    h += '<div class="blk-saverow">'
+       + '<button class="blk-save' + (dirty ? ' on' : '') + '" id="blr-save"'
+       + (dirty ? '' : ' disabled') + '>'
+       + esc(dirty ? T('Save changes') : T('Saved')) + '</button></div>';
     box.innerHTML = h;
     guardWireRule();
   }
@@ -730,6 +935,64 @@
     box.querySelectorAll('[data-rafter]').forEach(b=>{
       b.onclick = ()=>guardEditRule(r=>{ r.after = b.dataset.rafter; });
     });
+    /* ---- the windows ---- */
+    /* Seeded from the single range the rule already had, so the first window
+       you add is the hours it was already keeping rather than a blank one you
+       have to fill in before anything works. Mode comes from the rule, for the
+       same reason. */
+    on('#blr-winadd', 'onclick', ()=>guardEditRule(r=>{
+      if(!Array.isArray(r.windows)) r.windows = [];
+      if(r.windows.length >= 10) return;
+      const last = r.windows[r.windows.length - 1];
+      r.windows.push(last
+        ? {d:last.d, f:last.t, t:last.f, m:last.m === "off" ? "block" : "off"}
+        : {d:r.days || "0123456", f:r.from, t:r.to, m:r.hard ? "block" : "limit"});
+    }));
+    box.querySelectorAll('[data-wmode]').forEach(b=>{
+      b.onclick = ()=>guardEditRule(r=>{
+        const w = r.windows[Number(b.dataset.wmode)];
+        if(w) w.m = b.dataset.wm;
+      });
+    });
+    box.querySelectorAll('[data-wday]').forEach(b=>{
+      b.onclick = ()=>guardEditRule(r=>{
+        const w = r.windows[Number(b.dataset.wday)];
+        if(!w) return;
+        const d = b.dataset.wd;
+        w.d = w.d.indexOf(d) >= 0 ? w.d.split(d).join("") : w.d + d;
+      });
+    });
+    box.querySelectorAll('[data-wfrom]').forEach(i=>{
+      i.onchange = ()=>guardEditRule(r=>{
+        const w = r.windows[Number(i.dataset.wfrom)];
+        if(w) w.f = i.value;
+      });
+    });
+    box.querySelectorAll('[data-wto]').forEach(i=>{
+      i.onchange = ()=>guardEditRule(r=>{
+        const w = r.windows[Number(i.dataset.wto)];
+        if(w) w.t = i.value;
+      });
+    });
+    box.querySelectorAll('[data-wdrop]').forEach(b=>{
+      b.onclick = ()=>guardEditRule(r=>{
+        r.windows.splice(Number(b.dataset.wdrop), 1);
+      });
+    });
+    /* Moving a window is the only way to change what it means against the one
+       it overlaps, because last match wins. Hence arrows rather than a sort. */
+    const swap = (i, j)=>guardEditRule(r=>{
+      const w = r.windows;
+      if(i < 0 || j < 0 || i >= w.length || j >= w.length) return;
+      const t = w[i]; w[i] = w[j]; w[j] = t;
+    });
+    box.querySelectorAll('[data-wup]').forEach(b=>{
+      b.onclick = ()=>swap(Number(b.dataset.wup), Number(b.dataset.wup) - 1);
+    });
+    box.querySelectorAll('[data-wdown]').forEach(b=>{
+      b.onclick = ()=>swap(Number(b.dataset.wdown), Number(b.dataset.wdown) + 1);
+    });
+
     box.querySelectorAll('[data-rday]').forEach(b=>{
       b.onclick = ()=>guardEditRule(r=>{
         const d = b.dataset.rday;
@@ -762,6 +1025,7 @@
         });
       };
     });
+    on('#blr-save', 'onclick', ()=>guardSaveRule());
     on('#blr-delete', 'onclick', ()=>{
       const r = guardRule();
       if(!r) return;
@@ -769,6 +1033,7 @@
         'Everything in it stops being blocked' + (guardLocked(Guard.cfg) ? ' once the lock lets the change through.' : '.'),
         'Delete', ()=>{
           const id = r.id;
+          Guard.draft = null;         // nothing left for it to be saved onto
           guardChange(c=>{ c.rules = c.rules.filter(x=>x.id !== id); });
           guardCloseRule();
         });
@@ -853,7 +1118,9 @@
   }
 
   if($('block-close')) $('block-close').onclick = ()=>guardClose();
-  if($('block-rule-close')) $('block-rule-close').onclick = ()=>guardCloseRule();
+  /* Android's Back closes the top layer by clicking this same button, so
+     asking here covers both ways out. See BACK_LAYERS in 44-back.js. */
+  if($('block-rule-close')) $('block-rule-close').onclick = ()=>guardTryCloseRule();
   if($('block-apps-close')) $('block-apps-close').onclick = ()=>guardClosePicker();
   if($('blk-find')) $('blk-find').oninput = (e)=>{
     Guard.filter = e.target.value || '';

@@ -239,7 +239,7 @@ body.away .dial-web-spokes, body.away .dial-web-rings{ animation-play-state:paus
 }
 .readout{position:relative; text-align:center; z-index:2}
 .phase-name{
-  font-family:'Fraunces',serif; font-style:italic; font-weight:400;
+  font-family:'Literata',serif; font-style:italic; font-weight:500;
   font-size:19px; color:var(--accent); letter-spacing:.01em; transition:color 1.1s ease;
 }
 .clock{

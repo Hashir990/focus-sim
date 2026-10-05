@@ -16,25 +16,32 @@
          Shop is last and deliberately apart. It is the only accented row on
          here, and an accented row in the middle of a list drags the eye past
          everything above it every time the menu opens. -->
+    <!-- **One list, not seven cards.** Every row used to be its own bordered
+         panel, which is the look every generated dashboard has: equal boxes,
+         equal weight, no grouping, and nothing to tell you these seven things
+         belong together. They do belong together -- they are the places you can
+         go -- so they are one panel with hairlines between them, and the panel
+         is the thing with an edge. See 13-drawer.css. -->
+    <nav class="drawer-nav">
     <button class="drawer-item" id="d-sync">
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <span><b>Focus together</b><small>Share a timer with someone else</small></span>
+      <span><b>Focus together</b></span>
     </button>
     <button class="drawer-item" id="d-account">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1a7 7 0 0 1 14 0v1"/></svg>
-      <span><b>Your account</b><small>Sign in &amp; your buddy</small></span>
+      <span><b>Your account</b></span>
     </button>
     <button class="drawer-item" id="d-stats">
       <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
-      <span><b>Your focus</b><small>Totals, streaks and where the hours went</small></span>
+      <span><b>Your focus</b></span>
     </button>
     <button class="drawer-item" id="d-history">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-      <span><b>History</b><small>Your sessions &amp; notes calendar</small></span>
+      <span><b>History</b></span>
     </button>
     <button class="drawer-item" id="d-ach">
       <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
-      <span><b>Achievements</b><small>What the hours added up to</small></span>
+      <span><b>Achievements</b></span>
     </button>
     <!-- The developer page is not a row here any more, on any build. It lives
          in dist/dev-unlocked.html — a separate file, built alongside this one,
@@ -49,12 +56,13 @@
          smoke check now asks that it is here and that it shows with the plugin. -->
     <button class="drawer-item hide" id="d-block">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>
-      <span><b>App blocking</b><small>A pause in front of the apps you pick</small></span>
+      <span><b>App blocking</b></span>
     </button>
     <button class="drawer-item" id="d-quotes">
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
-      <span><b>Quote bank</b><small>Lines that fade in while you focus</small></span>
+      <span><b>Quote bank</b></span>
     </button>
+    </nav>
     <!-- Leaving is a row on the Focus together screen, not a menu item. Two
          places to leave from meant two things to keep in step and no obvious
          home for it; the screen that put you in a room is the one to leave from. -->
@@ -64,7 +72,8 @@
          was anywhere to spend them. Filled by Embers.render(). -->
     <button class="drawer-spend" id="emb-spend-row">
       <span class="emb-chip-mini"><i></i><b id="emb-spend-n">0</b></span>
-      <span>Shop<small>Looks, sounds, faces, and everything he wears</small></span>
+      <span>Shop</span>
+      <svg class="drawer-spend-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
     </button>
 
     <div class="drawer-sec">Ambience</div>

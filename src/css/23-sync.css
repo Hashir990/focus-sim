@@ -31,7 +31,7 @@
 
 .sync-mine{ display:flex; align-items:center; gap:9px; margin:10px 0 9px }
 .sync-mine code{
-  flex:1; font-family:'Space Grotesk',monospace; font-size:21px; font-weight:600;
+  flex:1; font-family:'Plus Jakarta Sans',monospace; font-size:21px; font-weight:600;
   letter-spacing:.22em; color:var(--accent);
   background:var(--track); border-radius:12px; padding:11px 14px; text-align:center;
 }
@@ -141,7 +141,7 @@
 }
 .ft-hint.hide{ display:none }
 .ft-hint code{
-  font-family:'Space Grotesk',monospace; font-size:13px; font-weight:600;
+  font-family:'Plus Jakarta Sans',monospace; font-size:13px; font-weight:600;
   letter-spacing:.16em; color:var(--accent);
   background:var(--track); border-radius:7px; padding:3px 8px;
 }

@@ -242,6 +242,52 @@
     return v != null ? v : null;
   }
 
+  /* **What a look is actually made of, read back out of the stylesheet.**
+
+     The catalogue carries a look's accent and its weather colours, but not its
+     sky: that lives in 30-embers.css as --bg and --bg2 on a rule scoped to
+     body[data-light="id"]. Nothing in JS has ever needed it, because the way
+     you see a look is by wearing it.
+
+     A confirmation cannot wear it -- putting the palette on the body to show a
+     swatch would repaint the whole app behind the dialog for something you
+     might be about to cancel. So the rule is found and read instead. Read-only,
+     and wrapped, because a stylesheet from another origin throws on .cssRules
+     rather than returning nothing, and one unreadable sheet must not take the
+     shop with it. */
+  function embPalette(id){
+    const want = '[data-light="' + id + '"]';
+    const alt = '[data-amb="' + id + '"]';
+    try{
+      for(const sheet of document.styleSheets){
+        let rules;
+        try{ rules = sheet.cssRules; }catch(e){ continue; }
+        if(!rules) continue;
+        for(const r of rules){
+          const sel = r.selectorText;
+          if(!sel || (sel.indexOf(want) < 0 && sel.indexOf(alt) < 0)) continue;
+          const get = (k)=>(r.style.getPropertyValue(k) || '').trim();
+          const bg = get('--bg');
+          if(!bg) continue;
+          return {accent:get('--accent'), bg, bg2:get('--bg2') || bg};
+        }
+      }
+    }catch(e){}
+    return null;
+  }
+  /** What the confirm dialog needs to draw one of these. */
+  function embShow(item){
+    const p = embPalette(item.id) || {};
+    return {
+      accent:p.accent || item.accent,
+      c1:p.bg || item.accent,
+      c2:p.bg2 || item.fxc || item.accent,
+      /* No name: the dialog's own title is the name, and the two sat one
+         above the other saying the same word. */
+      note:item.note ? T(item.note) : '',
+    };
+  }
+
   function embLight(id){ return EMB_LIGHTS.find(l=>l.id === id) || EMB_LIGHTS[0]; }
   function embSound(id){ return EMB_SOUNDS.find(s=>s.id === id) || null; }
   /** Free, or bought. Asked by the ambience picker before it plays anything. */
@@ -542,9 +588,20 @@
       const l = embLight(id);
       if(this.own.indexOf(l.id) >= 0){ this.use(l.id); return; }
       if(this.have < l.cost){ toast('Not enough embers yet'); return; }
-      const ln = LANG === 'en' ? l.name.toLowerCase() : T(l.name);
-      askConfirm(T('Light the {name}?', {name:ln}),
-        Tn('{n} embers, yours for good.', '{n} embers, yours for good.', l.cost),
+      /* **The thing, not a sentence about the thing.** This asked "Light the
+         seaglass?" -- an article bolted onto a proper noun, which reads as a
+         typo in English and does not survive translation at all, since half
+         these languages have no article to bolt on. And it was the only
+         description you got: a name, a price, and no sight of what you were
+         spending on, in a shop whose entire stock is how something looks.
+
+         So the name is the question and the look is the answer. */
+      /* **No line of prose under the name.** It read "136 embers, yours for
+         good" directly above a button saying "Spend 136", which is the price
+         twice and a reassurance nobody asked for -- nothing in this shop has
+         ever been rented. The swatch says what it looks like, the title says
+         what it is called, the button says what it costs. */
+      askConfirm(T(l.name), '',
         T('Spend {n}', {n:l.cost}), ()=>{
           if(Embers.have < l.cost) return;
           Embers.have -= l.cost;
@@ -553,7 +610,7 @@
           Embers.save(); Embers.paint(); Embers.render();
           chime(false);
           toast(T('{name} is yours', {name:T(l.name)}));
-        });
+        }, {show:embShow(l)});
     },
 
     /** A sound. Bought the same way, then handed to the ambience engine. */
@@ -561,10 +618,14 @@
       const s = embSound(id);
       if(!s) return;
       if(embHasSound(id)){ if(then) then(); return; }
-      const sn = LANG === 'en' ? s.name.toLowerCase() : T(s.name);
-      if(this.have < s.cost){ toast(T('{n} embers for {name}', {n:s.cost, name:sn})); return; }
-      askConfirm(T('Unlock {name}?', {name:sn}),
-        Tn('{n} embers, yours for good, sound, colours and weather.', '{n} embers, yours for good, sound, colours and weather.', s.cost),
+      if(this.have < s.cost){
+        toast(T('{n} embers for {name}', {n:s.cost, name:T(s.name)}));
+        return;
+      }
+      /* The one thing the swatch cannot show: a track brings a palette and a
+         weather with it, which is most of what you are buying and is not
+         guessable from a name like Campfire. */
+      askConfirm(T(s.name), T('Sound, colours and weather.'),
         T('Spend {n}', {n:s.cost}), ()=>{
           if(Embers.have < s.cost) return;
           Embers.have -= s.cost;
@@ -573,7 +634,7 @@
           chime(false);
           toast(T('{name} is yours', {name:T(s.name)}));
           if(then) then();
-        });
+        }, {show:embShow(s)});
     },
 
     /** A quote pack. Bought once, then switched on and off for nothing —
@@ -590,8 +651,7 @@
         return;
       }
       if(this.have < p.cost){ toast(T('{n} embers for {name}', {n:p.cost, name:T(p.name)})); return; }
-      askConfirm(T('Unlock {name}?', {name:T(p.name)}),
-        Tn('{n} embers, yours for good.', '{n} embers, yours for good.', p.cost),
+      askConfirm(T(p.name), '',
         T('Spend {n}', {n:p.cost}), ()=>{
           if(Embers.have < p.cost) return;
           Embers.have -= p.cost;

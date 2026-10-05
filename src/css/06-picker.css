@@ -1,20 +1,58 @@
 /* picker */
-.picker{gap:12px; display:flex; flex-direction:column; padding-top:10px}
-.pick-lede{color:var(--muted); font-size:13.5px; line-height:1.5; margin-bottom:2px}
-.pcard{
-  text-align:left; cursor:pointer; padding:18px; border-radius:18px;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
-  font-family:inherit; transition:background .18s ease, transform .1s ease, border-color .18s;
-  display:flex; align-items:center; gap:16px;
+/* **A shelf, not a queue.**
+
+   Twelve games in a single column of wide rows is a list you scroll rather than
+   a shelf you look at: three fit on a phone screen at a time, and choosing
+   meant remembering what was above the fold. As a grid the whole shelf is in
+   front of you, which is what a picker is for.
+
+   `auto-fill` rather than a fixed count, so it is one column on a narrow phone
+   and two once there is room, without a breakpoint deciding where that is. The
+   panel it lives in caps at 460px, so two is the most it will ever be -- and
+   two is right: a third column would make the tiles too small to carry a name
+   and a line about it. */
+.picker{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(188px, 1fr));
+  gap:11px; padding-top:10px; align-content:start;
 }
-.pcard:hover{background:rgba(255,255,255,.07)}
-.pcard:active{transform:scale(.99)}
-.pcard .emoji{font-size:26px; width:46px; height:46px; flex:0 0 auto; display:grid; place-items:center;
-  border-radius:13px; background:var(--track)}
+.pick-lede{color:var(--muted); font-size:13.5px; line-height:1.5; margin-bottom:2px}
+/* A tile reads top to bottom: what it is, what it is called, how far in you
+   are. The old row read left to right and put the status on the far side of
+   the description, which is the one arrangement where the two can collide. */
+.pcard{
+  text-align:left; cursor:pointer; padding:15px; border-radius:18px;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
+  font-family:inherit;
+  transition:background .18s ease, transform .12s ease, border-color .18s ease;
+  display:flex; flex-direction:column; align-items:stretch; gap:11px;
+}
+/* Lifts rather than lightens. On a grid the cards have edges on all sides, and
+   a background change alone does not read as "this one" the way it did when
+   they were full-width bars. */
+/* Lifts further and catches the accent on its edge, rather than lightening:
+   with no outline there is nothing to change the colour of, so the shadow and
+   the ring do the work. */
+.pcard:hover{
+  box-shadow:var(--lift), 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
+             0 8px 22px rgba(0,0,0,.4);
+  transform:translateY(-2px);
+}
+.pcard:active{transform:translateY(0) scale(.995)}
+/* The mark gets room and a little light behind it. It is the thing the eye
+   lands on first in a grid, where in a row it was a bullet before the name. */
+.pcard .emoji{
+  font-size:28px; width:52px; height:52px; flex:0 0 auto;
+  display:grid; place-items:center; border-radius:15px;
+  background:
+    radial-gradient(120% 120% at 30% 20%,
+      color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 70%),
+    var(--track);
+  color:var(--text);
+}
 /* Tetris draws its piece rather than borrowing a shading glyph from the font.
    Filled with the text colour so it sits at the same weight as the characters
    the other cards use. */
-.pcard .emoji svg{ width:25px; height:25px; fill:currentColor; display:block }
+.pcard .emoji svg{ width:27px; height:27px; fill:currentColor; display:block }
 .pcard h3{
   font-size:16.5px; font-weight:600; margin-bottom:3px;
   display:flex; align-items:baseline; gap:7px;
@@ -27,14 +65,64 @@
 /* **The side column: icons on top, status underneath, in the flow.** Its
    width is the status's, and the icon slot above it takes whatever the icons
    need and no more — so the two stack instead of one landing on the other. */
+/* Along the bottom of the tile now rather than down its right-hand side: the
+   faces on one end, the status on the other, with the width of the card to
+   share instead of a 76px column. */
+/* Along the bottom, and reading from the left like everything above it. It
+   used to sit hard right, which put the one changing thing on the card in the
+   one place the eye was not already going. */
 .pcard-side{
-  margin-left:auto; flex:0 0 auto; max-width:76px;
-  display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+  margin-left:0; flex:0 0 auto; max-width:none; margin-top:auto;
+  display:flex; flex-direction:row; align-items:center;
+  justify-content:space-between; gap:8px; min-height:18px;
 }
+/* A pill rather than shouted capitals. The status is a small fact about a
+   card, and setting it as a label made every tile look like it was announcing
+   something. */
+/* **One line, not two.** The status is a number and a word about it -- "4"
+   and "best tile" -- and stacking them made a two-line block that had to be
+   read rather than glanced at, in the corner of every tile. Side by side they
+   are one short phrase: the figure in the accent, what it counts in the muted
+   colour beside it. */
 .pcard .prog{
-  font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--accent); text-align:right;
-  width:76px; white-space:normal; overflow-wrap:anywhere;
+  display:inline-flex; align-items:baseline; gap:5px;
+  font-size:11px; letter-spacing:.04em;
+  color:var(--accent); text-align:left; font-weight:600;
+  width:auto; white-space:nowrap;
+  padding:4px 10px; border-radius:999px;
+  background:color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.pcard .prog span{
+  font-size:10px; font-weight:500; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted);
+}
+.pcard .prog:empty{ display:none; padding:0; background:none }
+
+/* ---- finished ----
+
+   A game you have put down for the day should say so without being read. The
+   pill fills in rather than being outlined, its words take the dark ink the
+   accent is meant to be read against, and the tile itself gets a ring and a
+   little of the look's own glow -- so the one card that is finished is the one
+   that catches the eye on a shelf of twelve.
+
+   Marked by the games themselves (`data-done` on the status) rather than by
+   reading the words in it: "Solved", "Found" and "Done" are three different
+   strings in seven languages, and a check that matched on them would be a
+   check that quietly stopped matching the first time one was reworded. */
+.pcard .prog.done{
+  background:var(--accent); color:#07121a;
+}
+.pcard .prog.done span{ color:#07121a; opacity:.72 }
+.pcard.done{
+  box-shadow:var(--lift), 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+             0 0 18px -4px var(--glow);
+}
+.pcard.done .emoji{
+  background:
+    radial-gradient(120% 120% at 30% 20%,
+      color-mix(in srgb, var(--accent) 40%, transparent) 0%, transparent 72%),
+    var(--track);
 }
 /* A game with nothing to report takes no room at all, rather than leaving a
    76px column of empty space beside the description. */
@@ -46,9 +134,18 @@
 
 /* Which games need somebody else, said once at the top of each group rather
    than repeated on every card. */
+/* Spans the whole grid, so a heading never ends up beside a card. The rule
+   runs off the end of the label the way the shop's sections do -- the two are
+   the same kind of thing and now look it. */
 .pick-group{
-  display:flex; align-items:baseline; gap:8px;
-  margin:14px 0 -2px; flex:0 0 auto;
+  grid-column:1 / -1;
+  display:flex; align-items:center; gap:9px;
+  margin:16px 0 -2px; flex:0 0 auto;
+}
+.pick-group::after{
+  content:''; flex:1; height:1px; min-width:12px;
+  background:linear-gradient(90deg,
+    color-mix(in srgb, var(--text) 16%, transparent), transparent);
 }
 .pick-group:first-of-type{ margin-top:4px }
 .pick-group h4{
@@ -86,14 +183,41 @@
   font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;
   letter-spacing:.04em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+/* ---- the small buttons ----
+
+   **They were all lozenges.** Eleven and twelve pixels of radius on a
+   thirty-four pixel control is most of the way to a capsule, and a header with
+   seven of them reads as a row of bubbles rather than a row of things to press.
+   The radius is down to seven, which is enough to stop a corner looking sharp
+   and not enough to round the button away, and they take the same opaque
+   surface and lift as every other panel now instead of carrying a drawn
+   outline. See --card and --lift in 00-tokens-base.css. */
 .mini-btn{
-  padding:8px 12px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:12.5px; font-weight:500;
-  border:1px solid var(--line); background:var(--card); color:var(--text); transition:background .18s;
+  padding:8px 12px; border-radius:7px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; font-weight:500; letter-spacing:-.005em;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
+  transition:background .18s ease, box-shadow .18s ease;
 }
-.mini-btn:hover{background:rgba(255,255,255,.07)}
-.mini-btn.on{background:var(--accent); color:#08111a; border-color:var(--accent)}
-.diffs{display:flex; gap:6px}
-.diffs .mini-btn{padding:8px 11px}
+.mini-btn:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
+.mini-btn.on{ background:var(--accent); color:#08111a; box-shadow:none }
+
+/* **One control, not four buttons.** The sizes are a single choice with four
+   answers, and four separate bubbles said the opposite -- four things you could
+   press, any number of which might be on. Joined into one tray with the
+   chosen one filled, the shape itself says only one can be true at a time.
+
+   The children give up their own surface entirely: the tray is the object, and
+   a button inside a button is where the bubbles came from. */
+.diffs{
+  display:flex; gap:0; padding:3px; border-radius:10px;
+  background:var(--card); box-shadow:var(--lift);
+}
+.diffs .mini-btn{
+  padding:7px 11px; border-radius:7px;
+  background:transparent; box-shadow:none; color:var(--muted);
+}
+.diffs .mini-btn:hover{ background:rgba(255,255,255,.05); color:var(--text) }
+.diffs .mini-btn.on{ background:var(--accent); color:#08111a; box-shadow:none }
 .sdk-ctrl{display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:360px; margin:2px auto 12px; width:100%}
 
 

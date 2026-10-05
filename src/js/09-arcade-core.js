@@ -331,6 +331,12 @@
         if(!el || !def.progress) continue;
         try{ el.innerHTML = await def.progress(); }
         catch(e){ el.innerHTML = 'New<span>tap to start</span>'; }
+        /* The games mark their own finished states; the card and the pill both
+           want to know. See the note on .pcard.done in 06-picker.css. */
+        const done = !!el.querySelector('[data-done]');
+        el.classList.toggle('done', done);
+        const card = el.closest ? el.closest('.pcard') : null;
+        if(card) card.classList.toggle('done', done);
       }
       this._faces();
     },

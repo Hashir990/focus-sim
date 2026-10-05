@@ -133,7 +133,7 @@
         + '<p class="about-lede">由 ' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' 制作。它站在许多人的作品之上。</p>'
         + '<h4>字体</h4>'
-        + '<p>Florian Karsten 的 <b>Space Grotesk</b>，以及 Undercase Type 的 <b>Fraunces</b>，'
+        + '<p>Tokotype 的 <b>Plus Jakarta Sans</b>、Bonjour Monde 的 <b>Syne</b>，以及 TypeTogether 的 <b>Literata</b>，'
         + '均采用 SIL 开放字体许可协议。</p>'
         + '<h4>代码</h4>'
         + '<p><b>PeerJS</b>（MIT）承载“一起专注”的直接连接。'

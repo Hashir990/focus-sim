@@ -683,21 +683,128 @@
     },
   };
 
+  /* ---------------- holding a direction ----------------
+
+     **Tapping eleven times to cross the board.** The on-screen arrows were
+     `onclick`, which is one move per tap and nothing at all while a finger
+     rests on them, so on a phone the only way to reach the far wall was to tap
+     for it, against a piece that is falling. The keyboard was better only by
+     accident: it rode the operating system key repeat, which waits about half
+     a second and then runs at whatever rate the machine is set to. Neither is
+     a control you can aim with.
+
+     So the repeat is ours, on both. The two numbers are separate ideas and
+     the gap between them is the whole feel of it: DAS is how long you must
+     hold before it decides you meant to hold, ARR is how fast it goes after
+     that. Without the delay a tap slides three cells and nothing can be
+     placed; without the speed, holding is no better than tapping.
+
+     The soft drop keeps its own rate. It is the one repeat that ends the
+     piece, and overshooting costs the placement. */
+  var TET_DAS = 170;        // held this long before it starts repeating
+  var TET_ARR = 50;         // and a cell every this long after that
+  var TET_SOFT = 45;        // the soft drop, which ends the piece
+
+  var TET_HELD = {};        // what is being held down, by name
+
+  function tetHoldStop(id){
+    const h = TET_HELD[id];
+    if(!h) return;
+    clearTimeout(h.wait); clearInterval(h.beat);
+    delete TET_HELD[id];
+  }
+  /* **Everything, for the events that mean a release will never arrive.** A
+     pointer leaving the window, a tab going away: the finger or key is still
+     notionally down and the matching up event is not coming. Without this the
+     piece keeps sliding into the wall while the app is in the background. */
+  function tetHoldAll(){ for(const id in TET_HELD) tetHoldStop(id); }
+
+  /* **The rate is looked up here rather than passed in.** 13-arcade-wiring.js
+     runs at load, before this file has assigned any of the numbers above, so a
+     rate handed over at wiring time would be undefined -- and setInterval
+     reads that as zero, which is a piece crossing the board in a frame. Asked
+     for when a hold actually begins, by which point every file has run. */
+  function tetRate(id){ return id === "down" ? TET_SOFT : TET_ARR; }
+
+  function tetHoldStart(id, fn){
+    tetHoldStop(id);
+    fn();                                   // a tap is one move, always
+    const h = {};
+    h.wait = setTimeout(()=>{
+      h.beat = setInterval(()=>{
+        /* Asked every beat rather than once: a game can end, be paused or be
+           left while a finger is still down on the arrow. */
+        if(!Arcade.open || Arcade.active !== "tetris"
+           || Tetris.done || Tetris.paused){ tetHoldStop(id); return; }
+        fn();
+      }, tetRate(id));
+    }, TET_DAS);
+    TET_HELD[id] = h;
+  }
+
+  /** Wire a button so holding it repeats. Called by 13-arcade-wiring.js. */
+  function tetHoldBind(el, id, fn){
+    if(!el) return;
+    let fromPointer = false;
+    el.addEventListener("pointerdown", (e)=>{
+      fromPointer = true;
+      /* So a finger that slides off the button still ends the hold here,
+         rather than on whatever it slid onto. */
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      tetHoldStart(id, fn);
+      e.preventDefault();
+    });
+    for(const ev of ["pointerup", "pointercancel", "pointerleave"]){
+      el.addEventListener(ev, ()=>tetHoldStop(id));
+    }
+    /* **Click stays wired for the one case pointers do not cover**: a button
+       reached by Tab and pressed with Enter fires a click with no pointer
+       sequence in front of it. The flag is what stops a tap counting twice,
+       since a tap fires both. */
+    el.onclick = ()=>{
+      if(fromPointer){ fromPointer = false; return; }
+      fn();
+    };
+  }
+
+  try{
+    window.addEventListener("blur", tetHoldAll);
+    document.addEventListener("visibilitychange", ()=>{
+      if(document.visibilityState !== "visible") tetHoldAll();
+    });
+  }catch(e){}
+
   /* The keyboard, when tetris is the game on screen. Arrows to move and soft
      drop, space to slam it down, Z and X to turn, C to hold, P to pause. */
   document.addEventListener('keydown', e=>{
     if(!Arcade.open || Arcade.active !== 'tetris') return;
     const k = e.key;
-    if(k === 'ArrowLeft'){ Tetris._move(-1, 0); Tetris.render(); }
-    else if(k === 'ArrowRight'){ Tetris._move(1, 0); Tetris.render(); }
-    else if(k === 'ArrowDown'){ Tetris.softDrop(); Tetris.render(); }
-    else if(k === 'ArrowUp' || k === 'x' || k === 'X'){ Tetris.rotate(1); Tetris.render(); }
-    else if(k === 'z' || k === 'Z'){ Tetris.rotate(-1); Tetris.render(); }
-    else if(k === ' '){ Tetris.hardDrop(); Tetris.render(); }
-    else if(k === 'c' || k === 'C' || k === 'Shift'){ Tetris.swap(); Tetris.render(); }
-    else if(k === 'p' || k === 'P'){ Tetris.pause(); }
+    /* **The operating system repeat is thrown away.** Holding a key fires
+       keydown over and over on its own schedule, which is the slow one being
+       replaced here. Taking the first and ignoring the rest leaves our own
+       timing in charge of everything after it. */
+    const move = (id, fn)=>{
+      if(!e.repeat) tetHoldStart(id, ()=>{ fn(); Tetris.render(); });
+    };
+    const once = (fn)=>{ if(!e.repeat){ fn(); Tetris.render(); } };
+    if(k === 'ArrowLeft'){ move('left', ()=>Tetris._move(-1, 0)); }
+    else if(k === 'ArrowRight'){ move('right', ()=>Tetris._move(1, 0)); }
+    else if(k === 'ArrowDown'){ move('down', ()=>Tetris.softDrop()); }
+    /* Turning and dropping do not repeat. A held rotate is a piece spinning on
+       the spot, and a held hard drop would take the next piece down with it. */
+    else if(k === 'ArrowUp' || k === 'x' || k === 'X'){ once(()=>Tetris.rotate(1)); }
+    else if(k === 'z' || k === 'Z'){ once(()=>Tetris.rotate(-1)); }
+    else if(k === ' '){ once(()=>Tetris.hardDrop()); }
+    else if(k === 'c' || k === 'C' || k === 'Shift'){ once(()=>Tetris.swap()); }
+    else if(k === 'p' || k === 'P'){ if(!e.repeat){ Tetris.pause(); } }
     else return;
     e.preventDefault();
+  });
+
+  document.addEventListener('keyup', e=>{
+    if(e.key === 'ArrowLeft') tetHoldStop('left');
+    else if(e.key === 'ArrowRight') tetHoldStop('right');
+    else if(e.key === 'ArrowDown') tetHoldStop('down');
   });
 
   forgetGame(Tetris.key, ()=>Tetris.forget());

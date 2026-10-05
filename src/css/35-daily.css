@@ -6,8 +6,8 @@
 
 /* The way in, in the arcade's own header, beside the title. */
 .ov-cal{
-  width:38px; height:38px; border-radius:11px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  width:38px; height:38px; border-radius:8px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   display:grid; place-items:center; flex:0 0 auto;
 }
 .ov-cal.hide{ display:none }

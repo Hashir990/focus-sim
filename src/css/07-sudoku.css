@@ -44,3 +44,10 @@
   font-weight:600; cursor:default;
   background:color-mix(in srgb, var(--accent) 7%, var(--bg2));
 }
+/* **A square you got right and had checked.** The opposite of a revealed one
+   and it has to look it: a revealed digit is half accent because it was half
+   handed to you, while this one is yours, so it takes the accent outright. It
+   is fixed the same way, which is what makes checking cost something. */
+.cell.sure{
+  color:var(--accent); font-weight:700; cursor:default;
+}

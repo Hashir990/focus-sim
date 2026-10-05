@@ -1,6 +1,6 @@
 /* calendar */
 .cal-nav{ display:flex; align-items:center; justify-content:space-between; margin:4px 0 6px; }
-.cal-nav .cal-month{ font-family:'Fraunces',serif; font-style:italic; font-size:19px; }
+.cal-nav .cal-month{ font-family:'Literata',serif; font-style:italic; font-size:19px; }
 .cal-nav button{ width:38px; height:38px; border-radius:11px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; display:grid; place-items:center; }
 .cal-nav button svg{ width:18px; height:18px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .cal-summary{ display:flex; gap:10px; margin:2px 0 14px; }

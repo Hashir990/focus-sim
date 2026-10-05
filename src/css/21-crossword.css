@@ -3,7 +3,12 @@
   display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
   align-items:center; margin-top:10px;
 }
-.cw-bars .diffs{ display:flex; gap:6px }
+/* **Not `gap:6px` any more.** This sat on top of the shared `.diffs` rule and
+   undid the one thing that makes the sizes read as a single choice -- the row
+   went on being four separate buttons here while every other size row had
+   joined up. Left as a selector so the responsive rule below still has
+   something to hang on. */
+.cw-bars .diffs{ display:flex }
 
 /* **A drag on the grid is a scroll, a tap on it is a tap.**
 
@@ -29,11 +34,22 @@
    Written twice on purpose: engines that do not understand `dvh` take the `vh`
    line and are merely slightly conservative on a phone with a retracting URL
    bar; ones that do, take the second. */
+/* **`100vw` was the wrong ruler.** This grid sits inside `.ov-body`, which is
+   at most 460px wide and spends `--ov-pad` of that on each side, so the room
+   it actually has is the window less twice that padding. Measured against the
+   whole window instead, a fifteen on a 407px phone asked for 391px of a 367px
+   box and ran off the edge: the right-hand column clipped, and `overflow-y`
+   quietly turning `overflow-x` into a scrollbar rather than saying so.
+
+   Kept as a length rather than a percentage because `--cw-size` also sets the
+   letter size below, and a percentage there would resolve against the parent's
+   font size instead of the grid's width. */
 .cw{
   --n:9;
   --cw-chrome:352px;
-  --cw-size:min(94vw, 380px, calc(100vh - var(--cw-chrome)));
-  --cw-size:min(94vw, 380px, calc(100dvh - var(--cw-chrome)));
+  --cw-room:calc(100vw - 2 * var(--ov-pad, 20px));
+  --cw-size:min(var(--cw-room), 380px, calc(100vh - var(--cw-chrome)));
+  --cw-size:min(var(--cw-room), 380px, calc(100dvh - var(--cw-chrome)));
   display:grid; grid-template-columns:repeat(var(--n), 1fr);
   gap:2px; width:var(--cw-size); margin:10px auto 0;
   aspect-ratio:1;
@@ -44,10 +60,16 @@
    The gap comes down to 1px as well, because fourteen 2px gaps eat 28px of a
    grid that has none to spare. Set by JS, which knows n; see 27-crossword.js. */
 .cw.cw--wide{
-  --cw-size:min(96vw, 560px, calc(100vh - var(--cw-chrome)));
-  --cw-size:min(96vw, 560px, calc(100dvh - var(--cw-chrome)));
+  --cw-size:min(var(--cw-room), 560px, calc(100vh - var(--cw-chrome)));
+  --cw-size:min(var(--cw-room), 560px, calc(100dvh - var(--cw-chrome)));
   gap:1px;
 }
+/* **And it may not exceed the box whatever the arithmetic says.** The line
+   above is the right answer; this is the one that holds when it is not, on a
+   browser that reads `dvh` differently or in a window shape nobody tried. A
+   grid one pixel too wide is a horizontal scrollbar under a thing you drag
+   on. */
+.cw{ max-width:100% }
 
 .cw-block{ background:transparent; border-radius:2px }
 .cw-cell{
@@ -63,7 +85,12 @@
   font-size:clamp(9px, calc(var(--cw-size) * .62 / var(--n)), 19px);
   transition:background .12s ease, border-color .12s ease;
 }
-.cw-cell.peer{ background:color-mix(in srgb, var(--accent) 12%, transparent) }
+/* **The word you are in, at a strength you can actually see.** 12% of an accent
+   over a dark ground is a wash with no hue left in it, which is how it came to
+   be mistaken for a blocked square. The ordering across the board is what
+   matters and it now runs the right way: the hole is darkest, then an empty
+   square, then the word you are in, then the square you are on. */
+.cw-cell.peer{ background:color-mix(in srgb, var(--accent) 20%, transparent) }
 .cw-cell.sel{
   background:color-mix(in srgb, var(--accent) 30%, transparent);
   border-color:var(--accent);
@@ -127,15 +154,27 @@
 
 /* ---- walls, hints, and the puzzle picker ---- */
 
-/* An unused square is a plain filled panel — solid, slightly inset, and
-   nothing like a cell you could type in. The hatch across it was worse than
-   either: it read as a texture laid over the grid rather than as a hole in it. */
+/* An unused square is a hole in the grid, and a hole is darker than what
+   surrounds it.
+
+   **It used to be lighter, and that is what made it unreadable.** Mixed from
+   `--text` at 15%, a blocked square came out at rgb(43,51,65) on a ground of
+   rgb(10,17,34) -- the brightest thing on the board apart from the square you
+   were standing on, and 1.12:1 against the word you had selected, which is a
+   contrast nobody can see. The figure and the ground were the wrong way round:
+   the squares that are not part of the puzzle advanced, and the word being
+   worked on receded behind them.
+
+   Dark, and darker than the empty cells, so the grid reads the way a printed
+   crossword does: the letters live in the light squares and the dark ones are
+   nothing. The rim and the inset shadow stay, because a hole with an edge is a
+   hole rather than a gap in the rendering. */
 .cw-block{
-  background:color-mix(in srgb, var(--text) 15%, transparent);
+  background:rgba(0,0,0,.55);
   border:0;
   border-radius:3px;
-  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
-             inset 0 2px 5px rgba(0,0,0,.28);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent),
+             inset 0 2px 6px rgba(0,0,0,.45);
 }
 
 /* ---- barred grids ----
@@ -205,11 +244,21 @@
 .cw-num{ z-index:2 }
 /* selection has to stay readable under a bar */
 .cw--barred .cw-cell.sel{ background:color-mix(in srgb, var(--accent) 34%, transparent) }
-.cw--barred .cw-cell.peer{ background:color-mix(in srgb, var(--accent) 14%, transparent) }
+.cw--barred .cw-cell.peer{ background:color-mix(in srgb, var(--accent) 22%, transparent) }
 
 /* A revealed letter is not the same as one you worked out, and shouldn't look
    like it: dimmer, italic, and it can't be typed over. */
 .cw-cell.given{ color:var(--muted); font-style:italic; cursor:default }
+/* **A confirmed letter is the opposite of a revealed one** and has to look it:
+   this is a square you got right and had checked, so it is the accent rather
+   than the muted colour, upright rather than italic, and a little heavier. It
+   cannot be typed over either, which is the whole point of checking now.
+
+   No pseudo-element on it. Barred grids draw their bars with ::before and
+   ::after on exactly this element, and a tick in the corner would be fighting
+   them for the one slot they have. */
+.cw-cell.sure{ cursor:default }
+.cw-cell.sure .cw-let{ color:var(--accent); font-weight:700 }
 
 /* ---- the mark on a revealed letter ----
    A small lit dot in the corner. This was tried as a ring around the letter

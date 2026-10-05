@@ -22,7 +22,7 @@
 .q-mine > summary .q-pack-name em{ margin-left:8px }
 .q-item{ display:flex; align-items:flex-start; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:13px; padding:12px 13px; }
 .q-item .qbody{ flex:1; }
-.q-item .qbody b{ font-family:'Fraunces',serif; font-style:italic; font-weight:400; font-size:14.5px; }
+.q-item .qbody b{ font-family:'Literata',serif; font-style:italic; font-weight:500; font-size:14.5px; }
 .q-item .qbody span{ display:block; margin-top:4px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
 .q-del{ flex:0 0 auto; width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:16px; line-height:1; }
 .q-del:hover{ color:#ff7a7a; border-color:#ff7a7a; }

@@ -24,7 +24,7 @@ body.vfx-on .drawer{
   background:radial-gradient(120% 60% at 0% 0%,
     color-mix(in srgb, var(--bg2) 96%, transparent) 0%,
     color-mix(in srgb, var(--bg) 97%, transparent) 70%);
-  --card:color-mix(in srgb, var(--bg2) 82%, var(--text) 7%);
+  --card:color-mix(in srgb, #fff 6%, var(--bg));
   --line:color-mix(in srgb, var(--text) 15%, transparent);
 
   border-right:1px solid var(--line); transform:translateX(-101%);
@@ -40,41 +40,157 @@ body.vfx-on .drawer{
    05-arcade.css already took it back off the game headings). A second one over
    the menu made the drawer read as another title screen rather than as a list
    of places to go — and italic serif at 21px is the worst case for a word like
-   "Focus" sat next to upright labels. Space Grotesk at 600 with a little
+   "Focus" sat next to upright labels. The title face at 700 with a little
    negative tracking holds the same weight in the corner without the flourish. */
 .drawer-title{
-  font-family:'Space Grotesk',system-ui,sans-serif; font-style:normal;
-  font-weight:600; font-size:20px; letter-spacing:-.01em; color:var(--text);
+  font-family:var(--title); font-style:normal;
+  font-weight:700; font-size:20px; letter-spacing:-.02em; color:var(--text);
 }
 .drawer-x{ width:34px; height:34px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:20px; line-height:1; cursor:pointer; }
 .drawer-x:hover{ color:var(--text); }
-.drawer-item{ text-align:left; display:flex; align-items:center; gap:13px; padding:14px; border-radius:15px; border:1px solid var(--line); background:var(--card); color:var(--text); font-family:inherit; cursor:pointer; transition:background .18s, transform .1s; }
+/* ---- the places you can go ----
+
+   **Seven bordered cards in a column is the shape of a thing nobody designed.**
+   Equal boxes, equal borders, an accent icon on each, a title and an
+   explanation on each: it is competent, it is the default, and it says nothing
+   about what app it belongs to.
+
+   So: one panel, and the rows live inside it divided by hairlines. The panel is
+   what has an edge, which is the honest arrangement, because the edge is around
+   the group and the group is "everywhere you can go from here".
+
+   A spine runs down the left through the icon gutter, assembled out of the rows
+   themselves so it reads as one unbroken line, and the row under the finger
+   lights its own segment of it. That is where the accent went: it marks the one
+   row you are on rather than all seven at once. */
+.drawer-nav{
+  /* **No shrinking.** This is a flex child of a column, so it shrinks by
+     default. Anything that clips its overflow then cuts rows off the bottom
+     rather than overflowing, which is how two of these went missing once. The
+     drawer is the thing that scrolls; this is its natural height. */
+  flex:0 0 auto;
+  display:flex; flex-direction:column;
+}
+/* **A contents page, not a control panel.**
+
+   The first attempt at this made the seven cards into one panel, and it was
+   still a panel of two-line rows with an icon and a sentence on each -- the
+   same shape, tidied. The shape was the problem.
+
+   What a menu in this app actually is: a short list of places, all of which
+   you already know, read in half a second by someone who opens it several
+   times a day. So it is set like the contents page of a book. Names only, at a
+   size you can hit without aiming, on hairlines, with nothing boxed. The
+   explanations are gone -- a line under "History" telling you it is your
+   history is the thing that made this read as generated, and it was being read
+   for the hundredth time by someone who stopped needing it after the first.
+
+   The icon stays, small and quiet, because it is what lets the eye find a row
+   without reading it. It is a mark in the margin rather than a feature. */
+.drawer-item{
+  position:relative;
+  text-align:left; display:flex; align-items:center; gap:15px;
+  padding:15px 6px 15px 4px;
+  border:0; border-radius:0; background:transparent;
+  color:var(--text); font-family:inherit; cursor:pointer;
+  transition:padding-left .16s ease, color .16s ease;
+}
+.drawer-item + .drawer-item{
+  border-top:1px solid color-mix(in srgb, var(--text) 9%, transparent);
+}
+/* The marker slides in from the edge rather than appearing. It is the only
+   movement in the menu and it is what makes a row feel pressed rather than
+   merely coloured in. */
+.drawer-item::before{
+  content:''; position:absolute; left:-4px; top:50%; height:0; width:3px;
+  border-radius:2px; background:var(--accent);
+  transform:translateY(-50%);
+  transition:height .16s ease;
+}
+.drawer-item:hover::before, .drawer-item:active::before{ height:62% }
+.drawer-item:hover{ padding-left:10px }
 /* No global .hide in this app — each component declares its own. Without this
    the app-blocking row, which ships hidden, shows on every platform. */
 .drawer-item.hide{ display:none }
-.drawer-item:hover{ background:rgba(255,255,255,.06); }
-.drawer-item:active{ transform:scale(.99); }
-.drawer-item svg{ width:22px; height:22px; flex:0 0 auto; stroke:currentColor; stroke-width:1.7; fill:none; stroke-linecap:round; stroke-linejoin:round; color:var(--accent); transition:color 1.1s ease; }
-.drawer-item b{ font-weight:600; font-size:15px; display:block; }
-.drawer-item small{ color:var(--muted); font-size:12px; }
+
+/* **The icons stopped shouting.** Seven of them in full accent down one edge is
+   seven things asking to be looked at first, which is the same as none of them
+   asking. Mixed back toward the muted colour they are marks beside a name
+   rather than decoration, and the accent is spent on the spine instead, where
+   it means "this row".
+
+   The 1.1s is not a hover time, it is the palette fading when a look is
+   changed, and it is why nothing here transitions the icon on hover: a mark
+   that takes a second to light is a mark that looks broken. */
+.drawer-item svg{
+  width:21px; height:21px; flex:0 0 auto; stroke:currentColor; stroke-width:1.7;
+  fill:none; stroke-linecap:round; stroke-linejoin:round;
+  color:color-mix(in srgb, var(--accent) 52%, var(--muted));
+  transition:color 1.1s ease;
+}
+/* The name leads and the line under it follows. They were a point and a half
+   apart, which on a menu you open every day reads as two titles. */
+/* Big enough to be the only thing on the row, and tight enough that six of
+   them read as a list rather than six headings. */
+.drawer-item b{
+  font-weight:600; font-size:16.5px; display:block;
+  letter-spacing:-.015em; line-height:1.15;
+}
 /* ---- where the embers go ----
    A row that says what the number in the top bar is for. It is the accent
    colour and it is the only thing in the menu that is, because it is the one
    line here that is telling you something rather than taking you somewhere. */
+/* ---- the way to the shop ----
+
+   The one thing in this menu that is not a place you go to read something, so
+   the one thing allowed to look like a button. It used to carry a line of text
+   explaining what is sold; the word Shop does that, and the count beside it
+   says the only other thing worth knowing.
+
+   Lit from the left, where the ember count is, so the glow reads as coming off
+   the number rather than being painted on the panel. */
 .drawer-spend{
+  /* A flex child of a column shrinks by default, and the overflow:hidden that
+     keeps the glow inside the rounded corner turns that into a clip. This row
+     was cut to 28px of the 50 it needed, with its text sliced in half. */
+  flex:0 0 auto;
+  position:relative;
   display:flex; align-items:center; gap:12px; text-align:left; width:100%;
-  padding:12px 13px; border-radius:15px; cursor:pointer; font-family:inherit;
-  border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  background:color-mix(in srgb, var(--accent) 10%, transparent);
-  color:var(--text); font-size:13.5px; font-weight:600;
-  transition:background .18s ease, transform .1s ease;
+  padding:15px 15px 15px 18px; border-radius:16px; cursor:pointer;
+  font-family:inherit; overflow:hidden;
+  border:1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  background:
+    radial-gradient(120% 180% at 0% 50%,
+      color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+      transparent 62%),
+    color-mix(in srgb, var(--accent) 8%, transparent);
+  color:var(--text); font-size:16px; font-weight:600; letter-spacing:-.01em;
+  transition:background .18s ease, transform .1s ease, border-color .18s ease;
+}
+/* The name takes the room, so the arrow sits at the far edge. */
+.drawer-spend > span:last-of-type{ flex:1 }
+.drawer-spend-go{
+  width:18px; height:18px; flex:0 0 auto; stroke:currentColor; stroke-width:2;
+  fill:none; stroke-linecap:round; stroke-linejoin:round;
+  color:var(--accent); opacity:.7;
+  transition:transform .18s ease, opacity .18s ease;
+}
+.drawer-spend:hover .drawer-spend-go{ transform:translateX(3px); opacity:1 }
+.drawer-spend:hover{ border-color:color-mix(in srgb, var(--accent) 60%, transparent) }
+/* The same spine as the list above it, in full accent. It is a different kind
+   of thing from the rows -- it tells you something rather than taking you
+   somewhere -- and this is what keeps it looking related while staying apart. */
+.drawer-spend::before{
+  content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:var(--accent);
 }
 .drawer-spend:hover{ background:color-mix(in srgb, var(--accent) 16%, transparent) }
 .drawer-spend:active{ transform:scale(.99) }
-.drawer-spend small{ display:block; font-weight:400; font-size:11.5px; color:var(--muted); margin-top:2px }
+
 .emb-chip-mini{
-  display:flex; align-items:center; gap:6px; flex:0 0 auto;
-  color:var(--accent); font-variant-numeric:tabular-nums; font-size:15px;
+  display:flex; align-items:center; gap:7px; flex:0 0 auto;
+  color:var(--accent); font-variant-numeric:tabular-nums; font-size:16px;
+  font-weight:600;
 }
 .emb-chip-mini i{
   width:10px; height:10px; border-radius:2px; background:var(--accent);

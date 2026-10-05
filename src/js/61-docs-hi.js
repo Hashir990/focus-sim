@@ -146,7 +146,7 @@
         + '<p class="about-lede">' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' ने बनाया। यह दूसरों के काम पर टिका है।</p>'
         + '<h4>टाइप</h4>'
-        + '<p>Florian Karsten का <b>Space Grotesk</b>, और Undercase Type का <b>Fraunces</b>। '
+        + '<p>Tokotype का <b>Plus Jakarta Sans</b>, Bonjour Monde का <b>Syne</b>, और TypeTogether का <b>Literata</b>। '
         + 'दोनों SIL Open Font License के तहत।</p>'
         + '<h4>कोड</h4>'
         + '<p>"साथ में फ़ोकस" के सीधे कनेक्शन <b>PeerJS</b> (MIT) से चलते हैं। '

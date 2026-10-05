@@ -13,7 +13,7 @@
 /* focus quote */
 .quote{ text-align:center; min-height:2.4em; margin:2px 6px; opacity:0; transform:translateY(4px); transition:opacity .8s ease, transform .8s ease; pointer-events:none; }
 .quote.show{ opacity:1; transform:none; }
-.quote .qt{ display:block; font-family:'Fraunces',serif; font-style:italic; font-size:15.5px; line-height:1.4; color:var(--text); }
+.quote .qt{ display:block; font-family:'Literata',serif; font-style:italic; font-size:15.5px; line-height:1.4; color:var(--text); }
 .quote .qa{ display:block; margin-top:5px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
 
 /* rest extra: note + arcade */

@@ -3584,7 +3584,13 @@ check('every effect a look can choose has a rule to draw it', (() => {
   const V = window.__m.vfx;
   const pane = $('vfx');
   const needs = {
-    towers: ['--w', '--s', '--x', '--o', '--t', '--d', '--dx', '--wx', '--wy', '--dk'],
+    /* No '--o': a building is opaque, so the kind stopped sending one and the
+       rule stopped reading one. See the note on the towers spec in 38-vfx.js.
+       This list is by hand, so it has to be kept by hand. */
+    /* No '--o': a building is opaque, so the kind stopped sending one and the
+       rule stopped reading one. '--dp' took over the job it was doing badly --
+       see the depth checks below. This list is by hand, so it is kept by hand. */
+    towers: ['--w', '--s', '--x', '--t', '--d', '--dx', '--wx', '--wy', '--dk', '--dp'],
     stars: ['--s', '--x', '--y', '--o', '--t', '--d'],
   };
   for (const id of ['skyline', 'space']) {
@@ -3649,6 +3655,46 @@ check('every effect a look can choose has a rule to draw it', (() => {
         ? short.map((l) => l.id + ' (' + l.accent + ', ratio ' + ratio(l.accent).toFixed(1) + ')').join(' ')
         : window.__m.vfx.lights.length + ' looks, every label reads');
   }
+  /* ---- the skyline has depth, and none of it is transparency ----
+
+     Distance was once faked by making far towers partly see-through, and you
+     could see what it was: buildings showing through buildings. Taking that out
+     made them solid and flat, because the transparency had been carrying the
+     depth by itself. It is carried now by the two things that carry it in life,
+     and both of them are easy to lose without noticing.
+
+     **Haze** needs --dp, which the property check above covers. **Occlusion**
+     needs the towers written back to front, because siblings with no z-index
+     are painted in document order -- so a far tower emitted last paints over a
+     near one and the city turns inside out. Nothing about that is visible in a
+     screenshot of one frame unless two towers happen to overlap, and nothing in
+     the stylesheet mentions it, which is why it is asked here. */
+  {
+    const sky = V.lights.find((x) => x.id === 'skyline');
+    V.vfxSet('towers', sky.fxc || sky.accent, sky.fxc2, sky.fxm, sky.fxw,
+             sky.fxpal, sky.fxflick, sky.fxn, sky.fxo, sky.fxs);
+    const bs = [...pane.querySelectorAll('b')];
+    const hs = bs.map((b) => parseFloat(b.style.getPropertyValue('--s')));
+    check('the skyline is written back to front, so near towers hide far ones',
+      bs.length > 3 && hs.every((h, i) => i === 0 || h >= hs[i - 1]),
+      hs.map((h) => h.toFixed(0)).join(' '));
+
+    const dps = bs.map((b) => parseFloat(b.style.getPropertyValue('--dp')));
+    check('and each one knows how far back it ended up, nought to one',
+      dps.length > 3 && dps[0] === 0 && dps[dps.length - 1] === 1
+      && dps.every((d, i) => i === 0 || d >= dps[i - 1]),
+      dps.length ? dps[0] + ' … ' + dps[dps.length - 1] : 'none');
+
+    /* The thing that was actually wrong, asked directly: not one of them may be
+       see-through, whatever else changes about how they are drawn. */
+    const clear = bs.filter((b) => {
+      const o = window.getComputedStyle(b).opacity;
+      return o !== '' && Number(o) < 1;
+    });
+    check('and not one of them is see-through',
+      clear.length === 0, clear.length + ' of ' + bs.length + ' under full opacity');
+  }
+
   /* **Every filter the stylesheet reaches for has to exist in the page.**
      `filter: url(#vfx-neb)` naming an id that is not there is not an error
      anybody sees: Chromium renders the element with no filter at all, which
@@ -3868,7 +3914,15 @@ check('claiming every achievement at once is worth less than one look', (() => {
   const pays = [...html.matchAll(/pays?:\s*(\d+)/g)].map((m) => Number(m[1]));
   return pays.reduce((n, x) => n + x, 0) + ' embers across ' + pays.length + ' marks';
 })());
-check('one shared audio element, not five', window.document.querySelectorAll('audio').length === 1, `${window.document.querySelectorAll('audio').length}`);
+/* **Two, and never one per track.** This asked for exactly one, which was the
+   right guard against the fault it was written for: an element per ambience is
+   five of them, four of which are a decoded track nobody is listening to. The
+   loop crossfade needs a second so one can rise while the other falls, and two
+   is the whole mechanism rather than a number that will grow -- so the check is
+   kept and the number moved, instead of being loosened to "a few". */
+check('two shared audio elements, not one per track',
+  window.document.querySelectorAll('audio').length === 2,
+  `${window.document.querySelectorAll('audio').length}`);
 check('audio is not preloaded before it is chosen', window.document.querySelector('audio').preload === 'none', window.document.querySelector('audio').preload);
 check('app handles the repeat, not the element', window.document.querySelector('audio').loop === false);
 check('volume shown once an ambience is on', !$('amb-vol-row').classList.contains('hide'));
@@ -3919,14 +3973,19 @@ await wait(300);
   pw.document.dispatchEvent(new pw.Event('pointerdown', { bubbles: true }));
   await wait(80);
   const el = pw.document.querySelector('audio');
-  check('the first tap anywhere primes the ambience element',
-    pw.__media.plays.length === 1 && !!el, `${pw.__media.plays.length} plays`);
+  /* **Both of them, because autoplay is granted per element.** The element that
+     takes over at a loop seam does so forty-five minutes after the last thing
+     anybody touched; priming only the first would mean every handover asking a
+     browser to play something it had never been told it may play. Two plays on
+     the first tap is the fix, not a leak. */
+  check('the first tap anywhere primes both ambience elements',
+    pw.__media.plays.length === 2 && !!el, `${pw.__media.plays.length} plays`);
   check('and leaves it paused and silent, with nothing to hear',
     !!el && el.paused && el.volume === 0, el && `paused ${el.paused} · volume ${el.volume}`);
   pw.document.dispatchEvent(new pw.Event('pointerdown', { bubbles: true }));
   await wait(40);
   check('and it only happens once, however much is tapped',
-    pw.__media.plays.length === 1, `${pw.__media.plays.length} plays`);
+    pw.__media.plays.length === 2, `${pw.__media.plays.length} plays`);
 }
 
 // --- overlays --------------------------------------------------------------
@@ -4199,7 +4258,7 @@ click('d-credits'); await wait(120);
 check('Credits opens', !$('about-overlay').classList.contains('hide')
   && $('about-title').textContent === 'Credits', $('about-title').textContent);
 check('and credits the typefaces and the libraries',
-  /Space Grotesk/.test($('about-body').textContent)
+  /Plus Jakarta Sans/.test($('about-body').textContent)
   && /PeerJS/.test($('about-body').textContent));
 /* **A build must not ship with the name still a placeholder**, and Credits is
    where the name is. Blank in this repo on purpose, like the account URL, so
@@ -5083,6 +5142,46 @@ if (nextDay) {
   await wait(400);
   check('the calendar button is on a game that has editions',
     !$d('ov-cal').classList.contains('hide'), $d('ov-cal').className);
+
+  /* **A check settles what it finds, in sudoku too.** Here rather than in a
+     window of its own: `newGame` renders as it builds, so it needs a board on
+     screen to render into, and this is the window that has one. Before the
+     grid below is filled in and finished, because `check` does nothing on a
+     board that is already done. */
+  const settled = probe((d) => {
+    const S = d.Sudoku;
+    S.newGame('easy', true);
+    const open = [];
+    for (let i = 0; i < 81 && open.length < 2; i++) if (!S.given[i]) open.push(i);
+    for (const i of open) S.grid[i] = S.sol[i];
+    const hintsBefore = S.shown.length;
+    S.check();
+    const locked = open.every((i) => S._isSure(i));
+    S.sel = open[0];
+    S.erase();
+    const kept = S.grid[open[0]] === S.sol[open[0]];
+    S._stash();
+    const slot = S.boards[S._slot(S.day, S.diff)];
+    return {
+      locked, kept, open,
+      hintsBefore, hintsAfter: S.shown.length,
+      digit: S.grid[open[0]], want: S.sol[open[0]],
+      stashed: !!slot && Array.isArray(slot.sure)
+        && open.every((i) => slot.sure.indexOf(i) >= 0),
+      stash: slot && slot.sure ? slot.sure.join(',') : 'nothing stashed',
+    };
+  });
+  check('a sudoku check settles the digits it finds right',
+    settled.locked, 'squares ' + settled.open.join(','));
+  check('and a settled digit cannot be erased',
+    settled.kept, settled.digit + ' wanted ' + settled.want);
+  /* The one that would surface months later, as a calendar claiming you had
+     revealed your way through a grid you solved cold. */
+  check('and settling is not the same as revealing',
+    settled.hintsAfter === settled.hintsBefore,
+    settled.hintsAfter + ' revealed, was ' + settled.hintsBefore);
+  check('and it is still settled when the board is put down and picked up',
+    settled.stashed, settled.stash);
 
   /* Finish today's easy the short way — filling in eighty-one cells through
      the DOM would be testing the keypad, which has its own checks. */
@@ -8329,6 +8428,32 @@ await wait(200);
     }
   }
 
+  /* **And no link at all on a phone**, whatever the host says.
+
+     That link exists to hand a Windows installer to somebody on Windows. On
+     Android it opens GitHub, offers a .exe and leaves you on a web page having
+     learnt nothing: the phone build is not installed from there. The news still
+     shows, because knowing a newer version exists is worth something even when
+     the way to get it is elsewhere -- what is worth less than nothing is a
+     button that goes somewhere useless.
+
+     `Plugins` is stubbed empty so the rest of the app reads this as a native
+     build with no plugins rather than tripping over a half-built Capacitor. */
+  UPDATE_REPLY = { version: '99.9.9', notes: 'Newer.', url: 'https://updates.test/get' };
+  {
+    const phone = wired.replace('<script>',
+      '<script>window.Capacitor={isNativePlatform:function(){return true},Plugins:{}};</script>\n<script>');
+    const { window: wP } = boot(phone);
+    await wait(500);
+    const pbox = wP.document.getElementById('upd-box');
+    check('a phone is not sent to GitHub for an installer it cannot use',
+      !pbox.querySelector('a[href="https://updates.test/get"]'),
+      pbox.innerHTML.slice(0, 90));
+    check('and is still told there is a newer version',
+      /99\.9\.9/.test(pbox.textContent), pbox.textContent.slice(0, 70));
+    wP.close();
+  }
+
   // the same host, saying nothing newer
   UPDATE_REPLY = { version: '0.0.1', notes: 'older', url: 'https://updates.test/get' };
   const { window: w5 } = boot(wired);
@@ -8836,13 +8961,34 @@ await wait(200);
     !$g('block-rule-overlay').classList.contains('hide') && G.Guard.cfg.rules.length === 2
     && calls('setConfig').length > before && calls('setConfig').pop().rules.length === 2,
     G.Guard.cfg.rules.length + ' rules');
+  /* **A tap on a stepper is not a change to the rule yet.** Every tap used to
+     go straight through guardChange: saved, pushed to the phone, and under the
+     lock it restarted the wait. Five taps to move a pause from 12 to 30 was
+     five of each, with the rule briefly live at every number on the way. Edits
+     land on a draft now, so what is checked is both halves: that the tap moved
+     the draft and nothing else, and that Save is what moves the rule. */
+  const sentCfg = calls('setConfig').length;
   $g('block-rule-body').querySelector('[data-rstep="pause"][data-by="1"]').click();
   await wait(100);
-  check('and a stepper in it changes that rule and only that rule',
-    G.Guard.cfg.rules[1].pause === 15 && G.Guard.cfg.rules[0].pause === 12,
+  check('a stepper moves the draft and does not touch the saved rule',
+    G.Guard.draft && G.Guard.draft.pause === 15
+    && G.Guard.cfg.rules[1].pause === 10 && calls('setConfig').length === sentCfg,
+    'draft ' + (G.Guard.draft && G.Guard.draft.pause) + ', saved '
+    + G.Guard.cfg.rules.map((r) => r.pause).join(',')
+    + ', ' + (calls('setConfig').length - sentCfg) + ' sent');
+  $g('blr-save').click();
+  await wait(150);
+  check('and Save puts it on that rule and only that rule',
+    G.Guard.cfg.rules[1].pause === 15 && G.Guard.cfg.rules[0].pause === 12
+    && calls('setConfig').length > sentCfg,
     G.Guard.cfg.rules.map((r) => r.pause).join(','));
   $g('block-rule-close').click();
   await wait(100);
+  /* Saved, so closing asks nothing and the editor is actually gone. If it ever
+     does ask here, the draft and the rule have drifted apart. */
+  check('and a saved rule closes without being asked about',
+    $g('block-rule-overlay').classList.contains('hide'),
+    $g('block-rule-overlay').className);
 
   /* **The lock.** Every change waits; the phone refuses a save that tries to
      skip the wait; and the page believes the phone. */
@@ -10067,6 +10213,323 @@ await wait(200);
   check('and Pause holds it where it was rather than starting it over',
     paused.mode === 'focus' && !paused.running
     && paused.remaining > 300 && paused.remaining < 420, said(paused));
+}
+
+/* ---- the loop seam ---------------------------------------------------------
+
+   A track is forty-five minutes long and the app is open for hours, so the
+   place it is most likely to be heard as a recording is the join. It used to
+   fade to silence over three seconds, go back to the start, and fade in over
+   three more: a six-second hole, on a timer.
+
+   Two elements cross instead. What is checked is the handover happening at all
+   and the level holding while it does, because those fail in opposite ways and
+   both are silent failures. A handover that never fires leaves the sound
+   stopping dead at the end of a track, which nobody would find for
+   three quarters of an hour. A handover on the wrong curve still works and
+   just sounds slightly worse, which nobody would find ever.
+
+   jsdom has no media playback, so duration, currentTime and paused are stood
+   in for and the clock is moved by hand. That is the point: this would
+   otherwise take forty-five minutes to reach. */
+{
+  const { window: sw } = boot(withDoor(html,
+    'window.__a = {AMB, ambSeam, ambLevel, ambElement, AMB_FADE, AMB_ARM,'
+    + ' AMB_TRACKS, AMB_GAIN};'));
+  await wait(600);
+  const A = sw.__a;
+
+  /* **Equal power, which is the whole reason for the sines.** Two different
+     recordings at half volume are not half as loud together: they are
+     uncorrelated, so it is their powers that add, and a straight-line
+     crossfade holds about 0.707 in the middle. Over rain that is a breath you
+     hear every time round. */
+  let drift = 0;
+  for (let i = 0; i <= 20; i++) {
+    const x = i / 20;
+    const out = Math.sin(x * Math.PI / 2);
+    const into = Math.sin((1 - x) * Math.PI / 2);
+    drift = Math.max(drift, Math.abs(out * out + into * into - 1));
+  }
+  check('the two sides of a loop seam square to one all the way across',
+    drift < 1e-9, 'worst drift ' + drift.toExponential(1)
+    + ', against 0.707 at the midpoint for straight lines');
+
+  /* A pair of elements with a clock the test moves. */
+  const fake = (el) => {
+    let now = 0, paused = true;
+    Object.defineProperty(el, 'duration', { configurable: true, get: () => 2700 });
+    Object.defineProperty(el, 'currentTime',
+      { configurable: true, get: () => now, set: (v) => { now = v; } });
+    Object.defineProperty(el, 'paused', { configurable: true, get: () => paused });
+    el.play = () => { paused = false; el.__played = (el.__played || 0) + 1; return Promise.resolve(); };
+    el.pause = () => { paused = true; };
+    el.load = () => { el.__loaded = (el.__loaded || 0) + 1; };
+    return (t) => { now = t; };
+  };
+  const a = A.ambElement(0), b = A.ambElement(1);
+  const atA = fake(a), atB = fake(b);
+  A.AMB.id = 'rain'; A.AMB.vol = 1; A.AMB.cur = 0;
+  a.src = A.AMB_TRACKS.rain;
+  a.play();
+
+  atA(1000);
+  A.ambSeam();
+  check('mid-track, the element waiting its turn is left alone',
+    b.paused && !b.__loaded,
+    'played ' + (b.__played || 0) + ', loaded ' + (b.__loaded || 0));
+
+  /* Armed before it is needed. `preload` is 'none', so an element asked to
+     start playing in three seconds with nothing buffered gives a stall exactly
+     where the overlap was supposed to be. */
+  atA(2700 - (A.AMB_FADE + 10));
+  A.ambSeam();
+  check('and inside the arming window it loads, without starting',
+    !!b.__loaded && b.paused,
+    'loaded ' + (b.__loaded || 0) + ', played ' + (b.__played || 0));
+
+  atA(2700 - 2);
+  A.ambSeam();
+  check('then three seconds from the end the other one comes in',
+    !b.paused && b.__played === 1 && A.AMB.cur === 1,
+    'played ' + (b.__played || 0) + ', cur=' + A.AMB.cur);
+
+  /* The seam is decided per beat rather than scheduled, so it is asked again
+     twelve times a second for the whole three seconds. It has to be the same
+     answer every time: a second `play()` would restart the arriving track from
+     nought in the middle of its own fade in. */
+  atA(2700 - 1.9); atB(0.1);
+  A.ambSeam();
+  check('and the beats that follow do not start it over again',
+    b.__played === 1, 'played ' + b.__played);
+
+  const gain = A.AMB_GAIN.rain || 1;
+  let worst = 1;
+  for (let i = 0; i <= 12; i++) {
+    const into = (i / 12) * A.AMB_FADE;
+    atA(2700 - (A.AMB_FADE - into));
+    atB(into);
+    const la = A.ambLevel(a), lb = A.ambLevel(b);
+    worst = Math.min(worst, Math.sqrt(la * la + lb * lb) / gain);
+  }
+  check('so the sound never dips while the two of them cross',
+    worst > 0.999, 'quietest point of the seam: ' + worst.toFixed(4) + ' of full power');
+  sw.close();
+}
+
+/* ---- a day made of windows --------------------------------------------------
+
+   A scheduled rule can carry a list of windows, each with its own days, range
+   and mode, and the last one that matches wins. That ordering is the grammar: a
+   break written after a block is a hole in it, and a hole written first is a
+   hole in nothing.
+
+   **The decision exists twice and that is the hazard.** What actually blocks
+   anything is GuardRules.forceMode, in Java, running in the accessibility
+   service with no page anywhere. The copy in 51-guard-ui.js exists only to draw
+   the bar, and a bar that disagreed with the phone would be worse than no bar:
+   a picture of a day you are not having.
+
+   They cannot be run in one process, so they are pinned to the same table of
+   cases instead. The day below is the one in GuardRulesTest.aWindowSaysWhichWay
+   and the three that follow it, hour for hour. Change one evaluator and the
+   other suite goes red -- the same arrangement the merge rules in 47-merge.js
+   have with the server's copy, and for the same reason. */
+{
+  const { window: ww } = boot(withDoor(html,
+    'window.__w = {guardWinMode, guardClean};'));
+  await wait(500);
+  const W = ww.__w;
+  const MON = 1, SAT = 6;
+
+  const day = {
+    id: 'w1', when: 'schedule', apps: [], sites: [], windows: [
+      {d: '0123456', f: '09:00', t: '23:00', m: 'block'},
+      {d: '0123456', f: '13:00', t: '14:00', m: 'off'},
+      {d: '0123456', f: '18:00', t: '19:00', m: 'off'},
+      {d: '0123456', f: '23:00', t: '08:00', m: 'limit'},
+    ],
+  };
+
+  /* Hour for hour against the Java test. Minutes are chosen inside each stretch
+     rather than on its edges, because an edge is its own question and the Java
+     suite asks it separately. */
+  const want = [
+    [MON, 10 * 60, 'block', 'mid-morning is blocked'],
+    [MON, 2 * 60, 'limit', 'the small hours are the overnight limit'],
+    [MON, 8 * 60 + 30, '', 'half past eight is nobody\u2019s window'],
+    [MON, 13 * 60 + 30, '', 'lunch is a hole in the block'],
+    [MON, 18 * 60 + 30, '', 'and so is dinner'],
+    [MON, 14 * 60 + 1, 'block', 'the block closes over again after lunch'],
+    [MON, 19 * 60 + 1, 'block', 'and after dinner'],
+    [MON, 23 * 60 + 30, 'limit', 'the overnight window starts before midnight'],
+    [MON, 3 * 60, 'limit', 'and is still the same window after it'],
+  ];
+  const wrong = want.filter(([d, m, is]) => W.guardWinMode(day, d, m) !== is);
+  check('the bar reads a day of windows the way the phone does',
+    wrong.length === 0,
+    wrong.length
+      ? wrong.map(([d, m, is]) => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0')
+          + ' wanted ' + (is || 'off') + ', got ' + (W.guardWinMode(day, d, m) || 'off')).join(' | ')
+      : want.length + ' hours agree');
+
+  /* Days are per window, not per rule. */
+  const weekdays = {id: 'w2', when: 'schedule', apps: [], sites: [],
+    windows: [{d: '12345', f: '09:00', t: '17:00', m: 'block'}]};
+  check('and a window keeps its own days',
+    W.guardWinMode(weekdays, MON, 12 * 60) === 'block'
+    && W.guardWinMode(weekdays, SAT, 12 * 60) === '',
+    W.guardWinMode(weekdays, MON, 12 * 60) + ' / ' + (W.guardWinMode(weekdays, SAT, 12 * 60) || 'off'));
+
+  /* A rule written before windows existed must read exactly as it did. */
+  const old = {id: 'w3', when: 'schedule', apps: [], sites: [], windows: [],
+    days: '12345', from: '09:00', to: '17:00', hard: true};
+  check('and a rule with no windows still reads its single range',
+    W.guardWinMode(old, MON, 12 * 60) === 'block'
+    && W.guardWinMode(old, SAT, 12 * 60) === '',
+    W.guardWinMode(old, MON, 12 * 60) + ' / ' + (W.guardWinMode(old, SAT, 12 * 60) || 'off'));
+
+  /* **The order is data, so the cleaner must not sort it.** Everything else in
+     guardClean reorders its list to be tidy; doing it here would silently
+     rewrite what a day means. */
+  const cleaned = W.guardClean({on: true, rules: [day]}).rules[0];
+  check('and cleaning a rule leaves its windows in the order they were written',
+    cleaned.windows.map((w) => w.m).join(',') === 'block,off,off,limit',
+    cleaned.windows.map((w) => w.m).join(','));
+  /* A window on no days never happens, so it is a row doing nothing. */
+  const empty = W.guardClean({on: true, rules: [{id: 'w4', when: 'schedule',
+    windows: [{d: '', f: '09:00', t: '17:00', m: 'block'},
+              {d: '12345', f: '09:00', t: '17:00', m: 'block'}]}]}).rules[0];
+  check('and a window on no days is dropped rather than kept doing nothing',
+    empty.windows.length === 1 && empty.windows[0].d === '12345',
+    JSON.stringify(empty.windows));
+  ww.close();
+}
+
+/* ---- a check settles what it finds ----------------------------------------
+
+   Checking used to cost nothing: it named the wrong squares and left the board
+   exactly as it was, so there was no reason not to check after every letter.
+   Now the squares it confirms are fixed, which gives the button a price --
+   certainty, paid for with the ability to change your mind.
+
+   Three things have to hold, and the third is the one that would be found
+   months later by somebody whose puzzle had gone strange. A settled square
+   must refuse to change; it must survive being put down and picked up again;
+   and it must **not** be counted as a hint. That last one shares its shape with
+   the hint machinery in both games and would have been the easy way to build
+   it -- reuse `given`, reuse `shown` -- which would quietly have made every
+   checked grid look, on the calendar, like one solved by revealing it. */
+{
+  const C = window.__m.Cross;
+  C.load(0, '');
+  const sol = [];
+  for (let i = 0; i < C.user.length; i++) sol.push(C._solAt(i) || '');
+  /* Two right and one wrong, so the check has something of each to do. */
+  const right = [];
+  for (let i = 0; i < sol.length && right.length < 2; i++) if (sol[i]) right.push(i);
+  let wrongAt = -1;
+  for (let i = right[right.length - 1] + 1; i < sol.length; i++) if (sol[i]) { wrongAt = i; break; }
+  for (const i of right) C.user[i] = sol[i];
+  if (wrongAt >= 0) C.user[wrongAt] = sol[wrongAt] === 'A' ? 'B' : 'A';
+  const hintsBefore = C._hintCount();
+  C.check();
+
+  check('a crossword check settles the letters it finds right',
+    right.every((i) => C.sure[i]) && (wrongAt < 0 || !C.sure[wrongAt]),
+    right.map((i) => C.sure[i]).join(',') + ' / wrong settled: ' + (wrongAt < 0 ? 'n/a' : C.sure[wrongAt]));
+
+  /* Typing into one steps past it, the way it does over a hint. */
+  C.sel = right[0];
+  C.type(sol[right[0]] === 'Z' ? 'Y' : 'Z');
+  check('and a settled letter cannot be typed over',
+    C.user[right[0]] === sol[right[0]], C.user[right[0]] + ' wanted ' + sol[right[0]]);
+
+  C.sel = right[0];
+  C.back();
+  check('nor rubbed out',
+    C.user[right[0]] === sol[right[0]], C.user[right[0]] || '(empty)');
+
+  /* **The one that would not be noticed.** A settled square is the opposite of
+     a revealed one, and counting it as a hint would make a grid solved cold
+     read as a grid solved by giving up. */
+  check('and settling is not the same as being given the answer',
+    C._hintCount() === hintsBefore,
+    C._hintCount() + ' hints, was ' + hintsBefore);
+
+  /* It has to come back. The record travels inside the puzzle's own entry,
+     which mergeGameSave carries whole, so this is also what keeps it after a
+     sync rather than only after a reload. */
+  C.persist();
+  const rec = C.progress[C._fp(C.idx)];
+  check('and a settled square is written down with the board',
+    !!rec && Array.isArray(rec.s) && right.every((i) => rec.s.indexOf(i) >= 0),
+    rec && rec.s ? rec.s.join(',') : 'nothing saved');
+}
+
+/* ---- a board that arrives fuller than the one on screen --------------------
+
+   Open today's big crossword on a laptop, fill fifty clues of it on a phone,
+   come back to the laptop: the grid stayed blank, while the calendar -- which
+   adopts by an entirely different route -- correctly said fifty of eighty-nine.
+   The adopt path kept the open board's own record unconditionally, and the open
+   board's record was an empty one with a clock ticking into it. Worse than
+   looking wrong: the next save on the laptop wrote the blank back over the
+   fifty.
+
+   Driven **through** `gamesAdopt` rather than by calling `forget` directly,
+   because the adopt paths are wrapped in try/catch and a fault inside one is
+   invisible from outside it. A check that pokes the method underneath would
+   pass with the wiring broken. */
+{
+  const C = window.__m.Cross;
+  const adopt = window.__m.gamesAdopt;
+  C.load(0, '');
+  const n = C.user.length;
+  const k = C._fp(C.idx);
+
+  /* This device: the puzzle open, nothing typed into it. */
+  for (let i = 0; i < n; i++) C.user[i] = '';
+  C.persist();
+
+  /* The wire: the same puzzle, with a dozen right answers in it. */
+  const sol = [];
+  for (let i = 0; i < n; i++) sol.push(C._solAt(i) || '');
+  let u = '', put = 0;
+  const want = [];
+  for (let i = 0; i < n; i++) {
+    if (sol[i] && put < 12) { u += sol[i]; want.push(i); put++; }
+    else u += '.';
+  }
+  const save = { size: C.size, idx: C.idx, key: k, p: {}, seen: C.seen };
+  save.p[k] = { u, secs: 999 };
+  adopt({ arcade_cross: { at: Date.now() + 5000, v: save } });
+
+  check('a board that arrives fuller than the one on screen is taken',
+    want.every((i) => C.user[i] === sol[i]),
+    want.filter((i) => C.user[i] !== sol[i]).length + ' of ' + want.length + ' missing');
+  /* And the record with it, or the next save puts the blank board back. */
+  check('and the record goes with it, so the next save cannot undo it',
+    C.progress[k] && typeof C.progress[k].u === 'string'
+    && [...C.progress[k].u].filter((c) => c !== '.').length >= 12,
+    C.progress[k] ? [...C.progress[k].u].filter((c) => c !== '.').length + ' letters' : 'no record');
+
+  /* **The other half, which is why the guard was there to begin with.** A
+     keystroke runs this whole path inside itself, with a local board one letter
+     ahead of anything the wire can know. That one must not be thrown away. */
+  C.sel = want[0];
+  for (const i of want) C.user[i] = sol[i];
+  C.user[want[0]] = sol[want[0]];
+  const extra = [];
+  for (let i = 0; i < n && extra.length < 6; i++) if (sol[i] && want.indexOf(i) < 0) extra.push(i);
+  for (const i of extra) C.user[i] = sol[i];
+  C.persist();
+  const thin = { size: C.size, idx: C.idx, key: k, p: {}, seen: C.seen };
+  thin.p[k] = { u: new Array(n + 1).join('.'), secs: 1 };
+  adopt({ arcade_cross: { at: Date.now() + 9000, v: thin } });
+  check('while a board that arrives emptier is not allowed to wipe one in play',
+    extra.every((i) => C.user[i] === sol[i]),
+    extra.filter((i) => C.user[i] !== sol[i]).length + ' of ' + extra.length + ' lost');
 }
 
 // --- verdict ---------------------------------------------------------------

@@ -1,4 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@1,9..144,400;1,9..144,500&display=swap');
+/* **Two faces, both picked for weight rather than charm.**
+
+   Space Grotesk is a light, wide geometric with a lot of air in it, and
+   Fraunces is a soft old-style that goes out of its way to be friendly. They
+   are both gentle, and the whole app read as gentle because of them -- which is
+   the wrong note for a thing whose entire job is to hold your attention.
+
+   Archivo replaced it and was sturdy, which was the brief at the time, and
+   also completely neutral -- a workhorse with nothing to say. Plus Jakarta Sans
+   keeps the weight and brings letterforms with some opinion in them: a
+   single-storey g, open terminals, a slight warmth in the curves. It still
+   holds at the 11 to 15px most of this interface lives at, which rules out most
+   of the faces that have more personality than this one.
+
+   **And the name gets a face of its own.** A wordmark set in the interface font
+   is a wordmark that looks like a label. Syne is unusual on purpose -- the
+   widths disagree with each other in a way almost nothing else does -- which is
+   exactly wrong for reading a settings screen and exactly right for the two
+   words at the top of it. It is used for the name and the screen titles and
+   nowhere else, so its oddity never has to be read in quantity.
+
+   Literata stays for the quotes: it is the one place the app speaks rather than
+   labels, and it has real weight in its italic.
+
+   All three are SIL Open Font Licence, like everything they replace, and all
+   three are credited on the About page. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&family=Literata:ital,opsz,wght@1,7..72,400;1,7..72,500;1,7..72,600&display=swap');
 
 :root{
   --bg:#0b1220; --bg2:#111a2c;
@@ -6,6 +32,43 @@
   --text:#e7ecf6; --muted:#8695b4; --track:rgba(255,255,255,.06);
   --card:rgba(255,255,255,.045); --line:rgba(255,255,255,.09);
   --breathe:6s;
+}
+
+/* ---- what a panel is made of ----
+
+   **A surface should be a colour, not a veil.** `--card` was
+   `rgba(255,255,255,.045)`: four and a half percent of white laid over
+   whatever happened to be behind it. That has two faults. It barely exists, so
+   panels read as smudges rather than objects; and because the tint is white
+   rather than the theme's, every one of the eleven looks got the same grey
+   furniture. Buying Magma changed the glow and left the boxes alone.
+
+   So it is the look's own background lifted a fixed six percent toward white.
+   That makes it opaque, so it stops shifting with whatever is behind it, and
+   it still belongs to the theme, because the theme’s background is what it
+   starts from.
+
+   **A fixed step, not a fraction of `--bg2`.** Mixing toward `--bg2` was the
+   first attempt and it gave a different amount of lift in every look: Magma’s
+   `--bg2` is #d4560d where Peony’s is #3d152b, so one recipe produced a panel
+   you could barely see in one theme and a sheet of bright orange in another.
+   Lifting toward white is the same step in all eleven.
+
+   `--lift` puts it above the page on a shadow
+   rather than inside a drawn outline -- a panel with an edge drawn round it is
+   a diagram of a panel.
+
+   **Declared here rather than on `:root`, and that is not a style choice.** A
+   custom property holding `var(--bg2)` is substituted where it is *computed*,
+   not where it is used. On `:root` it would resolve once against the default
+   palette and then inherit that one frozen colour into every theme -- the
+   exact thing this is meant to fix, failing silently. The themes set their
+   colours on these nine elements, so the derivation has to live on them too.
+   See the per-look blocks in 30-embers.css. */
+body, #app, #overlay, #drawer, #quotes-overlay, #cal-overlay,
+#stats-overlay, #ach-overlay, #sync-overlay{
+  --card:color-mix(in srgb, #fff 6%, var(--bg));
+  --lift:0 2px 10px rgba(0,0,0,.42), 0 0 0 1px rgba(0,0,0,.26);
 }
 [data-phase="focus"]{
   --bg:#05121a; --bg2:#0a2130;
@@ -37,7 +100,9 @@ html,body{height:100%}
    the touch and the menu never saw it. This turns that off for the page. */
 html{ overscroll-behavior-x:none }
 body{
-  font-family:'Space Grotesk',system-ui,sans-serif;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  /* The name and the screen titles, and nothing else. */
+  --title:'Syne','Plus Jakarta Sans',system-ui,sans-serif;
   color:var(--text);
   background:var(--bg);
   transition:background 1.1s ease;

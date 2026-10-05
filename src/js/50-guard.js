@@ -52,7 +52,14 @@
     cooldown:0, odds:100, quick:false, hard:false,
   };
   const GUARD_DEFAULTS = {on:false, rules:[], lock:{on:false, delay:10}, pending:null, gray:false, excl:[]};
-  const GUARD_OPEN_CHOICES = [1, 5, 10, 15, 30];
+/* **How long the way through is good for, when it is offered.** Five was the
+     smallest step above a minute and thirty the largest, which made the two
+     ends of the list the two answers nobody wanted: a minute is not long enough
+     to reply to anything, and the jump from fifteen to thirty is the difference
+     between looking something up and losing the evening. Ten choices rather
+     than five, closer together where the decision actually is. A rule still
+     picks which of them it offers, and still has to offer at least one. */
+  const GUARD_OPEN_CHOICES = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60];
   const GUARD_LOCK_DELAYS = [5, 10, 30, 60, 240];
   const GUARD_ODDS = [100, 75, 50, 25];
 
@@ -131,6 +138,14 @@
     key:'',                   // the last timer state pushed down, unchanged = no push
     filter:'',
     editing:'',               // the id of the rule open in the editor
+    /* **The copy being edited, before it is anybody else's business.** Every
+       tap in the rule editor used to go straight through guardChange: saved to
+       storage, pushed to the phone, and under the lock it restarted the wait.
+       Changing a pause from 12 to 30 is five taps on a stepper, which was five
+       saves, five pushes and five restarted waits, with the rule briefly
+       live at 13, 14, 15 and 16 seconds on the way. Null when nothing is
+       open. */
+    draft:null,
 
     async load(){
       this.on = guardHasPlugin();
@@ -295,6 +310,43 @@
     return out;
   }
 
+  /* The three things a window can be, and what a day looks like when nobody
+     has said otherwise. 'off' is a break: in force nowhere, which is how a hole
+     is cut in a block that surrounds it. */
+  const GUARD_MODES = ['limit', 'block', 'off'];
+  const GUARD_WIN = {d:'0123456', f:'09:00', t:'17:00', m:'block'};
+
+  /* **Ten, and the order is the meaning.** A window list is read last-match-wins
+     (see forceMode in GuardRules.java), so sorting this would rewrite what the
+     day means: a break is a hole in whatever was written before it, and moving
+     it above that thing turns it into a hole in nothing. Everything else in
+     this cleaner is free to reorder its list; this one is not.
+
+     The cap is there because the list is evaluated on every app switch on the
+     phone, and because a day nobody can read on one screen is a day nobody can
+     check. */
+  function guardWindows(list){
+    if(!Array.isArray(list)) return [];
+    const out = [];
+    for(const w of list){
+      if(!w || typeof w !== 'object') continue;
+      const d = typeof w.d === 'string'
+        ? Array.from(new Set(w.d.replace(/[^0-6]/g, '').split(''))).sort().join('')
+        : GUARD_WIN.d;
+      /* A window on no days is a window that never happens, which is a row
+         taking up space and quietly doing nothing. */
+      if(!d) continue;
+      out.push({
+        d,
+        f: guardTime(w.f, GUARD_WIN.f),
+        t: guardTime(w.t, GUARD_WIN.t),
+        m: GUARD_MODES.indexOf(w.m) >= 0 ? w.m : GUARD_WIN.m,
+      });
+      if(out.length >= 10) break;
+    }
+    return out;
+  }
+
   function guardRuleClean(r){
     if(!r || typeof r !== 'object') return null;
     const d = GUARD_RULE;
@@ -311,6 +363,14 @@
         : d.days,
       from: guardTime(r.from, d.from),
       to: guardTime(r.to, d.to),
+      /* **Kept beside the single range rather than replacing it.** Every rule
+         made before windows existed has days/from/to and no list, and the
+         evaluator falls back to them when the list is empty -- so an upgrade
+         changes nothing about what is blocked, and a rule that has never been
+         opened since stays exactly as it was. They are also what a new window
+         is seeded from, which is why they are not thrown away once a list
+         exists. */
+      windows: guardWindows(r.windows),
       pause: guardClamp(r.pause, 0, 120, d.pause),
       step: guardClamp(r.step, 0, 60, 0),
       prompt: String(r.prompt || '').replace(/\s+/g, ' ').trim().slice(0, 120),

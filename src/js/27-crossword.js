@@ -40,6 +40,12 @@
                              // saved against it; see _fp() and crossKey()
     puz:null,                // {n, rows, entries} from crossParse
     user:[], given:[],       // letters typed; squares revealed by a hint
+    /* **Squares a check has confirmed.** Kept apart from `given` on purpose:
+       `given` is what a hint handed you and it is counted as one on the
+       calendar record, so folding these in would make a grid solved cold read
+       as a grid solved with twenty hints. They lock the same way and mean the
+       opposite thing. */
+    sure:[],
     sel:-1, dir:'across',
     done:false, elapsed:0, tick:null, wrong:null,
     progress:{},             // puzzle index -> {u, g, done, secs}
@@ -132,6 +138,28 @@
       return -1;
     },
     _rec(i){ const k = this._fp(i); return (k && this.progress[k]) || null; },
+
+    /** **Put a saved record onto the board.** Lifted out of `load` because the
+        account adopts records too, and a board refreshed by one route and not
+        the other is the difference between seeing your letters and overwriting
+        them. See `forget` below. */
+    _applyRec(rec, cells){
+      const n = cells || this.user.length;
+      /* Re-derived from the letters rather than trusted: a wrong `done` opened
+         a grid full of letters nobody typed and refused every key. */
+      if(rec && rec.done && !this._solvedBy(rec.u)) rec = Object.assign({}, rec, {done:false});
+      this.user  = new Array(n).fill('');
+      this.given = new Array(n).fill(false);
+      this.sure = new Array(n).fill(false);
+      if(rec && typeof rec.u === 'string'){
+        for(let k=0;k<n;k++) if(rec.u[k] !== '.') this.user[k] = rec.u[k];
+        if(Array.isArray(rec.g)) for(const k of rec.g) if(k >= 0 && k < n) this.given[k] = true;
+        if(Array.isArray(rec.s)) for(const k of rec.s) if(k >= 0 && k < n) this.sure[k] = true;
+      }
+      this.elapsed = (rec && rec.secs) || 0;
+      this.done = !!(rec && rec.done);
+      this.wrong = null;
+    },
 
     /** Bring a saved bundle forward, and throw out what the old index-keyed
         scheme corrupted.
@@ -267,18 +295,7 @@
          are all correct is finished whatever the record says; one that is not,
          is not. The letters are kept either way — being wrong about the flag is
          no reason to throw away somebody's work. */
-      if(rec && rec.done && !this._solvedBy(rec.u)) rec = Object.assign({}, rec, {done:false});
-      this.user  = new Array(cells).fill('');
-      this.given = new Array(cells).fill(false);
-      if(rec){
-        for(let k=0;k<cells;k++){
-          if(rec.u[k] !== '.') this.user[k] = rec.u[k];
-        }
-        if(Array.isArray(rec.g)) for(const k of rec.g) if(k >= 0 && k < cells) this.given[k] = true;
-      }
-      this.elapsed = (rec && rec.secs) || 0;
-      this.done = !!(rec && rec.done);
-      this.wrong = null;
+      this._applyRec(rec, cells);
 
       const first = this.puz.entries[0];
       this.sel = first ? first.cells[0][0]*n + first.cells[0][1] : -1;
@@ -540,7 +557,10 @@
        ever moves forward. */
     type(ch){
       if(this.sel < 0) return;
-      if(this.given[this.sel]){ this._step(1); this.render(); return; }   // a hint isn't yours to change
+      /* A hint isn't yours to change, and neither is a square you have had
+         confirmed. Both step past rather than refusing silently, so a typed
+         word runs over them the way it does over a hint. */
+      if(this.given[this.sel] || this.sure[this.sel]){ this._step(1); this.render(); return; }
       this.user[this.sel] = ch.toUpperCase();
       this.wrong = null;
       this._step(1);
@@ -559,7 +579,7 @@
     back(){
       if(this.sel < 0) return;
       this.wrong = null;
-      if(this.user[this.sel] && !this.given[this.sel]) this.user[this.sel] = '';
+      if(this.user[this.sel] && !this.given[this.sel] && !this.sure[this.sel]) this.user[this.sel] = '';
       else{
         const e = this.current();
         if(e){
@@ -567,7 +587,7 @@
           const at = cells.indexOf(this.sel);
           if(at > 0){
             this.sel = cells[at-1];
-            if(!this.given[this.sel]) this.user[this.sel] = '';
+            if(!this.given[this.sel] && !this.sure[this.sel]) this.user[this.sel] = '';
           }
         }
       }
@@ -638,7 +658,19 @@
         if(!this.user[i]) blank++;
         else if(this.user[i] !== sol) bad.push(i);
       }
+      /* **What a check finds right, it fixes in place.** Checking used to be
+         free: it told you which letters were wrong and left the board exactly
+         as it was, so there was nothing to stop you checking after every word.
+         Settling the right ones gives the button a cost -- you are trading the
+         ability to change your mind for the certainty -- and it means the
+         squares you have confirmed stop being ones you can knock out by typing
+         into them later. */
+      for(let i = 0; i < this.user.length; i++){
+        const sol = this._solAt(i);
+        if(sol && this.user[i] && this.user[i] === sol) this.sure[i] = true;
+      }
       this.wrong = bad;
+      this.persist();
       this.render();
       if(bad.length) toast(Tn('{n} wrong letter', '{n} wrong letters', bad.length));
       else if(blank) toast(T('All good so far, {n} left', {n:blank}));
@@ -755,6 +787,7 @@
         else if(inCur.indexOf(i) !== -1) cls += ' peer';
         if(this.wrong && this.wrong.indexOf(i) !== -1) cls += ' wrong';
         if(this.given[i]) cls += ' given';
+        else if(this.sure[i]) cls += ' sure';
         el.className = cls;
         const let_ = el.querySelector('.cw-let');
         if(let_) let_.textContent = this.user[i] || '';
@@ -837,8 +870,14 @@
         for(let i=0;i<this.user.length;i++) u.push(this.user[i] || '.');
         const g = [];
         for(let i=0;i<this.given.length;i++) if(this.given[i]) g.push(i);
+        const sure = [];
+        for(let i=0;i<this.sure.length;i++) if(this.sure[i]) sure.push(i);
         const rec = {u:u.join(''), secs:this.elapsed};
         if(g.length) rec.g = g;
+        /* Rides inside the puzzle's own record, which the merge carries whole
+           (see mergeGameSave in 47-merge.js) -- so a grid settled on a phone is
+           still settled on a laptop. */
+        if(sure.length) rec.s = sure;
         if(this.done) rec.done = true;
         this.progress[this._fp(this.idx)] = rec;
       }
@@ -901,8 +940,35 @@
       try{ d = gameSaved(this.key); }catch(e){}
       const p = this._migrate((d && d.p) || {});
       if(this.idx >= 0 && this.puz){
+        /* **Keeping the open board was right, and keeping it *always* was not.**
+
+           The note above is about one keystroke: type a letter, persist marks
+           the day, that asks the account to sync, the sync adopts, and this
+           runs -- with a local record one letter ahead of anything the wire can
+           know about. Holding on to it there is correct.
+
+           It was holding on to it everywhere, though, including when the wire
+           brought back the same puzzle with far more in it. Open today's 15x15
+           on a laptop, fill fifty clues of it on a phone, and the laptop's
+           empty record -- which the clock has been quietly stamping seconds
+           into -- won against the fifty. The grid stayed blank while the
+           calendar, which adopts by another route entirely, correctly said
+           fifty of eighty-nine. Worse than looking wrong: the next save on the
+           laptop wrote the empty board back over the fifty.
+
+           Decided the way the merge decides it (see crossFill in 47-merge.js),
+           so the two cannot disagree: more letters wins, finished beats
+           everything. A keystroke still wins because it has just added one. */
         const k = this._fp(this.idx);
-        if(k && this.progress[k]) p[k] = this.progress[k];
+        const mine = k ? this.progress[k] : null;
+        const theirs = k ? p[k] : null;
+        if(mine && crossFill(mine) >= crossFill(theirs)) p[k] = mine;
+        else if(theirs){
+          /* Taking the record is only half of it: the board has to show it, or
+             the next persist writes this screen back over what just arrived. */
+          this._applyRec(theirs);
+          try{ this.render(); }catch(e){}
+        }
       }
       this.progress = p;
       this.seen = (d && d.seen && typeof d.seen === 'object') ? d.seen : (this.seen || {});
@@ -997,7 +1063,10 @@
       const list = crossAtSize(size);
       const done = list.filter(i=>p[crossKey(CROSS_GRIDS[i])] && p[crossKey(CROSS_GRIDS[i])].done).length;
       if(!done && !Object.keys(p).length) return 'New<span>tap to start</span>';
-      return done + '/' + list.length + '<span>' + T('{s}×{s} done', {s:size}) + '</span>';
+      /* Finished means every puzzle at this size, which is the only thing this
+         card counts. */
+      const all = done >= list.length && list.length ? ' data-done="1"' : '';
+      return done + '/' + list.length + '<span' + all + '>' + T('{s}×{s} done', {s:size}) + '</span>';
     }
   });
 

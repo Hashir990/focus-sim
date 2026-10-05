@@ -20,6 +20,14 @@
    *    opt.no   — rename Cancel, when "Cancel" is misleading ("Discard")
    *    opt.onNo — run something on No, for when No is an answer and not an exit
    *    opt.alt  — {label, run} for a third button, shown only when given.
+   *    opt.show — {accent, c1, c2, name, note} to paint the thing being bought.
+   *
+   *  **`show` is fields, not markup.** The shop could have handed over a bit of
+   *  HTML and this could have dropped it in, and then the one dialog every
+   *  feature shares would be a place where any caller can write into the page.
+   *  It takes the four values it knows how to draw and builds the element
+   *  itself, so there is nothing a caller can put in here that the dialog has
+   *  not agreed to.
    *
    *  Backdrop and Escape still mean "nothing happened", never `onNo` — the way
    *  out of a dialog cannot also be one of its answers.
@@ -28,6 +36,38 @@
     if(!$('confirm')) { if(onYes) onYes(); return; }
     const o = opt || {};
     $('confirm-title').textContent = title || 'Are you sure?';
+    const show = $('confirm-show');
+    if(show){
+      show.textContent = '';
+      const sh = o.show;
+      show.classList.toggle('hide', !sh);
+      if(sh){
+        /* The colours it is actually made of, as the thing itself: the sky it
+           paints, and a ring in its accent standing in for the dial. */
+        const sky = document.createElement('i');
+        sky.className = 'confirm-sky';
+        sky.style.background = 'linear-gradient(160deg, ' + (sh.c1 || sh.accent)
+          + ' 0%, ' + (sh.c2 || sh.accent) + ' 100%)';
+        const ring = document.createElement('b');
+        ring.className = 'confirm-ring';
+        ring.style.borderColor = sh.accent || '#fff';
+        sky.appendChild(ring);
+        show.appendChild(sky);
+        const words = document.createElement('span');
+        words.className = 'confirm-words';
+        if(sh.name){
+          const nm = document.createElement('b');
+          nm.textContent = sh.name;
+          words.appendChild(nm);
+        }
+        if(sh.note){
+          const nt = document.createElement('small');
+          nt.textContent = sh.note;
+          words.appendChild(nt);
+        }
+        show.appendChild(words);
+      }
+    }
     $('confirm-body').textContent = body || '';
     $('confirm-yes').textContent = yesLabel || 'Yes';
     $('confirm-no').textContent = o.no || 'Cancel';
@@ -53,6 +93,12 @@
     confirmNo = null;
     if($('confirm-no')) $('confirm-no').textContent = 'Cancel';
     if($('confirm-alt')) $('confirm-alt').classList.add('hide');
+    /* Emptied as well as hidden. A left-over swatch is a picture of the last
+       thing you bought sitting over the next question you are asked. */
+    if($('confirm-show')){
+      $('confirm-show').textContent = '';
+      $('confirm-show').classList.add('hide');
+    }
   }
 
   if($('confirm')){

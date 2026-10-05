@@ -144,7 +144,7 @@
         + '<p class="about-lede">' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' نے بنایا۔ یہ دوسروں کے کام پر کھڑا ہے۔</p>'
         + '<h4>ٹائپ</h4>'
-        + '<p>Florian Karsten کا <b>Space Grotesk</b>، اور Undercase Type کا <b>Fraunces</b>۔ '
+        + '<p>Tokotype کا <b>Plus Jakarta Sans</b>، Bonjour Monde کا <b>Syne</b>، اور TypeTogether کا <b>Literata</b>۔ '
         + 'دونوں SIL Open Font License کے تحت۔</p>'
         + '<h4>کوڈ</h4>'
         + '<p>"مل کر فوکس" کے براہِ راست تعلقات <b>PeerJS</b> (MIT) سے چلتے ہیں۔ '
