@@ -588,6 +588,88 @@ await wait(800);
   B.fetch = real;
 }
 
+/* ---- unmaking an account ----
+
+   An app that lets somebody make an account has to let them unmake it, from
+   inside the app, without writing to anybody. The server has had
+   /account/gone since accounts existed; until now nothing called it, and the
+   privacy policy pointed at an email address instead.
+
+   What has to be true is more than "the row disappeared": the account must be
+   gone from the server, so signing back in fails, and the device must be back
+   to how it was before anybody signed in. */
+console.log('\ndeleting an account');
+{
+  const C = device([{ id: 'x9', secs: 3600, ts: 9, at: 9, day: '2026-08-09' }]);
+  await wait(800);
+  const c = C.document;
+  const $c = (id) => c.getElementById(id);
+
+  const made = async () => {
+    (await until(() => $c('acc-email'), 'the sign-in form')).value = 'gone@test.test';
+    $c('acc-new').click();
+    await wait(60);
+    $c('acc-user').value = 'leaver';
+    $c('acc-pass').value = 'a-good-password';
+    $c('acc-new').click();
+    await until(() => $c('acc-out'), 'the signed-in panel');
+  };
+  await made();
+  check('an account can be made, to have one to delete', !!$c('acc-out'));
+
+  const del = await until(() => $c('acc-del'), 'the delete button');
+  check('and the panel offers a way to delete it, in the app',
+    !!del && /delete/i.test(del.textContent), del && del.textContent);
+
+  del.click();
+  await wait(60);
+  check('which asks for the password first, the way changing it does',
+    !!$c('acc-del-pass') && $c('acc-del-pass').type === 'password',
+    $c('acc-del-pass') ? $c('acc-del-pass').type : 'no field');
+
+  /* **A wrong password changes nothing.** This is the check that matters: a
+     deletion that wipes the device whatever the server said would hand
+     somebody's history to a mistyped password. */
+  $c('acc-del-pass').value = 'not-the-password';
+  $c('acc-del-go').click();
+  await wait(60);
+  $c('confirm-yes').click();
+  await wait(600);
+  check('a wrong password leaves the account alone',
+    !!$c('acc-out') && C.localStorage.getItem('focus_account') !== null
+    && /focus_account/.test(Object.keys(C.localStorage).join(' ')),
+    $c('acc-out') ? 'still signed in' : 'signed out');
+  check('and says so rather than failing quietly',
+    /password/i.test(($c('acc-del-msg') || {}).textContent || ''),
+    ($c('acc-del-msg') || {}).textContent);
+
+  // and now the right one
+  $c('acc-del-pass').value = 'a-good-password';
+  $c('acc-del-go').click();
+  await wait(60);
+  check('the question names what goes, not just the account',
+    /no undo/i.test($c('confirm-body').textContent),
+    $c('confirm-body').textContent.slice(0, 80));
+  $c('confirm-yes').click();
+  await until(() => $c('acc-in'), 'the signed-out form');
+
+  check('deleting puts the device back to signed out',
+    !!$c('acc-in') && !$c('acc-out'), 'signed out');
+  check('and the history goes with it, like signing out',
+    JSON.parse(C.localStorage.getItem('focus_log') || '[]').length === 0,
+    C.localStorage.getItem('focus_log'));
+
+  /* The real proof: the account is not on the server any more. Signing in with
+     the password that worked a moment ago has to fail now. */
+  (await until(() => $c('acc-email'), 'the form')).value = 'gone@test.test';
+  $c('acc-pass').value = 'a-good-password';
+  $c('acc-in').click();
+  await wait(700);
+  check('and the account itself is gone from the server',
+    !$c('acc-out') && /no account|does not|not match/i.test(($c('acc-msg') || {}).textContent || ''),
+    ($c('acc-msg') || {}).textContent);
+}
+
 console.log('\n' + pass + '/' + (pass + fails.length) + ' account client checks passed');
 if (fails.length) { fails.forEach((f) => console.log('   ' + f)); process.exit(1); }
 process.exit(0);

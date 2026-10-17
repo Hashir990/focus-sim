@@ -1,5 +1,6 @@
 // Desktop shell. Loads the same dist/index.html the browser and phone apps use.
 const { app, BrowserWindow, Menu, shell } = require('electron');
+const { wireEditing } = require('./editing.cjs');
 const path = require('node:path');
 const updater = require('./updater.cjs');
 
@@ -10,7 +11,7 @@ function createWindow() {
     minWidth: 360,
     minHeight: 600,
     backgroundColor: '#0b1220',
-    title: 'Focus Simulator',
+    title: 'focUS simulator',
     autoHideMenuBar: true,
     /* **A black title bar with white text on it.**
      *
@@ -99,6 +100,7 @@ function createWindow() {
      See electron/updater.cjs, which is also where the "why not install it the
      moment it lands" reasoning lives. */
   try { updater.setup(win); } catch (e) { console.log('[update] ' + e.message); }
+  try { wireEditing(win); } catch (e) { console.log('[edit] ' + e.message); }
 
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 
@@ -108,7 +110,8 @@ function createWindow() {
 app.whenReady().then(() => {
   /* `autoHideMenuBar` only hides it; Alt still brings it back, and the View menu
      on it carries Toggle Developer Tools. Removing the menu outright is the only
-     way the accelerator stops working. Kept in dev, where it is useful. */
+     way the accelerator stops working -- and it takes the clipboard shortcuts
+     with it, which `wireEditing` puts back. Kept in dev, where it is useful. */
   if (app.isPackaged) Menu.setApplicationMenu(null);
   createWindow();
   app.on('activate', () => {

@@ -121,47 +121,53 @@
     /* Things bought, not things owned: the first look is free and everybody has
        it, so counting it would give a brand new account a 1. */
     try{ own = Math.max(0, (Embers.own || []).filter(id=>id !== 'seaglass').length); }catch(e){}
-    const g = {};
-    try{
-      const sud = ['easy', 'medium', 'hard'].reduce((n, d)=>
-        n + dailyAll('sudoku', d).filter(r=>r.s === 2).length, 0);
+    /* **The same figures the stats screen shows, from the same place.**
 
-      const words = dailyAll('wordle', '').filter(r=>r.s === 2 && r.w);
-      const avg = words.length ? words.reduce((n, r)=>n + (r.g || 0), 0) / words.length : 0;
-      const cross = [5, 7, 9, 15].reduce((n, k)=>
-        n + dailyAll('crossword', String(k)).filter(r=>r.s === 2).length, 0);
-      g.sud = sud;
-      g.wrd = words.length;
-      g.avg = avg ? Math.round(avg * 10) / 10 : 0;
-      g.cw = cross;
-    }catch(e){}
-    /* The two free-play games keep a best rather than a calendar, so a best is
-       what there is to show. Read from their saves, which is where the number
-       actually lives. */
-    try{
-      const t = gameSaved('arcade_tetris');
-      if(t) g.tet = Math.max(0, (t.best | 0), (t.s | 0));
-      const g8 = gameSaved('arcade_2048');
-      if(g8) g.g48 = Math.max(0, (g8.best | 0), (g8.score | 0));
-    }catch(e){}
+       A card used to carry its own little summary -- hours, and a row of
+       arcade tallies -- worked out here, beside a screen that was working
+       out a different summary from the same log. Two answers to "how much
+       have you done" that could drift apart, and the arcade tallies were
+       not what anybody opening a profile was asking about anyway.
+
+       So the card is now a copy of what Stats draws: the four figures, the
+       fortnight of bars, and the three lines under them. One computation,
+       so a friend's profile and your own stats page cannot disagree. */
+    let st = null;
+    try{ st = Stats._compute(); }catch(e){}
     let buddy = null, anim = -1;
     try{ buddy = budSaved(); anim = budAnimSaved(); }catch(e){}
     return {u: friendMe(), n: (SYNC.name || '').slice(0, 24), hrs, sess, run, own,
-      g, buddy, anim, at: Date.now()};
+      tot: st ? st.totalSecs : 0,
+      days: st ? st.days : 0,
+      bd: st ? (st.bestDay || '') : '',
+      bs: st ? st.bestSecs : 0,
+      pd: st ? st.perDay : 0,
+      /* Fourteen small numbers. `k` is the day, `l` the label already
+         worked out for it, `s` the seconds -- sent rather than derived at
+         the far end, because the far end does not have their log. */
+      rec: st ? st.recent.map(r=>({k:r.key, l:r.label, s:r.secs})) : [],
+      buddy, anim, at: Date.now()};
   }
 
   /** Keep what a card is allowed to contain, and nothing else. */
   function friendCardClean(c){
     if(!c || typeof c !== 'object') return null;
     const num = (x, cap)=>{ const n = Number(x); return (isFinite(n) && n >= 0) ? Math.min(n, cap) : 0; };
-    const g = (c.g && typeof c.g === 'object') ? c.g : {};
     const out = {
       u: friendName(c.u), n: String(c.n || '').slice(0, 24),
       hrs: num(c.hrs, 1e6), sess: num(c.sess, 1e6),
       run: num(c.run, 1e5), own: num(c.own, 1e4),
-      g: {sud: num(g.sud, 1e5), wrd: num(g.wrd, 1e5),
-          avg: num(g.avg, 10), cw: num(g.cw, 1e5),
-          tet: num(g.tet, 1e9), g48: num(g.g48, 1e9)},
+      tot: num(c.tot, 1e9), days: num(c.days, 1e5),
+      bd: String(c.bd || '').slice(0, 10), bs: num(c.bs, 1e9),
+      pd: num(c.pd, 1e9),
+      /* Capped at fourteen and cleaned one at a time. This arrives from
+         somebody else's machine, so its length is theirs to claim and
+         ours to refuse. */
+      rec: (Array.isArray(c.rec) ? c.rec : []).slice(0, 14).map(r=>({
+        k: String((r && r.k) || '').slice(0, 10),
+        l: String((r && r.l) || '').slice(0, 4),
+        s: num(r && r.s, 1e7),
+      })),
       anim: (c.anim | 0) >= 0 ? (c.anim | 0) : -1,
       at: num(c.at, 1e15) || Date.now(),
     };
@@ -281,6 +287,10 @@
     try{ card = friendCardClean(JSON.parse(rest.slice(cut + 1))); }catch(e){}
     const code = syncNormalise(item.fromCode || (card && friendCode(card.u)) || '');
     if(!code) return true;
+    /* Blocked people cannot ask, accept, or tell you they have gone. Returning
+       true is "handled": the item is consumed rather than left in the mailbox
+       to be offered again on the next run. */
+    if(blockHas(code)) return true;
 
     if(kind === FRIEND_ASK){
       /* **Already friends, or already asked them?** Then this is the other half
@@ -356,6 +366,74 @@
     return (SYNC.cards && SYNC.cards[c]) || null;
   }
 
+  /* ---------------- one person, opened ----------------
+
+     Everything here already existed and had nowhere to go: the card
+     travels with `hello`, friendSawCard keeps it for anybody in the room
+     whether or not they are a friend, and friendStatsHtml is the same
+     block Focus together already draws for you at the top of the page.
+     What was missing was a way to ask for somebody else's. */
+  function friendWhoOpen(p){
+    const box = $('who');
+    if(!box || !p) return;
+    const card = (function(){ try{ return friendCardOf(p.code); }catch(e){ return null; } })();
+    const nm = $('who-who');
+    if(nm) nm.textContent = (p.name || 'Someone') + (p.me ? ' ' + T('(you)') : '');
+    const sub = $('who-sub');
+    if(sub){
+      /* Their account name if they have one, and otherwise nothing. A
+         room code is not a name and putting one here would read as one. */
+      const u = (card && card.u) || '';
+      sub.textContent = u ? '@' + u : '';
+      sub.classList.toggle('hide', !u);
+    }
+    /* **Their buddy, doing their antic, not yours.** Same rule the room
+       list already follows -- see the note on `pose` in syncRender. */
+    const bud = $('who-bud');
+    if(bud){
+      const pose = (function(){ try{ return budAnimKey(p.anim); }catch(e){ return ''; } })();
+      const svg = (function(){ try{ return p.buddy ? budSvg(p.buddy, 78) : ''; }catch(e){ return ''; } })();
+      bud.className = 'who-bud' + (pose ? ' bud-mini-' + pose : '') + (svg ? '' : ' hide');
+      bud.innerHTML = svg;
+      bud.onclick = friendWhoPoke;
+    }
+    const st = $('who-stats');
+    if(st){
+      st.innerHTML = card ? friendStatsHtml(card)
+        : '<p class="who-none">' + esc(T('They have not shared their numbers yet.')) + '</p>';
+      try{ friendWireBars(st); }catch(e){}
+    }
+    /* **Not about yourself.** The sheet opens on anybody in the room,
+       including you, and a Block button under your own name is a joke the app
+       should not make. */
+    const acts = $('who-acts');
+    if(acts){
+      acts.innerHTML = (p.me || !p.code) ? '' : blockActs(p.code);
+      acts.classList.toggle('hide', !acts.innerHTML);
+      try{ blockWire(acts, ()=>{ friendWhoClose(); }); }catch(e){}
+    }
+    const x = $('who-close');
+    if(x) x.onclick = friendWhoClose;
+    // the backdrop, like every other card over the app
+    box.onclick = (e)=>{ if(e.target === box) friendWhoClose(); };
+    box.classList.remove('hide');
+  }
+  function friendWhoClose(){
+    const b = $('who');
+    if(b) b.classList.add('hide');
+  }
+  /* Tapped, so he does his thing. The class comes off at the end rather
+     than being left on: an animation class that is already there does
+     nothing when you add it again, so without this the second tap is a
+     dead tap. The reflow in between is what makes the removal count. */
+  function friendWhoPoke(){
+    const bud = $('who-bud');
+    if(!bud) return;
+    bud.classList.remove('hop');
+    void bud.offsetWidth;
+    bud.classList.add('hop');
+  }
+
   /** How stale a card is, in words. */
   function friendWhen(at){
     const ms = Date.now() - (Number(at) || 0);
@@ -376,32 +454,73 @@
      own is the plainest way to say so. */
   function friendStatsHtml(card){
     if(!card) return '';
-    const g = card.g || {};
-    const tile = (v, n)=>'<div class="ft-stat"><b>' + esc(String(v)) + '</b><span>'
+    const tot = Math.max(0, card.tot || 0);
+    const sess = Math.max(0, card.sess || 0);
+    const rec = Array.isArray(card.rec) ? card.rec : [];
+    /* The tallest bar in the fortnight is the full height and the rest are
+       read against it, which is what makes a quiet week legible instead of
+       flat. A floor of 4% so a day with anything on it is still a mark. */
+    const max = Math.max.apply(null, rec.map(r=>(r && r.s) || 0).concat([1]));
+    const bars = rec.map(r=>{
+      const s = Math.max(0, (r && r.s) || 0);
+      const h = s ? Math.max(4, Math.round(s / max * 100)) : 0;
+      const when = String((r && r.k) || '');
+      const much = s ? fmtDur(s) : T('nothing');
+      return '<button type="button" class="sbar" data-when="' + esc(when)
+        + '" data-much="' + esc(much) + '" title="' + esc(when + ' \u00b7 ' + much) + '">'
+        + '<div class="sbar-track"><div class="sbar-fill' + (s ? '' : ' empty')
+        + '" style="height:' + h + '%"></div></div>'
+        + '<span>' + esc(String((r && r.l) || '')) + '</span></button>';
+    }).join('');
+    const tile = (v, n)=>'<div class="stat-card"><b>' + esc(v) + '</b><span>'
       + esc(n) + '</span></div>';
-    /* Three rows of three: what you have done, what you have solved, and what
-       you have to show for it. The streak is a *focus* streak — days in a row
-       with a block finished — because that is what "day streak" means on a
-       focus app, whatever the arcade is doing. */
-    const num = (n)=>{
-      const v = Math.max(0, n | 0);
-      return v >= 10000 ? (Math.round(v / 100) / 10) + 'k' : String(v);
-    };
-    return '<div class="ft-stats">'
-      + tile(Tn('{h}h', '{h}h', card.hrs || 0, {h:card.hrs || 0}), 'focused')
-      + tile(card.sess || 0, 'sessions')
-      + tile(card.run || 0, 'day streak')
+    /* Plain English, not T(): these are the same labels the stats screen uses,
+       they are whole text nodes, and 00a-i18n.js swaps those where they meet
+       the page. Wrapping them here would be a second way of saying the same
+       thing and a second entry to keep in step. */
+    return '<div class="stat-grid">'
+      + tile(fmtDur(tot), 'total focused')
+      + tile(String(sess), Tn('session', 'sessions', sess))
+      + tile(Tn('{n} day', '{n} days', card.run || 0), 'current streak')
+      + tile(String(card.days || 0), Tn('active day', 'active days', card.days || 0))
       + '</div>'
-      + '<div class="ft-stats">'
-      + tile(g.sud || 0, 'sudoku')
-      + tile(g.wrd || 0, 'words')
-      + tile(g.cw || 0, 'crosswords')
-      + '</div>'
-      + '<div class="ft-stats">'
-      + tile(num(g.tet), 'tetris')
-      + tile(num(g.g48), '2048')
-      + tile(card.own || 0, 'bought')
+      + (bars
+        ? '<p class="q-sec">Last 14 days</p>'
+          + '<div class="sbars">' + bars + '</div>'
+          + '<p class="sbar-read">Tap a bar for that day</p>'
+        : '')
+      + '<div class="stat-lines">'
+      + '<div><span>Best day</span><b>'
+        + (card.bd ? esc(card.bd) + ' \u00b7 ' + esc(fmtDur(card.bs || 0))
+                   : esc(fmtDur(0)))
+        + '</b></div>'
+      + '<div><span>Average day</span><b>' + esc(fmtDur(card.pd || 0)) + '</b></div>'
+      + '<div><span>Average session</span><b>'
+        + esc(sess ? fmtDur(Math.round(tot / sess)) : fmtDur(0)) + '</b></div>'
       + '</div>';
+  }
+
+  /* The bars answer when you point at them. Scoped to whichever card they are
+     in, because this block is drawn twice -- yours at the top of Focus
+     together, and whoever you just opened -- and an id would collide. */
+  function friendWireBars(root){
+    if(!root) return;
+    const read = root.querySelector('.sbar-read');
+    if(!read) return;
+    const say = (b)=>{
+      read.textContent = b ? (b.dataset.when + ' \u00b7 ' + b.dataset.much)
+        : T('Tap a bar for that day');
+      read.classList.toggle('on', !!b);
+    };
+    root.querySelectorAll('.sbar').forEach(b=>{
+      b.onclick = ()=>{
+        const was = b.classList.contains('on');
+        root.querySelectorAll('.sbar.on').forEach(x=>x.classList.remove('on'));
+        if(was){ say(null); return; }
+        b.classList.add('on');
+        say(b);
+      };
+    });
   }
 
   /* ---------------- what the account carries ----------------
@@ -561,17 +680,22 @@
         + '<div class="ft-me-who"><b>' + esc(who) + '</b>'
         + '<span>' + esc(T('as of {when}', {when:friendWhen(card.at)})) + '</span></div>'
         + '</div>' + friendStatsHtml(card) + '</div>'
-        + (card.g && card.g.avg
-            ? '<p class="ft-note">' + esc(T('Finds the word in {n} guesses on average.', {n:String(card.g.avg)})) + '</p>'
-            : '')
         + this._acts(f);
       this._wire();
+      try{ friendWireBars(box); }catch(e){}
     },
     _acts(f){
       const room = SYNC.inRoom && SYNC.inRoom[this.code];
+      /* Blocked, and the first two buttons would be lying: there is nothing to
+         join and nothing that would arrive. So the row becomes the one thing
+         left to do about them. */
+      if(blockHas(this.code)){
+        return '<div class="ft-acts">' + blockActs(this.code) + '</div>';
+      }
       return '<div class="ft-acts">'
         + '<button class="primary" id="prof-join">' + (room ? 'Join their room' : 'Try their room') + '</button>'
         + '<button class="mini-btn" id="prof-msg">Message</button>'
+        + blockActs(this.code)
         + '</div>';
     },
     _wire(){
@@ -579,6 +703,7 @@
       if(j) j.onclick = ()=>{ Prof.close(); syncJoin(Prof.code); };
       const m = $('prof-msg');
       if(m) m.onclick = ()=>{ Prof.close(); try{ chatOpenWith(Prof.code); }catch(e){} };
+      try{ blockWire($('prof-body'), ()=>Prof.render()); }catch(e){}
     },
   };
   function profOpen(code){ Prof.open(code); }

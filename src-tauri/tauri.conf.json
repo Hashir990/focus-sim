@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Focus Simulator",
+  "productName": "focUS simulator",
   "version": "1.0.0",
-  "identifier": "app.focussimulator.tauri",
+  "identifier": "com.uswork.focussimulator.tauri",
   "build": {
     "frontendDist": "../dist",
     "beforeDevCommand": "node tools/build.mjs --watch",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Focus Simulator",
+        "title": "focUS simulator",
         "width": 460,
         "height": 900,
         "minWidth": 360,

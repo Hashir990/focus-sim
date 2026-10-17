@@ -1,5 +1,5 @@
 <!--
-  Focus Simulator — the mark.
+  focUS simulator — the mark.
 
   A dial five eighths of the way round, with an ember in the middle: the two
   things the app is, in one shape. The ring is the block you are in the middle
@@ -17,7 +17,7 @@
     #1f5450  track     the part still to go, accent sunk into the background
     #0b1220  bg        the tile, for the versions that have one
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Focus Simulator">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="focUS simulator">
   <circle cx="48" cy="48" r="34" fill="none" stroke="#1f5450" stroke-width="9"/>
   <circle cx="48" cy="48" r="34" fill="none" stroke="#4fe0c8" stroke-width="9"
           stroke-linecap="round" stroke-dasharray="124.52 213.63"

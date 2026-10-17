@@ -456,6 +456,26 @@ _LEN_WANT = {3: 1, 4: 5, 5: 6, 6: 6, 7: 6, 8: 5, 9: 3, 10: 2, 11: 2}
 LONG_WHOLE = 60
 
 
+# How many entries spanning the whole width a shape must contain before it is
+# accepted, so that the longest answer on the board is as long as the board.
+#
+# **A floor, not a target, and deliberately not a weighting.** The bank built
+# before this already held them -- 60 of 83 sevens and 62 of 83 nines had at
+# least one -- because a whole run survives segmentation often enough by
+# chance. The gap was only the remaining quarter with none at all. Biasing
+# seg_weight towards whole runs instead was measured and discarded: at
+# LONG_WHOLE a 7x7 came out with 12 of its 14 entries spanning the grid, a
+# double word square rather than a crossword, and nothing like the 0-5 the
+# shipped puzzles run. Rejecting the shapes with none leaves every other shape
+# exactly as likely as it was.
+#
+# Only these two sizes. A 5x5 is already mostly full-width runs; a 15x15 is the
+# case the LONG_SLOTS block below records eight failed attempts at, and that
+# finding stands untouched here -- nothing in this change can reach it, because
+# 15 is not a key.
+WANT_FULL = {7: 1, 9: 1}
+
+
 def seg_weight(seg, n):
     """Bigger grids need a different bias, so this branches on n.
 
@@ -754,6 +774,17 @@ def barred_shape(n):
             if want_long:
                 long_runs = sum(1 for r in across + down if len(r) >= LONG_LEN)
                 if long_runs < want_long:
+                    continue
+            # **Counted after the bars, not before them.** These are the finished
+            # entries: a run that spanned the grid and was then cut into 3+4 is
+            # two entries and no longer counts, which is the whole point of
+            # asking here rather than of the runs. The weighting above makes a
+            # whole run likely; this makes it certain, by throwing the shape
+            # away when it did not happen.
+            want_full = WANT_FULL.get(n, 0)
+            if want_full:
+                full = sum(1 for r in across + down if len(r) == n)
+                if full < want_full:
                     continue
             return walls, across, down
     return None

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ongoing timer notification's own body.
+
+  **Why a custom view at all.** The time left is the one thing this
+  notification exists to say, and the standard template has nowhere to put it
+  except the `when` slot - small, top right, beside the app name. Android ticks
+  a countdown for you only in a `Chronometer`, and the only way to have a
+  `Chronometer` anywhere other than that slot is to hand the shade a layout with
+  one in it. So the countdown is the headline here and the system still drives
+  it: the app posts this once and the seconds move on their own with the process
+  dead, which is the whole reason this is native (see TimerNotice.java).
+
+  Wrapped in DecoratedCustomViewStyle rather than replacing the template
+  wholesale, so the icon, the app name, the expand chevron and the action
+  buttons are still the system's. Android 12 and later would re-decorate it
+  anyway; this way it looks right on everything older too.
+
+  `textColor` is deliberately not set. A notification body is drawn on whatever
+  the shade's background is, which is light or dark depending on the phone, the
+  theme and the time of day - a colour chosen here is a colour that is wrong
+  half the time. The attributes below are the system's own notification text
+  appearances, which follow it.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="4dp">
+
+    <!-- The headline. Big, tabular, and ticked by the system. -->
+    <Chronometer
+        android:id="@+id/notice_clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="34sp"
+        android:textStyle="normal"
+        android:fontFamily="sans-serif-light"
+        android:includeFontPadding="false"
+        android:textAppearance="@android:style/TextAppearance.Material.Notification.Title"
+        android:text="00:00" />
+
+    <!-- What it is, under the number rather than over it: at a glance the
+         question is how long is left, and only then which kind of block. -->
+    <TextView
+        android:id="@+id/notice_what"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:textAppearance="@android:style/TextAppearance.Material.Notification.Title"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="Focusing" />
+
+    <!-- And the end time, which is the thing you look for second. Small, quiet,
+         and the first thing to be cut off if the shade is narrow. -->
+    <TextView
+        android:id="@+id/notice_end"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:alpha="0.7"
+        android:textAppearance="@android:style/TextAppearance.Material.Notification"
+        android:textSize="12sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="" />
+</LinearLayout>

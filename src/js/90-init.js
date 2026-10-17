@@ -5,11 +5,14 @@
      the files numbered below this one. See 00a-i18n.js. */
   try{ langStart(); }catch(e){}
   buildPresets();
-  Promise.all([load(), loadQuotes(), loadPacks(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
+  Promise.all([load(), loadQuotes(), loadPacks(), loadLog(), loadTasks(), loadPlan(), loadGone(), gamesLoad(), dailyLoad(), moodLoad(), blockLoad(), playLoad(), ambLoad(), syncLoad(), Embers.load(), vfxLoad(), Update.load(), Account.load(), Guard.load()]).then(()=>{
     document.querySelector('.ring-prog').setAttribute('stroke-dasharray',C);
     /* Anything planned for today joins the checklist before the first render,
        so it is simply there rather than appearing a moment later. */
     try{ planSpawnDue(); }catch(e){}
+    /* Reminders are a thirty-day window, so every start pushes it along
+       and picks up anything a repeat has moved into range. */
+    try{ planNotifySync(); }catch(e){}
     /* After load(), because the chosen face comes out of the same record — and
        before render(), so the first paint draws the right one rather than the
        digital default for a beat. */
@@ -64,6 +67,9 @@
        commands are dropped rather than applied; see guardDrain in 50-guard.js
        for what that was doing before anyone noticed. */
     try{ guardDrain(); }catch(e){}
+    /* Nothing happens for a minute at the earliest, and nothing at all
+       under any other light. See 39a-spiders.js. */
+    try{ spiderStart(); }catch(e){}
     render();
     /* Last, so the first thing it does cannot race the layers it switches off.
        See 49-rest.js: a timer left running for half an hour behind another

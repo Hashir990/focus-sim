@@ -1,14 +1,17 @@
 /* ---- the counter in the top bar ----
    Small, quiet, and always there. The number is the point of the whole economy
    and it used to live two taps away on another screen. */
+/* **Not a capsule.** These sit in the top bar beside the menu key and the
+   name, and a fully round pill next to a nine-pixel key is two shape languages
+   in one row. Same corner as everything else it stands with. */
 .emb-chip{
   display:flex; align-items:center; gap:5px;
-  padding:5px 9px 5px 7px; border-radius:999px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  padding:6px 10px 6px 8px; border-radius:9px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   font:inherit; font-size:12px; font-variant-numeric:tabular-nums;
-  transition:border-color .2s ease, background .2s ease, transform .12s ease;
+  transition:background .2s ease, transform .12s ease;
 }
-.emb-chip:hover{ background:rgba(255,255,255,.07) }
+.emb-chip:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .emb-chip i{
   width:9px; height:9px; flex:0 0 auto; border-radius:2px;
   background:var(--accent); box-shadow:0 0 8px var(--glow);
@@ -17,6 +20,47 @@
 .emb-chip b{ font-weight:600 }
 /* a beat when something lands in it */
 .emb-chip.lit{ border-color:var(--accent); transform:scale(1.08) }
+
+/* ---- and it burns harder the longer the run has been going ----
+
+   `data-glow` is 0 to 5, one step per threshold in `LVL_GLOW`
+   (37a-level.js), written onto both chips by `Embers._mark()`.
+
+   **The halo grows, not the diamond.** Nine pixels is nine pixels: a shape
+   that got bigger with a streak would start shoving the number beside it
+   along, and the top bar would change width on the day somebody hit a week.
+   What grows is how far the light reaches and how hot the middle of it is,
+   which is also what an ember actually does. The last step breathes, because a
+   month of days has earned something that moves. */
+.emb-chip i, .emb-chip-mini i{
+  transition:box-shadow .6s ease, filter .6s ease;
+}
+.emb-chip[data-glow="1"] i, .emb-chip-mini[data-glow="1"] i{
+  box-shadow:0 0 11px var(--glow); filter:brightness(1.06);
+}
+.emb-chip[data-glow="2"] i, .emb-chip-mini[data-glow="2"] i{
+  box-shadow:0 0 14px var(--glow); filter:brightness(1.12) saturate(1.1);
+}
+.emb-chip[data-glow="3"] i, .emb-chip-mini[data-glow="3"] i{
+  box-shadow:0 0 17px var(--glow), 0 0 4px var(--accent);
+  filter:brightness(1.2) saturate(1.15);
+}
+.emb-chip[data-glow="4"] i, .emb-chip-mini[data-glow="4"] i{
+  box-shadow:0 0 21px var(--glow), 0 0 7px var(--accent);
+  filter:brightness(1.3) saturate(1.2);
+}
+.emb-chip[data-glow="5"] i, .emb-chip-mini[data-glow="5"] i{
+  box-shadow:0 0 25px var(--glow), 0 0 10px var(--accent);
+  filter:brightness(1.4) saturate(1.25);
+  animation:embBreathe 3.6s ease-in-out infinite;
+}
+@keyframes embBreathe{
+  0%, 100%{ box-shadow:0 0 25px var(--glow), 0 0 10px var(--accent) }
+  50%{ box-shadow:0 0 34px var(--glow), 0 0 15px var(--accent) }
+}
+@media (prefers-reduced-motion:reduce){
+  .emb-chip[data-glow="5"] i, .emb-chip-mini[data-glow="5"] i{ animation:none }
+}
 
 /* ---- and the thing that lands ---- */
 .emb-gain{
@@ -145,6 +189,43 @@
 .emb-light.far .emb-dot, .emb-light.far .emb-ic{ opacity:.4 }
 .emb-light.far b{ color:var(--muted) }
 .emb-light.far span{ opacity:.8 }
+
+/* ---- shut until a level ----
+
+   **Not the same thing as too dear, and it must not look like it.** A price
+   you cannot pay yet is an invitation: the number is the reason to come back,
+   so `.far` dims the swatch and leaves the price lit. A level is not an
+   invitation to save up, because saving up is not what opens it, and the tile
+   says a level where its price would be. So this is the other way round: the
+   swatch goes further down and the one bright thing is the level. */
+.emb-light.lock .emb-dot, .emb-light.lock .emb-ic{ opacity:.26 }
+.emb-light.lock b{ color:var(--muted) }
+.emb-light.lock span{ opacity:.7 }
+.emb-light.lock em{ color:color-mix(in srgb, var(--accent) 68%, var(--muted)) }
+
+/* ---- the level, above the shelves it decides ----
+   Hours of focus, counted a way that cannot be spent. See 37a-level.js. */
+.lvl{
+  margin:13px 0 0; padding:11px 13px; border-radius:13px;
+  border:1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background:color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.lvl-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px }
+.lvl-head b{ font-size:14.5px; font-weight:600; color:var(--text) }
+.lvl-head span{ font-size:11.5px; color:var(--muted); text-align:right }
+.lvl-track{
+  height:6px; margin:9px 0 0; border-radius:999px;
+  background:var(--track); overflow:hidden;
+}
+.lvl-track i{
+  display:block; height:100%; border-radius:999px;
+  background:linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 45%, transparent), var(--accent));
+  box-shadow:0 0 9px var(--glow);
+  transition:width .4s ease;
+}
+.lvl .emb-sub{ margin-top:8px }
+@media (prefers-reduced-motion:reduce){ .lvl-track i{ transition:none } }
 
 /* ---- the palettes ----
    A look owns *every* colour on screen, not just the timer's.
@@ -380,7 +461,7 @@ body[data-light="magma"] .icon-btn{ color:#ffd34a; border-color:rgba(255,211,74,
    invitation nobody could see. */
 body[data-light="magma"] .acc-chip.out{ border-color:#ffd34a; color:#ffd34a }
 
-/* Spider-Man. Red is the accent and the blue is the room, which is the way
+/* Spiders. Red is the accent and the blue is the room, which is the way
    round that keeps the red doing work — a red ground with red buttons on it is
    one flat surface. The web itself is in 04-timer.css. */
 body[data-light="spiderman"],
@@ -639,6 +720,51 @@ body.away .beach-wave-foam{ animation-play-state:paused }
    ships (see the beach block in the body) and simply never shows. */
 .beach-palms{ display:none !important }
 
+/* **Three tracks that wear a look's colours rather than their own.** Night
+   city is Skyline, Morning sea is Beach, Adrift is Deep space -- the same
+   values, written out again because a track is selected by `data-amb` and a
+   look by `data-light`, and there is no selector that means both. Copied
+   deliberately: sharing them through a third class would mean a change to one
+   silently moving the other, and these are meant to match only for as long as
+   somebody wants them to. */
+body[data-amb="city"],
+#app[data-amb="city"],
+body[data-amb="city"] #overlay,
+body[data-amb="city"] #quotes-overlay,
+body[data-amb="city"] #cal-overlay,
+body[data-amb="city"] #stats-overlay,
+body[data-amb="city"] #ach-overlay,
+body[data-amb="city"] #sync-overlay,
+body[data-amb="city"] #drawer{
+  --accent:#ffc46b; --glow:rgba(255,196,107,.34);
+  --bg:#0a1122; --bg2:#212a44; --text:#f6efe2; --muted:#8a8fa4;
+  --track:rgba(255,224,182,.10);
+}
+body[data-amb="sea"],
+#app[data-amb="sea"],
+body[data-amb="sea"] #overlay,
+body[data-amb="sea"] #quotes-overlay,
+body[data-amb="sea"] #cal-overlay,
+body[data-amb="sea"] #stats-overlay,
+body[data-amb="sea"] #ach-overlay,
+body[data-amb="sea"] #sync-overlay,
+body[data-amb="sea"] #drawer{
+  --accent:#ff9d4d; --glow:rgba(255,124,150,.42);
+  --bg:#1a1030; --bg2:#3d1f4d; --text:#f6e9f2; --muted:#a98fb8;
+}
+body[data-amb="adrift"],
+#app[data-amb="adrift"],
+body[data-amb="adrift"] #overlay,
+body[data-amb="adrift"] #quotes-overlay,
+body[data-amb="adrift"] #cal-overlay,
+body[data-amb="adrift"] #stats-overlay,
+body[data-amb="adrift"] #ach-overlay,
+body[data-amb="adrift"] #sync-overlay,
+body[data-amb="adrift"] #drawer{
+  --accent:#eef1f8; --glow:rgba(238,241,248,.18);
+  --bg:#04030b; --bg2:#260c1e; --text:#eef2ff; --muted:#8c7f94;
+  --track:rgba(238,242,255,.08);
+}
 body[data-amb="rain"],
 #app[data-amb="rain"],
 body[data-amb="rain"] #overlay,
@@ -1788,21 +1914,23 @@ body[data-amb="campfire"] #drawer{
    The row scrolls sideways rather than wrapping: five tabs on a narrow phone
    would otherwise become two rows, and a tab bar that changes height as you
    move along it is a tab bar that moves the page under your finger. */
+/* Six shelves, one of which you are looking at: the same single-choice shape
+   as the puzzle sizes and the focus lengths. It still scrolls sideways when
+   there is not room, as one tray rather than six loose pills. */
 .shop-tabs{
-  display:flex; gap:6px; margin:12px 0 2px; padding-bottom:4px;
-  overflow-x:auto; scrollbar-width:none;
+  display:inline-flex; gap:0; margin:12px 0 2px; padding:3px;
+  border-radius:10px; background:rgba(0,0,0,.22);
+  max-width:100%; overflow-x:auto; scrollbar-width:none;
 }
 .shop-tabs::-webkit-scrollbar{ display:none }
 .shop-tab{
-  flex:0 0 auto; padding:7px 13px; border-radius:999px; cursor:pointer;
+  flex:0 0 auto; padding:7px 13px; border-radius:7px; cursor:pointer;
   font:inherit; font-size:12px; letter-spacing:.02em;
-  border:1px solid var(--line); background:var(--card); color:var(--muted);
-  transition:border-color .15s ease, color .15s ease, background .15s ease;
+  border:0; background:transparent; color:var(--muted);
+  transition:color .15s ease, background .15s ease;
 }
-.shop-tab.on{
-  border-color:var(--accent); color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 14%, var(--card));
-}
+.shop-tab:hover{ color:var(--text); background:rgba(255,255,255,.05) }
+.shop-tab.on{ color:#08111a; background:var(--accent); font-weight:600 }
 
 /* ---- the wardrobe shelf ----
    He stands at the top and everything below changes him, which is the whole
@@ -1810,7 +1938,7 @@ body[data-amb="campfire"] #drawer{
    on the same screen as the question. */
 .bud-shop-stage{
   display:grid; place-items:center; padding:26px 0 10px; margin:12px 0 0;
-  border-radius:16px; border:1px solid var(--line); background:var(--card);
+  border-radius:13px; border:0; box-shadow:var(--lift); background:var(--card);
   color:var(--text);
 }
 .bud-try-note{ font-size:12px; color:var(--muted); line-height:1.5; margin:8px 0 0 }
@@ -1825,13 +1953,17 @@ body[data-amb="campfire"] #drawer{
 /* Same square as the wardrobe's own, plus the price under it. A tile you do
    not own is dimmed rather than hidden: this is the page where seeing what you
    have not got yet is the point. */
+/* Dozens of these at once, so they take a lighter touch than a panel: the
+   surface and a hairline of shadow, no outline. A grid of forty outlined boxes
+   is a spreadsheet. */
 .bud-tile{
   position:relative; display:grid; place-items:center; gap:1px;
-  width:46px; padding:5px 0 4px; border-radius:10px; cursor:pointer;
-  font:inherit; border:1px solid var(--line);
+  width:46px; padding:6px 0 5px; border-radius:8px; cursor:pointer;
+  font:inherit; border:0; box-shadow:0 1px 3px rgba(0,0,0,.35);
   background:var(--card); color:var(--muted);
-  transition:border-color .15s ease, transform .1s ease, color .15s ease;
+  transition:box-shadow .15s ease, transform .1s ease, color .15s ease;
 }
+.bud-tile:hover{ box-shadow:0 1px 3px rgba(0,0,0,.35), 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent) }
 /* Same rule as the shelf above: the drawing sits back on something you do not
    own, the price does not. A tile at `opacity:.45` made the cost of the thing
    the least readable part of the offer to buy it. */
@@ -1853,6 +1985,10 @@ body[data-amb="campfire"] #drawer{
 /* Out of reach for now, and saying so quietly — a price you cannot pay is
    still worth reading, it is the reason to come back. */
 .bud-tile.far .bud-ic{ opacity:.45 }
+/* Shut until a level, which is a different thing — see the note beside
+   `.emb-light.lock` above. */
+.bud-tile.lock .bud-ic{ opacity:.26 }
+.bud-tile.lock em{ color:color-mix(in srgb, var(--accent) 68%, var(--muted)) }
 
 /* The way back to the shop from the wardrobe. Deliberately not a `.mini-btn`:
    it is the one thing on that page that leaves it. */

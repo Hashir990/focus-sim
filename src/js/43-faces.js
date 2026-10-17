@@ -67,6 +67,11 @@
     let out = '';
     for(let i = 0; i < 12; i++){
       const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      /* **Where they were.** These were pushed out to meet the rim at 48.4 and
+         that was too far: the face is drawn at 90% of the dial and the ring is
+         at 90% of its radius, so a tick reaching the face rim runs right up
+         under the ring and the marks stop having any air around them. Back to
+         37/41 out to 45, which leaves them clearly inside it. */
       const r1 = i % 3 === 0 ? 37 : 41, r2 = 45;
       out += '<line class="' + (i % 3 === 0 ? 'q' : '') + '"'
         + ' x1="' + (50 + Math.cos(a) * r1).toFixed(1) + '" y1="' + (50 + Math.sin(a) * r1).toFixed(1) + '"'
@@ -125,6 +130,8 @@
   function faceSet(id){
     const f = faceDef(id);
     if(faceHas(f.id)){ S.face = f.id; save(); faceApply(); faceShelf(); return; }
+    // the level before the balance: see lvlDeny in 37a-level.js
+    if(lvlDeny(f.cost)) return;
     const fn = LANG === 'en' ? f.name.toLowerCase() : T(f.name);
     if(Embers.have < f.cost){ toast(T('{n} embers for the {face} face', {n:f.cost, face:fn})); return; }
     askConfirm(T('Unlock the {face} face?', {face:fn}),

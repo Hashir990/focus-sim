@@ -324,6 +324,26 @@ console.log('\nthe plan and the checklist');
     mergeSnapshots({ mood: A }, { mood: B }).mood['2026-09-03'] === '\u{1F634}');
 }
 
+/* ---- who you will not be in a room with ----
+
+   A union, and the direction matters: two devices that disagree about somebody
+   have to land on blocked. Anything else means a block made on a phone is
+   quietly undone by a laptop that never heard about it, which is the one
+   failure this feature cannot have. See 29b-block.js. */
+{
+  const A = ['K6A5M9'], B = ['ZZ9WQ7'];
+  const both = mergeSnapshots({ blocked: A }, { blocked: B }).blocked;
+  check('a block made on one device reaches the other',
+    both.length === 2 && both.indexOf('K6A5M9') >= 0 && both.indexOf('ZZ9WQ7') >= 0,
+    JSON.stringify(both));
+  check('and a device that never heard of it cannot undo one',
+    mergeSnapshots({ blocked: A }, { blocked: [] }).blocked.indexOf('K6A5M9') >= 0
+    && mergeSnapshots({ blocked: [] }, { blocked: A }).blocked.indexOf('K6A5M9') >= 0,
+    JSON.stringify(mergeSnapshots({ blocked: [] }, { blocked: A }).blocked));
+  check('and the same person twice is one person',
+    mergeSnapshots({ blocked: ['K6A5M9'] }, { blocked: ['K6A5M9'] }).blocked.length === 1);
+}
+
 /* ---- what a session can possibly be ---------------------------------------
 
    Embers are derived from the log, and so are the streak, the calendar and

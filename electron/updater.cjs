@@ -41,7 +41,7 @@ const path = require('path');
 /* ---- clearing up after ourselves ----
  * electron-updater downloads each installer into a cache folder and leaves it
  * there. That is on purpose — a resumed download beats a restarted one — but a
- * Focus Simulator installer is about 130 MB, and over a few releases the folder
+ * focUS simulator installer is about 130 MB, and over a few releases the folder
  * quietly becomes half a gigabyte of installers for versions nobody is running
  * any more. Nothing ever removes them.
  *
@@ -53,10 +53,34 @@ const path = require('path');
  */
 const STALE_DAYS = 3;
 
+/** Where electron-updater actually keeps its downloads.
+ *
+ * **Not derived from `userData`.** That was the obvious thing and it was wrong
+ * on the only platform this ships to: `userData` is `%APPDATA%\focus-simulator`,
+ * which is *Roaming*, and the updater's cache is in *Local*. The old line took
+ * `dirname(userData)` and built `Roaming\focus-simulator-updater`, a path that
+ * has never existed on any machine -- so `existsSync` was false every time and
+ * the sweeper returned without sweeping. Found with 130 MB of dead installers
+ * in the real cache, including one four days past a three-day cutoff.
+ *
+ * electron-updater picks this base itself (`%LOCALAPPDATA%` on Windows, the
+ * cache directory elsewhere), so the only safe thing is to pick it the same
+ * way rather than to infer it from somewhere adjacent. */
+function cacheBase() {
+  const name = 'focus-simulator-updater';
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    return path.join(process.env.LOCALAPPDATA, name);
+  }
+  if (process.platform === 'darwin') {
+    return path.join(app.getPath('home'), 'Library', 'Caches', name);
+  }
+  return path.join(process.env.XDG_CACHE_HOME
+    || path.join(app.getPath('home'), '.cache'), name);
+}
+
 function sweepCache() {
   try {
-    // where electron-updater keeps them: %LOCALAPPDATA%\<updaterCacheDirName>
-    const base = path.join(path.dirname(app.getPath('userData')), 'focus-simulator-updater');
+    const base = cacheBase();
     if (!fs.existsSync(base)) return;
     const cutoff = Date.now() - STALE_DAYS * 86400000;
     let freed = 0;
@@ -214,6 +238,30 @@ function setup(win) {
      pressing "update" is asking for. */
   autoUpdater.allowDowngrade = false;
   autoUpdater.allowPrerelease = false;
+
+  /* **No differential downloads. They have never once worked here.**
+
+     Measured on a real 1.5.0 going to 1.5.1: electron-updater fetches both
+     block maps, compares them, and reports a single COPY of the whole file
+     with `To download: 0 KB (0%)` -- that is, it believes the entire new
+     installer can be reconstructed from the old one without fetching anything.
+     It cannot. The two maps genuinely differ (117 of 6465 blocks are new), and
+     the COPY range it emits runs to the *new* file's length, past the end of
+     the old file it is copying from. The result fails its checksum every time:
+
+       Cannot download differentially, fallback to full download:
+       sha512 checksum mismatch, expected rVl1X/... got tzoqUW...
+
+     So every check burns two block-map round trips and a wasted reconstruction
+     before starting the download it was always going to have to do. Worse, it
+     makes updating depend on a stale installer left in the cache by an earlier
+     release, which is a file nothing is entitled to assume is still there.
+
+     There is nothing to save by trying. Each installer is a full one, as the
+     note above says, so the differential path is an optimisation on top of a
+     download that has to happen anyway -- and an optimisation that fails
+     100% of the time is pure cost. */
+  autoUpdater.disableDifferentialDownload = true;
   /* Nobody should ever have to go to GitHub for this. The download happens on
      its own, and it goes in at the next ordinary exit whether or not the person
      ever answers the dialog below — the dialog only offers to do it *sooner*. */
@@ -225,11 +273,42 @@ function setup(win) {
     setTimeout(sweepCache, 60000);
   });
 
+  /* **A failure must not cost a whole day.**
+
+     The check below runs once at launch and then on a 24-hour interval, which
+     is right for a copy that is left open for weeks and wrong for the first
+     ten minutes after a download dies. A dropped connection halfway through
+     130 MB used to mean the app sat on the old version until tomorrow, having
+     tried exactly once -- and from the outside that is indistinguishable from
+     an app that cannot update at all, which is how it was reported.
+
+     So a failure schedules its own retry, backing off and giving up after a
+     few goes rather than hammering a release that may simply not be there.
+     One timer, replaced each time, so repeated errors cannot stack them up. */
+  let retryTimer = null;
+  let retries = 0;
+  const RETRY_BACKOFF = [2 * 60 * 1000, 10 * 60 * 1000, 30 * 60 * 1000];
+  function retryLater() {
+    if (retries >= RETRY_BACKOFF.length) return;
+    const wait = RETRY_BACKOFF[retries++];
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      autoUpdater.checkForUpdates().catch(() => {});
+    }, wait);
+    console.log('[update] retrying in ' + Math.round(wait / 60000) + ' min');
+  }
+  /* A clean check resets the budget, so a copy left open for weeks gets a
+     fresh set of retries for each day's attempt rather than one set ever. */
+  autoUpdater.on('update-not-available', () => { retries = 0; });
+  autoUpdater.on('update-downloaded', () => { retries = 0; });
+
   autoUpdater.on('error', (err) => {
     say({state:'failed', message: err && err.message ? String(err.message).slice(0, 120) : ''});
     // Offline, rate-limited, mid-publish: all normal, none of it the person's
     // problem. It goes to the log and nowhere else.
     console.log('[update] ' + (err && err.message ? err.message : err));
+    retryLater();
   });
 
   autoUpdater.on('update-downloaded', async (info) => {
@@ -261,6 +340,7 @@ function setup(win) {
   /* And once a day for a copy that is left open for weeks, which this one is
      designed to be. */
   setInterval(() => {
+    retries = 0;
     autoUpdater.checkForUpdates().catch(() => {});
   }, 24 * 60 * 60 * 1000);
 }

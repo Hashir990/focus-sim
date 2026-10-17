@@ -8,8 +8,8 @@
    menu won't scroll" looks like from the outside. */
 #setup{ overflow:visible; }
 .topbar-left{ display:flex; align-items:center; gap:11px; min-width:0; }
-.menu-btn{ width:38px; height:38px; flex:0 0 auto; border-radius:11px; border:1px solid var(--line); background:var(--card); color:var(--text); cursor:pointer; display:grid; place-items:center; transition:background .18s; }
-.menu-btn:hover{ background:rgba(255,255,255,.06); }
+.menu-btn{ width:38px; height:38px; flex:0 0 auto; border-radius:9px; border:0; box-shadow:var(--lift); background:var(--card); color:var(--text); cursor:pointer; display:grid; place-items:center; transition:background .18s; }
+.menu-btn:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)); }
 .menu-btn svg{ width:20px; height:20px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; }
 /* 14px, not 44 — see the note on `.overlay` in 05-arcade.css. */
 body.vfx-on .drawer{
@@ -219,13 +219,13 @@ body.vfx-on .drawer{
    read as a pair at the foot of the menu rather than as a row that fell off the
    end of the list. */
 .drawer-settings{
-  width:100%; margin-top:9px; padding:11px 13px; border-radius:14px; cursor:pointer;
+  width:100%; margin-top:9px; padding:12px 13px; border-radius:11px; cursor:pointer;
   display:flex; align-items:center; gap:10px;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   font:inherit; font-size:13px; text-align:left;
-  transition:border-color .18s ease, background .18s ease;
+  transition:background .18s ease;
 }
-.drawer-settings:hover{ border-color:var(--accent) }
+.drawer-settings:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .drawer-settings:active{ transform:scale(.99) }
 .drawer-settings svg{
   width:17px; height:17px; flex:0 0 auto; stroke:currentColor; stroke-width:1.7;
@@ -237,17 +237,20 @@ body.vfx-on .drawer{
    and it is not there at all in a build with nowhere to check. See 41-update.js. */
 #upd-box.hide{ display:none }
 .upd-check{
-  width:100%; margin-top:9px; padding:11px 13px; border-radius:14px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  width:100%; margin-top:9px; padding:12px 13px; border-radius:11px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   font:inherit; font-size:13px; text-align:left;
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
 }
-.upd-check:hover{ border-color:var(--accent) }
+.upd-check:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .upd-check span{ font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums }
 .upd.new{
-  margin-top:9px; padding:12px 13px; border-radius:14px;
-  border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
-  background:color-mix(in srgb, var(--accent) 12%, transparent);
+  margin-top:9px; padding:13px; border-radius:11px;
+  border:1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background:
+    radial-gradient(110% 170% at 0% 50%,
+      color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%),
+    color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .upd.new b{ display:block; font-size:13.5px; font-weight:600 }
 .upd.new em{

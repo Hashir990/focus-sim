@@ -66,7 +66,7 @@ $headers = @{
 }
 
 Write-Host ''
-Write-Host "  Focus Simulator $version  ->  github.com/$owner/$repo"
+Write-Host "  focUS simulator $version  ->  github.com/$owner/$repo"
 Write-Host ''
 
 # ---- the files -------------------------------------------------------------
@@ -75,8 +75,8 @@ Write-Host ''
 # and the .exe beside it. Upload one without the other and the app announces a
 # version it cannot deliver.
 $files = @(
-  "release\Focus-Simulator-Setup-$version.exe",
-  "release\Focus-Simulator-Setup-$version.exe.blockmap",
+  "release\focUS-simulator-Setup-$version.exe",
+  "release\focUS-simulator-Setup-$version.exe.blockmap",
   'release\latest.yml',
   'latest.json'
 )
@@ -246,7 +246,7 @@ Write-Host ''
 Write-Host "  $tag now has:"
 foreach ($n in $names) { Write-Host "    $n" }
 
-$hasExe = $names -contains "Focus-Simulator-Setup-$version.exe"
+$hasExe = $names -contains "focUS-simulator-Setup-$version.exe"
 $hasYml = $names -contains 'latest.yml'
 
 Write-Host ''

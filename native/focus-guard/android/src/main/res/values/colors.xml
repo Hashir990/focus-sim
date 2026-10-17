@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's own palette, by hand, because the shield is native and cannot
+     read a CSS custom property.
+
+     These are the *focus* phase's tokens from src/css/00-tokens-base.css —
+     `[data-phase="focus"]` — rather than the base ones, because the shield only
+     ever appears while a block is running and that is the palette the app is
+     wearing at the time. If those move, these have to move with them, or the
+     screen that interrupts you stops looking like the app that put it there. -->
+<resources>
+    <color name="guard_bg">#05121A</color>
+    <color name="guard_card">#0A2130</color>
+    <color name="guard_text">#E6F6F2</color>
+    <color name="guard_muted">#6F96A0</color>
+    <color name="guard_accent">#4FE0C8</color>
+    <color name="guard_ink">#05121A</color>
+</resources>

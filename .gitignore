@@ -9,9 +9,17 @@ release-fix/
 audio-src/
 !src/**/*.mp3
 
-# Capacitor native projects (regenerate with `npm run cap:add:android` / `:ios`)
-android/
+# The iOS project is still generated: there is none in here, and nothing has
+# been built for it. The Android one is tracked instead, because a signed store
+# upload has to be reproducible from a clone - see android/.gitignore, which
+# Capacitor writes, for the generated parts that stay out of it.
 ios/
+
+# The upload key. Never in the repository, on any branch, ever.
+android/keystore.properties
+android/play-key.json
+*.jks
+*.keystore
 
 # What tools/look-*.mjs render. Generated pictures and the spliced copies of
 # the bundle they are rendered from — never source, and some of them are large.

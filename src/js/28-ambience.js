@@ -24,14 +24,33 @@
   var AMB = { id:'off', vol:0.7, el:null, el2:null, cur:0, tick:null,
               wanted:false, warned:false, primed:false };
 
-  var AMB_LIST = [
-    ['off','Off'], ['rain','Rain'], ['forest','Forest'],
-    ['cafe','Café'], ['office','Office'], ['campfire','Campfire'],
-  ];
+  /* **Off, and then whatever is on the shelf.**
+
+     This used to be the whole list, typed out, and the shelf in 37-embers.js
+     was another copy of the same five. Three tracks added to the shelf and to
+     the file map turned up in the shop, cost embers, painted the room and were
+     nowhere in the drawer, because nobody thought to edit a third list.
+
+     It cannot be read here. `EMB_SOUNDS` is a `const` in a later file, and
+     this one is concatenated ahead of it — touching it at load time is the
+     blank-screen bug the top of CLAUDE.md is about. So the picker is built the
+     first time it is drawn, by which point everything exists. */
+  var AMB_LIST = [['off', 'Off']];
+  function ambChoices(){
+    try{ return AMB_LIST.concat(EMB_SOUNDS.map(s=>[s.id, s.name])); }
+    catch(e){ return AMB_LIST; }
+  }
 
   var AMB_TRACKS = {
     rain:'audio/rain.mp3', forest:'audio/forest.mp3', cafe:'audio/cafe.mp3',
     office:'audio/office.mp3', campfire:'audio/campfire.mp3',
+    /* Three that belong to a look rather than standing on their own: a city at
+       night under Skyline's amber, a morning sea under Beach's, and a synth
+       under Deep space's white. They bring those palettes with them the same
+       way every other track brings its own. The last is two and a half minutes
+       rather than forty-five, because it is a composed piece and not a
+       recording of a place; the loop machinery below does not care. */
+    city:'audio/city.mp3', sea:'audio/sea.mp3', adrift:'audio/adrift.mp3',
   };
 
   /* Per-track trim, so no ambience is louder than another.
@@ -307,6 +326,7 @@
   }
 
   function ambRender(){
+    ambBuildPicker();
     const grid = $('amb-grid');
     if(grid){
       grid.querySelectorAll('.amb-btn').forEach(b=>{
@@ -346,17 +366,21 @@
     ambRender();
   }
 
-  // build the picker
-  (function(){
+  /* Built on the first draw rather than at load, for the reason above. Empty
+     is the only state it is ever built from, so this costs one check per
+     render and cannot double up. */
+  function ambBuildPicker(){
     const grid = $('amb-grid');
-    if(!grid) return;
-    grid.innerHTML = '';
-    AMB_LIST.forEach(([id,label])=>{
+    if(!grid || grid.children.length) return;
+    ambChoices().forEach(([id, label])=>{
       const b = document.createElement('button');
       b.className = 'amb-btn'; b.dataset.a = id; b.textContent = label;
       b.onclick = ()=>ambSet(id);
       grid.appendChild(b);
     });
+  }
+
+  (function(){
     const vol = $('amb-vol');
     if(vol) vol.addEventListener('input', ()=>ambSetVolume(vol.value/100));
   })();

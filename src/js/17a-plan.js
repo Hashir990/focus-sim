@@ -39,7 +39,13 @@
       }
     }catch(e){}
   }
-  function savePlan(){ try{ KV.set(PLAN_KEY, JSON.stringify(PLAN)); }catch(e){} }
+  function savePlan(){
+    try{ KV.set(PLAN_KEY, JSON.stringify(PLAN)); }catch(e){}
+    /* The phone's reminders are cut from this list, so they are rebuilt
+       wherever it is written rather than at the handful of call sites that
+       happen to be about events. See 17d-plan-notify.js. */
+    try{ planNotifyBump(); }catch(e){}
+  }
 
   /* A blank entry, so every field exists from the start and nothing downstream
      has to guess whether an old record has it. */

@@ -83,8 +83,8 @@ export function makePrivacy() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Privacy &middot; Focus Simulator</title>
-<meta name="description" content="What Focus Simulator stores, what leaves your device, and what is never collected.">
+<title>Privacy &middot; focUS simulator</title>
+<meta name="description" content="What focUS simulator stores, what leaves your device, and what is never collected.">
 <meta name="robots" content="index,follow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -107,7 +107,9 @@ export function makePrivacy() {
   .mark{display:flex;align-items:center;gap:10px;margin-bottom:18px}
   .mark i{width:11px;height:11px;border-radius:3px;background:var(--accent);
     box-shadow:0 0 10px rgba(79,224,200,.5);transform:rotate(45deg);flex:0 0 auto}
-  .mark b{font-size:13px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--muted)}
+  /* The name, cased as it is written. The headings below still shout; this
+     one cannot, because the capitals in focUS are the point of it. */
+  .mark b{font-size:13.5px;letter-spacing:.12em;font-weight:600;color:var(--muted)}
   h1{font-size:30px;line-height:1.2;margin:0 0 10px;font-weight:700}
   header p{margin:0;color:var(--muted);font-size:14px}
   h4{margin:30px 0 8px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;
@@ -130,7 +132,7 @@ export function makePrivacy() {
 <body>
 <div class="wrap">
   <header>
-    <div class="mark"><i></i><b>Focus Simulator</b></div>
+    <div class="mark"><i></i><b>focUS simulator</b></div>
     <h1>Privacy</h1>
     <p>What the app keeps, what leaves your device, and what is never collected.</p>
   </header>
@@ -138,7 +140,7 @@ export function makePrivacy() {
 ${policy.split('</p>').join('</p>\n')}
   </main>
   <footer>
-    <p>Focus Simulator is made and run by ${esc(who)} &mdash;
+    <p>focUS simulator is made and run by ${esc(who)} &mdash;
     questions, corrections, or a request to delete an account:
     <a href="mailto:${esc(email)}">${esc(email)}</a>.</p>
     <p>This page is generated from the policy inside the app, so the two always

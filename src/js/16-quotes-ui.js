@@ -1,3 +1,22 @@
+  /* **Ten of your own, and no more.**
+
+     There was no cap at all, and a bank that grows without one stops
+     being a bank: the list outgrows the drawer it is in, the quotes you
+     actually wanted are somewhere in the middle of it, and every one of
+     them is a line that has to travel on every sync.
+
+     Ten is enough to keep the ones that mean something and few enough
+     that the whole list is on the screen at once, which is the thing
+     that was actually wrong. The packs are where volume belongs -- they
+     are bought, they fold away, and they are a line each when closed.
+
+     The cap is on *adding*, not on keeping. A device that already has
+     more than ten, or a merge that brings more back from the account,
+     keeps all of them and shows all of them: silently deleting somebody
+     else's quotes to satisfy a limit they have not met yet would be the
+     app throwing away the thing it was asked to look after. */
+  const QUOTE_MAX = 10;
+
   /* --- the packs you have bought ---
 
      Two switches, at two levels, because they answer different questions. The
@@ -92,7 +111,12 @@
     /* The number on the front of the drawer, so a closed one still says how
        much is in it. */
     const n = $('q-mine-n');
-    if(n) n.textContent = String(CUSTOM_QUOTES.length);
+    /* `3/10`, not `3`. A bare count answers "how many" and the question a
+       capped list raises is "how many left". Over the cap it drops back to
+       a bare count, because `12/10` reads as a fault. */
+    if(n) n.textContent = CUSTOM_QUOTES.length > QUOTE_MAX
+      ? String(CUSTOM_QUOTES.length)
+      : CUSTOM_QUOTES.length + '/' + QUOTE_MAX;
     if(!CUSTOM_QUOTES.length){ box.innerHTML='<div class="q-empty">No custom quotes yet. The built-in classics still show while you focus.</div>'; return; }
     box.innerHTML='';
     CUSTOM_QUOTES.forEach((q,i)=>{
@@ -116,6 +140,14 @@
   function closeQuotes(){ $('quotes-overlay').classList.add('hide'); }
   function addQuote(){
     const t=$('q-text').value.trim(); if(!t){ $('q-text').focus(); return; }
+    /* Checked here rather than by disabling the button: the words stay in
+       the box, so deleting one and pressing Add again does not cost you
+       what you just typed. */
+    if(CUSTOM_QUOTES.length >= QUOTE_MAX){
+      try{ toast(T('Ten is the most. Delete one to add another.')); }catch(e){}
+      try{ const d = $('q-mine'); if(d) d.open = true; }catch(e){}
+      return;
+    }
     const q = quoteNorm({t, a:$('q-author').value.trim(), at:Date.now()});
     /* Typing back a quote you deleted is asking for it again, so its tombstone
        goes with it - otherwise the next sync takes it away a second time. */

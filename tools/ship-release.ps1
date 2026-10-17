@@ -295,7 +295,7 @@ Write-Host "Branch and $tag are on the remote, assets are attached." -Foreground
 Write-Host ''
 Write-Host 'Then confirm on GitHub that the release is marked "Set as the latest release"' -ForegroundColor Green
 Write-Host 'and carries all four assets:' -ForegroundColor Green
-Write-Host "  Focus-Simulator-Setup-$version.exe" -ForegroundColor Green
-Write-Host "  Focus-Simulator-Setup-$version.exe.blockmap" -ForegroundColor Green
+Write-Host "  focUS-simulator-Setup-$version.exe" -ForegroundColor Green
+Write-Host "  focUS-simulator-Setup-$version.exe.blockmap" -ForegroundColor Green
 Write-Host '  latest.yml' -ForegroundColor Green
 Write-Host '  latest.json' -ForegroundColor Green

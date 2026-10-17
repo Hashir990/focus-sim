@@ -525,10 +525,19 @@
      code you are all in is always the code of whoever holds the timer, which is
      also what makes "join Sara" the right thing to tell somebody afterwards.
 
-     Shared games don't survive the move, and can't: the host owns their boards
-     and the new host has never seen them. Chess is the exception, because a
-     chess game is a list of moves both players keep — it is offered back on the
-     new host's lobby. The others simply start their next round. */
+     The boards travel with it. They did not always: the host owns them, so a
+     change of host used to throw away everyone's half-finished game, and the
+     note here used to say that was unavoidable. It is not — see `handing the
+     games over` above, which sends the host's state to the incoming host
+     first, on the same reliable channel and ahead of the announcement, with
+     the two ids that are about to change rewritten on the way out.
+
+     What a client holds is a *view*, not the board, so every screen in the
+     room goes blank for the moment between the room re-forming and the new
+     host pushing views out — the outgoing host most of all, because it tore
+     its own host state down when it stopped being the room. Nothing is lost
+     there, and anything timing that gap has to wait for the push rather than
+     assume a fixed pause (the smoke test learned this three times). */
   function syncMigrate(id){
     if(!syncIsHost() || id === SYNC.selfId) return false;
     const code = syncNormalise(SYNC.codes[id] || '');
@@ -727,6 +736,15 @@
 
       if(m.t === 'hello'){
         const code = typeof m.code === 'string' ? syncNormalise(m.code) : '';
+        /* **This is the whole of blocking.** There is no server in the middle
+           to turn anybody away, so it happens at the one point every stranger
+           passes through: the greeting is the first moment their code is known
+           and the last moment before the room is told they exist. Dropped
+           without a word, and before their card is kept — see 29b-block.js. */
+        if(code && blockHas(code)){
+          try{ conn.close(); }catch(e){}
+          return;
+        }
         try{ if(m.card && code) friendSawCard(code, m.card); }catch(e){}
         /* **Somebody we do not know waits outside.** Not in the roster, so no
            broadcast reaches them and nothing about them reaches the room except
@@ -1679,12 +1697,24 @@
                column for you and changes nothing for anybody else. It is a
                preference about your screen, not an instruction to the room. */
             const pose = Buddy.shown() ? budAnimKey(p.anim) : '';
+            /* The buddy and the name are one button: tapping a person is
+               how you see who they are. The controls stay outside it, so a
+               thumb going for "Give timer" cannot open a profile instead. */
             return '<div class="sync-person'+(p.leader?' lead':'')+'">'
+              + '<button class="sync-open" type="button" data-who="'+esc(p.id)+'">'
               + (Buddy.shown() ? '<span class="sync-bud bud-mini-'+pose+'">' + budSvg(p.buddy, 30) + '</span>' : '')
               + '<span class="sync-who">'+esc(p.name)+(p.me?' <i>(you)</i>':'')+'</span>'
+              + '</button>'
               + tag + keep + acts + '</div>';
           }).join('')
         : '<p class="cal-empty">Nobody else yet. Share your code.</p>';
+
+      pbox.querySelectorAll('[data-who]').forEach(b=>{
+        b.onclick = ()=>{
+          const who = people.find(x=>x.id === b.dataset.who);
+          if(who) try{ friendWhoOpen(who); }catch(e){}
+        };
+      });
 
       // Handing the clock over and removing someone are both hard to undo in a
       // room of three — ask first.
@@ -1733,6 +1763,7 @@
         + '<span>' + esc(who ? 'Friends find you by this' : 'Sign in to be findable by name') + '</span></div>'
         + '</div>'
         + friendStatsHtml(card);
+      try{ friendWireBars(mebox); }catch(e){}
     }
 
     /* ---- anybody waiting on an answer ---- */
@@ -1781,6 +1812,9 @@
               + '<button class="sync-x" data-drop="'+esc(f.code)+'" aria-label="Remove">×</button></div>';
           }).join('')
         : '<p class="cal-empty">Nobody yet. Add someone by their username.</p>';
+      /* Blocking somebody who is not a friend would otherwise put them out of
+         reach for good, including out of reach of being unblocked. */
+      try{ fbox.innerHTML += blockListHtml(); blockListWire(fbox); }catch(e){}
       fbox.querySelectorAll('[data-join]').forEach(b=>{ b.onclick = ()=>syncJoin(b.dataset.join); });
       fbox.querySelectorAll('[data-who]').forEach(b=>{ b.onclick = ()=>profOpen(b.dataset.who); });
       fbox.querySelectorAll('[data-drop]').forEach(b=>{

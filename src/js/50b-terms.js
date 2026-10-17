@@ -51,7 +51,7 @@
 
   function aboutTerms(){
     return ''
-      + '<p class="about-lede">Focus Simulator is a free focus timer with a rest '
+      + '<p class="about-lede">focUS simulator is a free focus timer with a rest '
       + 'arcade. These terms are the agreement between you and whoever makes it. '
       + 'They are written to be read: if anything here is unclear, that is a fault '
       + 'in the terms, and Report a problem, in Settings under About, is where to '
@@ -63,7 +63,7 @@
       + 'use it. Both can be read again at any time from the menu, under About.</p>'
 
       + '<h4>Using the app</h4>'
-      + '<p>You may use Focus Simulator for your own personal, non-commercial '
+      + '<p>You may use focUS simulator for your own personal, non-commercial '
       + 'purposes, on as many of your own devices as you like. Please do not use '
       + 'it to break the law, to harm anybody, or to interfere with the app, its '
       + 'server, or other people’s use of them. That includes trying to get '
@@ -122,7 +122,7 @@
       + 'away any right the law gives you that cannot be taken away.</p>'
 
       + '<h4>Your health</h4>'
-      + '<p>Focus Simulator is a timer, not medical advice. The mood you record is '
+      + '<p>focUS simulator is a timer, not medical advice. The mood you record is '
       + 'for you, and it is not a diagnosis of anything. Take the breaks; they '
       + 'are the point.</p>'
 

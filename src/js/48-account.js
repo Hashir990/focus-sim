@@ -98,6 +98,8 @@
         friends: friendsSnapshot(),
         // one emoji a day — see 17b-mood.js
         mood: moodSnapshot(),
+        // who you will not be in a room with — see 29b-block.js
+        blocked: blockSnapshot(),
         sim: {
           focusMin:S.focusMin, breakMin:S.breakMin, autoContinue:S.autoContinue,
           sound:S.sound, repeat:S.repeat, face:S.face,
@@ -128,6 +130,7 @@
       try{ dailyAdopt(snap.daily); }catch(e){}
       try{ friendsAdopt(snap.friends); }catch(e){}
       try{ moodAdopt(snap.mood); }catch(e){}
+      try{ blockAdopt(snap.blocked); }catch(e){}
       const sim = snap.sim || {};
       /* Only if it is genuinely newer than what this device last wrote, which
          is the same test the server makes. Otherwise signing in on an old phone
@@ -308,7 +311,7 @@
          on the server from the last sync. */
       try{ await this.sync(true); }catch(e){}
 
-      this.token = ''; this.username = ''; this.rev = 0; this.note = '';
+      this.token = ''; this.username = ''; this.rev = 0; this.note = ''; this._form = '';
       this.save();
       this.wipe();
       try{ await this._post('/account/out', {token:t}); }catch(e){}
@@ -324,8 +327,12 @@
     passwordForm(){
       const box = $('acc-pass-box');
       if(!box) return;
-      if(box.dataset.open === '1'){ box.dataset.open = ''; box.innerHTML = ''; return; }
-      box.dataset.open = '1';
+      /* The slot holds which form is in it rather than whether one is, because
+         there are two of them now and opening the second over the first left a
+         Delete button sitting under a Change password heading. */
+      if(box.dataset.open === 'pass'){ box.dataset.open = ''; box.innerHTML = ''; this._form = ''; return; }
+      box.dataset.open = 'pass';
+      this._form = 'pass';
       box.innerHTML = '<div class="acc-form">'
         + '<input id="acc-old" type="password" placeholder="Current password" autocomplete="current-password" />'
         + '<input id="acc-new2" type="password" placeholder="New password" autocomplete="new-password" />'
@@ -338,9 +345,61 @@
         msg('One moment…');
         try{
           await Account._post('/account/password', {token:Account.token, password:now, next});
-          box.dataset.open = ''; box.innerHTML = '';
+          box.dataset.open = ''; box.innerHTML = ''; Account._form = '';
           toast('Password changed. Other devices stay signed in.');
         }catch(e){ msg(e.message || 'that did not work'); }
+      };
+    },
+
+    /* ---- and deleting it ----
+
+       **The password, then the question, then the deletion.** Three steps for
+       one button is usually two too many; here the first two are doing
+       different jobs. The password is the same guard the change-password form
+       has, for the same reason: a signed-in laptop left unlocked for thirty
+       seconds is how accounts are taken, and this is the one action nobody can
+       undo for you afterwards. The question is because the button says "Delete
+       account" and the thing it deletes is bigger than the account: the history
+       on the server and the copy on this device both go.
+
+       The device is wiped whatever the server says, including when it cannot be
+       reached at all. A device still holding the history of an account that no
+       longer exists would push it at nothing on every sync tick, and somebody
+       who has just asked for all of it to go should not be left looking at it.
+       The one failure worth stopping for is a wrong password, because then the
+       account is still there and this device should stay as it was. */
+    deleteForm(){
+      const box = $('acc-pass-box');
+      if(!box) return;
+      if(box.dataset.open === 'del'){ box.dataset.open = ''; box.innerHTML = ''; this._form = ''; return; }
+      box.dataset.open = 'del';
+      this._form = 'del';
+      box.innerHTML = '<div class="acc-form">'
+        + '<p class="acc-note">Everything in the account goes, from the server '
+        + 'and from this device. There is no undo.</p>'
+        + '<input id="acc-del-pass" type="password" placeholder="Your password" autocomplete="current-password" />'
+        + '<div class="acc-acts"><button class="mini-btn danger" id="acc-del-go">Delete account</button></div>'
+        + '<p class="acc-note" id="acc-del-msg"></p></div>';
+      const msg = (t)=>{ const m = $('acc-del-msg'); if(m) m.textContent = t; };
+      $('acc-del-go').onclick = ()=>{
+        const password = $('acc-del-pass').value;
+        if(!password) return msg(T('your password, to prove it is you'));
+        askConfirm(T('Delete {name}?', {name:Account.username}),
+          T('Your account, your history and everything you have earned go. There is no undo.'),
+          T('Delete it all'), async ()=>{
+            msg(T('One moment…'));
+            try{
+              await Account._post('/account/gone', {token:Account.token, password});
+            }catch(e){
+              if(/password/i.test(e.message || '')){ msg(e.message); return; }
+            }
+            Account.token = ''; Account.username = ''; Account.rev = 0; Account.note = '';
+            Account.save();
+            Account.wipe();
+            box.dataset.open = ''; box.innerHTML = ''; Account._form = '';
+            Account.render();
+            toast(T('Account deleted.'));
+          });
       };
     },
 
@@ -421,8 +480,8 @@
       const el = $('acc-where');
       if(!el) return;
       el.textContent = this.token
-        ? T('Focus Simulator · synced to your account as {name}', {name:this.username})
-        : 'Focus Simulator · your data stays on this device';
+        ? T('focUS simulator · synced to your account as {name}', {name:this.username})
+        : 'focUS simulator · your data stays on this device';
     },
 
     /* The corner button, and the date it stands in front of.
@@ -443,6 +502,10 @@
         : '<span>Sign in</span>';
       chip.setAttribute('aria-label', this.token ? T('Account: {name}', {name:this.username}) : T('Sign in'));
     },
+
+    /* Which form is open on the panel, if any: 'pass' or 'del'. Read by
+       `render`, which must not draw over one. */
+    _form:'',
 
     /* ---- the panel, in Your focus ---- */
     render(){
@@ -465,6 +528,20 @@
       box.classList.toggle('hide', !accConfigured());
       if(!accConfigured()) return;
       if(this.token){
+        /* **A form open here is not redrawn over.** `sync()` renders twice a
+           tick and the forms live inside this panel's own innerHTML, so a sync
+           landing while somebody typed a password took the form away with the
+           word half written -- and, worse, took "that password does not match"
+           away before it could be read. The one thing that actually changes
+           while a form is open is the line saying whether it is syncing, so
+           that is set in place and nothing else is touched. */
+        if(this._form && $('acc-pass-box')){
+          const line = box.querySelector('.acc-in span');
+          if(line) line.textContent = this.busy ? T('Syncing…') : (this.note || T('Up to date'));
+          const s = $('acc-sync');
+          if(s) s.disabled = !!this.busy;
+          return;
+        }
         /* **Say what the button does.** "Sync now" next to a spinner is a
            button people press to find out, and the thing they are afraid of is
            that it overwrites — that signing in on a fresh phone will wipe the
@@ -476,7 +553,13 @@
           + '<span>' + esc(this.busy ? T('Syncing…') : (this.note || T('Up to date'))) + '</span>'
           + '<button class="mini-btn" id="acc-sync"' + (this.busy ? ' disabled' : '') + '>Sync now</button>'
           + '<button class="mini-btn" id="acc-pass">Change password</button>'
-          + '<button class="mini-btn" id="acc-out">Sign out</button></div>'
+          + '<button class="mini-btn" id="acc-out">Sign out</button>'
+          /* **Deleting is in here, not in an email to somebody.** The policy
+             said to write and ask, which is a real answer and not an available
+             one: a store will not list an app that lets you make an account and
+             not unmake it, and more to the point neither should it. The server
+             has had /account/gone since the day accounts existed. */
+          + '<button class="mini-btn danger" id="acc-del">Delete account</button></div>'
           /* **Say what "nothing is replaced" means, or it is only a promise.**
              The fear is specific — that signing in on a new phone wipes the
              months on the laptop — and "nothing is replaced" does not answer
@@ -489,6 +572,7 @@
         const a = $('acc-sync'); if(a) a.onclick = ()=>Account.sync(false);
         const b = $('acc-out'); if(b) b.onclick = ()=>Account.signOut();
         const p = $('acc-pass'); if(p) p.onclick = ()=>Account.passwordForm();
+        const d = $('acc-del'); if(d) d.onclick = ()=>Account.deleteForm();
         return;
       }
       box.innerHTML = '<p class="emb-head">Account <em>optional: carry your history between devices</em></p>'

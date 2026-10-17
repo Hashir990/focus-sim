@@ -21,7 +21,7 @@
   ceases to read as a diamond below about 24px and becomes a dot, which is the
   right thing for it to become.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Focus Simulator">
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="focUS simulator">
   <rect width="180" height="180" rx="40" fill="#0e1729"/>
   <circle cx="90" cy="90" r="54" fill="none" stroke="#1f5450" stroke-width="12"/>
   <circle cx="90" cy="90" r="54" fill="none" stroke="#4fe0c8" stroke-width="12"

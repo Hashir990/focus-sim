@@ -1,6 +1,7 @@
-# Focus Simulator
+# focUS simulator
 
 > **New session? Read `HANDOFF.md` first** — architecture, decisions, gotchas and open work.
+> For a store release, `PLAY.md` is the list.
 
 A focus timer with a rest arcade, fading quotes, and a progress calendar.
 

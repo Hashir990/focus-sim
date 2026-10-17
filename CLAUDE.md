@@ -1,4 +1,4 @@
-# Focus Simulator
+# focUS simulator
 
 A focus/pomodoro app with a rest arcade. Electron on the desktop, Capacitor on
 Android, one HTML file everywhere.
@@ -6,6 +6,9 @@ Android, one HTML file everywhere.
 `HANDOFF.md` is the long version — architecture, every system's state, and a
 gotchas section that is worth reading before touching anything unfamiliar. This
 file is only the things you need in the first five minutes.
+
+`PLAY.md` is the Google Play list: what the build already satisfies, the upload
+key that is not in this repository, and the declarations app blocking needs.
 
 ## Build
 
@@ -23,7 +26,7 @@ say which line did it. Order is the filename prefix; that is the only reason
 ```
 npm run build                 # → dist/index.html
 npm test                      # the gate: build + 6 test files, ~1440 checks, ~3 min
-cd android && gradlew :focus-guard:testDebugUnitTest   # app blocking's rules, on the JVM (Java 17)
+cd android && gradlew :focus-guard:testDebugUnitTest   # app blocking's rules, on the JVM (JDK 21 to 24)
 npm run electron              # run the desktop app
 npm run phone                 # → the Android phone plugged in (see ANDROID.md)
 node tools/look-<x>.mjs       # render a screen to look/<x>.png (Chromium)

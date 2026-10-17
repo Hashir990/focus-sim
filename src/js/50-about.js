@@ -37,7 +37,7 @@
 
   function aboutPrivacy(){
     return ''
-      + '<p class="about-lede">Focus Simulator keeps what you do on the device '
+      + '<p class="about-lede">focUS simulator keeps what you do on the device '
       + 'you do it on. Nothing here is sold, shared for advertising, or measured '
       + 'to work out who you are. There is no analytics of any kind in this app.</p>'
 
@@ -77,10 +77,10 @@
 
       + '<h4>Keeping it, and getting rid of it</h4>'
       + '<p><b>Reset progress</b> in the app’s menu clears that device. If you are '
-      + 'signed in, that empties the device and not the account. Deleting your '
-      + 'account deletes what the server holds for it; ask at the address below '
-      + 'and it is done. Data on the server is kept while the account exists and '
-      + 'no longer.</p>'
+      + 'signed in, that empties the device and not the account. <b>Delete account</b>, '
+      + 'in the account panel on Your focus, removes the account itself and everything '
+      + 'the server holds for it, there and then. Data on the server is kept while the '
+      + 'account exists and no longer.</p>'
 
       + '<h4>Children</h4>'
       + '<p>This app is not aimed at children under 13, and no account should be '
@@ -88,9 +88,10 @@
       + 'age.</p>'
 
       + '<h4>Who to ask</h4>'
-      /* One sentence, with a comma after the name rather than a full stop. A
-         name can legitimately end in an initial — "Hashir N." — and a full stop
-         straight after it reads as a typo. */
+      /* One sentence, with a comma after the name rather than a full stop.
+         Whoever builds a copy puts their own name in FOCUS_PRIVACY_OWNER, and it
+         can legitimately end in a full stop already — an initial, or Ltd. — so a
+         second one straight after it reads as a typo. */
       + '<p>This app is made and run by ' + aboutWho(ABOUT_OWNER, 'the developer')
       + ', and questions about your data, corrections, or a request to delete '
       + 'your account go to ' + aboutWho(ABOUT_EMAIL, 'the contact address for this build')
@@ -142,6 +143,12 @@
       + 'Bootstrap authors, under the MIT licence. And icons by <b>Kenney</b> '
       + '(kenney.nl), public domain under CC0, credit is not required there, '
       + 'and is here because the work was given away.</p>'
+      + '<h4>Sound</h4>'
+      + '<p><b>Adrift</b> by Hayden Folker, royalty free through '
+      + 'BreakingCopyright, which asks to be named and is. The other ambiences '
+      + 'are field recordings of rain, a forest, a café, an office, a campfire, '
+      + 'a city at night and a morning shoreline, cut and levelled for this '
+      + 'app.</p>'
       + '<h4>The games</h4>'
       + '<p>Sudoku, the crossword, the word guess, 2048, Tetris, chess, scrabble, '
       + 'hangman, pictionary and memory are all written for this app. The rules '
@@ -251,7 +258,7 @@
     const said = (($('rep-text') || {}).value || '').trim();
     if(!said){ toast('Say what happened first'); return ''; }
     const k = REPORT_KINDS.find(x=>x[0] === reportKind);
-    const subject = 'Focus Simulator: ' + (k ? k[1] : 'Report');
+    const subject = 'focUS simulator: ' + (k ? k[1] : 'Report');
     const body = reportBody();
     const url = 'mailto:' + REPORT_TO
       + '?subject=' + encodeURIComponent(subject)
@@ -266,7 +273,7 @@
       navigator.clipboard.writeText(REPORT_TO + '\n\n' + subject + '\n\n' + body);
       toast(opened ? 'Opening your mail. Copied it as well' : 'Copied. Paste it into an email');
     }catch(e){
-      toast(opened ? 'Opening your mail' : T('Could not open mail. Write to {addr}', {addr:REPORT_TO}));
+      toast(opened ? 'Opening your mail' : T('Could not open mail, write to {addr}', {addr:REPORT_TO}));
     }
     return url;
   }

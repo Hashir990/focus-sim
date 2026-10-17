@@ -1,4 +1,27 @@
 
+<!-- ============ SOMEBODY IN THE ROOM ============
+     Their buddy, their name, and the numbers they handed over on the way
+     in. The card already travelled with `hello` and was already being kept
+     for everybody in the room; until now there was nowhere to look at it.
+     Opened from a row in Focus together, by friendWhoOpen in
+     29a-friends.js. Built on the confirm's card so it is themed, sized
+     and dismissed like every other thing that sits over the app. -->
+<div class="confirm hide" id="who">
+  <div class="confirm-card who-card">
+    <div class="who-top">
+      <button class="who-bud" id="who-bud" type="button" aria-label="Poke"></button>
+      <div class="who-name"><b id="who-who"></b><span id="who-sub"></span></div>
+    </div>
+    <div id="who-stats"></div>
+    <!-- Report and Block, filled in by 29b-block.js. Empty, and hidden, when
+         the sheet is open on yourself. -->
+    <div class="who-acts hide" id="who-acts"></div>
+    <div class="confirm-acts">
+      <button class="primary" id="who-close">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ CONFIRM ============ -->
 <div class="confirm hide" id="confirm">
   <div class="confirm-card">

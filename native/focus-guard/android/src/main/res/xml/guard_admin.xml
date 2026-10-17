@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No policies. Being a device admin at all is the whole point: it is what makes
+     uninstalling a two-step job. See GuardAdmin.java. -->
+<device-admin>
+    <uses-policies />
+</device-admin>

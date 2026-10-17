@@ -149,7 +149,7 @@ const ACCOUNT_URL = process.env.FOCUS_ACCOUNT_URL
    the real address. Override either from the environment or .env. */
 const PRIVACY_OWNER = process.env.FOCUS_PRIVACY_OWNER
   || envFile('FOCUS_PRIVACY_OWNER')
-  || 'Hashir Niamatullah';
+  || 'USwork';
 
 const PRIVACY_EMAIL = process.env.FOCUS_PRIVACY_EMAIL
   || envFile('FOCUS_PRIVACY_EMAIL')
@@ -188,7 +188,7 @@ export function build() {
     .replace(/<!--[\s\S]*?-->/g, '').replace(/\s*\n\s*/g, ' ').trim();
   const iconUri = 'data:image/svg+xml;base64,' + Buffer.from(iconSvg, 'utf8').toString('base64');
   const manifest = {
-    name: 'Focus Simulator', short_name: 'Focus',
+    name: 'focUS simulator', short_name: 'focUS',
     description: 'A focus timer with a rest arcade, fading quotes, and a progress calendar.',
     start_url: '.', scope: '.', display: 'standalone', orientation: 'portrait',
     background_color: '#0b1220', theme_color: '#0b1220',

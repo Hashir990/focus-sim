@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build the Scrabble word bank for Focus Simulator.
+Build the Scrabble word bank for focUS simulator.
 
 Strategy: hunspell en_US gives us every *valid* inflected form; a frequency list
 gives us which stems are *common*. Take the whole inflection family of any stem

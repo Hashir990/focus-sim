@@ -1,5 +1,5 @@
 /**
- * Focus Simulator accounts.
+ * focUS simulator accounts.
  *
  * Deploy alongside the mailbox (they can share one D1):
  *
@@ -436,6 +436,11 @@ function mergeSnapshots(local, remote, at) {
     daily: mergeDaily(A.daily, B.daily),
     // one emoji a day — see mergeMood above
     mood: mergeMood(A.mood, B.mood),
+    /* Who you will not be in a room with. A union, like everything else you
+       cannot un-have: two devices that disagree about somebody land on
+       blocked, which is the only safe direction for this one. See
+       29b-block.js. */
+    blocked: mergeSet(A.blocked, B.blocked),
     sim: mergeSim(A.sim, B.sim),
   };
 }
@@ -736,7 +741,7 @@ async function accountForgot(db, b, ip, env) {
      that cannot be delivered leaves the account exactly as it was, which is the
      only safe way to fail. */
   const fresh = readablePassword();
-  const sent = await sendMail(env, email, 'Your new Focus Simulator password',
+  const sent = await sendMail(env, email, 'Your new focUS simulator password',
     'Somebody asked to reset the password for this account.\n\n'
     + 'Your new password is:  ' + fresh + '\n\n'
     + 'Sign in with it, then change it under Your account. Your old password no '
@@ -763,7 +768,7 @@ async function accountForgot(db, b, ip, env) {
    runs, and the failure is logged rather than pretended away.
 
    wrangler secret put RESEND_KEY --config server/wrangler-accounts.toml
-   ...and MAIL_FROM = "Focus Simulator <hello@yourdomain>" as a plain var. */
+   ...and MAIL_FROM = "focUS simulator <hello@yourdomain>" as a plain var. */
 async function sendMail(env, to, subject, text) {
   const key = env && env.RESEND_KEY, from = env && env.MAIL_FROM;
   if (!key || !from) return false;

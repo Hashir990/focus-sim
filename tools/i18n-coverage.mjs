@@ -18,7 +18,7 @@ const LANGS = process.argv[2] ? [process.argv[2]] : ['ja', 'zh', 'ru', 'hi', 'ur
 
 /* Deliberately English, wherever it appears. */
 const FINE = [
-  /^Focus Simulator$/, /^Focus$/, /^Simulator$/,            // the app's own name
+  /^focUS simulator$/, /^focUS$/, /^simulator$/, /^Focus$/,            // the app's own name
   /^v?\d/, /^[\d\s:·×/%+.,-]+$/,                            // versions, numbers, clocks
   /^[A-Z]$/, /^[a-z]$/,                                     // single letters: keyboards, boards
   /^(Developer|Finish a game, move the day, unlock the shelf)$/,  // the dev row, this machine only
@@ -67,7 +67,7 @@ async function sweep(w) {
          otherwise translated sentence is not an untranslated string. */
       const t = n.data.replace(/\s+/g, ' ')
         .replace(/[\w.+-]+@[\w.-]+/g, '').replace(/https?:\/\/\S+/g, '')
-        .replace(/Focus Simulator|Spider-Man|Android|Google Fonts|PeerJS|Electron|Capacitor/g, '')
+        .replace(/focUS simulator|Spider-Man|Adrift|Hayden Folker|BreakingCopyright|Android|Google Fonts|PeerJS|Electron|Capacitor/g, '')
         .trim();
       if (!t || !/[A-Za-z]{2,}/.test(t)) continue;
       if (FINE.some((r) => r.test(t))) continue;

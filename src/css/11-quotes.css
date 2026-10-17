@@ -14,6 +14,15 @@
   color:var(--muted); margin:26px 0 10px;
 }
 .q-sec:first-child{ margin-top:0 }
+/* **Flex children shrink, and overflow:hidden turns shrink into a clip.**
+   .ov-body is a column flex container, so everything in the quote bank is a
+   flex item with the default flex-shrink:1 -- and .q-pack below carries
+   overflow:hidden so its corners stay rounded. Together those mean a long list
+   is not scrolled to, it is squashed and then cut off: the container reported
+   nothing to scroll while the tenth quote sat 470px past the bottom of it.
+   The same pair did this to the menu earlier; see .drawer-nav in 13-drawer.css.
+   Nothing in here wants to be shorter than its contents. */
+#quotes-overlay .ov-body > *{ flex:0 0 auto }
 .q-list{ display:flex; flex-direction:column; gap:8px; }
 /* Your own quotes wear the pack's clothes: same border, same summary row, same
    open-and-shut. The list inside keeps its own padding because the items are

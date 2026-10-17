@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The shield's own theme, and it deliberately does not inherit the app's.
+
+         `Theme.Material.NoActionBar` rather than an AppCompat theme, because
+         ShieldActivity extends plain `Activity`: this plugin has no reason to
+         pull appcompat in, and an activity that has to appear over another app
+         in a fraction of a second is the last place to want a heavier one.
+
+         Not translucent. A see-through shield shows the feed it is standing in
+         front of, which is the one thing it must not do. -->
+    <style name="GuardShield" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/guard_bg</item>
+        <item name="android:statusBarColor">@color/guard_bg</item>
+        <item name="android:navigationBarColor">@color/guard_bg</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>

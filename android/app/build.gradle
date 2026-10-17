@@ -1,0 +1,95 @@
+apply plugin: 'com.android.application'
+
+/* **The version, and the upload key, both from outside this file.**
+
+   The version is package.json's, which is the only authority on it anywhere in
+   the project. `versionCode` has to be an integer that never goes down, so the
+   three parts are packed into one: 1.5.1 becomes 10501. That holds for any
+   minor or patch below 100, which is two orders of magnitude more releases than
+   this will ever have, and it keeps the number readable at a glance in the Play
+   console.
+
+   The key is read from `android/keystore.properties`, which is not in the
+   repository and never will be. With no such file the release build is simply
+   unsigned, which is the right failure: it is obvious, it happens at build time
+   rather than at upload time, and it cannot quietly sign with the wrong key.
+   See PLAY.md for the one command that makes the file. */
+def appVersion = new groovy.json.JsonSlurper()
+    .parseText(file('../../package.json').getText('UTF-8')).version
+def semver = appVersion.replaceAll(/[^0-9.].*$/, '').tokenize('.').collect { it.toInteger() }
+def appVersionCode = semver[0] * 10000 + semver[1] * 100 + semver[2]
+
+def keyProps = new Properties()
+def keyFile = rootProject.file('keystore.properties')
+if (keyFile.exists()) keyFile.withInputStream { keyProps.load(it) }
+def hasKey = keyProps['storeFile'] != null
+
+android {
+    namespace "com.uswork.focussimulator"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.uswork.focussimulator"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersion
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (hasKey) {
+            release {
+                storeFile rootProject.file(keyProps['storeFile'])
+                storePassword keyProps['storePassword']
+                keyAlias keyProps['keyAlias']
+                keyPassword keyProps['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (hasKey) signingConfig signingConfigs.release
+            /* **R8 stays off, and not out of laziness.** The accessibility
+               service is found by name: BlockService builds the component
+               string Android records with `BlockService.class.getName()`, and
+               the manifest names the receivers and the activity in full.
+               Shrinking renames them, the names stop matching what the system
+               has written down, and app blocking silently never starts. */
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

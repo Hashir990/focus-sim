@@ -459,6 +459,11 @@
       friends: mergeFriends(A.friends, B.friends),
       // one emoji a day — see mergeMood above
       mood: mergeMood(A.mood, B.mood),
+      /* Who you will not be in a room with. A union, like everything else you
+         cannot un-have: two devices that disagree about somebody land on
+         blocked, which is the only safe direction for this one. See
+         29b-block.js. */
+      blocked: mergeSet(A.blocked, B.blocked),
       sim: mergeSim(A.sim, B.sim),
     };
   }

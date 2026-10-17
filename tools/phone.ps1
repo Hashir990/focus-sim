@@ -40,9 +40,12 @@ function Die([string[]]$m) {
 }
 
 # ---- the JDK ---------------------------------------------------------------
-# Gradle 8.2.x runs on Java 8 to 20. Anything newer fails in the Groovy
-# compiler, and the message names a settings file rather than the Java.
-$JDK_MAX = 20
+# **Capacitor 8 wants a JDK 21, and Gradle 8.14.3 runs on 17 to 24.** So the
+# window is 21 to 24: older and Capacitor's own gradle files will not compile,
+# newer and Gradle refuses to start at all. Android Studio bundles 25, which is
+# outside it in the other direction and is why this hunt exists.
+$JDK_MIN = 21
+$JDK_MAX = 24
 
 # **Read the release file; do not run java to ask.** Every JDK has one, and it
 # says JAVA_VERSION="17.0.14". Running java -version was the first way this
@@ -105,8 +108,9 @@ function FindJdk {
     if (-not $t -or $seen -contains $t) { continue }
     $seen += $t
     $v = JavaMajor $t
-    if ($v -gt 0 -and $v -le $JDK_MAX) { return @{ home = $t; ver = $v } }
-    if ($v -gt 0) { Warn "Java $v at $t is too new for the Gradle in android/ (needs $JDK_MAX or older)" }
+    if ($v -ge $JDK_MIN -and $v -le $JDK_MAX) { return @{ home = $t; ver = $v } }
+    if ($v -gt $JDK_MAX) { Warn "Java $v at $t is too new for the Gradle in android/ (needs $JDK_MIN to $JDK_MAX)" }
+    if ($v -gt 0 -and $v -lt $JDK_MIN) { Warn "Java $v at $t is too old for Capacitor 8 (needs $JDK_MIN to $JDK_MAX)" }
   }
   return $null
 }
@@ -121,11 +125,12 @@ if (-not $java) {
   Die @(
     'No usable JDK.',
     '',
-    'The Gradle wrapper in android/ is 8.2.1 and needs Java 17 (anything from 8',
-    "to $JDK_MAX will do). Android Studio's bundled JBR is much newer than that,",
-    'which is why the obvious JAVA_HOME is the one that does not work here.',
+    "Capacitor 8 needs Java $JDK_MIN or newer and the Gradle wrapper in android/",
+    "(8.14.3) will not start on anything past $JDK_MAX. Android Studio's bundled",
+    'JBR is 25, outside that window, which is why the obvious JAVA_HOME is the',
+    'one that does not work here.',
     '',
-    '    winget install EclipseAdoptium.Temurin.17.JDK',
+    '    winget install Microsoft.OpenJDK.21',
     '',
     'then either let this script find it, or point it at one:',
     '',
@@ -212,13 +217,13 @@ if ($LASTEXITCODE -ne 0) {
     'Uninstalling first fixes it and throws away everything on the phone, so',
     'export a backup from the menu before you do:',
     '',
-    '    adb uninstall app.focussimulator.mobile'
+    '    adb uninstall com.uswork.focussimulator'
   )
 }
 
 if (-not $NoLaunch) {
   Say 'Launching…'
-  & $adb shell am start -n app.focussimulator.mobile/.MainActivity | Out-Null
+  & $adb shell am start -n com.uswork.focussimulator/.MainActivity | Out-Null
 }
 
 Write-Host ''

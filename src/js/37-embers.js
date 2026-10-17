@@ -131,11 +131,16 @@
      // weighted towards the yellows, with the pinks and blues between them
      fxpal:['#ffe066', '#ff7ab8', '#fff2a8', '#7ac8ff', '#ffd166', '#b78cff',
             '#ffe89a', '#8ef2b0']},
-    /* The dearest one, and the only light that brings a shape with it: a web
-       behind the dial, drawn as inline SVG in the timer markup and shown by
-       this id alone. Kept faint on purpose — it is behind a countdown, and a
+    /* The only light that brings a shape with it: a web behind the dial,
+       drawn as inline SVG in the timer markup and shown by this id alone.
+
+       **`spiderman` is the id for good.** It was the name once, and the name is
+       now Spiders; the id is in everybody's `own` list, in `EMB_WAS`, in nine
+       selectors in 04-timer.css and in the one test 39a-spiders.js makes before
+       it draws anything. An id is a key, not a label, and renaming this one
+       would take the light off every person who bought it. Kept faint on purpose — it is behind a countdown, and a
        mark you can read at a glance is a mark that competes with the numbers. */
-    {id:'spiderman', name:'Spider-Man', note:'The suit, with webs in the corners', cost:350,
+    {id:'spiderman', name:'Spiders', note:'Red and blue, with webs in the corners', cost:350,
      accent:'#e01b24', fx:'motes', fxc:'#e01b24', fxc2:'#2438a8', fxm:1},
     /* **Stars are not white.** A field of identical white dots reads as dirt on
        the screen; what makes a sky read as a sky is that the colours are
@@ -173,6 +178,29 @@
     {id:'campfire', name:'Campfire', note:'Sparks thrown off the top', cost:310,
      accent:'#f0a05a', fx:'sparks', fxc:'#ffc083', fxc2:'#ff8f4d', fxm:.6, fxw:2.6,
      fxflick:1},
+
+    /* **Three that are a look's own sound.** Every track above invented its
+       own palette and its own weather; these take one that already exists, so
+       Skyline, Beach and Deep space each have something to hear as well as
+       something to see. The accent and the effect are deliberately identical
+       to the light's -- that is the point of them, and it is why there is no
+       new weather here to write.
+
+       They are still bought and chosen like any other track, and a track still
+       puts the light out: picking Night city while Skyline is on changes
+       nothing you can see, which is the right answer rather than a missed
+       opportunity. */
+    {id:'city', name:'Night city', note:'Traffic, a long way down', cost:260,
+     accent:'#ffc46b', fx:'towers', fxm:1, fxc:'#04060e'},
+    {id:'sea', name:'Morning sea', note:'Water, and birds over it', cost:240,
+     accent:'#ff9d4d', fx:'bokeh', fxc:'#ffb36b', fxc2:'#e28cb4', fxm:1},
+    /* The name is the piece's name, by the person who wrote it, so it is left
+       alone in every language the way Spider-Man was. See the Sound section of
+       the credits. */
+    {id:'adrift', name:'Adrift', note:'A synth, much further out', cost:300,
+     accent:'#9fc4ff', fx:'stars', fxc:'#ffffff', fxc2:'#cfe3ff', fxm:1,
+     fxpal:['#ffffff', '#cfe3ff', '#ffffff', '#ffe6bd', '#b7d2ff', '#ffffff',
+            '#ffd3a0', '#e6efff', '#ffffff', '#9fc4ff', '#fff4e2']},
   ];
 ;
   const EMB_SND = 'snd-';                       // how a sound is filed in `own`
@@ -448,6 +476,11 @@
        see `paidFor` below and `EMB_WAS` above. */
     priceOf(id){
       if(typeof id !== 'string') return 0;
+      /* A mended streak day, carrying what it cost inside its own id. First in
+         the list because it is the one thing in `own` whose price is not in a
+         catalogue at all: it depended on how long the streak was on the day it
+         was bought. See the note on `mendId` in 37a-level.js. */
+      if(id.indexOf(MEND_ID) === 0) return mendPrice(id);
       if(id.indexOf(EMB_SND) === 0){ const s = embSound(id.slice(EMB_SND.length)); return s ? s.cost : 0; }
       if(id.indexOf('face-') === 0){ try{ return faceDef(id.slice(5)).cost || 0; }catch(e){ return 0; } }
       /* Everything the buddy wears, and every antic he does. **Anything that
@@ -587,6 +620,9 @@
     buy(id){
       const l = embLight(id);
       if(this.own.indexOf(l.id) >= 0){ this.use(l.id); return; }
+      /* Before the balance is looked at, because "not enough embers" is the
+         wrong answer to a thing that is not for sale yet. */
+      if(lvlDeny(l.cost)) return;
       if(this.have < l.cost){ toast('Not enough embers yet'); return; }
       /* **The thing, not a sentence about the thing.** This asked "Light the
          seaglass?" -- an article bolted onto a proper noun, which reads as a
@@ -618,6 +654,7 @@
       const s = embSound(id);
       if(!s) return;
       if(embHasSound(id)){ if(then) then(); return; }
+      if(lvlDeny(s.cost)) return;
       if(this.have < s.cost){
         toast(T('{n} embers for {name}', {n:s.cost, name:T(s.name)}));
         return;
@@ -650,6 +687,7 @@
         try{ renderQuotesList(); }catch(e){}
         return;
       }
+      if(lvlDeny(p.cost)) return;
       if(this.have < p.cost){ toast(T('{n} embers for {name}', {n:p.cost, name:T(p.name)})); return; }
       askConfirm(T(p.name), '',
         T('Spend {n}', {n:p.cost}), ()=>{
@@ -720,6 +758,18 @@
       // and the row in the menu that says what they are for
       const sn = $('emb-spend-n');
       if(sn) sn.textContent = String(this.have);
+      /* **The diamond burns with the streak.** Six steps, written onto the
+         chip rather than into a style, so the whole ramp lives in one place in
+         30-embers.css and the only thing here is which step it is. See
+         `lvlGlow` in 37a-level.js. */
+      let glow = 0;
+      try{ glow = lvlGlow(); }catch(e){}
+      const chip = $('emb-chip');
+      if(chip) chip.dataset.glow = String(glow);
+      try{
+        const mini = document.querySelector('.emb-chip-mini');
+        if(mini) mini.dataset.glow = String(glow);
+      }catch(e){}
     },
 
     reset(){
@@ -747,8 +797,13 @@
 
     /** The block at the top of Your focus. */
     html(){
-      const next = EMB_LIGHTS.filter(l=>this.own.indexOf(l.id) < 0)
-        .concat(EMB_SOUNDS.filter(sd=>!embHasSound(sd.id)))
+      /* **What to save for next, and it has to be something you can buy.** A
+         line pointing at the cheapest thing left is no use if the cheapest
+         thing left is shut until level nine: the one number it gives you is
+         then a number that will not help. Locked things are skipped, so this
+         always names something the embers alone can finish. */
+      const next = EMB_LIGHTS.filter(l=>this.own.indexOf(l.id) < 0 && !lvlLocked(l.cost))
+        .concat(EMB_SOUNDS.filter(sd=>!embHasSound(sd.id) && !lvlLocked(sd.cost)))
         .sort((a, b)=>a.cost - b.cost)[0];
       const hours = Math.floor(this.earned * EMB_PER / 3600);
       const tab = this.TABS.some(t=>t[0] === this.tab) ? this.tab : 'looks';
@@ -767,6 +822,10 @@
         + '</p>'
         + '<p class="emb-sub">One ember per ten minutes of focus. Minutes left '
         + 'over are kept and count towards the next one.</p>'
+        /* The level, which is the same hours counted a way that cannot be
+           spent. It sits above the shelves because it is what decides which of
+           them are open; see 37a-level.js. */
+        + lvlHtml()
         + '<div class="shop-tabs">' + this.TABS.map(([id, name])=>
             '<button class="shop-tab' + (tab === id ? ' on' : '') + '" data-tab="' + id + '">'
             + esc(name) + '</button>').join('') + '</div>'
@@ -779,16 +838,21 @@
             let on = this.light === l.id;
             try{ if(AMB.id !== 'off') on = false; }catch(e){}
             const afford = this.have >= l.cost;
+            /* **A locked tile shows the level, not the price.** Both would not
+               fit in the one line a tile has, and of the two the level is the
+               one that answers the question somebody tapping it is asking. The
+               price comes back the moment it opens. */
+            const lock = lvlTag(l.cost, mine);
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
-              + (!mine && !afford ? ' far' : '') + '" data-light="' + esc(l.id) + '"'
+              + (!mine && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-light="' + esc(l.id) + '"'
               + ' style="--lit:' + l.accent + '">'
               + '<i class="emb-dot"></i>'
               + '<b>' + esc(l.name) + '</b>'
               /* "burning" made sense when the shelf was only lights. It stopped
                  the moment one of them was a beach and another was a person in
-                 a mask — "Spider-Man, burning" reads as an accident. "in use"
+                 a mask — "Spiders, burning" reads as an accident. "in use"
                  says the same thing about every look on the shelf. */
-              + '<em>' + (mine ? (on ? 'in use' : 'owned') : embPrice(l.cost)) + '</em>'
+              + '<em>' + (mine ? (on ? 'in use' : 'owned') : (lock ? esc(lock) : embPrice(l.cost))) + '</em>'
               + '<span>' + esc(l.note) + '</span></button>';
           }).join('') + '</div>')
         + pane('sounds', '<p class="emb-head">Sounds <em>with their own colours</em></p>'
@@ -797,12 +861,13 @@
             let on = false;
             try{ on = mine && AMB.id === sd.id; }catch(e){}
             const afford = this.have >= sd.cost;
+            const lock = lvlTag(sd.cost, mine);
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
-              + (!mine && !afford ? ' far' : '') + '" data-sound="' + esc(sd.id) + '"'
+              + (!mine && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-sound="' + esc(sd.id) + '"'
               + ' style="--lit:' + sd.accent + '">'
               + '<i class="emb-dot"></i>'
               + '<b>' + esc(sd.name) + '</b>'
-              + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : embPrice(sd.cost)) + '</em>'
+              + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : (lock ? esc(lock) : embPrice(sd.cost))) + '</em>'
               + '<span>' + esc(sd.note) + '</span></button>';
           }).join('') + '</div>')
         /* The clock faces belong on the shelf too — they cost embers like
@@ -815,12 +880,13 @@
             const mine = faceHas(f.id);
             const on = mine && faceOk(S.face) === f.id;
             const afford = this.have >= f.cost;
+            const lock = lvlTag(f.cost, mine);
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
-              + (!mine && !afford ? ' far' : '') + '" data-face-pick="' + esc(f.id) + '"'
+              + (!mine && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-face-pick="' + esc(f.id) + '"'
               + ' style="--lit:var(--accent)">'
               + embIcon(f.ic)
               + '<b>' + esc(f.name) + '</b>'
-              + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : embPrice(f.cost)) + '</em>'
+              + '<em>' + (mine ? (on ? 'in use' : (f.cost ? 'owned' : 'free')) : (lock ? esc(lock) : embPrice(f.cost))) + '</em>'
               + '<span>' + esc(f.note) + '</span></button>';
           }).join('') + '</div>')
         /* Quote packs. Bought here; switched on and off, line by line, in the
@@ -833,15 +899,16 @@
             const mine = qpackOwned(p.id);
             const on = qpackOn(p.id);
             const afford = this.have >= p.cost;
+            const lock = lvlTag(p.cost, mine);
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
-              + (!mine && !afford ? ' far' : '') + '" data-qpack="' + esc(p.id) + '"'
+              + (!mine && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-qpack="' + esc(p.id) + '"'
               + ' style="--lit:var(--accent)">'
               + '<i class="emb-dot"></i>'
               + '<b>' + esc(T(p.name)) + '</b>'
               /* "owned" either way, because it is: the switch decides whether
                  it is in the rotation, never whether you still have it. Same
                  two words the lights and the faces use. */
-              + '<em>' + (mine ? (on ? 'showing' : 'owned') : embPrice(p.cost)) + '</em>'
+              + '<em>' + (mine ? (on ? 'showing' : 'owned') : (lock ? esc(lock) : embPrice(p.cost))) + '</em>'
               + '<span>' + esc(T(p.note)) + ' · '
               + esc(Tn('{n} quote', '{n} quotes', p.quotes.length)) + '</span></button>';
           }).join('') + '</div>'
@@ -855,7 +922,9 @@
             : embPrice(next.cost - this.have) + ' ' + esc(T('more for {name}, about {h} hours.',
                 {name:LANG === 'en' ? next.name.toLowerCase() : T(next.name),
                  h:Math.ceil((next.cost - this.have) * EMB_PER / 3600 * 10) / 10}))) + '</p>'
-           : '<p class="emb-next">Every light is yours. That was a lot of hours.</p>')
+           /* Nothing when there is nothing left to buy. A line congratulating
+              you on having bought everything is the shop talking about itself. */
+           : '')
         + '</div>';
     },
 

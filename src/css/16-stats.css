@@ -36,6 +36,15 @@
   box-shadow:0 0 12px var(--glow); transition:height .3s ease;
 }
 .sbar-fill.empty{ background:transparent; box-shadow:none }
+/* **A day that was bought back, drawn as what it is.** It holds the streak and
+   it holds no hours, so it is a stub rather than a bar and it is hollow: a
+   filled column of the same height would read as twenty minutes of focus, and
+   the one thing this day must not do is claim time nobody spent. */
+.sbar-fill.mend{
+  background:color-mix(in srgb, var(--accent) 10%, transparent); box-shadow:none;
+  border:1.5px dashed color-mix(in srgb, var(--accent) 85%, transparent);
+  border-bottom:0; border-radius:6px 6px 0 0;
+}
 .sbar span{ margin-top:6px; font-size:10px; color:var(--muted) }
 /* what the pointer is on, said in words under the chart */
 .sbar-read{
@@ -44,6 +53,35 @@
   transition:color .15s ease;
 }
 .sbar-read.on{ color:var(--text) }
+
+/* ---- the offer to mend a hole in the streak ----
+   Under the bars, beside the gap it is about. Absent nearly always, which is
+   why it can afford to be this loud when it is there — see `mendGap` in
+   37a-level.js. */
+.smend{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+  max-width:420px; margin:12px auto 0; padding:10px 12px; border-radius:13px;
+  border:1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background:color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.smend-say{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.smend-say b{ font-size:13px; font-weight:600; color:var(--text) }
+.smend-say span{ font-size:11.5px; color:var(--muted) }
+/* **Outlined, not filled.** A solid accent button would need the ember mark
+   in it recoloured to stay visible, and the mark is one shape with one colour
+   everywhere in the app: a price on the shop, on the wardrobe and here. So the
+   button gives way instead, and the mark is left alone. */
+.smend-go{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 13px; border-radius:10px; cursor:pointer;
+  font:inherit; font-size:12.5px; font-weight:600;
+  border:1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background:color-mix(in srgb, var(--accent) 16%, transparent);
+  color:var(--accent);
+}
+.smend-go:hover{ background:color-mix(in srgb, var(--accent) 24%, transparent) }
+.smend-go:active{ transform:scale(.97) }
 
 .stat-lines{
   max-width:420px; margin:18px auto 0;

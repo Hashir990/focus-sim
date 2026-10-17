@@ -122,7 +122,7 @@
     </svg>
   </div>
 
-  <!-- Spider-Man's corner webs. App-level rather than inside the timer, because
+  <!-- The Spiders look's corner webs. App-level rather than inside the timer, because
        they are the corners of the room and not part of any one screen; hidden
        outright under every other light.
 
@@ -141,53 +141,35 @@
        rings stop a strand short instead of closing. Generated from a seeded
        jitter, not typed, so it is reproducible and not a doodle. -->
     
-<!-- **The signal.** Spider-Man’s mask, thrown up for a few seconds every
-     couple of minutes and gone again: somebody out there is asking.
+<!-- Where the spiders turn up. Empty until one is sent; see
+     39a-spiders.js. Fixed to the window like the webs, and behind
+     everything, because nothing in here is to be reached or read. -->
+<div class="spiders" id="spiders" aria-hidden="true"></div>
 
-     This drawing used to sit at the centre of the dial, underneath the
-     digits, which is most of what made that theme look like an illustration
-     with a countdown printed on it. It is a good drawing and it was in the
-     wrong place, so rather than delete it, it has become the one thing it is
-     suited to being: something that appears, is unmistakable, and goes.
+<!-- **One web, spun twice.** These were torn: jittered spokes, rings
+       that gave up part-way, holes, loose ends. Close up that is what a
+       real web looks like; at 190px in the corner of a window it read as
+       damage rather than as a web, and two different seeds meant the two
+       corners did not even look like the same object.
 
-     Off entirely under every other light, and it never crosses the clock —
-     see the keyframes in 04-timer.css. -->
-<svg class="spidey-signal" id="spidey-signal" viewBox="60 60 120 120"
-     aria-hidden="true" focusable="false">
-  <g class="dial-web-mask">
-    <defs>
-      <clipPath id="dw-face-clip"><circle cx="120" cy="120" r="52"/></clipPath>
-    </defs>
-    <circle class="dw-mask-face" cx="120" cy="120" r="52"/>
-    <g class="dw-mask-web" clip-path="url(#dw-face-clip)">
-      <path class="dw-mask-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
-      <path class="dw-mask-web-rings" d="M120 106Q123.2 108.2 127 107.9Q128.6 111.4 132.1 113Q131.8 116.8 134 120Q131.8 123.2 132.1 127Q128.6 128.6 127 132.1Q123.2 131.8 120 134Q116.8 131.8 113 132.1Q111.4 128.6 107.9 127Q108.2 123.2 106 120Q108.2 116.8 107.9 113Q111.4 111.4 113 107.9Q116.8 108.2 120 106ZM120 93Q126.1 97.3 133.5 96.6Q136.6 103.4 143.4 106.5Q142.7 113.9 147 120Q142.7 126.1 143.4 133.5Q136.6 136.6 133.5 143.4Q126.1 142.7 120 147Q113.9 142.7 106.5 143.4Q103.4 136.6 96.6 133.5Q97.3 126.1 93 120Q97.3 113.9 96.6 106.5Q103.4 103.4 106.5 96.6Q113.9 97.3 120 93ZM120 80Q129 86.4 140 85.4Q144.6 95.4 154.6 100Q153.6 111 160 120Q153.6 129 154.6 140Q144.6 144.6 140 154.6Q129 153.6 120 160Q111 153.6 100 154.6Q95.4 144.6 85.4 140Q86.4 129 80 120Q86.4 111 85.4 100Q95.4 95.4 100 85.4Q111 86.4 120 80ZM120 69Q131.5 77.1 145.5 75.8Q151.4 88.6 164.2 94.5Q162.9 108.5 171 120Q162.9 131.5 164.2 145.5Q151.4 151.4 145.5 164.2Q131.5 162.9 120 171Q108.5 162.9 94.5 164.2Q88.6 151.4 75.8 145.5Q77.1 131.5 69 120Q77.1 108.5 75.8 94.5Q88.6 88.6 94.5 75.8Q108.5 77.1 120 69Z"/>
-    </g>
-  </g>
-</svg>
+       So: one clean orb. Eight spokes spread evenly across the quarter,
+       six rings that go the whole way round, and every segment sagging
+       8.5% toward the corner because a strand hangs between its anchors
+       rather than running straight. The jitter that is left is about a
+       degree of angle and three per cent of radius -- enough that it is
+       not drawn with a compass, little enough that it is still tidy.
 
-<!-- **Spun, not drawn.** These were regular quarter-fans: evenly spaced
-       spokes, rings that went all the way round, every segment the same. A web
-       is none of those. The strands sag between their anchors because they
-       hang; the rings stop and start because something has been through it;
-       the spacing opens up outward because that is the order it was made in.
-
-       So the paths are generated rather than drawn: jittered angles, a radius
-       that varies per spoke so no ring is a circle, catenary sag on every
-       segment, holes where a segment is missing, rings that give up early, and
-       loose ends trailing off the torn ones. Two seeds, so the corners are not
-       the same web mirrored. The recipe is in the comment on `.corner-web` in
-       04-timer.css; the output is pasted here because it is drawn once and
-       never regenerated. -->
+       Both corners carry the same path and the right one is mirrored in
+       CSS, so there is one drawing to change and the pair match. -->
 <svg class="corner-web corner-web-l" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
     <g>
-      <path class="corner-web-spokes" d="M0 0L139.5 -2.6M0 0L117.7 26.7M0 0L122 39.6M0 0L106.5 47.8M0 0L100.4 69.9M0 0L83.1 90.5M0 0L73.4 100M0 0L61.7 120.7M0 0L41.3 110.6M0 0L25.6 120.7M0 0L-1.5 123.9"/>
-      <path class="corner-web-rings" d="M19.2 -0.4Q15.7 1.6 15.9 3.6Q13.8 3.8 15.6 5.1Q13 5 14.1 6.3Q10.9 6.2 14.2 9.9Q10.5 9.2 11.1 12.1Q8.4 10.2 11 14.9Q7.9 12.8 8.4 16.4Q6.6 15 6.9 18.6Q4.3 15 3.8 18Q1.3 12.8 -0.2 15.3M29.2 9.5Q23.4 9 24.4 11Q17.1 9.7 19.8 13.8Q18.1 15.8 20.5 22.3Q16.8 20.5 17.7 24.1Q12.8 20.8 13.6 26.6Q8.9 20.2 10.8 29Q5.6 19.4 5 23.6Q2 20.1 -0.4 29.5M11 51.8Q4.8 48.6 -0.7 60.3M24.1 64.5Q16.6 57.1 17.1 80.5Q6.2 63.3 -1 82.6M53.8 73.3Q34.4 55.8 38.6 75.4Q33.7 76.5 37.6 100.7M67.5 73.6Q56.8 69.2 69.4 94.5M37.6 100.7Q38.1 118.1 38.6 127.1M69.4 94.5Q63.2 111.0 57 111.3"/>
+      <path class="corner-web-spokes" d="M0 0L153.9 5.0M0 0L148.5 39.7M0 0L138.4 67.5M0 0L114.6 92.2M0 0L92.1 111.9M0 0L64.3 134.9M0 0L37.7 142.2M0 0L6.5 151.4"/>
+      <path class="corner-web-rings" d="M16.4 0.5Q14.7 2.2 15.8 4.2Q14.0 5.2 14.8 7.2Q12.4 7.8 12.2 9.8Q10.1 9.9 9.8 11.9Q7.6 12.0 6.9 14.4Q5.0 13.5 4 15.2Q2.2 14.4 0.7 16.2M30.8 1Q27.7 4.1 29.7 7.9Q26.3 9.8 27.7 13.5Q23.1 14.6 22.9 18.4Q18.9 18.7 18.4 22.4Q14.3 22.6 12.9 27Q9.3 25.3 7.5 28.4Q4.0 26.9 1.3 30.3M48.2 1.6Q43.3 6.4 46.5 12.4Q41.1 15.3 43.4 21.1Q36.3 22.9 35.9 28.9Q29.6 29.3 28.8 35.1Q22.4 35.4 20.2 42.3Q14.6 39.8 11.8 44.6Q6.3 42.1 2 47.4M68.7 2.2Q61.8 9.1 66.3 17.7Q58.6 21.9 61.8 30.1Q51.7 32.6 51.2 41.2Q42.2 41.7 41.1 50Q31.9 50.5 28.7 60.3Q20.9 56.6 16.9 63.5Q9.1 60.0 2.9 67.6M92.3 3Q83.0 12.3 89.1 23.8Q78.8 29.4 83.1 40.5Q69.4 43.8 68.7 55.3Q56.7 56.0 55.2 67.1Q42.9 67.7 38.6 80.9Q28.0 76.0 22.6 85.3Q12.1 80.6 3.9 90.9M119 3.9Q107.0 15.8 114.8 30.7Q101.5 37.9 107 52.2Q89.5 56.5 88.6 71.3Q73.1 72.2 71.2 86.5Q55.4 87.3 49.8 104.3Q36.1 98.0 29.2 110Q15.6 103.9 5 117.1"/>
     </g>
 </svg>
 <svg class="corner-web corner-web-r" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
     <g>
-      <path class="corner-web-spokes" d="M0 0L118.9 2M0 0L134.4 32.4M0 0L116.8 39.1M0 0L117.7 68.1M0 0L89 74.7M0 0L75.8 85.5M0 0L58.1 102.7M0 0L55.7 127.2M0 0L24.4 112.7M0 0L2.8 136.9"/>
-      <path class="corner-web-rings" d="M17.1 0.3Q13.7 1.7 14.9 3.6Q12.1 3.5 16.8 5.6Q13.6 6.1 16.9 9.8Q13.1 9.2 12.4 10.4Q10 9.7 11.1 12.5Q9.1 12.8 9.3 16.4Q7.3 14.7 7.1 16.2Q4.2 13 4.2 19.6Q1.6 13.7 0.3 16.7M5.3 24.5Q2.8 24.1 0.6 29.8M12.5 57.5Q5.7 48.2 1.1 50.9M95.3 23Q75.8 21.8 94.3 31.6Q67.3 30.4 90.6 52.4M61 107.9Q50.7 101.4 54.4 124.2M9.8 45.2Q7.0 57.3 4.1 59.9M90.6 52.4Q91.9 66.3 93.2 62.6M54.4 124.2Q51.8 151.1 49.3 160.6"/>
+      <path class="corner-web-spokes" d="M0 0L153.9 5.0M0 0L148.5 39.7M0 0L138.4 67.5M0 0L114.6 92.2M0 0L92.1 111.9M0 0L64.3 134.9M0 0L37.7 142.2M0 0L6.5 151.4"/>
+      <path class="corner-web-rings" d="M16.4 0.5Q14.7 2.2 15.8 4.2Q14.0 5.2 14.8 7.2Q12.4 7.8 12.2 9.8Q10.1 9.9 9.8 11.9Q7.6 12.0 6.9 14.4Q5.0 13.5 4 15.2Q2.2 14.4 0.7 16.2M30.8 1Q27.7 4.1 29.7 7.9Q26.3 9.8 27.7 13.5Q23.1 14.6 22.9 18.4Q18.9 18.7 18.4 22.4Q14.3 22.6 12.9 27Q9.3 25.3 7.5 28.4Q4.0 26.9 1.3 30.3M48.2 1.6Q43.3 6.4 46.5 12.4Q41.1 15.3 43.4 21.1Q36.3 22.9 35.9 28.9Q29.6 29.3 28.8 35.1Q22.4 35.4 20.2 42.3Q14.6 39.8 11.8 44.6Q6.3 42.1 2 47.4M68.7 2.2Q61.8 9.1 66.3 17.7Q58.6 21.9 61.8 30.1Q51.7 32.6 51.2 41.2Q42.2 41.7 41.1 50Q31.9 50.5 28.7 60.3Q20.9 56.6 16.9 63.5Q9.1 60.0 2.9 67.6M92.3 3Q83.0 12.3 89.1 23.8Q78.8 29.4 83.1 40.5Q69.4 43.8 68.7 55.3Q56.7 56.0 55.2 67.1Q42.9 67.7 38.6 80.9Q28.0 76.0 22.6 85.3Q12.1 80.6 3.9 90.9M119 3.9Q107.0 15.8 114.8 30.7Q101.5 37.9 107 52.2Q89.5 56.5 88.6 71.3Q73.1 72.2 71.2 86.5Q55.4 87.3 49.8 104.3Q36.1 98.0 29.2 110Q15.6 103.9 5 117.1"/>
     </g>
 </svg>

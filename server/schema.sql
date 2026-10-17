@@ -1,4 +1,4 @@
--- Focus Simulator mailbox. Two tables, no accounts.
+-- focUS simulator mailbox. Two tables, no accounts.
 --
 --   owners  which device may read a code's mail (see the note in mailbox.js)
 --   mail    what is waiting, keyed by the id the client generated so that a

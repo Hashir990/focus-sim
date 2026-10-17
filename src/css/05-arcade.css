@@ -10,10 +10,15 @@
    middle, an arrow on the right. That is the shape of every "go here" control
    people already know, and it is drawn in the accent so it is the brightest
    thing between the dial and the buttons. */
+/* Lit from the left like the Shop row in the menu, which is the other thing
+   in this app that offers rather than tells. */
 .arcade-btn{
-  width:100%; padding:12px 14px; border-radius:16px; cursor:pointer;
-  border:1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
-  background:color-mix(in srgb, var(--accent) 12%, transparent);
+  width:100%; padding:13px 14px; border-radius:13px; cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  background:
+    radial-gradient(110% 170% at 0% 50%,
+      color-mix(in srgb, var(--accent) 24%, transparent) 0%, transparent 62%),
+    color-mix(in srgb, var(--accent) 8%, transparent);
   color:var(--text); font-family:inherit; text-align:left;
   display:flex; align-items:center; gap:12px;
   transition:background .18s ease, transform .1s ease, border-color .18s ease;
@@ -25,7 +30,7 @@
 .arcade-btn:active{transform:scale(.99)}
 .arcade-btn.hide{display:none}
 .arcade-ic{
-  flex:0 0 auto; width:34px; height:34px; border-radius:11px;
+  flex:0 0 auto; width:34px; height:34px; border-radius:9px;
   display:grid; place-items:center; font-size:16px; line-height:1;
   color:var(--accent);
   background:color-mix(in srgb, var(--accent) 18%, transparent);

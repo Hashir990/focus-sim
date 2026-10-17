@@ -36,7 +36,7 @@ const ok = (m) => console.log('  ok    ' + m);
 const no = (m, fix) => { bad++; console.log('  ✗     ' + m); if (fix) console.log('        → ' + fix); };
 const note = (m) => console.log('  ·     ' + m);
 
-console.log(`\nFocus Simulator ${pkg.version} — publish check\n`);
+console.log(`\nfocUS simulator ${pkg.version} — publish check\n`);
 
 // 1. where is it going
 const p = pkg.build && pkg.build.publish;
@@ -149,7 +149,7 @@ if (existsSync(join(root, 'latest.json'))) {
 /* 4b. do the files on disk agree with the manifest that describes them?
 
    **A GitHub asset name is not the name you gave it.** Spaces become dots on
-   upload, so `Focus Simulator Setup 1.0.8.exe` arrives as
+   upload, so `focUS simulator Setup 1.0.8.exe` arrives as
    `Focus.Simulator.Setup.1.0.8.exe` — while `latest.yml` still asks for the
    name electron-builder wrote. Installed copies then fetch a URL that 404s and
    report nothing at all, because a missing update file and no update look

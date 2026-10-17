@@ -1,0 +1,15 @@
+# The blocker's Android half is source and belongs in the repository: ten Java
+# files, a manifest that declares an accessibility service and a device admin,
+# the strings Android shows on the permission dialogs, and the JVM tests that
+# cover the rules. None of it was tracked until 2026-10-13 — the root
+# .gitignore said `android/`, and a pattern with a trailing slash and no
+# leading one matches a directory of that name at *any* depth, so it quietly
+# took this one with it.
+#
+# What stays out is what Gradle writes.
+/build/
+/.gradle/
+local.properties
+*.iml
+.idea/
+captures/

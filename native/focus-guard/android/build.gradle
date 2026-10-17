@@ -1,0 +1,55 @@
+ext {
+    androidxCoreVersion = project.hasProperty('androidxCoreVersion') ? rootProject.ext.androidxCoreVersion : '1.17.0'
+    androidxAppCompatVersion = project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.7.1'
+}
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    namespace "app.focussimulator.guard"
+    compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36
+    defaultConfig {
+        minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 24
+        targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36
+        versionCode 1
+        versionName "1.0"
+    }
+    lintOptions {
+        abortOnError false
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation project(':capacitor-android')
+    implementation "androidx.core:core:$androidxCoreVersion"
+    /* Only so Plugin.getActivity() can be called: its return type is an
+       AppCompatActivity. The app already ships appcompat, so this adds nothing
+       to the APK. Android's device-admin screen refuses to start as a new task,
+       so asking for it needs the real activity, not the application context. */
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+
+    /* The rules are tested on the JVM (src/test). Android's own org.json is a
+       stub that throws in a unit test, so the real one goes on the test path. */
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20231013"
+}

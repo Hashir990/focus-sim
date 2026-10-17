@@ -1,9 +1,9 @@
 @echo off
-REM  Focus Simulator - build and run, from source.
+REM  focUS simulator - build and run, from source.
 REM
 REM  Double-click this, or run `start.cmd` in a terminal here.
 REM
-REM  Why this file exists: there are two Focus Simulators on this machine. The
+REM  Why this file exists: there are two focUS simulators on this machine. The
 REM  one in the Start menu is the *installed* copy and only changes when a new
 REM  version is published. This one rebuilds from the code in this folder and
 REM  runs that. Editing the source and then launching from the Start menu shows
@@ -18,7 +18,7 @@ setlocal
 cd /d "%~dp0"
 
 echo.
-echo   Focus Simulator - building from source...
+echo   focUS simulator - building from source...
 echo.
 
 where node >nul 2>nul

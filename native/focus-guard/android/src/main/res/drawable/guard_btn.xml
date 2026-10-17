@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The accented button. A shape rather than a Material background because the
+     shield uses no appcompat theme and an unstyled Button on Theme.Material is
+     a grey slab. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/guard_accent" />
+    <corners android:radius="16dp" />
+</shape>

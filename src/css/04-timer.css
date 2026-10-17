@@ -7,7 +7,7 @@
 
 .dial-wrap{flex:1; display:flex; align-items:center; justify-content:center; width:100%; position:relative}
 
-/* ---- Spider-Man's web ----
+/* ---- the Spiders web ----
    Off unless that light is burning: it is one theme's furniture, not part of
    the timer. Absolutely placed rather than laid out, because `.dial-wrap` is a
    centring flex row — as a sibling in the flow it sat *beside* the dial and
@@ -37,52 +37,206 @@ body[data-light="spiderman"] .dial-web{
   mask-image:radial-gradient(circle at 50% 50%,
     transparent 28%, #000 48%, #000 63%, transparent 84%);
 }
-/* ---- the signal ----
+/* ---- the spiders ----
 
-   Fixed to the window rather than to the dial, large, and up for about four
-   seconds in every hundred: twice in quick succession, the way a signal is
-   flashed rather than left on, and then nothing for a minute and a half. A
-   thing that appears constantly is wallpaper; a thing that appears twice and
-   stops is an event, and the second one is what makes it read as somebody
-   signalling rather than as the screen glitching.
-
-   **High, and clear of the digits.** It sits in the upper third, which on the
-   timer screen is sky; where it grazes the top of the ring it passes behind
-   it. The time is the one thing here that has to be readable at every moment,
-   and a mask fading across the digits would be the old mistake again in a
-   slower form.
-
-   Red on the room's own blue, with a glow, because the thing in the photograph
-   is a light. Nothing here is interactive and nothing can be hit. */
-.spidey-signal{ display:none }
-body[data-light="spiderman"] .spidey-signal{
-  /* Big, high, and *behind* everything: z-index 0 puts it under the stage,
-     so the ring and the digits draw over the top of it and stay crisp while it
-     passes. That is what lets it be this size without being the old mask under
-     the clock again — it is light on the wall behind, not a plate in front. */
-  display:block; position:fixed; left:50%; top:1%;
-  width:min(46vw,210px); aspect-ratio:1;
-  /* **Half the width, negated — not min() of two negatives.** min(-23vw,-105px)
-     takes whichever is *smaller*, which for negatives is the larger offset, so
-     on anything wider than 456px it shoved the mark a long way left of centre.
-     One expression derived from the width cannot disagree with it. */
-  margin-left:calc(min(46vw,210px) / -2);
-  z-index:0; pointer-events:none; opacity:0;
-  filter:drop-shadow(0 0 26px rgba(224,27,36,.6));
-  animation-name:spidey-signal; animation-duration:97s;
-  animation-timing-function:ease-in-out; animation-iteration-count:infinite;
+   **Above the webs, below everything you are using.** The webs sit at 0 and
+   the buddy and the readout at 2, so 1 is the one place a spider can be in
+   front of the web it is walking on and still behind the clock and the
+   buddy. It was at 0 and disappeared behind its own web. */
+.spiders{ display:none }
+body[data-light="spiderman"] .spiders{
+  display:block; position:fixed; inset:var(--winbar) 0 0 0;
+  z-index:1; pointer-events:none; overflow:hidden;
 }
-@keyframes spidey-signal{
-  0%, 1%   { opacity:0; transform:scale(.92) }
-  3%       { opacity:.62; transform:scale(1) }
-  5%       { opacity:.5 }
-  7%       { opacity:0; transform:scale(1.03) }
-  9%       { opacity:0; transform:scale(.94) }
-  11%      { opacity:.52; transform:scale(1) }
-  14%      { opacity:0; transform:scale(1.03) }
-  100%     { opacity:0; transform:scale(.92) }
+.spider{ position:absolute; top:0; left:0; will-change:transform }
+/* **Clipped, because the drawing is a strip of frames.** Eight poses sit side
+   by side in one 60-wide window and the strip slides under it a frame at a
+   time. overflow:visible here would show all eight at once. */
+.sp-body{ display:block; overflow:hidden }
+.sp-fill{ fill:var(--ink) }
+/* **A thin light halo, so one ink works on both.** The fill is near-black now,
+   which is what it takes to be seen crossing a corner web -- the one pale
+   thing on the screen. Near-black on the dark room is the opposite problem,
+   and the answer is not a second colour: it is a hair of light around the
+   silhouette, which does nothing where the background is already pale and
+   lifts it off where it is not. */
+.spider svg{ filter:drop-shadow(0 0 1px rgba(255,255,255,.3)) }
+.sp-leg{
+  fill:none; stroke:var(--ink); stroke-width:2.3;
+  stroke-linecap:round; stroke-linejoin:round;
 }
-body.away .spidey-signal{ animation-play-state:paused }
+
+/* **A walk cycle, not a wobble.** The legs are not animated: each frame is a
+   pose with its feet already in the right places, and the only moving part is
+   which frame is showing. `steps()` holds each one and cuts to the next,
+   which is what makes a foot look planted -- it does not drift during the
+   frame it is down for. Nothing here moves "a bit": it is drawn, held, and
+   replaced, the way the reference sheets are.
+
+   Only the ones going somewhere walk. A spider hanging on a thread is still,
+   and eight legs cycling under a motionless body is what made a screenful of
+   them feel busy. */
+.sp-wall .sp-strip, .sp-web .sp-strip, .sp-diag .sp-strip, .sp-back .sp-strip{
+  animation:sp-cycle .38s steps(8) infinite;
+}
+@keyframes sp-cycle{
+  from{ transform:translateX(0) }
+  to  { transform:translateX(-480px) }
+}
+
+/* ---- coming down off the web ----
+
+   **The thread starts at the top and the spider never lets go of it.**
+
+   The hang is a *constant*, not a share of the drop, and that is the whole
+   repair. Both of these run on the same clock, so at any moment the thread is
+   as long as the spider is far down -- plus the fixed few pixels that reach
+   past the top of the drawing into the body. Adding the hang into the end
+   value instead meant the thread was short by half of it halfway down: it
+   only met the spider at the very bottom of the fall, which is exactly when
+   it looked attached and exactly why it looked detached the rest of the time.
+
+   The stops at 8% and 93% are the other half. The spider used to start and
+   finish at translateY(0) -- parked at the top of the layer, fully visible,
+   holding a thread of nothing -- and the finish is a resting state that sits
+   there until the element is removed. It comes in from above the edge and
+   leaves the same way. */
+.sp-drop{
+  top:0; transform-origin:50% 0;
+  animation:sp-sway 8.5s ease-in-out infinite;
+}
+@keyframes sp-sway{
+  0%,100%{ transform:rotate(-2.2deg) }
+  50%    { transform:rotate(2.2deg) }
+}
+.sp-thread{
+  --sp-hang:9px;
+  position:absolute; top:0; left:50%; width:1px; height:0;
+  background:linear-gradient(to bottom,
+    rgba(255,255,255,.30) 0%, rgba(255,255,255,.34) 100%);
+  animation:sp-spin 38s cubic-bezier(.33,.1,.5,1) forwards;
+}
+.sp-drop .sp-body{ animation:sp-fall 38s cubic-bezier(.33,.1,.5,1) forwards }
+/* **Parked on the rest pose.** A hanging one does not walk, so it must not be
+   wearing frame 0 of a walk: that is four legs in the air for no reason. The
+   ninth frame is every foot at home, which for the `hang` shape is the
+   hanging posture itself. */
+.sp-drop .sp-strip{ transform:translateX(-480px) }
+@keyframes sp-fall{
+  0%   { transform:translateY(-12vh) }
+  8%   { transform:translateY(0) }
+  15%  { transform:translateY(var(--sp-drop, 30vh)) }
+  20%  { transform:translateY(calc(var(--sp-drop, 30vh) - 1.4vh)) }
+  26%  { transform:translateY(var(--sp-drop, 30vh)) }
+  58%  { transform:translateY(var(--sp-drop, 30vh)) }
+  93%  { transform:translateY(0) }
+  100% { transform:translateY(-12vh) }
+}
+@keyframes sp-spin{
+  0%   { height:0 }
+  8%   { height:var(--sp-hang) }
+  15%  { height:calc(var(--sp-drop, 30vh) + var(--sp-hang)) }
+  20%  { height:calc(var(--sp-drop, 30vh) - 1.4vh + var(--sp-hang)) }
+  26%  { height:calc(var(--sp-drop, 30vh) + var(--sp-hang)) }
+  58%  { height:calc(var(--sp-drop, 30vh) + var(--sp-hang)) }
+  93%  { height:var(--sp-hang) }
+  100% { height:0 }
+}
+
+/* ---- on the web itself ----
+   In from off the corner, a while spent on it, and back out the way it came.
+   One set of keyframes for both corners: the offsets are set per spider and
+   the right-hand one is pinned to the right edge, so its numbers carry the
+   opposite sign. */
+.sp-web{ top:0; left:0; animation:sp-onweb var(--sp-dur, 30s) ease-in-out forwards }
+.sp-web.sp-right{ left:auto; right:0 }
+/* Along the spoke it was given, not at a fixed angle that happened to look
+   right for one of them. See SPIDER_SPOKES in 39a-spiders.js. */
+.sp-web .sp-body{ transform:rotate(var(--sp-turn, 135deg)) }
+@keyframes sp-onweb{
+  0%   { transform:translate(var(--sp-x0, -44px), var(--sp-y0, -44px)) }
+  20%  { transform:translate(var(--sp-x1, 70px), var(--sp-y1, 70px)) }
+  66%  { transform:translate(var(--sp-x1, 70px), var(--sp-y1, 70px)) }
+  100% { transform:translate(var(--sp-x0, -44px), var(--sp-y0, -44px)) }
+}
+
+/* **Standing still.** Parked one frame past the cycle, which is the pose
+   with every foot at home -- there is no frame of a walk where a spider is
+   standing, because an alternating tetrapod always has four legs up. */
+/* **Stopped means stopped.** This parked the legs and left the body sliding,
+   which is a spider being carried along on an invisible tray -- worse than
+   never stopping, because the walk cycle had at least been selling it. The
+   journey runs on the container for everything except a hanging one, where it
+   runs on the body, so both are paused; the thread goes with it or the line
+   keeps paying out past a spider that is not descending. */
+.sp-still{ animation-play-state:paused }
+.sp-still .sp-body, .sp-still .sp-thread{ animation-play-state:paused }
+.sp-still .sp-strip{ animation:none; transform:translateX(-480px) }
+
+/* ---- the back wall ----
+   A surface like any other, so one on it is walking rather than floating.
+   Up and down a column: tracking sideways across the middle of the screen
+   read as a sticker being dragged, not as a spider. */
+/* **Five points, four legs, a turn at each.** One keyframes rule for every
+   one of them, with the points and the headings handed in as variables --
+   a rule per spider would mean writing stylesheets at runtime, and the only
+   thing that actually differs is where it goes. The short holds either side
+   of a waypoint are the turn: it arrives, stops, faces the new way, and goes
+   on, which is what stops the corners being a skid. */
+.sp-back{ top:0; left:0; animation:sp-wander var(--sp-dur, 60s) linear forwards }
+@keyframes sp-wander{
+  0%   { transform:translate(var(--sp-p0x,0),var(--sp-p0y,0)) rotate(var(--sp-r1,0deg)) }
+  3%   { transform:translate(var(--sp-p0x,0),var(--sp-p0y,0)) rotate(var(--sp-r1,0deg)) }
+  26%  { transform:translate(var(--sp-p1x,0),var(--sp-p1y,0)) rotate(var(--sp-r1,0deg)) }
+  29%  { transform:translate(var(--sp-p1x,0),var(--sp-p1y,0)) rotate(var(--sp-r2,0deg)) }
+  51%  { transform:translate(var(--sp-p2x,0),var(--sp-p2y,0)) rotate(var(--sp-r2,0deg)) }
+  54%  { transform:translate(var(--sp-p2x,0),var(--sp-p2y,0)) rotate(var(--sp-r3,0deg)) }
+  76%  { transform:translate(var(--sp-p3x,0),var(--sp-p3y,0)) rotate(var(--sp-r3,0deg)) }
+  79%  { transform:translate(var(--sp-p3x,0),var(--sp-p3y,0)) rotate(var(--sp-r4,0deg)) }
+  100% { transform:translate(var(--sp-p4x,0),var(--sp-p4y,0)) rotate(var(--sp-r4,0deg)) }
+}
+
+/* **Across the room at an angle, turned to face the way it is going.**
+   Straight across was taken out because sideways through open space reads as
+   a sticker being dragged; the sideways was the problem, not the crossing. */
+.sp-diag{ top:0; left:0; animation:sp-diag var(--sp-dur, 40s) linear forwards }
+.sp-diag .sp-body{ transform:rotate(var(--sp-turn, 135deg)) }
+@keyframes sp-diag{
+  0%   { transform:translate(var(--sp-x0,0),var(--sp-y0,0)) }
+  100% { transform:translate(var(--sp-x1,0),var(--sp-y1,0)) }
+}
+
+
+/* ---- walking an edge ----
+   Facing the way it is walking: forward is up the drawing, so going down is a
+   half turn and going up is none. And on the screen -- at left:-6px most of a
+   30px spider was outside the window and what showed was a row of leg tips. */
+/* **Mirrored, not turned.** The side-on drawing keeps its feet against the
+   left edge of its own box, so turning it to walk down would swing the feet
+   off the wall and into the room. Flipping it keeps them on the brickwork
+   and points the body the other way, which is what actually happens. */
+.sp-wall{ left:1px; animation:sp-walkdown var(--sp-dur, 60s) linear forwards }
+.sp-wall .sp-body{ transform:scaleY(-1) }
+.sp-wall.sp-right{ left:auto; right:1px }
+.sp-wall.sp-right .sp-body{ transform:scale(-1, -1) }
+.sp-far{ opacity:.58 }
+@keyframes sp-walkdown{
+  0%   { transform:translateY(-12vh) }
+  100% { transform:translateY(112vh) }
+}
+.sp-wall.sp-up{ animation-name:sp-walkup }
+.sp-wall.sp-up .sp-body{ transform:none }
+.sp-wall.sp-up.sp-right .sp-body{ transform:scaleX(-1) }
+@keyframes sp-walkup{
+  0%   { transform:translateY(112vh) }
+  100% { transform:translateY(-12vh) }
+}
+
+/* Everything stops with the window, like the webs. */
+body.away .spider, body.away .sp-strip, body.away .sp-thread{
+  animation-play-state:paused;
+}
+@media (prefers-reduced-motion:reduce){ .spiders{ display:none } }
 
 /* ---- the corner webs ----
    Fixed to the corners of the window, not to the stage, so they frame the room
@@ -110,16 +264,30 @@ body[data-light="spiderman"] .corner-web{
    written this way the smoke test can actually see it. */
 body[data-light="spiderman"] .corner-web-l{
   left:0;
-  animation-name:web-breathe; animation-duration:9.5s;
+  animation-name:web-breathe; animation-duration:21s;
   animation-timing-function:ease-in-out; animation-iteration-count:infinite;
 }
 body[data-light="spiderman"] .corner-web-r{
   right:0; transform:scaleX(-1);
-  animation-name:web-breathe; animation-duration:13.7s; animation-delay:-4.2s;
+  animation-name:web-breathe; animation-duration:29.3s; animation-delay:-9.4s;
   animation-timing-function:ease-in-out; animation-iteration-count:infinite;
 }
+/* **Hiding and revealing, and never quite gone.** The old swing was .26
+   to .9, which at this size reads as the web being lit slightly more and
+   slightly less -- a change you notice only if you are watching for it.
+   This one goes down to a tenth, which is far enough to look like the
+   corner is emptying, and back to full.
+
+   The floor is .1 rather than 0 on purpose: at zero the web *disappears*
+   and then a shape fades in out of nothing, which is a thing arriving
+   rather than a thing that was always there. A tenth keeps the drawing
+   faintly on the wall the whole time.
+
+   Twice as slow again, because a big swing at the old speed is a pulse.
+   Twenty-one and twenty-nine seconds do not divide into each other, so
+   the two corners drift apart and never breathe together. */
 @keyframes web-breathe{
-  0%{ opacity:.26 } 34%{ opacity:.9 } 57%{ opacity:.4 } 78%{ opacity:.72 } 100%{ opacity:.26 }
+  0%{ opacity:.1 } 31%{ opacity:1 } 54%{ opacity:.16 } 76%{ opacity:.82 } 100%{ opacity:.1 }
 }
 body.away .corner-web{ animation-play-state:paused }
 /* **The webs take whichever colour the ring is not.** The dial turns over
@@ -160,27 +328,12 @@ body.away .dial-web-spokes, body.away .dial-web-rings{ animation-play-state:paus
    of the dial with anything. The colour is set by the swap above. */
 .dial-web-spokes{ stroke-width:.9; opacity:.42 }
 .dial-web-rings{ stroke-width:1.1; opacity:.42 }
-/* **The mask is gone.** The face, the webbing struck across it and the eyes
-   were all one group drawn at the centre of the dial, which is where the time
-   is. It is kept in the markup rather than cut out of it: the drawing is sound
-   and somebody may want it somewhere that is not underneath a countdown. */
-/* The group kept its name when it moved out of the dial; what it is now is
-   the signal's drawing. Full strength, because a signal that is faint is a
-   signal nobody is sending. */
-.spidey-signal .dial-web-mask{ opacity:1 }
-.dw-mask-face{ fill:var(--accent); stroke:none }
-/* Webbing *on* the mask, struck from the same centre and the same twelve spokes
-   as the web outside it, so the two line up exactly at the rim. Drawn in the
-   ground colour — black on red, creases in the fabric rather than a third
-   colour brought in for the sake of it. */
-.dw-mask-web-spokes,
-.dw-mask-web-rings{ fill:none; stroke:var(--bg); stroke-linejoin:round; opacity:.85 }
-.dw-mask-web-spokes{ stroke-width:2 }
-.dw-mask-web-rings{ stroke-width:2.2 }
-/* The eyes are the whole symbol: dark, with a white rim so they hold their
-   shape against the red at any size. Lifted slightly and scaled to the disc. */
-.dw-mask-eyes{ transform:translate(120px,116px) scale(.82) translate(-120px,-116px) }
-.dw-mask-eye{ fill:var(--bg); stroke:#fff; stroke-width:3.2; stroke-linejoin:round }
+/* The masked face that used to sit under the digits has gone entirely. It
+   was moved out to a signal that flashed up twice a minute and a half, and
+   that was asked for and then asked to stop. So the drawing and the rules
+   that dressed it (.dw-mask-*) are both out, rather than left here styling
+   markup that no longer exists. The dial keeps its own webbing above; the
+   corners keep theirs below. */
 .dial{
   position:relative; width:min(78vw,300px); aspect-ratio:1;
   display:grid; place-items:center;
@@ -260,20 +413,22 @@ body.away .dial-web-spokes, body.away .dial-web-rings{ animation-play-state:paus
 }
 
 .controls{display:flex; align-items:center; gap:14px; width:100%; margin-top:4px}
+/* Eighteen pixels on a sixty-pixel button is a lozenge, and these three sit
+   together so the roundest of them set the tone for the row. */
 .primary{
-  flex:1; height:60px; border-radius:18px; border:none; cursor:pointer;
+  flex:1; height:60px; border-radius:14px; border:none; cursor:pointer;
   background:var(--accent); color:#07121a; font-family:inherit; font-size:16px; font-weight:600;
   letter-spacing:.02em; transition:transform .1s ease, filter .18s ease, background 1.1s ease;
   display:flex; align-items:center; justify-content:center; gap:9px;
 }
 .primary:active{transform:scale(.97)}
-.primary.ghost{background:transparent; border:1px solid var(--line); color:var(--text)}
+.primary.ghost{ background:var(--card); border:0; box-shadow:var(--lift); color:var(--text) }
 .icon-btn{
-  width:60px; height:60px; flex:0 0 auto; border-radius:18px; cursor:pointer;
-  border:1px solid var(--line); background:var(--card); color:var(--text);
+  width:60px; height:60px; flex:0 0 auto; border-radius:14px; cursor:pointer;
+  border:0; box-shadow:var(--lift); background:var(--card); color:var(--text);
   display:grid; place-items:center; transition:background .18s ease, transform .1s ease;
 }
-.icon-btn:hover{background:rgba(255,255,255,.06)}
+.icon-btn:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .icon-btn:active{transform:scale(.94)}
 .icon-btn svg{width:22px; height:22px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round}
 

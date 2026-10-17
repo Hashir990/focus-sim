@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shield.
+
+     Read top to bottom it is: what you opened, how long you have to sit with it,
+     the question you set for yourself, what you were in the middle of, what today
+     has looked like so far — and only then the ways out. The choices are
+     `invisible` rather than `gone` so nothing above them moves when they appear:
+     a layout that jumps at the end of a countdown gets tapped by accident.
+
+     The parts that only some rules use (the small task, the quick look, your own
+     tasks as something to do instead) start `gone` and are shown from
+     ShieldActivity. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/guard_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingLeft="28dp"
+        android:paddingRight="28dp"
+        android:paddingTop="40dp"
+        android:paddingBottom="40dp">
+
+        <FrameLayout
+            android:layout_width="168dp"
+            android:layout_height="168dp">
+
+            <app.focussimulator.guard.RingView
+                android:id="@+id/guard_ring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <ImageView
+                android:id="@+id/guard_icon"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null" />
+
+            <!-- The seconds, under the icon rather than over it: the number is
+                 there so the wait reads as a wait and not as a hang, and it does
+                 not need to be the loudest thing on the screen. -->
+            <TextView
+                android:id="@+id/guard_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal|bottom"
+                android:layout_marginBottom="14dp"
+                android:textColor="@color/guard_accent"
+                android:textSize="15sp"
+                android:letterSpacing="0.08" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/guard_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:textColor="@color/guard_text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!-- The question you set for this rule, or the default. Accented, because
+             it is the one line on this screen you wrote for yourself. -->
+        <TextView
+            android:id="@+id/guard_prompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/guard_breathe"
+            android:textColor="@color/guard_accent"
+            android:textSize="17sp" />
+
+        <TextView
+            android:id="@+id/guard_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.25"
+            android:textColor="@color/guard_muted"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/guard_today"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="@color/guard_muted"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/guard_choices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="30dp"
+            android:orientation="vertical"
+            android:visibility="invisible">
+
+            <!-- Why there is no way through, when there is not. -->
+            <TextView
+                android:id="@+id/guard_blocked"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.2"
+                android:textColor="@color/guard_text"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/guard_gate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/guard_gate_ask"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center"
+                    android:textColor="@color/guard_text"
+                    android:textSize="15sp" />
+
+                <EditText
+                    android:id="@+id/guard_gate_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/guard_field"
+                    android:gravity="center"
+                    android:importantForAutofill="no"
+                    android:textColor="@color/guard_text"
+                    android:textColorHint="@color/guard_muted"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- Closing is the primary button and it is the accented one. The ways
+                 past are quieter rows underneath it: still there, still one tap,
+                 and not the thing your thumb lands on by default. -->
+            <Button
+                android:id="@+id/guard_close"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@drawable/guard_btn"
+                android:text="@string/guard_close"
+                android:textAllCaps="false"
+                android:textColor="@color/guard_ink"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/guard_open_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:gravity="center"
+                android:text="@string/guard_open_for"
+                android:textColor="@color/guard_muted"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:id="@+id/guard_opens"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal" />
+
+            <Button
+                android:id="@+id/guard_quick"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/guard_btn_ghost"
+                android:textAllCaps="false"
+                android:textColor="@color/guard_muted"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/guard_instead"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center"
+                    android:text="@string/guard_instead"
+                    android:textColor="@color/guard_muted"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

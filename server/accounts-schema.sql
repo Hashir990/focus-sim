@@ -1,4 +1,4 @@
--- Focus Simulator accounts. Three tables.
+-- focUS simulator accounts. Three tables.
 --
 --   accounts  one per person: email and username both unique, password hashed
 --   vaults    one row per account, the whole merged snapshot as JSON

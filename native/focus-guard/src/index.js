@@ -1,6 +1,6 @@
 /* The JS half of the plugin, and the app does not use it.
 
-   Focus Simulator has no bundler and no module system — everything is one
+   focUS simulator has no bundler and no module system — everything is one
    concatenated IIFE (see HANDOFF §2) — so it reaches the plugin the same way it
    reaches every other Capacitor plugin: `window.Capacitor.Plugins.FocusGuard`,
    which the native bridge populates on its own. See src/js/50-guard.js.

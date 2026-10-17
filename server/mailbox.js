@@ -1,5 +1,5 @@
 /**
- * Focus Simulator — the mailbox.
+ * focUS simulator — the mailbox.
  *
  * A Cloudflare Worker with one job: hold direct messages for somebody who isn't
  * online, until they are. Everything else in the app talks peer to peer and needs

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What the Accessibility list calls it. It is read by somebody who is
+         being asked to grant a frightening-sounding permission, so it names the
+         feature rather than the app. -->
+    <string name="guard_service_label">focUS simulator app blocking</string>
+
+    <!-- And the line underneath it in that same list. Android shows this
+         verbatim on the confirmation dialog, which is the only place the app
+         gets to explain itself before the switch is thrown — so it says exactly
+         what is read, and when. -->
+    <string name="guard_service_desc">Notices which app comes to the front, so focUS simulator can stand in front of the ones you chose. If you block websites, it reads your browser\'s address bar. If you lock blocking, it recognises the Settings screens that would turn it off. It stores only app and site names with times, and sends nothing anywhere.</string>
+
+    <string name="guard_admin_label">focUS simulator lock</string>
+    <string name="guard_admin_desc">Stops app blocking being uninstalled while its lock is on. It asks for no other powers.</string>
+
+    <string name="guard_breathe">Take a breath.</string>
+    <string name="guard_close">Close it</string>
+    <string name="guard_open_for">Or open it for</string>
+    <string name="guard_instead">Or do one of these instead</string>
+</resources>

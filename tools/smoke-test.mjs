@@ -482,6 +482,7 @@ function withDoor(src, code){
 }
 
 const { window, errors } = boot(withDoor(html, 'window.__m = {Cross, DCal, DAILY, pktNow, dailyGet, Tetris, Sudoku,'
+  + ' spiderSend, spiderSvg, SPIDER_INKS, SPIDER_STRIDE, SPIDER_SPOKES,'
   + ' crossOnDay, crossAtSize, crossRows, CROSS_GRIDS, crossReleases, crossLatestDay, smLineup,'
   + ' shelfTotal: () => EMB_LIGHTS.reduce((n, l) => n + l.cost, 0)'
   + '   + EMB_SOUNDS.reduce((n, x) => n + x.cost, 0) + FACES.reduce((n, f) => n + f.cost, 0)'
@@ -561,7 +562,7 @@ check('presets rendered', $('f-presets').children.length > 0);
 
 /* **No comment has leaked into the page.** One `<!--` lost its opening two
    characters during an edit and the whole note under it — several paragraphs
-   about Spider-Man's corner webs — rendered as body text on every screen. The
+   about the Spiders look's corner webs — rendered as body text on every screen. The
    giveaway is the closing `-->`, which is only ever text when no comment was
    open to be closed by it, so that is what is checked; the count of openers
    against closers catches the same thing in the file itself. */
@@ -2062,6 +2063,38 @@ check('written down, so they survive the app closing',
     check('and a palette, in every scope a look has to reach',
       short.length === 0,
       short.map((id) => id + ' misses ' + scopes(id).join(' ')).join(' | '));
+
+    /* **A track paints the room too, and by a different attribute.** Playing
+       one puts the light out and takes the colours over, through `data-amb`
+       rather than `data-light` — so a track added without its own block looks
+       exactly like one added with it until somebody plays it, and then the
+       weather changes and the interface stays whatever it was. */
+    const sm = html.match(/const EMB_SOUNDS = \[([\s\S]*?)\n {2}\];/);
+    const soundIds = [...sm[1].matchAll(/\{id:'([a-z]+)'/g)].map((m) => m[1]);
+    const ambScopes = (id) => ['body[data-amb="' + id + '"],', '#app[data-amb="' + id + '"],',
+      'body[data-amb="' + id + '"] #overlay,', 'body[data-amb="' + id + '"] #drawer{']
+      .filter((sel) => !css.includes(sel));
+    const quiet = soundIds.filter((id) => ambScopes(id).length);
+    check('and every track has one as well, under its own attribute',
+      soundIds.length >= 8 && quiet.length === 0,
+      quiet.map((id) => id + ' misses ' + ambScopes(id).join(' ')).join(' | ')
+        || soundIds.length + ' tracks');
+
+    /* **And a file behind it.** The audio is the one part of the app that is
+       not inlined: `dist/audio/` ships beside index.html, so a track can be on
+       the shelf, cost embers, paint the room and then play nothing at all.
+       Asked of the disk, because that is what gets packaged. */
+    const noFile = soundIds.filter((id) => !existsSync(join(root, 'dist', 'audio', id + '.mp3')));
+    check('and a recording on disk to play',
+      noFile.length === 0, noFile.join(' ') || soundIds.length + ' files');
+
+    /* Every one of them is also wired into the engine, which keeps its own
+       list: a shelf entry with no entry there is a tile that does nothing. */
+    const tm = html.match(/var AMB_TRACKS = \{([\s\S]*?)\n {2}\};/);
+    const wired = tm ? [...tm[1].matchAll(/([a-z]+):'audio\//g)].map((m) => m[1]) : [];
+    check('and is wired into the engine that plays it',
+      soundIds.every((id) => wired.includes(id)),
+      soundIds.filter((id) => !wired.includes(id)).join(' ') || wired.length + ' wired');
   }
   /* ---- quote packs ---------------------------------------------------------
 
@@ -2244,12 +2277,30 @@ check('written down, so they survive the app closing',
      worse app — and each brings its own weather. */
   await shopTab('sounds');
   const sounds = () => [...$('emb-box').querySelectorAll('[data-sound]')];
-  check('and the sounds are on their own shelf', sounds().length === 5, `${sounds().length}`);
+  /* Counted from the catalogue rather than written down: this said 5, and the
+     day three more arrived it said 5 about a shelf of eight. Same fix the
+     lights' count got for the same reason. */
+  const soundCount = (html.match(/const EMB_SOUNDS = \[([\s\S]*?)\n {2}\];/)[1]
+    .match(/\{id:'[a-z]+'/g) || []).length;
+  check('and the sounds are on their own shelf',
+    sounds().length === soundCount && soundCount >= 8,
+    `${sounds().length} tiles for ${soundCount} tracks`);
+  /* And every one of them is in the picker in the drawer, which is a different
+     list and used to be a third hand-written copy of this one. Spelled out
+     rather than using `ambBtn`, which is declared hundreds of lines below this
+     and is in its temporal dead zone here. */
+  const inPicker = (id) => [...$('amb-grid').children].some((b) => b.dataset.a === id);
+  check('and every one of them is in the picker as well',
+    sounds().every((b) => inPicker(b.dataset.sound)),
+    sounds().filter((b) => !inPicker(b.dataset.sound)).map((b) => b.dataset.sound).join(' '));
   check('every sound has a price on it now',
     sounds().filter((b) => /free/.test(b.textContent)).length === 0,
     sounds().map((b) => b.textContent).join(' | '));
+  /* Everything on the shelf that costs something, which is all of them: the
+     count comes from the catalogue, because this said 5 and would have gone on
+     saying 5 about eight tracks. */
   check('and all of them start locked',
-    [...$('amb-grid').querySelectorAll('.amb-btn.locked')].length === 5,
+    [...$('amb-grid').querySelectorAll('.amb-btn.locked')].length === soundCount,
     [...$('amb-grid').querySelectorAll('.amb-btn')].map((b) => b.dataset.a + (b.classList.contains('locked') ? '*' : '')).join(' '));
   check('and say what they cost there',
     /embers/.test($('amb-grid').querySelector('.amb-btn.locked').dataset.cost),
@@ -3505,7 +3556,14 @@ check('celebration fired', !!window.document.querySelector('canvas.confetti'));
 check('banner pop applied', $('sdk-banner').classList.contains('pop'));
 
 // --- ambience --------------------------------------------------------------
-check('ambience picker built', $('amb-grid').children.length === 6, `${$('amb-grid').children.length} options`);
+/* Off, and one for every track on the shelf. A written-down 6 is a number
+   that has to be edited every time a track is added, which is exactly how the
+   picker came to be a third hand-maintained copy of the catalogue in the first
+   place. */
+const ambWanted = 1 + (html.match(/const EMB_SOUNDS = \[([\s\S]*?)\n {2}\];/)[1]
+  .match(/\{id:'[a-z]+'/g) || []).length;
+check('ambience picker built', $('amb-grid').children.length === ambWanted,
+  `${$('amb-grid').children.length} of ${ambWanted} options`);
 const ambBtn = (a) => [...$('amb-grid').children].find((b) => b.dataset.a === a);
 check('volume hidden while off', $('amb-vol-row').classList.contains('hide'));
 
@@ -3542,14 +3600,23 @@ for (const id of ['cafe']) {
   if (!window.__media.plays.some((s) => s.indexOf(`audio/${id}.mp3`) !== -1)) ambProblems.push(`${id}: never played`);
 }
 check('an owned ambience loads and plays its track', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
-for (const id of ['rain', 'forest', 'office', 'campfire']) {
+/* Every track that is not free and not bought, taken from the catalogue rather
+   than listed here: this named four of them, and a fifth added later would
+   have been locked, untested, and nobody the wiser. */
+const lockedIds = [...(html.match(/const EMB_SOUNDS = \[([\s\S]*?)\n {2}\];/)[1])
+  .matchAll(/\{id:'([a-z]+)'[^}]*?cost:(\d+)/g)]
+  .filter((m) => +m[2] > 0 && m[1] !== 'cafe').map((m) => m[1]);
+for (const id of lockedIds) {
+  if (!ambBtn(id)) continue;
   ambBtn(id).click();
   await wait(40);
 }
 check('a locked track does not play itself', window.document.body.getAttribute('data-amb') === 'cafe',
   window.document.body.getAttribute('data-amb'));
 check('and is marked as locked in the picker',
-  ['rain', 'forest', 'office', 'campfire'].every((id) => ambBtn(id).classList.contains('locked')));
+  lockedIds.length >= 7 && lockedIds.every((id) => ambBtn(id) && ambBtn(id).classList.contains('locked')),
+  lockedIds.filter((id) => !ambBtn(id) || !ambBtn(id).classList.contains('locked')).join(' ')
+    || lockedIds.length + ' locked');
 /* Every effect a look or a track can ask for needs a rule to draw it. Office's
    `keys` had a spec in 38-vfx.js — sized, placed on a grid, timed — and no CSS
    at all, so it laid out two dozen invisible boxes and the keyboard never
@@ -3618,7 +3685,7 @@ check('every effect a look can choose has a rule to draw it', (() => {
      `.primary` is the button that starts and stops a session, and it is one
      rule for the whole shop: the accent as its background and a near-black
      label on top. That works because almost every accent here is a light
-     colour. Spider-Man's is not, and the word Pause on it was a shape rather
+     colour. The Spiders look's is not, and the word Pause on it was a shape rather
      than a word for as long as that look has existed.
 
      Rather than check the one that was wrong, this checks the thing that
@@ -3814,66 +3881,18 @@ check('every effect a look can choose has a rule to draw it', (() => {
   }
 }
 
-/* **The signal, and the three ways it came out wrong.**
+/* **The corner webs keep their own colour.**
 
-   Spider-Man's mask used to sit under the dial's digits, which is most of
-   what made that look like an illustration with a clock printed on it. It is
-   a good drawing, so rather than delete it it was moved: it now flashes up
-   high on the screen twice a minute and a half and goes, the way a signal is
-   flashed rather than left on.
+   The web round the dial trades colour with the ring, which is the point
+   of it; the two in the corners were doing it as well, and a red web on a
+   blue wall reads as a stain. They are white and they stay white, so what
+   is checked is that the swap does not reach them.
 
-   None of what follows is about whether it is pretty. Each one is a mistake
-   that was actually made moving it, each of which renders — a mark appears,
-   nothing throws, the console is clean — and each of which puts it somewhere
-   nobody would choose.
-
-   jsdom lays nothing out, so these are asked of the markup and the built CSS.
-   What it looks like is for tools/look-screens.mjs. */
+   jsdom lays nothing out, so this is asked of the built CSS. What it
+   looks like is for tools/look-screens.mjs. */
 {
   const doc = window.document;
-  const sig = doc.getElementById('spidey-signal');
-  /* One: left behind. If the group is still inside the dial as well, the old
-     plate is still under the digits and the move did nothing. */
-  check('the signal carries the drawing and the dial no longer does',
-    !!sig && !!sig.querySelector('.dial-web-mask')
-    && !doc.querySelector('.dial .dial-web-mask'),
-    sig ? (sig.querySelector('.dial-web-mask') ? 'moved' : 'empty signal')
-      + (doc.querySelector('.dial .dial-web-mask') ? ', and still in the dial' : '')
-      : 'no signal');
-
-  /* Two: a box far larger than what is in it. The drawing is a circle of
-     radius 52 about (120,120) and the viewBox it inherited was the dial's
-     full 240 — so better than three quarters of the element was empty, the
-     ink shrank to fit the rest, and a signal meant to be unmistakable came
-     out as a smudge a third of the size with a margin of nothing round it.
-     Checked as a ratio, because the numbers will move again and the rule is
-     that the box frames the drawing. */
-  const face = sig && sig.querySelector('.dw-mask-face');
-  const vb = (sig && sig.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
-  const r = face ? Number(face.getAttribute('r')) : 0;
-  const side = vb.length === 4 ? Math.max(vb[2], vb[3]) : 0;
-  check('and its box is cut to the drawing rather than to the dial it left',
-    r > 0 && side > 0 && side / (r * 2) <= 1.35
-    && vb[0] <= Number(face.getAttribute('cx')) - r
-    && vb[1] <= Number(face.getAttribute('cy')) - r,
-    vb.join(' ') + ' round r' + r + ' = ' + (side / (r * 2 || 1)).toFixed(2) + '×');
-
-  /* Three: centred by an expression that disagreed with its own width.
-     `margin-left:min(-23vw,-105px)` reads as "the smaller of the two", and
-     for negative numbers the smaller is the one further from zero — so on any
-     window wider than about 450px it pulled the mark a long way off to the
-     left of the screen rather than half its width. The fix is that there is
-     only one number: the offset is the width, negated. */
   const css3 = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('');
-  const head3 = 'body[data-light="spiderman"] .spidey-signal{';
-  const at3 = css3.indexOf(head3);
-  const rule3 = at3 < 0 ? '' : css3.slice(at3 + head3.length, css3.indexOf('}', at3));
-  const w3 = (rule3.match(/width:\s*(min\([^)]*\))/) || [])[1] || '';
-  const m3 = (rule3.match(/margin-left:\s*([^;]+)/) || [])[1] || '';
-  check('and it is centred off its own width, not a min() of two negatives',
-    !!w3 && m3.indexOf(w3) >= 0 && m3.indexOf('-2') > 0 && !/min\(\s*-/.test(m3),
-    'width ' + (w3 || '?') + ', offset ' + (m3.trim() || '?'));
-
   /* And the corners. The web round the dial trades colour with the ring,
      which is the point of it; the two in the corners were doing it as well,
      and a red web on a blue wall reads as a stain. They are white and they
@@ -3883,6 +3902,288 @@ check('every effect a look can choose has a rule to draw it', (() => {
     sel.indexOf('dial-web') >= 0 && sel.indexOf('corner-web') < 0
     && /\.corner-web-spokes[^{]*\{[^}]*stroke:#fff/.test(css3),
     sel.replace(/\s+/g, ' ').trim().slice(0, 90) || 'nothing swaps');
+}
+
+/* **The spiders.**
+
+   jsdom lays nothing out, so none of this is about what it looks like -- that
+   is tools/look-*.mjs and a pair of eyes. What can be asked here is when one
+   is sent, what it is made of, and, because the walk is now drawn rather than
+   tweened, whether the feet are actually planted. */
+{
+  const doc = window.document;
+  const host = doc.getElementById('spiders');
+  const wasLight = doc.body.getAttribute('data-light');
+  check('there is a layer for the spiders and it starts empty',
+    !!host && host.childElementCount === 0, host ? String(host.childElementCount) : 'no layer');
+
+  /* **In front of the webs, behind everything you are using.** It sat at 0
+     with the webs and vanished behind the one it was walking on; the buddy
+     and the readout are at 2, so 1 is the only place it can be. */
+  const cssS = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('');
+  const tight = cssS.replace(/\s+/g, '');
+  check('the layer sits above the webs and below the clock',
+    /\.spiders\{[^}]*z-index:1/.test(tight)
+    && /\.corner-web\{[^}]*z-index:0/.test(tight),
+    'spiders z1, webs z0');
+
+  /* One: under any other light, nothing. A spider wandering across the Beach
+     would be a bug nobody could place. */
+  doc.body.setAttribute('data-light', 'seaglass');
+  window.__m.spiderSend();
+  check('and none is sent under any other light', host.childElementCount === 0,
+    String(host.childElementCount));
+
+  doc.body.setAttribute('data-light', 'spiderman');
+  window.__m.spiderSend();
+  check('one turns up under Spiders', host.childElementCount === 1,
+    String(host.childElementCount));
+
+  /* Two: interspersed, not simultaneous. Let in on the same tick they are one
+     effect fired twice rather than two animals. */
+  window.__m.spiderSend();
+  window.__m.spiderSend();
+  check('another is refused while the last one is still arriving',
+    host.childElementCount === 1, String(host.childElementCount));
+
+  const age = () => [...host.children].forEach((c) => { c.dataset.at = '0'; });
+  /* **Ask for the kind you mean to look at.** Sixteen places and seven at a
+     time: whether any given kind is on screen is a roll, and a check that
+     turns on one is a check that goes red on a quiet Tuesday. This empties the
+     layer and keeps sending until the wanted kind appears, then hands it back.
+     Bounded, so a kind that can genuinely never appear still fails. */
+  const summon = (what) => {
+    for (let i = 0; i < 400; i++) {
+      const got = [...host.children].find((c) => c.dataset.spot.indexOf(what + '-') === 0);
+      if (got) return got;
+      age();
+      if (host.childElementCount >= 7) host.innerHTML = '';
+      window.__m.spiderSend();
+    }
+    return null;
+  };
+  age(); window.__m.spiderSend();
+  age(); window.__m.spiderSend();
+  check('three get on without having to be lucky',
+    host.childElementCount === 3, String(host.childElementCount));
+
+  /* Past three each has to win a roll that gets steeper, which is what keeps
+     the usual number around three while leaving eight possible. Odds, so the
+     window is wide: a check demanding exactly eight is a coin flip that goes
+     red for no reason. */
+  for (let i = 0; i < 600; i++) { age(); window.__m.spiderSend(); }
+  const many = host.childElementCount;
+  check('more than three is possible, and never more than seven',
+    many > 3 && many <= 7, String(many));
+
+  const spots = [...host.children].map((c) => c.dataset.spot);
+  check('each of them somewhere the others are not',
+    spots.every(Boolean) && new Set(spots).size === spots.length,
+    spots.join(' ') || 'no spots');
+  /* **Nothing walks across the room.** A spider tracking sideways through
+     open space, with or without a line under it, does not read as a spider.
+     Everything left moves up and down something. */
+  const kinds = new Set(spots.map((x) => String(x).split('-')[0]));
+  check('and doing more than one kind of thing', kinds.size >= 2,
+    [...kinds].join(' '));
+  check('and none of them walking horizontally',
+    !/translateX\(1\d\dvw\)/.test(tight) && !/\.sp-line/.test(tight),
+    spots.join(' '));
+
+  /* Everything from here on uses `summon`, which empties the layer and fills
+     it again, so nothing above can be read after this point.
+
+     **A spider on a web is on a strand of it.** "Outward from the corner at
+     some angle" is not: the web has eight spokes and the gaps between them are
+     most of it, so a random heading put the animal in a hole with its feet on
+     nothing. It takes a real spoke now, and faces along it -- the heading used
+     to be a fixed 135 degrees whatever direction it was actually going. */
+  {
+    const web = summon('web');
+    const num = (c, k) => parseFloat(c.style.getPropertyValue(k));
+    const spokes = window.__m.SPIDER_SPOKES || [];
+    let onSpoke = false, facing = false;
+    if (web) {
+      const x = Math.abs(num(web, '--sp-x1')), y = num(web, '--sp-y1');
+      /* Which spoke it is on, by direction rather than by length: the walk
+         stops part way out, so only the angle is comparable. */
+      onSpoke = spokes.some(([sx, sy]) =>
+        Math.abs(Math.atan2(y, x) - Math.atan2(sy, sx)) < 0.02);
+      const turn = parseFloat(web.style.getPropertyValue('--sp-turn'));
+      const want = Math.atan2(num(web, '--sp-y1'), num(web, '--sp-x1')) * 180 / Math.PI + 90;
+      facing = isFinite(turn) && Math.abs(turn - want) < 0.5;
+    }
+    check('one on a web walks a real strand of it', !!web && onSpoke,
+      web ? web.style.getPropertyValue('--sp-x1') + ',' + web.style.getPropertyValue('--sp-y1')
+          : 'none on a web');
+    check('and is turned to face along it', facing,
+      web ? web.style.getPropertyValue('--sp-turn') : 'none on a web');
+  }
+
+  /* **The back wall is wandered, not commuted.** Four fixed columns is four
+     rails. Five points, both ends off the screen, and a different heading for
+     each leg: if two legs share a heading it has not turned. */
+  {
+    const bg = summon('bg');
+    const got = (k) => bg ? bg.style.getPropertyValue(k) : '';
+    const turns = [1, 2, 3, 4].map((i) => got('--sp-r' + i));
+    check('one on the back wall takes a path with turns in it',
+      !!bg && turns.every(Boolean) && new Set(turns).size >= 3,
+      turns.join(' ') || 'no path');
+    check('and both ends of it are outside the window',
+      !!bg && [['--sp-p0x', '--sp-p0y'], ['--sp-p4x', '--sp-p4y']].every(([kx, ky]) => {
+        const x = parseFloat(got(kx)), y = parseFloat(got(ky));
+        return x < 0 || y < 0 || x > doc.defaultView.innerWidth || y > doc.defaultView.innerHeight;
+      }),
+      got('--sp-p0x') + ',' + got('--sp-p0y') + ' → ' + got('--sp-p4x') + ',' + got('--sp-p4y'));
+  }
+
+  const wide = [...host.children]
+    .map((c) => parseFloat(c.querySelector('svg').getAttribute('width')));
+  check('and no two of them need be the same size',
+    wide.length > 1 && new Set(wide).size > 1
+    && wide.every((w) => w >= 30 * 0.74 && w <= 30 * 1.26),
+    wide.map((w) => Math.round(w)).join(' '));
+
+  /* **Two of them are seen edge on, and those two have depth.** A wall one is
+     looked at along the wall; a hanging one is looked at from behind. Both put
+     four legs behind the body, which is the .sp-far group. The ones on a web or
+     crossing the room are plan views and have no far side.
+
+     The hanging one used to be a plan view too, and at this size a plan view is
+     eight legs of equal length at equal angles -- an asterisk, not an animal. */
+  const deep = (c) => /^(wall|drop)-/.test(c.dataset.spot);
+  const sideOk = [...host.children].every((c) => deep(c) === !!c.querySelector('.sp-far'));
+  check('the ones seen edge on have a far side, the plan views do not',
+    sideOk, [...host.children].map((c) => c.dataset.spot
+      + (c.querySelector('.sp-far') ? '+far' : '')).join(' '));
+
+  /* **A hanging one is never caught mid-stride.** It is not walking, so frame
+     0 of a walk -- four legs in the air -- is the wrong thing to hold. It is
+     parked on the ninth frame, which is every foot at home. */
+  check('and a hanging one stands on its rest pose rather than a walk frame',
+    /\.sp-drop\.sp-strip\{transform:translateX\(-480px\)\}/.test(tight),
+    'drop parked');
+
+  /* **The walk is frames, not a wobble.** Eight poses side by side in one
+     window, cut between with steps(). Nothing is tweened, so nothing can
+     drift during the frame it is held for. */
+  /* **Stopped has to mean the whole animal.** Parking the legs and leaving the
+     body travelling is a spider being carried along on a tray, which reads
+     worse than never stopping at all. The journey is on the container for
+     everything except a hanging one, where it is on the body. */
+  check('one that has stopped is not still being carried along',
+    /\.sp-still\{animation-play-state:paused\}/.test(tight)
+    && /\.sp-still\.sp-body,\.sp-still\.sp-thread\{animation-play-state:paused\}/.test(tight),
+    'journey and legs both paused');
+
+  const mover = [...host.children].find((c) => /^(wall|web|bg|diag)-/.test(c.dataset.spot));
+  const strip = mover && mover.querySelector('.sp-strip');
+  check('a walking one is drawn as frames, cut between',
+    !!strip && strip.children.length === 9
+    && /\.sp-strip,\.sp-back\.sp-strip\{animation:sp-cycle\.38ssteps\(8\)/.test(tight),
+    strip ? strip.children.length + ' frames' : 'no strip');
+
+  /* **A ninth frame, for standing still.** There is no frame of a walk
+     where a spider is standing: an alternating tetrapod always has four
+     legs in the air, so pausing the cycle leaves half of them raised. The
+     extra pose is every foot at home, and it sits past the eight so the
+     cycle never lands on it -- steps(8) over eight frames gives 0 to 7.
+     Stopping is then parking the strip one frame further on. */
+  const rest = strip.children[8];
+  const home = [...rest.querySelectorAll('.sp-leg')].map((l) => {
+    const d = l.getAttribute('d');
+    return d.slice(d.lastIndexOf(' ') + 1);
+  });
+  const walkFeet = [...strip.children[0].querySelectorAll('.sp-leg')].map((l) => {
+    const d = l.getAttribute('d');
+    return d.slice(d.lastIndexOf(' ') + 1);
+  });
+  check('with one more past the end of it for standing still',
+    home.length === 8 && home.join() !== walkFeet.join()
+    && /\.sp-still\.sp-strip\{animation:none;transform:translateX\(-480px\)\}/.test(tight),
+    'rest frame parked past the cycle');
+
+  /* **And the feet are planted.** This is the one that kept going wrong while
+     the legs were tweened: a foot has to move backwards across the ground by
+     exactly what the body moves forwards, and three attempts at tuning a
+     rotation never got there -- measured, they slid by a factor of nine.
+
+     Now it is arithmetic rather than tuning, so it can be checked outright.
+     Forward is up the drawing, a stride is 18 units a cycle, and stance is
+     the four frames a foot is down for -- so a planted foot moves exactly
+     18/4 units *down* the drawing between one frame and the next. Read off
+     the end point of the same leg's path in consecutive frames. */
+  const footY = (frame, legIndex) => {
+    const d = strip.children[frame].querySelectorAll('.sp-leg')[legIndex]
+      .getAttribute('d');
+    return parseFloat(d.slice(d.lastIndexOf(' ') + 1));
+  };
+  const steps = [1, 2, 3].map((f) => +(footY(f, 0) - footY(f - 1, 0)).toFixed(2));
+  check('and a planted foot moves exactly one quarter stride per frame',
+    steps.every((v) => Math.abs(v - 4.5) < 0.01), steps.join(', ') + ' (want 4.5)');
+
+  /* The other set is half a cycle out, which is what an alternating tetrapod
+     is: four feet down on opposite corners while the other four swing. If the
+     two sets ever move together it is a rowing boat. */
+  const setA = +(footY(1, 0) - footY(0, 0)).toFixed(2);
+  const setB = +(footY(1, 1) - footY(0, 1)).toFixed(2);
+  check('and the diagonal set is swinging while this one pushes',
+    setA > 0 && setB < 0, `set A ${setA}, set B ${setB}`);
+
+  /* **Nothing about it is red.** The reference art is a black widow and the
+     hourglass comes with it. The rule is "no red mark", not "as dark as
+     possible" -- an earlier version demanded every channel under 70, which is
+     also a description of a spider nobody can see on a dark wall. */
+  const inks = window.__m.SPIDER_INKS || [];
+  const dark = inks.length === 2 && inks.every((c) => {
+    const n = parseInt(String(c).slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return Math.max(r, g, b) < 150 && r - Math.max(g, b) < 45;
+  });
+  const painted = window.__m.spiderSvg('#07070a', 'top', 1);
+  check('and there is no red on it anywhere',
+    dark && !/fill="#/.test(painted) && !/stroke="#/.test(painted), inks.join(' '));
+
+  /* **A dropping one hangs from the top, and never lets go.** The hang is a
+     constant added to the thread, not a share of the drop: scaling it meant
+     the thread was short by half of it halfway down and only met the spider
+     at the bottom of the fall. */
+  let drop = null;
+  for (let i = 0; i < 80 && !drop; i++) {
+    host.innerHTML = '';
+    window.__m.spiderSend();
+    drop = host.querySelector('.sp-drop');
+  }
+  const where = drop ? parseFloat(drop.style.left) : -1;
+  check('one coming down hangs from the top, under a corner web',
+    !!drop && !!drop.querySelector('.sp-thread')
+    && /\.sp-drop\{top:0[;}]/.test(tight)
+    && ((where >= 5 && where <= 21) || (where >= 79 && where <= 95)),
+    drop ? (drop.getAttribute('style') || '').slice(0, 60) : 'never dropped');
+  check('and its thread is as long as the fall plus a fixed reach into the body',
+    /8%\{height:var\(--sp-hang\)\}/.test(tight)
+    && /15%\{height:calc\(var\(--sp-drop,30vh\)\+var\(--sp-hang\)\)\}/.test(tight),
+    'hang is a constant, not a share');
+
+  /* And it leaves the page once it is gone. The listener matches on the
+     animation's name: it used to ask whether the event came from the
+     container, which stopped being true when a hanging one moved its journey
+     onto its body, so those were never removed at all. */
+  const endOf = (el, name) => {
+    const ev = new window.Event('animationend', { bubbles: true });
+    ev.animationName = name;
+    el.dispatchEvent(ev);
+  };
+  endOf(drop, 'sp-cycle');
+  check('a finished walk cycle is not the end of the visit',
+    host.childElementCount === 1, String(host.childElementCount));
+  endOf(drop.querySelector('.sp-body') || drop, 'sp-fall');
+  check('and it is taken off the page once the journey ends',
+    host.childElementCount === 0, String(host.childElementCount));
+
+  host.innerHTML = '';
+  if (wasLight) doc.body.setAttribute('data-light', wasLight);
 }
 
 // the one look that lights the whole room rather than only the sky
@@ -5247,7 +5548,7 @@ if (nextDay) {
   probe((d) => { d.Sudoku.newGame('medium', true); d.Sudoku.grid = d.Sudoku.sol.slice(); d.Sudoku.checkDone(); });
   await wait(150);
   check('and the banner offers the archive once the day is spent',
-    /History/.test($d('sdk-again').textContent), $d('sdk-again').textContent);
+    /Calendar/.test($d('sdk-again').textContent), $d('sdk-again').textContent);
   $d('sdk-again').click();
   await wait(150);
   check('which is where it goes',
@@ -5742,7 +6043,7 @@ const ROOM_EMBERS = JSON.stringify({
 const roomHtml = withDoor(html, 'window.__r = {Account, SYNC, Chat, friendTake, friendCard,'
   + ' syncNormalise, syncCodeFor, syncAdoptAccount, friendFind, syncRender, syncLeave,'
   + ' Arcade, syncInGame, Buddy, MrWhite, MW_SETS, mwWords, mwOutcome, mwTopVote, Spymaster,'
-  + ' friendRemove};');
+  + ' friendRemove, blockHas, blockAdd, blockRemove, blockCount, blockListHtml};');
 const { window: host, errors: hostErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 const { window: guest, errors: guestErr } = boot(roomHtml, { focus_embers: ROOM_EMBERS });
 
@@ -5885,6 +6186,56 @@ check('host sees the guest by name', $h('sync-people').textContent.includes('Fri
 check('and the guest arrives with their buddy',
   !!$h('sync-people').querySelector('.sync-person .bud'),
   $h('sync-people').innerHTML.slice(0, 90));
+/* **A person in the room is a thing you can open.**
+
+   Their card already travelled with `hello` and friendSawCard already kept it
+   for everybody in the room, friend or not -- the numbers were sitting there
+   with nothing to show them. These check the way in, and that it does not eat
+   the controls next to it. */
+{
+  const rows = [...$h('sync-people').querySelectorAll('.sync-person')];
+  const theirs = rows.find((r) => (r.textContent || '').includes('Friend'));
+  const open = theirs && theirs.querySelector('[data-who]');
+  check('a person in the room is a way in, not a label',
+    !!open && open.tagName === 'BUTTON', open ? open.tagName : 'no button');
+  /* The controls stay outside it. A thumb going for "Give timer" that opens a
+     profile instead is worse than having no profile at all. */
+  check('and the controls beside them are not inside it',
+    !!theirs && !theirs.querySelector('[data-who] [data-lead]')
+    && !theirs.querySelector('[data-who] [data-kick]'),
+    theirs ? theirs.innerHTML.slice(0, 90) : 'no row');
+  open.click();
+  await wait(90);
+  check('opening one says who they are',
+    !$h('who').classList.contains('hide') && /Friend/.test($h('who-who').textContent),
+    $h('who-who').textContent || $h('who').className);
+  /* If this is the "not shared yet" line instead, the card never arrived and
+     the whole thing is a dialog with a name in it. */
+  check('and shows the numbers they arrived with',
+    !!$h('who-stats').querySelector('.stat-grid') && !!$h('who-stats').querySelector('.sbar'),
+    $h('who-stats').textContent.slice(0, 60));
+  check('and their buddy, with their name',
+    !!$h('who-bud').querySelector('svg') && /Friend/.test($h('who-who').textContent),
+    $h('who-bud').innerHTML.slice(0, 40));
+  $h('who-bud').click();
+  check('tapping the buddy sets him off', $h('who-bud').classList.contains('hop'),
+    $h('who-bud').className);
+  /* **Tapped again, and watched rather than asked.** The class is still on him
+     from the first tap, so `contains('hop')` is true whatever the second tap
+     does -- including nothing. What makes a repeat tap work is the remove, the
+     reflow and the re-add, so what is checked is that the class actually came
+     off and went back on. */
+  const mo = new host.MutationObserver(() => {});
+  mo.observe($h('who-bud'), { attributes: true, attributeFilter: ['class'] });
+  $h('who-bud').click();
+  const flicks = mo.takeRecords().length;
+  mo.disconnect();
+  check('and he can be set off again', flicks >= 2, `class changes: ${flicks}`);
+  $h('who-close').click();
+  await wait(60);
+  check('and it closes', $h('who').classList.contains('hide'));
+}
+
 /* The band on the timer screen is the only thing that knows other people are
    here, so it is the way in to seeing them. It used to be inert text. */
 check('the room band is a way in, not a label',
@@ -6542,12 +6893,16 @@ await wait(100);
      anybody did, so the numbers arrive with the answer and the page says how
      old they are rather than pretending to be live. */
   check('and brings their numbers with it',
-    !!now && now.card && typeof now.card.hrs === 'number' && !!now.card.g,
+    !!now && now.card && typeof now.card.hrs === 'number' && typeof now.card.tot === 'number',
     JSON.stringify(now && now.card));
   $g('sync-friends').querySelector('[data-who]').click();
   await wait(120);
   check('so the profile has something to show',
-    /focused/i.test($g('prof-body').textContent) && /sudoku/i.test($g('prof-body').textContent),
+    /* The arcade tallies are gone: a profile shows what the stats screen
+       shows, which is focus. So what is checked is the headline figure and
+       the fortnight of bars that replaced them. */
+    /focused/i.test($g('prof-body').textContent)
+    && !!$g('prof-body').querySelector('.sbar'),
     $g('prof-body').textContent.slice(0, 100));
   check('and says how fresh it is', /as of/i.test($g('prof-body').textContent),
     $g('prof-body').textContent.slice(0, 60));
@@ -7618,10 +7973,15 @@ check('the king is offered its castling square',
 sqOf($g, 'h1').click();
 await wait(300);
 check('tapping your own rook castles', /O-O/.test($g('ch-moves').textContent), $g('ch-moves').textContent);
-check('the king ends up on g1', sqOf($g, 'g1').querySelector('.ch-p').textContent === '♔',
-  sqOf($g, 'g1').textContent);
-check('and the rook beside it', sqOf($g, 'f1').querySelector('.ch-p').textContent === '♖',
-  sqOf($g, 'f1').textContent);
+/* Read rather than reached into: when the castle above did not go through,
+   these squares are empty, and asking an empty one for its piece's text is a
+   TypeError that ends the run twenty blocks early. */
+const pieceAt = (sq) => {
+  const el = sqOf($g, sq).querySelector('.ch-p');
+  return el ? el.textContent : '';
+};
+check('the king ends up on g1', pieceAt('g1') === '♔', sqOf($g, 'g1').textContent);
+check('and the rook beside it', pieceAt('f1') === '♖', sqOf($g, 'f1').textContent);
 check('the other board agrees', /O-O/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
 
 // put the room back the way the blocks after this one expect it
@@ -8168,7 +8528,24 @@ check('host is now following', $h('toggle-run').disabled === true, `disabled=${$
    everyone's half-finished game and their scores with it. */
 await openGame(guest, $g, 'hangman');
 await openGame(host, $h, 'hangman');
-await wait(250);
+/* **Polled, not paused.** A board belongs to the host, so after the room moves
+   every client's board is blank until the new host pushes it one -- the old
+   host most of all, which tore its own game state down when it stopped being
+   the room and renders "up for grabs" until the push lands. A `wait(250)` was
+   asserting into that gap: measured, the push arrives in well under a second,
+   but not inside 250ms on a loaded machine, and the three checks below then
+   reported a lost round, a lost setter and a reset score when nothing had been
+   lost at all. The traced handover keeps the word, the setter and every score.
+
+   This is the third fixed pause in this one block to do that -- see the
+   `[data-lead]` note and the room-name note above -- so the rule for anything
+   that crosses the wire here is to poll for the thing being asserted and let
+   the timeout be the failure. A poll cannot turn a real break green: if the
+   push never comes, it times out and the check still fails. */
+const pushed = await until(() =>
+  $g('hm-word').textContent.replace(/\s/g, '').includes('r')
+  && /guessing yours/i.test($h('hm-role').textContent), 6000);
+if (process.env.TRACE_HANDOVER) console.log('board push settled:', pushed);
 check('the round survives the change of host',
   $g('hm-word').textContent.replace(/\s/g, '').includes('r'), $g('hm-word').textContent);
 check('and so do the letters already spent',
@@ -8367,6 +8744,120 @@ check('it is on the remaining person’s code now',
 check('and they hold the timer', !$h('toggle-run').disabled, `disabled=${$h('toggle-run').disabled}`);
 await leaveRoom($h);
 await wait(200);
+
+/* ---- blocking somebody ----------------------------------------------------
+
+   Focus together is people, and anything with people in it needs a way to stop
+   one of them reaching you. There is no server in the middle to enforce it, so
+   it happens at the one point every stranger passes through: `hello`, where
+   their code arrives and before the room is told they exist.
+
+   **Why one of these reads the source instead of the room.** "They cannot come
+   back in" was written live three times and stayed green with the door taken
+   out every time: it waited less than a join takes; then it knocked on a
+   connection still tearing down; then, given a proper control, the run wedged
+   -- polling on 25ms timers while that window is retrying a join never comes
+   back, which is its own thing and is written down in HANDOFF 8b. A check that
+   passes with the code removed is testing nothing, so rather than keep a green
+   one that proves nothing, that single claim is asserted against the built
+   bundle, where it can at least fail. Everything else here is live and does
+   fail when the thing it is about is removed.
+
+   With the third window rather than a new one, and here rather than earlier:
+   everybody has just left the room above, so this starts from nothing. A fifth
+   copy of the app in one process is minutes of boot that buys nothing. */
+{
+  /* The door itself, read where it is written. It has to come before anything
+     is kept or said about them -- their card, the roster, the waiting list --
+     or a blocked person is already half in the room. */
+  /* The whole branch, not a fixed number of characters: the roster line this
+     is ordered against sits past any window short enough to be safe, and with
+     it outside the slice `indexOf` answers -1 and "before -1" is false. The
+     check then failed on the *good* build, which is the other way for one of
+     these to be worthless. */
+  const at = html.indexOf("if(m.t === 'hello'){");
+  const next = html.indexOf("if(m.t === '", at + 20);
+  const hello = html.slice(at, next > at ? next : at + 4000);
+  const door = hello.indexOf('blockHas(code)');
+  const card = hello.indexOf('friendSawCard');
+  const roster = hello.indexOf('SYNC.roster[conn.peer] =');
+  check('a blocked code is dropped at the greeting, before anything else',
+    door >= 0 && /conn\.close\(\)/.test(hello)
+    && card > door && roster > door,
+    `door ${door}, card ${card}, roster ${roster}`);
+}
+try {
+  const theirCode = $t('sync-mycode').textContent;
+  /* Friends both ways, so the door is not what is being tested: this is
+     somebody who is let in by every rule the app has, and is put out anyway. */
+  beFriends(host, third);
+  $h('sync-host').click();
+  await wait(200);
+  const code = $h('sync-mycode').textContent;
+  const inTheRoom = () => $h('sync-people').querySelectorAll('.sync-person').length > 1;
+
+  $t('sync-code').value = code;
+  $t('sync-join').click();
+  const gotIn = await until(inTheRoom, 'the third window in the room', 10000)
+    .then(() => true, () => false);
+  check('somebody you have not blocked gets into the room', gotIn,
+    `${$h('sync-people').querySelectorAll('.sync-person').length} in the room`);
+
+  /* Blocking does two things, and only one of them is the door: it also has to
+     put out somebody already sitting in the room, or the block appears to do
+     nothing until everybody leaves. */
+  host.__r.blockAdd(theirCode);
+  check('blocking writes them down by code, not by name',
+    host.__r.blockHas(theirCode) && host.__r.blockHas(theirCode.toLowerCase()),
+    theirCode);
+  const wentOut = await until(() => !inTheRoom(), 'them out of the room', 10000)
+    .then(() => true, () => false);
+  check('and takes them out of the room they are already in', wentOut,
+    `${$h('sync-people').querySelectorAll('.sync-person').length} in the room`);
+  /* **Dropped, not refused.** They are told nothing: a block that announces
+     itself invites the next attempt, and the whole value of this one is that it
+     looks like somebody whose app is shut. */
+  check('and are not told they were blocked',
+    !/block/i.test($t('sync-state').textContent + ' ' + $t('sync-status').textContent),
+    $t('sync-state').textContent);
+
+  /* Their friend requests go the same way, because a block they could talk
+     round is not one. A code nobody owns, and asked twice: the person above is
+     already a friend, and `friendTake` answers an ask from a friend on a path
+     that never reaches `SYNC.asks` at all, so using them proved nothing. */
+  const asks = () => Object.keys(host.__r.SYNC.asks || {}).length;
+  const askFrom = (c) => host.__r.friendTake({
+    text: '\u0001fr:ask:{"u":"nobody"}', fromCode: c });
+  const before = asks();
+  const openHandled = askFrom('ZZZZ22');
+  check('a stranger can ask to be friends',
+    openHandled === true && asks() === before + 1, before + ' → ' + asks());
+  host.__r.blockAdd('ZZZZ33');
+  const shut = asks();
+  const blockedHandled = askFrom('ZZZZ33');
+  check('a blocked person cannot ask to be friends either',
+    blockedHandled === true && asks() === shut, shut + ' → ' + asks());
+  host.__r.blockRemove('ZZZZ33');
+  delete host.__r.SYNC.asks[host.__r.syncNormalise('ZZZZ22')];
+
+  /* And a way back, because somebody blocked who is not a friend would
+     otherwise be out of reach of being unblocked for good. */
+  check('the blocked are listed, so one can be unblocked again',
+    /data-unblock/.test(host.__r.blockListHtml()),
+    host.__r.blockListHtml().slice(0, 120));
+  host.__r.blockRemove(theirCode);
+  check('and unblocking really takes them off the list',
+    !host.__r.blockHas(theirCode) && host.__r.blockCount() === 0,
+    String(host.__r.blockCount()));
+
+  await leaveRoom($h);
+  await wait(200);
+} catch (e) {
+  /* Anything at all in there is a failed check, never a silent stop: a throw in
+     this file's top-level chain goes to the unhandledRejection handler at the
+     bottom and takes the whole run down without printing a word. */
+  check('blocking somebody runs at all', false, String((e && e.message) || e));
+}
 
 /* ---- a build that knows where to check ------------------------------------
    The shipped build has no update host, and the block in Pass 1 checks that it
@@ -8952,7 +9443,7 @@ await wait(200);
   check('a missing permission is said out loud, not left to three grey ticks',
     /Nothing is being blocked yet/.test($g('block-body').textContent), $g('block-body').textContent.slice(0, 140));
   check('grayscale explains the one-time grant rather than offering a switch that cannot work',
-    /pm grant app\.focussimulator\.mobile android\.permission\.WRITE_SECURE_SETTINGS/.test($g('block-body').textContent),
+    /pm grant com\.uswork\.focussimulator android\.permission\.WRITE_SECURE_SETTINGS/.test($g('block-body').textContent),
     ($g('block-body').querySelector('.blk-code') || {}).textContent);
   const before = calls('setConfig').length;
   $g('blk-add').click();
@@ -9820,6 +10311,220 @@ await wait(200);
   }
 }
 
+/* ---- the level, and mending a streak --------------------------------------
+
+   Three things that share one idea: a number that only goes up and is never
+   spent. The level is hours of focus, it paces the shelf, and a day missing
+   out of a streak can be bought back. See 37a-level.js.
+
+   Its own windows, because every one of these depends on what the log says and
+   on there being no carried balance: the suite's main window is seeded with
+   six hundred embers out of nowhere, which `reconcile` reads as history from
+   before any of this was derivable and the level then reads back as a hundred
+   hours. That is correct, and it is useless for testing a gate. */
+{
+  const dayBack = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    const z = (x) => String(x).padStart(2, '0');
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+  };
+  /* A log with one finished block on each of the given days. `secs` is what
+     each is worth, which is what the level is counted from. */
+  const mkLog = (backs, secs) => backs.map((b, i) => ({
+    id: 'lvl' + i, day: dayBack(b), ts: Date.now() - b * 86400000, secs,
+  }));
+  const LDOOR = 'window.__L = {Embers, lvlNow, lvlOf, lvlSecs, lvlNeed, lvlLocked, lvlStreak,'
+    + ' lvlGlow, lvlFloor, mendGap, mendCost, mendHas, LVL_GATE,'
+    + ' shelf: () => EMB_LIGHTS.concat(EMB_SOUNDS).map(x => x.cost)'
+    + '   .concat(FACES.map(f => f.cost)).concat(QPACKS.map(q => q.cost))'
+    + '   .concat(BUD_ANIMS.map((a, i) => budCost(\'an\', i)))};';
+  const lvlBoot = (seed) => boot(withDoor(html, LDOOR), seed);
+
+  /* ---- a first week: three hours in, and the top of the shelf is shut ---- */
+  {
+    const { window: lw, errors: lErr } = lvlBoot({
+      focus_log: JSON.stringify(mkLog([0, 1, 2], 3600)),
+    });
+    await wait(600);
+    const L = lw.__L;
+    const $l = (id) => lw.document.getElementById(id);
+    $l('emb-chip').click();
+    await wait(150);
+    const box = $l('emb-box');
+
+    check('three hours of focus is level three, and the page says so',
+      L.lvlNow() === 3 && /Level 3/.test(box.querySelector('.lvl-head b').textContent)
+      && /to level 4/.test(box.querySelector('.lvl-head span').textContent),
+      L.lvlNow() + ' / ' + box.querySelector('.lvl-head').textContent);
+
+    /* **The whole point, stated as the thing a first day cannot do.** Every
+       light above the two cheapest is shut, and the dearest is a long way
+       above a level anybody can reach in a day. */
+    const tiles = () => [...box.querySelectorAll('[data-light]')];
+    const shut = tiles().filter((b) => b.classList.contains('lock'));
+    check('and the dear end of the shelf is shut on a first day',
+      shut.length >= 8 && shut.every((b) => /Level \d/.test(b.querySelector('em').textContent)),
+      shut.length + ' shut, e.g. ' + (shut[0] && shut[0].querySelector('em').textContent));
+
+    /* A locked tile says what it needs and does not take the embers, which is
+       a different refusal from "not enough" and has to read as one. */
+      const dear = tiles().find((b) => b.dataset.light === 'space');
+    dear.click();
+    await wait(120);
+    check('tapping one says which level opens it, and buys nothing',
+      /Level \d/.test($l('toast').textContent)
+      && box.dataset.own.indexOf('space') < 0
+      && lw.document.getElementById('confirm').classList.contains('hide'),
+      $l('toast').textContent + ' / ' + box.dataset.own);
+
+    /* **And it is never what stands between you and a thing you can afford.**
+       A price is hours: C embers is C ten-minute blocks. So for every single
+       thing in the shop, the level it asks for must be at or below the level
+       those same hours would already have reached -- otherwise saving up would
+       no longer be enough on its own, and the gate would have turned into a
+       second price. One line of arithmetic, asserted over the whole catalogue
+       rather than over an example. */
+    const over = L.shelf().filter((c) => c > 0
+      && L.lvlNeed(c) > L.lvlOf(c * 600));
+    check('and a level never asks for more than the hours that pay for the thing',
+      over.length === 0 && L.LVL_GATE < 1,
+      over.length ? 'first: ' + over[0] : L.shelf().length + ' prices, gate ' + L.LVL_GATE);
+
+    check('the ember brightens with a three-day run', $l('emb-chip').dataset.glow === '1',
+      $l('emb-chip').dataset.glow);
+    check('and nothing went wrong getting there', lErr.length === 0, lErr.slice(0, 2).join(' | '));
+  }
+
+  /* ---- nothing owned is ever taken back ---- */
+  {
+    const { window: ow } = lvlBoot({
+      focus_log: JSON.stringify(mkLog([0], 600)),
+      focus_embers: JSON.stringify({ have: 0, earned: 1, own: ['seaglass', 'space'], light: 'space' }),
+    });
+    await wait(600);
+    const $o = (id) => ow.document.getElementById(id);
+    $o('emb-chip').click();
+    await wait(150);
+    const tile = [...$o('emb-box').querySelectorAll('[data-light]')]
+      .find((b) => b.dataset.light === 'space');
+    /* Ten minutes of focus is level one and Deep space wants nine. It was
+       bought, so the gate is not asked: a thing that goes grey because a rule
+       arrived after the purchase is the shape of the bug the price rise was. */
+    check('a thing already yours stays yours whatever level says otherwise',
+      ow.__L.lvlNow() === 1 && tile.classList.contains('mine')
+      && !tile.classList.contains('lock')
+      && !/Level/.test(tile.querySelector('em').textContent)
+      && ow.document.body.dataset.light === 'space',
+      'L' + ow.__L.lvlNow() + ' ' + tile.className + ' ' + tile.querySelector('em').textContent);
+  }
+
+  /* ---- a hole in front of a streak, bought back ---- */
+  {
+    /* Focused today, nothing yesterday, and eight days before that: a one-day
+       hole with a run behind it worth keeping. */
+    const { window: mw, errors: mErr } = lvlBoot({
+      focus_log: JSON.stringify(mkLog([0, 2, 3, 4, 5, 6, 7, 8, 9], 3600)),
+      focus_embers: JSON.stringify({ have: 40, earned: 40, own: ['seaglass'], light: 'seaglass' }),
+    });
+    await wait(600);
+    const M = mw.__L;
+    const $m = (id) => mw.document.getElementById(id);
+    $m('d-stats').click();
+    await wait(200);
+    const streak = () => [...$m('stats-body').querySelectorAll('.stat-card')][2].textContent;
+    const was = { streak: streak(), have: +$m('emb-box').dataset.have,
+                  earned: +$m('emb-box').dataset.earned };
+    const gap = M.mendGap();
+    check('a day missing in front of a streak is offered back, at a price',
+      !!$m('stats-body').querySelector('#smend-go') && gap.days.length === 1
+      && gap.save === 8 && gap.cost === 5 && /1 day/.test($m('stats-body').querySelector('.smend').textContent),
+      JSON.stringify(gap));
+
+    $m('stats-body').querySelector('#smend-go').click();
+    await wait(120);
+    check('and it says what it is about to do before it does it',
+      /Mend your streak/.test($m('confirm-title').textContent)
+      && /Nothing is added to your hours/.test($m('confirm-body').textContent)
+      && /5/.test($m('confirm-yes').textContent),
+      $m('confirm-title').textContent + ' / ' + $m('confirm-yes').textContent);
+
+    $m('confirm-yes').click();
+    await wait(250);
+    const body = $m('stats-body');
+    check('the days join up, and the embers are gone',
+      /10/.test(streak()) && +$m('emb-box').dataset.have === was.have - 5
+      && M.lvlStreak() === 10,
+      was.streak + ' → ' + streak() + ', ' + was.have + ' → ' + $m('emb-box').dataset.have);
+
+    /* **A date, not an hour.** This is the thing that would make mending worth
+       farming: a bought day that also paid focus time would earn embers, and
+       the streak would start funding itself. `earned` is derived from the log
+       and the log never heard about it. */
+    check('but nothing was added to the hours, so there is nothing to farm',
+      +$m('emb-box').dataset.earned === was.earned
+      && /"secs":3600/.test(mw.localStorage.getItem('focus_log'))
+      && mw.localStorage.getItem('focus_log').split('"id"').length - 1 === 9,
+      $m('emb-box').dataset.earned + ' earned, '
+      + (mw.localStorage.getItem('focus_log').split('"id"').length - 1) + ' blocks');
+
+    /* **And the balance survives the derivation being re-run**, which is the
+       whole reason a mend is a thing you own rather than five embers taken off
+       a running total. `reconcile` is what the next sync does. */
+    const have = +$m('emb-box').dataset.have;
+    M.Embers.reconcile();
+    check('and the balance is still that after it is worked out again',
+      M.Embers.have === have && M.Embers.priceOf('mend-' + dayBack(1) + '-5') === 5
+      && M.mendHas(dayBack(1)),
+      have + ' → ' + M.Embers.have);
+
+    check('the mended day is drawn as itself, and the offer goes',
+      body.querySelectorAll('.sbar-fill.mend').length === 1
+      && !body.querySelector('.smend')
+      && /mended/.test([...body.querySelectorAll('.sbar')]
+          .map((b) => b.dataset.much).join(' ')),
+      body.querySelectorAll('.sbar-fill.mend').length + ' marked');
+
+    check('and the ember is brighter for the longer run', $m('emb-chip').dataset.glow === '3',
+      $m('emb-chip').dataset.glow);
+    check('and nothing went wrong mending it', mErr.length === 0, mErr.slice(0, 2).join(' | '));
+  }
+
+  /* ---- what is not for sale ---- */
+  {
+    const { window: nw } = lvlBoot({ focus_log: JSON.stringify(mkLog([0, 4, 5, 6, 7, 8], 3600)) });
+    await wait(600);
+    const $n = (id) => nw.document.getElementById(id);
+    $n('d-stats').click();
+    await wait(200);
+    /* Three days away is not a hole in a streak, it is having stopped. The
+       search gives up after two, which is what keeps a month off the shelf
+       without a second rule to say so. */
+    check('a hole bigger than a couple of days is not for sale',
+      nw.__L.mendGap() === null && !$n('stats-body').querySelector('.smend'),
+      String(nw.__L.mendGap()));
+    check('and an untouched ember means no run at all', $n('emb-chip').dataset.glow === '0',
+      $n('emb-chip').dataset.glow);
+  }
+  {
+    const { window: tw } = lvlBoot({ focus_log: JSON.stringify(mkLog([0, 2, 3], 3600)) });
+    await wait(600);
+    check('nor is a streak short enough that nobody would miss it',
+      tw.__L.mendGap() === null
+      && !tw.document.getElementById('stats-body').querySelector('.smend'),
+      String(tw.__L.mendGap()));
+
+    /* **Progressively dearer, which is the thing that was asked for.** Five
+       embers for every twenty days of streak being saved, so a fortnight is
+       cheap and a year is not. */
+    const M = tw.__L;
+    check('and the longer the streak, the more it costs to keep it',
+      M.mendCost(1) === 5 && M.mendCost(20) === 5 && M.mendCost(21) === 10
+      && M.mendCost(60) === 15 && M.mendCost(365) === 95,
+      [1, 20, 21, 60, 365].map((d) => d + 'd=' + M.mendCost(d)).join(' '));
+  }
+}
+
 /* ---- the terms, and the seven languages -----------------------------------
 
    Two features that meet in one place: the page shown before anything else on
@@ -9941,7 +10646,7 @@ await wait(200);
       && [...jw.document.querySelectorAll('.drawer-item b')].some((b) => b.textContent === 'みんなで集中'),
       $j('begin').textContent);
     check('the app’s own name is not translated',
-      jw.document.querySelector('.wordmark').textContent.replace(/\s+/g, ' ').trim() === 'Focus Simulator',
+      jw.document.querySelector('.wordmark').textContent.replace(/\s+/g, ' ').trim() === 'focUS simulator',
       jw.document.querySelector('.wordmark').textContent);
     check('and the date is written the way Japanese writes it',
       /月/.test($j('today-date').textContent), $j('today-date').textContent);

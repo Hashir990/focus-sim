@@ -2,6 +2,7 @@
   "name": "focus-simulator",
   "version": "1.5.1",
   "description": "A focus timer with a rest arcade, fading quotes, and a progress calendar.",
+  "author": "USwork",
   "private": true,
   "main": "electron/main.cjs",
   "type": "module",
@@ -34,27 +35,29 @@
     "tauri:build": "npm run build && tauri build",
     "setup:updates": "node tools/setup-updates.mjs",
     "publish:check": "node tools/publish-check.mjs",
+    "play:upload": "node tools/play-upload.mjs",
     "ship:release": "powershell -ExecutionPolicy Bypass -File tools/ship-release.ps1",
     "build:release": "node tools/build.mjs --release"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0",
+    "@capacitor/cli": "^8.5.3",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "jsdom": "^30.0.1",
     "wordnet-db": "^3.1.14"
   },
   "dependencies": {
-    "@capacitor/android": "^6.2.1",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/local-notifications": "^8.3.1",
     "electron-updater": "^6.3.9",
     "focus-guard": "file:native/focus-guard"
   },
   "build": {
     "appId": "app.focussimulator.desktop",
-    "productName": "Focus Simulator",
-    "artifactName": "Focus-Simulator-Setup-${version}.${ext}",
+    "productName": "focUS simulator",
+    "artifactName": "focUS-simulator-Setup-${version}.${ext}",
     "directories": {
       "output": "release"
     },

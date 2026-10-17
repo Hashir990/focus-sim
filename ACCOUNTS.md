@@ -259,7 +259,7 @@ domain, so this is the one feature that needs you to own one.
 ```
 # after adding the domain in Resend and its DNS records
 wrangler secret put RESEND_KEY --config server/wrangler-accounts.toml
-# and MAIL_FROM = "Focus Simulator <hello@yourdomain>" as a plain var
+# and MAIL_FROM = "focUS simulator <hello@yourdomain>" as a plain var
 ```
 
 Two things worth knowing about the design:

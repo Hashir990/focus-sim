@@ -19,16 +19,12 @@
         byDay[k].n++;
       }
 
-      // current streak: consecutive days ending today (or yesterday, if today is
-      // still empty — you shouldn't lose a streak just because it's morning)
-      const d = new Date();
-      let cursor = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      let streak = 0;
-      if(!byDay[dayKey(cursor.getTime())]) cursor.setDate(cursor.getDate()-1);
-      while(byDay[dayKey(cursor.getTime())]){
-        streak++;
-        cursor.setDate(cursor.getDate()-1);
-      }
+      /* Consecutive days ending today, or yesterday if today is still empty —
+         you shouldn't lose a streak just because it's morning. The walk itself
+         lives in `lvlStreak` (37a-level.js), because the top bar asks the same
+         question on every paint and a mended day has to count the same way for
+         both of them. `byDay` is handed over rather than rebuilt. */
+      const streak = lvlStreak(byDay);
 
       // best single day
       let bestDay = null, bestSecs = 0;
@@ -46,7 +42,8 @@
       for(let i=13;i>=0;i--){
         const dt = new Date(); dt.setDate(dt.getDate()-i);
         const k = dayKey(dt.getTime());
-        recent.push({key:k, label:String(dt.getDate()), secs:(byDay[k]||{}).secs||0});
+        recent.push({key:k, label:String(dt.getDate()), secs:(byDay[k]||{}).secs||0,
+                     mend:mendHas(k)});
       }
 
       // Time shared with other people. A session with two others counts fully
@@ -87,13 +84,19 @@
          at one can say what it is. `title` alone was no use on a phone, which
          is where most of these are read. */
       const bars = s.recent.map(r=>{
-        const h = r.secs ? Math.max(4, Math.round(r.secs/max*100)) : 0;
+        /* **A mended day is drawn, and drawn as itself.** It holds the streak
+           and it holds no hours, so it gets a stub of a bar in the accent
+           rather than a full one — a day bought back that looked like a day
+           worked would be the chart lying about the thing it is for. */
+        const h = r.secs ? Math.max(4, Math.round(r.secs/max*100)) : (r.mend ? 18 : 0);
         const when = new Date(r.key+'T00:00:00')
           .toLocaleDateString(langLocale(),{weekday:'short', month:'short', day:'numeric'});
-        const much = r.secs ? fmtDur(r.secs) : T('nothing');
+        const much = r.secs ? fmtDur(r.secs) : (r.mend ? T('mended') : T('nothing'));
         return '<button type="button" class="sbar" data-when="'+esc(when)+'" data-much="'+esc(much)+'"'
           + ' title="'+esc(when+' · '+much)+'">'
-          + '<div class="sbar-track"><div class="sbar-fill'+(r.secs?'':' empty')+'" style="height:'+h+'%"></div></div>'
+          + '<div class="sbar-track"><div class="sbar-fill'
+          + (r.secs ? '' : (r.mend ? ' mend' : ' empty'))
+          + '" style="height:'+h+'%"></div></div>'
           + '<span>'+esc(r.label)+'</span></button>';
       }).join('');
 
@@ -109,6 +112,10 @@
         + '<p class="q-sec">Last 14 days</p>'
         + '<div class="sbars">'+bars+'</div>'
         + '<p class="sbar-read" id="sbar-read">Tap a bar for that day</p>'
+        /* Under the bars on purpose: the gap it is about is visible in them,
+           so the button is next to the hole it fills rather than being a
+           sentence about a date. Empty almost always — see `mendGap`. */
+        + mendHtml()
         + '<div class="stat-lines">'
         + '<div><span>Best day</span><b>'+(s.bestDay?esc(s.bestDay)+' · '+fmtDur(s.bestSecs):', ')+'</b></div>'
         + '<div><span>Average day</span><b>'+fmtDur(s.perDay)+'</b></div>'
@@ -118,6 +125,7 @@
         + this._arcade();
 
       this._wireBars();
+      try{ mendWire(body); }catch(e){}
     },
 
     /* One line under the chart that says what you are pointing at. A tooltip

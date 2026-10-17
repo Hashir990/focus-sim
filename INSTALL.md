@@ -1,4 +1,4 @@
-# Putting Focus Simulator on someone else's computer
+# Putting focUS simulator on someone else's computer
 
 Three ways, easiest first. All of them include the ambience audio; none of them
 puts the developer bar in front of the person using it.
@@ -38,7 +38,7 @@ this site as an app**). It gets its own window and a Start-menu entry.
 
 ## 2. Build a real Windows installer
 
-This is what put "Focus Simulator" in your own Start menu. It produces a single
+This is what put "focUS simulator" in your own Start menu. It produces a single
 `.exe` you can hand over.
 
 On your machine, in the project folder:
@@ -49,7 +49,7 @@ npm run electron:pack
 ```
 
 The installer appears in **`release/`** — something like
-`Focus Simulator Setup 1.0.0.exe`. Copy that one file over and run it. Audio is
+`focUS simulator Setup 1.0.0.exe`. Copy that one file over and run it. Audio is
 bundled inside it (`asarUnpack` in package.json keeps the mp3s playable), so
 there is nothing else to copy.
 
@@ -149,7 +149,7 @@ second — rather than electron-builder failing at the end of a ten-minute build
 which is where it would otherwise tell you:
 
 ```
-Focus Simulator 1.0.1 — publish check
+focUS simulator 1.0.1 — publish check
 
   ok    publishing to github.com/you/focus-sim
   ✗     GH_TOKEN is not set in this terminal

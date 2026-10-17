@@ -585,7 +585,7 @@
     if(!Guard.status.gray){
       return h + '<p class="blk-note">Drains the colour out of blocked apps while you are in them. Android only lets'
         + ' an app do this after a one-time grant from a computer:</p>'
-        + '<code class="blk-code">adb shell pm grant app.focussimulator.mobile android.permission.WRITE_SECURE_SETTINGS</code>';
+        + '<code class="blk-code">adb shell pm grant com.uswork.focussimulator android.permission.WRITE_SECURE_SETTINGS</code>';
     }
     const on = !!guardWorking().gray;
     return h + '<button class="blk-switch' + (on ? ' on' : '') + '" id="blk-gray">'

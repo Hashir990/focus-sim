@@ -12,7 +12,7 @@
      here — including the names of the sets, because "Household" is a label on
      a button and not one of the words being played.
 
-     The game's name is a name and is left alone, the way Focus Simulator is.
+     The game's name is a name and is left alone, the way focUS simulator is.
      "Mr White" is what the room will call it out loud in any language. */
 
   i18nAdd({

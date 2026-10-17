@@ -1,6 +1,6 @@
 {
-  "appId": "app.focussimulator.mobile",
-  "appName": "Focus Simulator",
+  "appId": "com.uswork.focussimulator",
+  "appName": "focUS simulator",
   "webDir": "dist",
   "backgroundColor": "#0b1220",
   "android": {

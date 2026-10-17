@@ -363,6 +363,12 @@ BANNED |= set("""
 midget
 """.split())
 
+# 2026-10-14: `sex` surfaced in a seven built this run; too crude/risky for a
+# study-app crossword, and it sat only in a grid built this run.
+BANNED |= set("""
+sex
+""".split())
+
 # `atp` was banned in a third pass on 2026-09-04 and the ban was taken straight
 # back out. It is genuinely the same tier as `wta` — the men's tennis tour to
 # `wta`'s women's, hand-clued two lines apart in extra-answers.py — but `wta`
@@ -1457,6 +1463,12 @@ BANNED |= set("""
 sens ting negro
 """.split())
 # `negro` is an outdated term now considered offensive; a solver should not meet it.
+
+# 2026-10-17. `threesome` is crude for a puzzle that goes to everyone; `methyl` is
+# a chemistry-class radical no ordinary solver would reach for.
+BANNED |= set("""
+threesome methyl
+""".split())
 
 # 2026-09-23. Hashir lifted three whole clusters. The words are gone from the
 # blocks above rather than listed here, so this note is the only record of what

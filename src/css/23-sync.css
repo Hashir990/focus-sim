@@ -110,6 +110,20 @@
 }
 
 .sync-person .mini-btn{ flex:0 0 auto; padding:5px 9px; font-size:11.5px }
+
+/* **Somebody you have blocked, kept where you can find them.** A row with the
+   name and one way out of it, and nothing else: there is no dot, because being
+   around is not a thing you want told about them, and no Join, because there is
+   nothing to join. Quieter than a friend without being hidden. */
+.sync-friend.blocked{ opacity:.72 }
+.sync-friend.blocked b{ font-weight:500; color:var(--muted); flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+
+/* Report and Block on the sheet that opens on somebody in the room. Its own
+   row above Close, because they are about the person and Close is about the
+   sheet. */
+.who-acts{ display:flex; gap:8px; justify-content:flex-end; margin:12px 0 0 }
+.who-acts.hide{ display:none }
 .sync-person span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 .sync-person span i{ font-style:normal; color:var(--muted); font-size:11.5px }
 
@@ -191,6 +205,48 @@
   border-radius:16px; padding:14px; margin:2px 0 16px;
 }
 .ft-me-top{ display:flex; align-items:center; gap:12px }
+/* ---- one person, in full ----
+   The row in the room list is a button now, so the whole of it -- their
+   buddy and their name -- is the way in. It keeps the row's layout: the
+   controls beside it are still direct children of .sync-person. */
+.sync-open{
+  flex:1; min-width:0; display:flex; align-items:center; gap:10px;
+  background:none; border:0; padding:0; margin:0; color:inherit;
+  font:inherit; text-align:left; cursor:pointer;
+}
+.sync-open:hover .sync-who{ color:var(--accent) }
+
+.who-top{ display:flex; align-items:center; gap:14px; margin-bottom:4px }
+.who-name{ min-width:0 }
+.who-name b{ display:block; font-size:16px; font-weight:600; word-break:break-word }
+.who-name span{ display:block; font-size:12px; color:var(--muted); margin-top:2px }
+/* **The hop is on the button, not on the drawing inside it.** The antic
+   the person chose already animates the svg, and a second animation on
+   the same element replaces it rather than adding to it -- he would jump
+   and stop doing the thing you tapped him to do. Moving the jump out to
+   the wrapper lets both run: the figure keeps swinging or swimming while
+   the whole of him leaves the ground. */
+.who-bud{
+  flex:0 0 auto; display:block; padding:0; margin:0; border:0;
+  background:none; color:var(--text); line-height:0; cursor:pointer;
+  transform-origin:50% 100%;
+}
+.who-bud.hide{ display:none }
+.who-bud svg{ display:block; overflow:visible }
+.who-bud.hop{ animation:who-hop .8s cubic-bezier(.3,.7,.4,1) }
+/* A crouch, the jump, a landing squash, and a smaller second one -- a
+   single rise and fall reads as a hiccup rather than as a jump. */
+@keyframes who-hop{
+  0%{ transform:translateY(0) scaleY(1) }
+  13%{ transform:translateY(2px) scaleY(.9) }
+  38%{ transform:translateY(-26px) scaleY(1.07) }
+  57%{ transform:translateY(0) scaleY(.94) }
+  74%{ transform:translateY(-9px) scaleY(1.02) }
+  100%{ transform:translateY(0) scaleY(1) }
+}
+@media (prefers-reduced-motion:reduce){ .who-bud.hop{ animation:none } }
+.who-none{ font-size:13px; color:var(--muted); line-height:1.5; margin:14px 0 0 }
+
 .ft-face{ flex:0 0 auto; line-height:0; color:var(--text) }
 .ft-face svg{ display:block; overflow:visible }
 .ft-me-who{ min-width:0 }

@@ -1493,7 +1493,7 @@
   function budTile(r, list, i, v, opts){
     const o = opts || {};
     return '<button class="bud-tile' + (o.mine ? ' mine' : '') + (o.on ? ' on' : '')
-      + (o.tried ? ' tried' : '') + (o.far ? ' far' : '') + '"'
+      + (o.tried ? ' tried' : '') + (o.far ? ' far' : '') + (o.lock ? ' lock' : '') + '"'
       + ' ' + o.attr + '="' + r.k + '" data-i="' + i + '"'
       + ' aria-label="' + esc(list[i].n || (r.name + ' ' + i)) + '">'
       + budIcon(list[i], r.ink ? 0 : v[r.t], r.ink ? budTileInk(v.ec) : '', budPal(r.k))
@@ -1509,11 +1509,14 @@
     const tried = Buddy.tryOn && Buddy.tryOn[r.k] === i;
     const cost = budCost(r.id, i);
     const afford = (()=>{ try{ return Embers.have >= cost; }catch(e){ return false; } })();
+    /* Shut until a level, in which case the tile says which one instead of
+       what it costs, and wears no ember mark: it is not a price. */
+    const lock = (()=>{ try{ return lvlTag(cost, owned); }catch(e){ return ''; } })();
     return budTile(r, list, i, v, {
       attr:'data-shop', mine:owned, on:worn && !Buddy.tryOn, tried,
-      far: !owned && !afford,
-      label: owned ? (worn ? 'worn' : 'yours') : String(cost),
-      mark: !owned,
+      far: !owned && !afford, lock: !!lock,
+      label: owned ? (worn ? 'worn' : 'yours') : (lock || String(cost)),
+      mark: !owned && !lock,
     });
   }
 
@@ -1525,6 +1528,14 @@
     const due = tried.filter(x=>!x.owned).reduce((n, x)=>n + x.cost, 0);
     let afford = false;
     try{ afford = Embers.have >= due; }catch(e){}
+    /* **Anything shut takes the basket with it.** Trying a locked thing on is
+       fine and is most of what the shelf is for, but the lot cannot be bought
+       while one of them is not for sale yet, and a Buy button that refuses
+       when pressed is worse than one that says why. */
+    const shut = tried.filter(x=>!x.owned)
+      .map(x=>{ try{ return lvlLocked(x.cost); }catch(e){ return 0; } })
+      .filter(Boolean);
+    const need = shut.length ? Math.max.apply(null, shut) : 0;
     let bar = '<p class="bud-try-note">Tap anything to try it on. '
       + 'Nothing is bought until you say so.</p>';
     if(tried.length){
@@ -1534,10 +1545,11 @@
             + '<span>' + (x.owned ? 'yours' : embPrice(x.cost)) + '</span></li>').join('') + '</ul>'
         + '<div class="bud-try-do">'
         + (due
-            ? '<button class="mini-btn' + (afford ? ' primary' : '') + '" id="bud-try-buy"'
-              + (afford ? '' : ' disabled') + '>'
-              + (afford ? 'Buy ' + (tried.filter(x=>!x.owned).length > 1 ? 'these' : 'it')
-                          + ' for ' + embPrice(due)
+            ? '<button class="mini-btn' + (afford && !need ? ' primary' : '') + '" id="bud-try-buy"'
+              + (afford && !need ? '' : ' disabled') + '>'
+              + (need ? esc(T('Level {n}', {n:need}))
+                 : afford ? 'Buy ' + (tried.filter(x=>!x.owned).length > 1 ? 'these' : 'it')
+                            + ' for ' + embPrice(due)
                  : embPrice(due)) + '</button>'
             : '<button class="mini-btn primary" id="bud-try-wear">Wear it</button>')
         + '<button class="mini-btn" id="bud-try-off">Take it all off</button></div></div>';
@@ -1578,11 +1590,13 @@
           const cost = budCost('an', i);
           let afford = false;
           try{ afford = Embers.have >= cost; }catch(e){}
+          const lock = (()=>{ try{ return lvlTag(cost, owned); }catch(e){ return ''; } })();
           return '<button class="emb-light' + (owned ? ' mine' : '') + (on ? ' on' : '')
-            + (!owned && !afford ? ' far' : '') + '" data-antic="' + i + '"'
+            + (!owned && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-antic="' + i + '"'
             + ' style="--lit:var(--accent)">'
             + embIcon(a.ic) + '<b>' + esc(a.n) + '</b>'
-            + '<em>' + (owned ? (on ? 'in use' : (cost ? 'owned' : 'free')) : embPrice(cost)) + '</em>'
+            + '<em>' + (owned ? (on ? 'in use' : (cost ? 'owned' : 'free'))
+                : (lock ? esc(lock) : embPrice(cost))) + '</em>'
             + '<span>' + esc(a.d) + '</span></button>';
         }).join('') + '</div></div>';
   }
@@ -1633,6 +1647,10 @@
       const want = budTryList().filter(x=>!x.owned);
       if(!want.length) return;
       const due = want.reduce((n, x)=>n + x.cost, 0);
+      /* The dearest shut thing in the basket, which is the level the lot is
+         waiting on. */
+      const shut = want.map(x=>x.cost).filter(c=>{ try{ return lvlLocked(c); }catch(e){ return false; } });
+      if(shut.length){ lvlDeny(Math.max.apply(null, shut)); return; }
       let have = 0;
       try{ have = Embers.have; }catch(e){}
       if(have < due){ toast(due + ' embers for that lot'); return; }
@@ -1664,6 +1682,7 @@
     const cost = budCost(row, i);
     const name = row === 'an' ? BUD_ANIMS[i].n
       : (BUD_ROWS.find(r=>r.id === row) || {one:'thing'}).one;
+    if(lvlDeny(cost)) return;
     let have = 0;
     try{ have = Embers.have; }catch(e){}
     if(have < cost){ toast(cost + ' embers for that one'); return; }

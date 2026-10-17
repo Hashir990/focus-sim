@@ -1,4 +1,4 @@
-# Handoff — Focus Simulator
+# Handoff — focUS simulator
 
 Everything a fresh session needs, short. The *reasoning* for anything specific
 lives in a comment beside the code; this is the map, not the territory.
@@ -1086,13 +1086,15 @@ reading a file nobody uploaded. It cost two rounds of "auto-update is broken"
 on 1.0.8, whose release had `latest.json` on it and nothing else.
 
 **Names must have no spaces.** GitHub rewrites spaces to dots on upload, so
-`Focus Simulator Setup 1.0.8.exe` becomes `Focus.Simulator.Setup.1.0.8.exe`
+`focUS simulator Setup 1.0.8.exe` becomes `Focus.Simulator.Setup.1.0.8.exe`
 while `latest.yml` still asks for the name electron-builder wrote — a 404, and
 a 404 looks exactly like "no update" from the outside.
 
-`build.artifactName` in package.json is `Focus-Simulator-Setup-${version}.${ext}`
-so a normal build is born correctly named. **Do not write it as
-`${productName}-Setup-…`** — `productName` is "Focus Simulator", space and all,
+`build.artifactName` in package.json is `focUS-simulator-Setup-${version}.${ext}`
+so a normal build is born correctly named. (It was `Focus-Simulator-Setup-…`
+until the rename on 2026-10-13; older releases on GitHub still carry that name,
+which is fine — `latest.yml` names the file beside it, not a pattern.) **Do not write it as
+`${productName}-Setup-…`** — `productName` is "focUS simulator", space and all,
 which puts the bug straight back. `npm run publish:check` now fails on a space
 in the name, on a `latest.yml` that does not match the file beside it, and on a
 published release that is missing its installer or its `latest.yml`.
@@ -1167,8 +1169,8 @@ Safe to run repeatedly. Reads `GH_TOKEN` from the environment; never prints it.
 on 1.0.8 and it is the one that is easy to skip:
 
 ```
-release/Focus Simulator Setup 1.0.9.exe           →  Focus-Simulator-Setup-1.0.9.exe
-release/Focus Simulator Setup 1.0.9.exe.blockmap  →  Focus-Simulator-Setup-1.0.9.exe.blockmap
+release/focUS simulator Setup 1.0.9.exe           →  Focus-Simulator-Setup-1.0.9.exe
+release/focUS simulator Setup 1.0.9.exe.blockmap  →  Focus-Simulator-Setup-1.0.9.exe.blockmap
 ```
 
 GitHub rewrites spaces to dots on upload, so the spaced name arrives as
@@ -1176,7 +1178,7 @@ GitHub rewrites spaces to dots on upload, so the spaced name arrives as
 hyphenated one — a 404, and a 404 is indistinguishable from "no update" from
 the outside. `build.artifactName` now makes new builds come out hyphenated
 already, so **check the name before renaming**: if it is already
-`Focus-Simulator-Setup-…`, there is nothing to do.
+`focUS-simulator-Setup-…`, there is nothing to do.
 
 Then attach all four to the release for that tag, and confirm the release is
 marked **Set as the latest release** — GitHub assigns that by publish date, so
@@ -1187,8 +1189,8 @@ uploads, so a failed publish leaves a complete build behind. Attach **all four**
 to the release for that tag:
 
 ```
-release/Focus-Simulator-Setup-<version>.exe
-release/Focus-Simulator-Setup-<version>.exe.blockmap
+release/focUS-simulator-Setup-<version>.exe
+release/focUS-simulator-Setup-<version>.exe.blockmap
 release/latest.yml
 latest.json
 ```
@@ -1197,8 +1199,32 @@ Forget `latest.yml` and installed copies see nothing, for ever.
 
 ## 8b. Outstanding — read this before starting anything
 
-As of **2026-09-14**, 1369 checks green across the six files, `dist/` built and
-`npx cap sync android` run.
+As of **2026-10-13** the app is renamed (focUS simulator, by USwork), the
+Android package is final at `com.uswork.focussimulator`, and the whole Android
+side is on Capacitor 8 / compileSdk 36 / AGP 8.13.0 / Gradle 8.14.3 / JDK 21.
+A signed release bundle has been built and verified end to end. `PLAY.md` is the
+list of what is left before an upload, and almost all of it is Console work
+rather than code.
+
+**A rejoin after a clean leave spins hard enough to starve timers**, at
+least under jsdom. Writing the blocking test turned this up: after
+`syncLeave()`, a `syncJoin` that does not immediately succeed burns about half
+a core and `setTimeout` callbacks stop arriving, so anything built on polling
+never comes back — `until()` sat for fifteen minutes with its own wall-clock
+deadline never evaluated, because the deadline is only checked after the 25ms
+wait resolves. A plain `await wait(n)` of the same length does return, which
+says the loop yields to *some* timers and not others; the likeliest shape is a
+promise chain in the retry path that never gives the macrotask queue a turn.
+Worth a look: if it is real outside jsdom it is a phone warming up in somebody's
+pocket after they leave a room. It is why one of the nine blocking checks reads
+the built bundle instead of the room; see the note above it in
+`tools/smoke-test.mjs`.
+
+**The accounts Worker has to be deployed before blocks will sync.** `blocked`
+was added to both merge files byte-identically, but the deployed copy does not
+know the key yet and drops it. That is harmless here — `blockAdopt` returns
+early on an empty list rather than assigning — but it means blocking stays
+device-local until `npm run accounts:deploy`.
 
 0a. **Time in the arcade does not follow the account.** `focus_play` is local.
    Syncing it needs a merge that adds devices without double-counting — a
@@ -1268,6 +1294,68 @@ As of **2026-09-14**, 1369 checks green across the six files, `dist/` built and
    readable at a glance.
 
 ## 8c. The systems, and how finished each one is
+
+### Level, mended streaks and the burning ember — working, nothing stored
+
+`37a-level.js`. One idea in three places: a number that only goes up and is
+never spent.
+
+- **The level is hours of focus**, triangular (level n at the nth triangular
+  number of hours), derived from the log plus `adjust` read back as the hours
+  those carried embers must have been. Nothing new is written down. Achievement
+  payouts deliberately do not raise it, which is the only thing the gate has to
+  bite on.
+- **The gate is a fraction of each thing's own price**, `LVL_GATE = 0.55`, so
+  there is no table to keep. The invariant, asserted over the whole catalogue in
+  the gate: *the level a thing asks for is never above the level the hours that
+  pay for it would already have reached*. Saving up is always enough on its own.
+  Nothing owned is ever re-gated — the price-rise lesson.
+- **A mend is a thing you own.** `mend-2026-10-12-5` is a date and what it cost,
+  filed in `Embers.own`, which is what makes it merge, sync, get charged by
+  `priceOf` and go with Reset progress without anything being taught a new key.
+  The price rides in the id because it depends on the streak length on the day,
+  which is gone afterwards. 5 embers per 20 days saved; a hole of one or two
+  days only, in front of a run of three or more.
+- **The ember's glow** is `data-glow` 0 to 5 on both chips, from the streak.
+  The halo grows, not the diamond: a shape that grew would move the number
+  beside it and the top bar would change width.
+
+### Blocking and reporting — working, device-tested in the gate
+
+`29b-block.js`. Play will not list an app with person-to-person chat and no way
+to stop one of them.
+
+- **The block happens at `hello`**, in `syncWire`. There is no server in the
+  middle, so the one point every stranger passes through is the greeting: their
+  code arrives there and the room has not yet been told they exist. The
+  connection is dropped without a word. Blocking somebody already in the room
+  also puts them out of it.
+- **Dropped, never refused.** They are not told. From their side it looks like
+  somebody whose app is shut.
+- **Keyed by code, not name**, so it survives a rename, and unioned by
+  `mergeSet` across devices — two devices that disagree land on blocked.
+- **`blockAdopt` never wipes.** An empty or missing key returns early, which is
+  what makes it safe to ship before the Worker is redeployed: see 8b item 0a for
+  the shape of bug that is avoiding.
+- Reporting is a letter to `REPORT_TO` with the person's name and code, because
+  there is no server that could receive one.
+
+### Deleting your account — working, tested through the real server
+
+The Worker has had `/account/gone` since accounts existed and nothing called
+it; the policy pointed at an email address instead. It is a button on the
+account panel now, behind a password and a question, and the account client test
+proves the account is actually gone by signing in again and failing.
+
+The device is wiped whatever the server says — except on a wrong password, which
+is the one failure where the account still exists and this device should stay as
+it was.
+
+Found on the way: **a form open on the account panel used to be redrawn over**,
+because `sync()` renders twice a tick. Typing a password and having a sync land
+took the form away mid-word. While a form is open only the syncing line is
+updated now.
+
 
 What exists, what shape it is in, and what the next move on it would be. Read
 this before proposing anything: most of these are further along than they look
