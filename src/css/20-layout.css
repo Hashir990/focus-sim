@@ -151,9 +151,17 @@ html{ scroll-behavior:smooth }
 .dial{ overflow:visible }
 .controls{ overflow:visible }
 
-/* dial follows the shorter axis so short desktop windows still fit it */
-.dial{ width:min(78vw, 300px, 44vh) }
-.clock{ font-size:clamp(36px, 7.4vh, 64px) }
+/* dial follows the shorter axis so short desktop windows still fit it.
+   **The variable, not the width.** `--dial` is what 04-timer.css sizes the
+   dial and everything inside it from; setting `width` here instead left the
+   dial following the shorter axis while the clock in it followed something
+   else entirely. */
+.dial{ --dial:min(78vw, 300px, 44vh) }
+/* **No `.clock` size here.** It was `clamp(36px, 7.4vh, 64px)` -- the height
+   of the window -- while the dial above it follows the *shorter* axis, so on
+   a tall narrow screen the ring shrank and the numerals in it did not, and
+   they closed on the ring until they were nearly touching it. The clock is a
+   fraction of `--dial` in 04-timer.css now, so the two cannot disagree. */
 .phase-name{ font-size:clamp(15px, 2.2vh, 19px) }
 .subline{ font-size:clamp(11px, 1.5vh, 12.5px) }
 

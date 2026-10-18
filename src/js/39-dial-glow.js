@@ -21,6 +21,14 @@
     const show = !!t && !t.classList.contains('hide') && S.mode !== 'setup'
       && !Arcade.open;
     g.classList.toggle('on', show);
+    /* **The spiders' web rides along.** It used to be a child of the dial,
+       which put it inside `.stage` -- and a spider cannot be in front of a
+       web that is inside the thing it has to be behind. It is on the window
+       layer now, so it needs the same two answers the glow needs: whether the
+       timer is what is on screen, and where the dial is. Its size is its own,
+       from the stylesheet; only the middle is set here. */
+    const web = document.querySelector('.dial-web');
+    if(web) web.classList.toggle('on', show);
     if(!show) return;
     const r = d.getBoundingClientRect();
     if(!r.width) return;
@@ -38,6 +46,28 @@
        every scroll event and every tick of the clock — so a slow drag on the
        setup screen was doing that a hundred times a second for a box that had
        not moved a pixel. */
+    /* **Before the glow's early return, not after it.** That guard is about
+       whether the *glow* has moved, and the web is a different size, so it
+       can be out of place while the glow is exactly where it was -- which is
+       what happened: the web was centred once on the first frame, the dial
+       settled 13 pixels lower, and the guard then refused every update that
+       would have caught it up. It gets a memo of its own. */
+    if(web){
+      /* **Its rect, not `offsetWidth`.** The web is an `<svg>`, and
+         `offsetWidth` belongs to HTMLElement -- on an SVG element it is
+         `undefined`, so the guard below was false every time and the web
+         never moved at all: it sat at the static position a fixed box falls
+         back to, which on this layout is near enough the middle to look
+         deliberate and nine pixels off the dial. */
+      const wr = web.getBoundingClientRect();
+      const ww = wr.width, wh = wr.height || ww;
+      if(ww && (Math.abs(WEB_AT.x - cx) > .5 || Math.abs(WEB_AT.y - cy) > .5
+                || WEB_AT.w !== ww)){
+        WEB_AT.x = cx; WEB_AT.y = cy; WEB_AT.w = ww;
+        web.style.left = (cx - ww / 2) + 'px';
+        web.style.top = (cy - wh / 2) + 'px';
+      }
+    }
     if(GLOW_AT.size === size && Math.abs(GLOW_AT.left - left) < .5
        && Math.abs(GLOW_AT.top - top) < .5) return;
     GLOW_AT.size = size; GLOW_AT.left = left; GLOW_AT.top = top;
@@ -47,6 +77,7 @@
     g.style.top = top + 'px';
   }
   const GLOW_AT = {size:-1, left:-1, top:-1};
+  const WEB_AT = {x:-1, y:-1, w:-1};
 
   /* One measurement per frame at most, and only if a frame is coming anyway. */
   let glowSoon = 0;

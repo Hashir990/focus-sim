@@ -200,6 +200,12 @@
 }
 .mini-btn:hover{ background:color-mix(in srgb, var(--accent) 10%, var(--card)) }
 .mini-btn.on{ background:var(--accent); color:#08111a; box-shadow:none }
+/* **There is no global `.hide` in this app** (HANDOFF section 2) -- every
+   class that wants hiding declares its own. `.game-cal` is the row's way into
+   a game's back catalogue, hidden by `_calBtn` whenever the header is already
+   offering the same thing, and without this line that call did nothing at all
+   and the calendar went on being offered twice. */
+.game-cal.hide{ display:none }
 /* **The one button that takes something away.** Everything else wearing this
    class is reversible: sync again, sign back in, change the password back. So
    this is the colour and a ring rather than a filled red block, because it sits

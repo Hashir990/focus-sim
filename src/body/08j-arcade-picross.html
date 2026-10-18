@@ -12,13 +12,10 @@
              these from the start; picross only offered it from the win banner,
              so the archive existed and could not be reached without finishing
              today's first. -->
-        <button class="mini-btn" id="pix-list">Calendar</button>
+        <button class="mini-btn game-cal" id="pix-list">Calendar</button>
         <button class="mini-btn" id="pix-clear">Clear</button>
       </div>
 
-      <!-- Three a day, one of each size. The names say how big rather than how
-           clever: a 5×5 is not easy because you are good at it. -->
-      <div class="pix-sizes" id="pix-sizes"></div>
 
       <!-- **The grid scrolls inside this, rather than shrinking to fit it.**
            Thirty across on a phone is about ten pixels a square once the clue
@@ -28,25 +25,39 @@
            scroller, so whatever corner of the picture you are in, the numbers
            for that row and that column are still on screen -- which is the only
            reason zooming a nonogram is any use at all. -->
-      <div class="pix-scroll" id="pix-scroll">
-        <div class="pix-wrap" id="pix-grid"></div>
-      </div>
-      <div class="pix-zoom" id="pix-zoom">
-        <button class="mini-btn" id="pix-zout" aria-label="Zoom out">&minus;</button>
-        <span id="pix-zlabel">Fit</span>
-        <button class="mini-btn" id="pix-zin" aria-label="Zoom in">+</button>
+      <div class="game-stage">
+        <div class="pix-scroll" id="pix-scroll">
+          <div class="pix-wrap" id="pix-grid"></div>
+        </div>
       </div>
 
-      <!-- What a tap puts down. Two buttons rather than a long press: a long
+      <!-- **Everything a hand does, in one place at the bottom.** The zoom and
+           the marks were two rows below the picture, which on a thirty-wide
+           puzzle meant scrolling away from the square you were working on to
+           change what a tap does, and scrolling back to find it again.
+
+           What a tap puts down is two buttons rather than a long press: a long
            press on a phone is a thing you discover by accident or never. -->
-      <div class="pix-modes">
-        <button class="mini-btn on" id="pix-fill">Fill</button>
-        <button class="mini-btn" id="pix-mark">Cross off</button>
-        <!-- Check says what is wrong, never what is missing; Fix a square takes
-             back a wrong one before it gives a right one away. Both count on the
-             day's record. -->
-        <button class="mini-btn" id="pix-check">Check</button>
-        <button class="mini-btn" id="pix-hint">Fix a square</button>
+      <div class="game-dock">
+        <div class="pix-dock">
+          <!-- Three a day, one of each size. Which picture you are on is a
+               choice, and choices live in the dock now. -->
+          <div class="pix-sizes" id="pix-sizes"></div>
+          <div class="pix-zoom" id="pix-zoom">
+            <button class="mini-btn" id="pix-zout" aria-label="Zoom out">&minus;</button>
+            <span id="pix-zlabel">Fit</span>
+            <button class="mini-btn" id="pix-zin" aria-label="Zoom in">+</button>
+          </div>
+          <div class="pix-modes">
+            <button class="mini-btn on" id="pix-fill">Fill</button>
+            <button class="mini-btn" id="pix-mark">Cross off</button>
+            <!-- Check says what is wrong, never what is missing; Fix a square
+                 takes back a wrong one before it gives a right one away. Both
+                 count on the day's record. -->
+            <button class="mini-btn" id="pix-check">Check</button>
+            <button class="mini-btn" id="pix-hint">Fix a square</button>
+          </div>
+        </div>
       </div>
 
       <p class="game-note">Drag to fill a run in one go. Crossing off is only a note to yourself. The picture is finished when the filled squares are the right ones.</p>

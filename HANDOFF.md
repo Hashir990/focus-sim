@@ -175,6 +175,37 @@ of them run in the sandbox.
 
 ## 6. Gotchas that have each cost real time
 
+- **A bottom-sticky control stops sticking once you reach it.** `position:
+  sticky; bottom:0` holds a box at the bottom of the screen only while its own
+  place in the document is still below the fold; scroll past that and it is
+  released and travels up like anything else. The crossword's keyboard sat in
+  front of 862 pixels of clue list, so it was reached 23 pixels into the scroll
+  and spent the rest of it leaving the screen. The fix is `order`, in
+  `05a-gameshell.css`: every pinned control row is ordered last in its game, so
+  its own place is the end of the page and it can hold all the way down. A
+  sticky box is also confined to its parent, so the parent cannot be capped at
+  the screen either — which is why the crossword is the one game whose box is
+  allowed to be taller than the viewport.
+
+- **Flex shrink flattens anything sized by `aspect-ratio`.** A board whose
+  width comes from its height (or the other way round) does not get smaller
+  when flex takes height off it, it gets *flatter*: same width, no height. With
+  `flex:0 1 auto; min-height:0` on the boards, the crossword's clue list took
+  its overflow out of the only child that would give and a 7×7 grid rendered
+  375 wide and three pixels tall. Boards are `flex:0 0 auto`; what gives is the
+  page.
+
+- **A box measured on the paint that creates it is measured a frame early.**
+  Picross and scrabble both work their fitted square out from the pane they
+  live in, and on the paint that opens a game the dock has not landed, the clue
+  track is not drawn, and `clientHeight` is whatever it is about to stop being.
+  At 780×560 that came out one square too big and the bottom row sat 30 pixels
+  under the fold with the label still saying Fit. Both now keep a
+  `ResizeObserver` on their own pane (`_watchFit`) and redo the sum whenever it
+  really changes size — which also means Fit survives a window being dragged
+  and a phone being turned. It cannot loop: the pane is sized by the shell
+  above it, not by the board inside it.
+
 - **PowerShell variable names ignore case, and a typed parameter keeps its
   type.** `tools/phone.ps1` takes `[string]$Jdk`, and later assigned a
   hashtable to `$jdk` — the same variable — which silently became the string

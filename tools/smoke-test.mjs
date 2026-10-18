@@ -2056,9 +2056,17 @@ check('written down, so they survive the app closing',
      was comparing the catalogue with the stylesheet. */
   {
     const css = [...window.document.querySelectorAll('style')].map((x) => x.textContent).join('\n');
-    const scopes = (id) => ['body[data-light="' + id + '"],', '#app[data-light="' + id + '"],',
-      'body[data-light="' + id + '"] #overlay,', 'body[data-light="' + id + '"] #drawer{']
-      .filter((sel) => !css.includes(sel));
+    /* **Each one followed by `,` or `{`, because a selector can be anywhere
+       in its list.** This looked for `… #drawer{` -- the last selector in the
+       group, with the brace attached. Three tracks then joined those groups
+       so their looks are written once rather than twice, which put the amb
+       selectors after the drawer one and a comma where the brace had been:
+       three lights reported as having no palette at all, while the palette
+       was sitting right there covering both. */
+    const has = (sel) => css.includes(sel + '{') || css.includes(sel + ',');
+    const scopes = (id) => ['body[data-light="' + id + '"]', '#app[data-light="' + id + '"]',
+      'body[data-light="' + id + '"] #overlay', 'body[data-light="' + id + '"] #drawer']
+      .filter((sel) => !has(sel));
     const short = lightIds.filter((id) => scopes(id).length);
     check('and a palette, in every scope a look has to reach',
       short.length === 0,
@@ -3917,15 +3925,28 @@ check('every effect a look can choose has a rule to draw it', (() => {
   check('there is a layer for the spiders and it starts empty',
     !!host && host.childElementCount === 0, host ? String(host.childElementCount) : 'no layer');
 
-  /* **In front of the webs, behind everything you are using.** It sat at 0
-     with the webs and vanished behind the one it was walking on; the buddy
-     and the readout are at 2, so 1 is the only place it can be. */
+  /* **In front of the webs, behind everything you are using.**
+
+     This used to assert `spiders z1, webs z0` and it was green for as long
+     as the spiders were walking across the clock face. The numbers were real
+     and the comparison was not: `.stage` is `position:relative; z-index:1`,
+     which seals the clock into a layer of its own, so the readout's 2 is a 2
+     among its own siblings and never meets the spider layer. Two things at 1,
+     settled by document order, and the spiders are written last.
+
+     A check that tests the reasoning instead of the result is worth less than
+     no check, because it is also an argument that the thing is fine. What it
+     asks now is the arrangement itself, and the layering block further down
+     checks the rest of it. */
   const cssS = [...doc.querySelectorAll('style')].map((x) => x.textContent).join('');
   const tight = cssS.replace(/\s+/g, '');
   check('the layer sits above the webs and below the clock',
-    /\.spiders\{[^}]*z-index:1/.test(tight)
-    && /\.corner-web\{[^}]*z-index:0/.test(tight),
-    'spiders z1, webs z0');
+    /\.spiders\{[^}]*z-index:0/.test(tight)
+    && /\.corner-web\{[^}]*z-index:0/.test(tight)
+    && /\.stage\{[^}]*z-index:1/.test(tight),
+    'spiders ' + (/\.spiders\{[^}]*z-index:0/.test(tight) ? 'z0' : 'not z0')
+    + ', webs ' + (/\.corner-web\{[^}]*z-index:0/.test(tight) ? 'z0' : 'not z0')
+    + ', stage ' + (/\.stage\{[^}]*z-index:1/.test(tight) ? 'z1' : 'not z1'));
 
   /* One: under any other light, nothing. A spider wandering across the Beach
      would be a bug nobody could place. */
@@ -3981,14 +4002,30 @@ check('every effect a look can choose has a rule to draw it', (() => {
     spots.every(Boolean) && new Set(spots).size === spots.length,
     spots.join(' ') || 'no spots');
   /* **Nothing walks across the room.** A spider tracking sideways through
-     open space, with or without a line under it, does not read as a spider.
-     Everything left moves up and down something. */
+     open space, with or without a line under it, does not read as a spider:
+     it reads as a sticker being dragged over a picture.
+
+     **Along an edge is not across the room.** The roof and the floor are
+     surfaces, the same as the side walls are, and the one on them is the
+     same animal turned a quarter -- so they travel sideways on purpose and
+     the rule still holds for everything in between. What this asks now is
+     that sideways travel belongs to an edge: `sp-walkacross` and
+     `sp-walkback` are the roof's and the floor's, and nothing else may
+     carry a horizontal journey. */
   const kinds = new Set(spots.map((x) => String(x).split('-')[0]));
   check('and doing more than one kind of thing', kinds.size >= 2,
     [...kinds].join(' '));
-  check('and none of them walking horizontally',
-    !/translateX\(1\d\dvw\)/.test(tight) && !/\.sp-line/.test(tight),
-    spots.join(' '));
+  {
+    /* Asked of the whole selector, not of the last class in it. Reading the
+       class nearest the brace called `.sp-roof.sp-back-way` a kind named
+       "back-way" and reported the roof walking sideways as a violation. */
+    const across = [...tight.matchAll(/([^{}]*)\{[^}]*animation(?:-name)?:sp-walk(?:across|back)/g)]
+      .map((m) => m[1]);
+    const stray = across.filter((sel) => !/\.sp-roof|\.sp-floor/.test(sel));
+    check('and only an edge is walked sideways',
+      !/\.sp-line/.test(tight) && stray.length === 0,
+      stray.join(' | ') || across.length + ' sideways rules, all on an edge');
+  }
 
   /* Everything from here on uses `summon`, which empties the layer and fills
      it again, so nothing above can be read after this point.
@@ -4038,6 +4075,13 @@ check('every effect a look can choose has a rule to draw it', (() => {
       got('--sp-p0x') + ',' + got('--sp-p0y') + ' → ' + got('--sp-p4x') + ',' + got('--sp-p4y'));
   }
 
+  /* **A crowd this makes for itself.** `summon` empties the host every time
+     it fills up, so what is standing there when this runs is whatever that
+     left -- sometimes six, sometimes one. Asked of one spider the check fails
+     saying "34", which is a perfectly good width, and the next person reads a
+     red line about spider sizes and goes looking for a bug in the spiders. */
+  host.innerHTML = '';
+  for (let i = 0; i < 5; i++) { age(); window.__m.spiderSend(); }
   const wide = [...host.children]
     .map((c) => parseFloat(c.querySelector('svg').getAttribute('width')));
   check('and no two of them need be the same size',
@@ -4052,7 +4096,10 @@ check('every effect a look can choose has a rule to draw it', (() => {
 
      The hanging one used to be a plan view too, and at this size a plan view is
      eight legs of equal length at equal angles -- an asterisk, not an animal. */
-  const deep = (c) => /^(wall|drop)-/.test(c.dataset.spot);
+  /* Edge on: along a wall, along the roof, along the floor, or from behind a
+     hanging one. The roof and the floor were added to this the day they were
+     added to the app -- a side view without its far legs is half a spider. */
+  const deep = (c) => /^(wall|drop|roof|floor)-/.test(c.dataset.spot);
   const sideOk = [...host.children].every((c) => deep(c) === !!c.querySelector('.sp-far'));
   check('the ones seen edge on have a far side, the plan views do not',
     sideOk, [...host.children].map((c) => c.dataset.spot
@@ -4072,16 +4119,32 @@ check('every effect a look can choose has a rule to draw it', (() => {
      body travelling is a spider being carried along on a tray, which reads
      worse than never stopping at all. The journey is on the container for
      everything except a hanging one, where it is on the body. */
-  check('one that has stopped is not still being carried along',
-    /\.sp-still\{animation-play-state:paused\}/.test(tight)
-    && /\.sp-still\.sp-body,\.sp-still\.sp-thread\{animation-play-state:paused\}/.test(tight),
-    'journey and legs both paused');
+  /* **This was green for as long as the bug was there.** It matched the two
+     rules by their text, and the text was never what was wrong: `.sp-still`
+     is one class, and three of the four journeys set the `animation`
+     shorthand further down the same file at the same specificity, which
+     resets `animation-play-state` back to `running`. The legs stopped, the
+     spider kept going, and this said it was fine.
 
-  const mover = [...host.children].find((c) => /^(wall|web|bg|diag)-/.test(c.dataset.spot));
+     So it asks for the thing that makes it true -- two classes, which beat a
+     single-class journey rule wherever anyone writes it -- and refuses the
+     single-class form that loses. */
+  check('one that has stopped is not still being carried along',
+    /\.spider\.sp-still\{animation-play-state:paused\}/.test(tight)
+    && /\.spider\.sp-still\.sp-body,\.spider\.sp-still\.sp-thread\{animation-play-state:paused\}/.test(tight)
+    && !/(^|[^.\w])\.sp-still\{/.test(tight),
+    'journey and legs both paused, and it out-specifies the journeys');
+
+  const mover = [...host.children].find((c) => /^(wall|web|bg|diag|roof|floor)-/.test(c.dataset.spot));
   const strip = mover && mover.querySelector('.sp-strip');
+  /* The list of kinds that walk is a list, and it grows -- matching it as one
+     exact string meant adding a kind broke this check rather than the check
+     noticing the kind. What matters is that a walk exists and is cut into
+     frames rather than tweened; which kinds are in it is asked separately,
+     by name, in the layering block. */
   check('a walking one is drawn as frames, cut between',
     !!strip && strip.children.length === 9
-    && /\.sp-strip,\.sp-back\.sp-strip\{animation:sp-cycle\.38ssteps\(8\)/.test(tight),
+    && /\{animation:sp-cycle\.38ssteps\(8\)infinite[;}]/.test(tight),
     strip ? strip.children.length + ' frames' : 'no strip');
 
   /* **A ninth frame, for standing still.** There is no frame of a walk
@@ -7604,11 +7667,435 @@ await openGame(guest, $g, 'scrabble');
   $h('sc-zin').click();
   await wait(60);
   check('zooming in grows the squares', parseInt(cell(), 10) > parseInt(before || '0', 10), `${before} -> ${cell()}`);
-  check('zoom stops at the top', ($h('sc-zin').click(), $h('sc-zin').click(), $h('sc-zin').disabled));
-  $h('sc-zout').click(); $h('sc-zout').click(); $h('sc-zout').click();
+  /* **The zoom is a number now, not one of four sizes**, so "press it twice
+     and it is at the top" no longer describes anything. Pressed until it stops
+     instead, which is what a person does, and the guard is the loop bound. */
+  let presses = 0;
+  while (!$h('sc-zin').disabled && presses < 40) { $h('sc-zin').click(); presses++; }
+  await wait(60);
+  check('zoom stops at the top', $h('sc-zin').disabled && presses < 40,
+    `${presses} presses, label ${$h('sc-zlabel').textContent}`);
+  /* And it lands between the old fixed sizes on the way, which is the whole
+     point: a pinch can leave it anywhere and the buttons carry on from there
+     rather than snapping to a list. */
+  check('and passes through sizes no list would have held',
+    /^\d+(\.\d)?×$/.test($h('sc-zlabel').textContent), $h('sc-zlabel').textContent);
+  /* **Every one of those sizes is a whole square.** The factor is what the
+     fingers ask for and a whole number of pixels is what can be drawn: 2.3 of
+     a 23px square is 52.9, and a grid of 52.9px squares puts every border
+     between device pixels and walks a pixel further out of true with each
+     column crossed. The box is rounded first and the zoom is then whatever
+     that box honestly is, which is also what the label has to say -- a label
+     reporting a factor the board is not drawn at is just a wrong label. */
+  {
+    const boxes = [];
+    while (!$h('sc-zout').disabled) { $h('sc-zout').click(); }
+    for (let i = 0; i < 20 && !$h('sc-zin').disabled; i++) {
+      $h('sc-zin').click();
+      boxes.push(cell());
+    }
+    const whole = boxes.every((c) => /^\d+px$/.test(c));
+    /* And no two presses in a row land on the same square: a ratio that
+       rounds to nothing is a button that visibly does nothing, so a press
+       that cannot move the box by a ratio moves it by a pixel. */
+    const moved = boxes.every((c, i) => i === 0 || c !== boxes[i - 1]);
+    check('and every one of them is a whole square', whole && moved && boxes.length > 3,
+      boxes.join(' '));
+    const fit = 21;   // (340 - 6 - 14) / 15, the jsdom window's fitted square
+    const said = parseFloat($h('sc-zlabel').textContent);
+    check('and the label says the size the board is actually drawn at',
+      Math.abs(said - parseInt(cell(), 10) / fit) < 0.051,
+      `${$h('sc-zlabel').textContent} against ${cell()} / ${fit}px`);
+  }
+  let backs = 0;
+  while (!$h('sc-zout').disabled && backs < 40) { $h('sc-zout').click(); backs++; }
   await wait(60);
   check('zooming back out returns to fit', $h('sc-zlabel').textContent === 'Fit' && $h('sc-zout').disabled,
     $h('sc-zlabel').textContent);
+}
+
+// --- the countdown ----------------------------------------------------------
+/* The numerals were sized from the window's height while the dial around
+   them followed the shorter axis, so the two scaled apart: on a tall narrow
+   screen the ring came in and the digits did not, and they closed on it
+   until they were nearly touching. Two numbers with no relationship, in two
+   files, both with an opinion about the same text. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const rule = (sel) => {
+    const i = css.indexOf(sel);
+    if (i < 0) return null;
+    const o = css.indexOf('{', i);
+    return css.slice(o + 1, css.indexOf('}', o)).replace(/\s+/g, ' ').trim();
+  };
+
+  /* **One ruler.** The dial's size is a variable and the clock is a fraction
+     of it, so the gap between the numerals and the ring is the same at every
+     window size rather than whatever the two formulas happened to produce. */
+  const clock = rule('.clock{');
+  check('the countdown is sized from the dial it sits in',
+    /font-size:\s*calc\(var\(--dial/.test(clock || ''), clock || 'rule missing');
+  /* A second opinion about the size is the bug coming back: whichever file
+     loads later wins, and it will not be the one anybody edits. */
+  const sizes = [...css.matchAll(/(^|[^-\w.])\.clock\s*\{([^}]*)\}/g)]
+    .filter(([, , body]) => /font-size/.test(body));
+  check('and nothing else has an opinion about that size',
+    sizes.length === 1, sizes.length + ' rules set .clock font-size');
+
+  /* **Tabular figures, or it twitches.** The face is Syne, which is the
+     app's own odd one and was checked for this before it was chosen: with
+     the feature on its digits are all the same width. Without it a 1 giving
+     way to an 8 moves every digit beside it, once a second, in front of
+     somebody trying to concentrate. */
+  check('and its digits cannot change width as it counts',
+    /font-variant-numeric:\s*tabular-nums/.test(clock || ''), clock || 'rule missing');
+  check('and it is set in the face the app keeps for its own voice',
+    /font-family:\s*var\(--title\)/.test(clock || ''), clock || 'rule missing');
+}
+
+// --- in front of the web, behind the clock ----------------------------------
+/* The spiders have to be in front of the web they are walking on and behind
+   everything you are reading, and for a long time they were neither: the
+   stylesheet reasoned "webs at 0, readout at 2, so spiders at 1", and every
+   number in that was right while the conclusion was wrong. `.stage` is
+   `position:relative; z-index:1`, which seals the clock -- so the readout's 2
+   is a 2 among its own siblings and never meets the spider layer, and what
+   actually decided it was two things at 1 settled by document order. The
+   spiders are written last, so they walked across the clock face.
+
+   It could not be renumbered out of, because the web a spider has to be in
+   front of was inside the clock it has to be behind. The web came out onto
+   the window layer; these hold that shape. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const rule = (sel) => {
+    const i = css.indexOf(sel);
+    if (i < 0) return null;
+    const o = css.indexOf('{', i);
+    return css.slice(o + 1, css.indexOf('}', o)).replace(/\s+/g, ' ').trim();
+  };
+
+  /* **One layer, and document order says which is in front.** All four fixed
+     things in the room are at 0; `.stage` at 1 is over the lot of them. A
+     spider layer above 0 is the old mistake coming back. */
+  const spiders = rule('body[data-light="spiderman"] .spiders{');
+  check('the spiders are on the same layer as the webs',
+    /z-index:\s*0\b/.test(spiders || ''), spiders || 'rule missing');
+  const stage = rule('.stage{');
+  check('and the clock is on the layer above it',
+    /z-index:\s*1\b/.test(stage || ''), stage || 'rule missing');
+
+  /* **The web is in the room, not in the dial.** Inside `.dial-wrap` it was
+     inside `.stage`, which is what made the order unsayable. */
+  const web = rule('body[data-light="spiderman"] .dial-web.on{');
+  check('the web the dial sits in is on the window, not in the dial',
+    /position:\s*fixed/.test(web || ''), web || 'rule missing');
+  const host = window.document.getElementById('spiders');
+  const dweb = window.document.querySelector('.dial-web');
+  check('and it is written before the spiders, which is what puts them in front',
+    !!host && !!dweb
+    && (dweb.compareDocumentPosition(host) & 4) === 4,   // host follows the web
+    dweb ? 'web then spiders' : 'no web');
+  check('and it is not inside the clock any more',
+    !!dweb && !dweb.closest('.dial-wrap') && !dweb.closest('.stage'),
+    dweb ? (dweb.parentElement.className || dweb.parentElement.tagName) : 'no web');
+
+  /* **A pause has to stop the animal, not just its legs.**
+
+     `.sp-still` was one class, and `.sp-back`, `.sp-diag` and `.sp-wall` set
+     the `animation` shorthand further down the same file at the same
+     specificity -- a shorthand resets every sub-property it does not name, so
+     all three handed `animation-play-state` back to `running`. The leg rule
+     is a descendant selector and won anyway, so a "pause" parked the legs and
+     let the spider keep gliding: a sliding statue, which is the note's own
+     warning the other way round. Two classes beat one wherever the journey is
+     written, which is what makes this survive the next rule added below it. */
+  const still = rule('.spider.sp-still{');
+  check('a spider that stops stops all of it, not just its legs',
+    /animation-play-state:\s*paused/.test(still || ''), still || 'rule missing');
+  check('and it says so with enough specificity to beat the journeys',
+    !/(^|[^.\w])\.sp-still\s*\{/.test(css.replace(/\.spider\.sp-still/g, '')),
+    'a bare .sp-still rule is back');
+
+  /* **Every kind that walks has a walk.** One left out of the leg-animation
+     list is the sliding statue again, by a different route -- which is
+     exactly what the roof and floor ones did on the day they were added. */
+  {
+    const legs = css.slice(0, css.indexOf('animation:sp-cycle'));
+    const start = legs.lastIndexOf('}') + 1;
+    const sel = css.slice(start, css.indexOf('{', css.indexOf('animation:sp-cycle') - 200));
+    const walkers = ['sp-wall', 'sp-web', 'sp-diag', 'sp-back', 'sp-roof', 'sp-floor'];
+    const missing = walkers.filter((k) => sel.indexOf('.' + k + ' .sp-strip') < 0);
+    check('every kind that walks moves its legs while it does',
+      missing.length === 0, missing.join(', ') || walkers.length + ' kinds, all walking');
+    /* And the one that rightly is not in it: hanging is not walking. */
+    check('and the hanging one does not, because it is not walking',
+      sel.indexOf('.sp-drop .sp-strip') < 0, 'sp-drop is in the walk list');
+  }
+
+  /* **The roof and the floor are places a spider can be.** The rule against
+     walking horizontally is about crossing open space in the middle of the
+     screen; an edge is a surface, like the side walls are. */
+  {
+    const spots = html.slice(html.indexOf('const SPIDER_SPOTS'), html.indexOf('const SPIDER_SPOTS') + 400);
+    check('there are spiders on the roof and the floor',
+      /'roof-/.test(spots) && /'floor-/.test(spots), spots.replace(/\s+/g, ' ').slice(0, 110));
+    check('and the code knows what to do with them',
+      /kind === 'roof' \|\| kind === 'floor'/.test(html), 'no branch for them');
+  }
+
+  /* **And the one on a wall is on it, not in the crack beside it.**
+     `left:1px` put half the animal outside the window with the legs on that
+     side gone, which reads as a smudge on the glass. */
+  const wall = rule('.sp-wall{');
+  check('a spider on the wall is not pressed into the edge of the window',
+    !!wall && !/left:\s*1px/.test(wall) && /left:\s*clamp\(/.test(wall),
+    wall || 'rule missing');
+  const wallR = rule('.sp-wall.sp-right{');
+  check('and nor is the one on the other wall',
+    !!wallR && !/right:\s*1px/.test(wallR) && /right:\s*clamp\(/.test(wallR),
+    wallR || 'rule missing');
+}
+
+// --- a look written down twice ----------------------------------------------
+/* Three tracks wear a light's colours rather than their own: Night city is
+   Skyline, Morning sea is Beach, Adrift is Deep space. Each used to carry its
+   own copy of the look -- the accent, the weather, and in Adrift's case an
+   eleven-colour palette -- in the catalogue, and its own copy of the room
+   palette in the stylesheet. Six copies of three things, kept in step by
+   hand, with nothing that would say so the day they stopped matching. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+
+  /* **The catalogue says which look, rather than repeating it.** `like` is
+     the whole mechanism; `embLook` follows it. A track that grows an
+     `accent` or an `fx` of its own is a copy coming back. */
+  const src = html.slice(html.indexOf('const EMB_SOUNDS'), html.indexOf('const EMB_SND'));
+  const borrowed = [...src.matchAll(/\{id:'(city|sea|adrift)'[^}]*\}/g)].map((m) => m[0]);
+  check('the three tracks that wear a look name it rather than copying it',
+    borrowed.length === 3 && borrowed.every((t) => /like:'/.test(t)),
+    borrowed.length + ' found: ' + borrowed.map((t) => (t.match(/id:'(\w+)'/) || [])[1]
+      + (/like:'/.test(t) ? '✓' : '✗')).join(' '));
+  check('and carry no look of their own beside it',
+    borrowed.every((t) => !/\baccent:|\bfx[a-z0-9]*:/.test(t)),
+    borrowed.filter((t) => /\baccent:|\bfx[a-z0-9]*:/.test(t))
+      .map((t) => (t.match(/id:'(\w+)'/) || [])[1]).join(', ') || 'none');
+  /* A `like` pointing at nothing paints a track in the first light on the
+     shelf and looks like a palette bug rather than a typo. */
+  const lightIds = [...html.slice(html.indexOf('const EMB_LIGHTS'), html.indexOf('const EMB_SOUNDS'))
+    .matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
+  const likes = [...src.matchAll(/like:'(\w+)'/g)].map((m) => m[1]);
+  check('and each names a light that exists',
+    likes.length === 3 && likes.every((k) => lightIds.includes(k)),
+    likes.map((k) => k + (lightIds.includes(k) ? '✓' : '✗')).join(' '));
+
+  /* **And the room palettes are one rule each, not two identical ones.**
+     There is no selector that means both a look and a track, which is what
+     the copies were for; a selector list means both perfectly well. Any
+     `data-amb` rule whose declarations match a `data-light` rule's exactly is
+     that copy coming back. */
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, sel, body]) => [sel.replace(/\s+/g, ' ').trim(), body.replace(/\s+/g, ' ').trim()]);
+  const lightBodies = new Map();
+  for (const [sel, body] of rules) {
+    if (/\[data-light="/.test(sel) && !/\[data-amb="/.test(sel) && body) lightBodies.set(body, sel);
+  }
+  const twins = [];
+  for (const [sel, body] of rules) {
+    if (!/\[data-amb="/.test(sel) || /\[data-light="/.test(sel)) continue;
+    if (lightBodies.has(body)) {
+      twins.push((sel.match(/data-amb="(\w+)"/) || [])[1] + ' repeats '
+        + (lightBodies.get(body).match(/data-light="(\w+)"/) || [])[1]);
+    }
+  }
+  check('no track repeats a look\'s palette instead of sharing the rule',
+    twins.length === 0, [...new Set(twins)].join(' | ') || 'none');
+}
+
+// --- the shell every game sits in -------------------------------------------
+/* Full-bleed gives each board the whole screen and pins its controls to the
+   bottom of it. Six rules carry that, and every one of them has already been
+   got wrong once in a way the source does not show. They are read out of the
+   stylesheet rather than rendered because what breaks them is an edit to one
+   file, and jsdom lays nothing out: every `clientHeight` here is 0. */
+{
+  const shell = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  /* The selector has to be followed by what ends a selector -- `{` when it
+     is the whole of one, `,` when it is one of a list. Matching the bare text
+     found `…#hm-keys::before` and `…​.cw-clue-bar::before` instead, which are
+     different rules with a different job, and handed back their bodies.
+     A trailing `{` in what is asked for means "this selector exactly", for
+     the ones that also appear in a list somewhere earlier. */
+  const rule = (sel) => {
+    const exact = sel.endsWith('{');
+    const want = exact ? sel.slice(0, -1) : sel;
+    const esc = want.replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c);
+    const m = new RegExp(esc + (exact ? '\\s*\\{' : '\\s*[{,]')).exec(shell);
+    if (!m) return null;
+    const open = shell.indexOf('{', m.index);
+    return shell.slice(open + 1, shell.indexOf('}', open)).trim();
+  };
+
+  /* **The boards may not be flex-shrunk.** Every one of them is a square or a
+     fixed ratio sized from its own min(); shrinking the height of a box whose
+     width comes from `aspect-ratio` does not make it smaller, it makes it
+     flat. With `flex:0 1 auto` the crossword's clue list took the overflow out
+     of the only child that would give, and a 7x7 grid came out 375 wide and
+     three pixels tall. */
+  const boards = rule('#overlay[data-game] .ch-boardwrap');
+  check('the boards are not allowed to shrink',
+    /flex:\s*0\s+0\s+auto/.test(boards || ''), boards || 'rule missing');
+  check('and nothing lets them fall under their own height',
+    boards !== null && !/min-height:\s*0/.test(boards), boards || 'rule missing');
+
+  /* **A bottom-sticky control has to be the last thing in its game.** Sticky
+     holds a box at the bottom of the screen only until you scroll down to
+     where it actually lives; past that it has been reached and it climbs off
+     the top with everything else. The crossword's keyboard sits in front of
+     862 pixels of clue list, so it was reached 23 pixels into the scroll and
+     spent the rest of it leaving. `order` is what puts it last. */
+  const dock = rule('#overlay[data-game] #hm-keys');
+  check('the control rows are ordered last, which is what makes them stick',
+    /order:\s*9/.test(dock || ''), dock || 'rule missing');
+  for (const [what, sel, want] of [
+    ['the crossword clue bar', '#overlay[data-game="crossword"] .cw-clue-bar', 8],
+    ['the scrabble rack', '#overlay[data-game="scrabble"] .sc-rack', 7],
+    ['the scrabble play button', '#overlay[data-game="scrabble"] .sc-playbtn', 8],
+    ['the scrabble actions', '#overlay[data-game="scrabble"] .sc-acts', 9],
+  ]) {
+    const r = rule(sel);
+    check(`${what} is ordered with them`,
+      new RegExp('order:\\s*' + want).test(r || ''), r || 'rule missing');
+  }
+
+  /* **The game box is capped at the screen, and the crossword is the one
+     exception.** Capped is what makes a board fit on one, and what keeps
+     picross zooming inside its own pane: a pane free to grow scrolls the page
+     instead and takes the dock off the bottom with it. The crossword is
+     excepted because 862 pixels of clue list is a document, it cannot be
+     squeezed into the forty pixels left over, and a sticky keyboard cannot
+     stick inside a parent that has itself scrolled away. */
+  const box = rule('#overlay[data-game] .game:not(.hide)');
+  check('the game box is capped at the screen',
+    /min-height:\s*0/.test(box || ''), box || 'rule missing');
+  const cwbox = rule('#overlay[data-game="crossword"] .game:not(.hide)');
+  check('except the crossword, which is as tall as its clue list',
+    /min-height:\s*auto/.test(cwbox || ''), cwbox || 'rule missing');
+
+  /* **Tetris is sized by the height it has, not the width.** `min(58vw,
+     260px)` at a 1:2 ratio is 660 pixels on a tall thin phone, which put the
+     arrows 57 pixels below the fold: a board you can see and controls you
+     cannot reach is the worst of both. */
+  const tet = rule('#overlay[data-game="tetris"] .tet');
+  check('the tetris well is sized from the height it has',
+    /height:\s*min\(/.test(tet || '') && /width:\s*auto/.test(tet || ''),
+    tet || 'rule missing');
+  check('and that height leaves room for the pad',
+    /100dvh\s*-\s*310px/.test(tet || ''), tet || 'rule missing');
+
+  /* **Ending the break is not something to do from inside a game.** The
+     button is full width, in the accent colour, and the shell puts it at the
+     very top of the screen a thumb's width above the board -- the easiest
+     thing on the page to hit by accident, and what it does is end the rest
+     for the whole room. Back goes to the shelf, where the offer still is. */
+  const esc = rule('#overlay[data-game] .ov-focus-wrap');
+  check('there is no way to end the break from inside a game',
+    /display:\s*none/.test(esc || ''), esc || 'rule missing');
+
+  /* **`margin:0 auto`, not `margin:0`.** The row gets automatic side margins
+     further up so it stays over the board, and the rule that compacts it is
+     the same specificity and later in the file -- a bare `margin:0` there put
+     them back to zero, and a 420px row sat against the left edge of a 1169px
+     window. */
+  const top = rule('#overlay[data-game] .game-top{');
+  check('the row above the board keeps the margins that centre it',
+    /margin:\s*0\s+auto/.test(top || ''), top || 'rule missing');
+
+  /* **A `margin` shorthand takes the `auto` with it.** Three rules in this
+     file have now been written as `margin:0` to close a gap above something,
+     and all three also wiped the `auto` side margins the element is centred
+     with -- the row above the board, the crossword's clue bar, and picross's
+     size chips, each of which slid 20-odd pixels left of the board it belongs
+     over. It reads as correct in the diff every time, which is why this is a
+     rule about the shape of the file rather than a fourth check naming a
+     fourth element: whatever the app centres, the shell may not un-centre. */
+  {
+    const rules = [...shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map(([, sel, body]) => [sel.replace(/\s+/g, ' ').trim(), body]);
+    /* Which value of the shorthand is the horizontal one depends on how many
+       there are: one applies to every side, two or three put it second. */
+    const sideOf = (body) => {
+      const m = body.match(/(?:^|;)\s*margin\s*:\s*([^;}]+)/);
+      if (!m) return null;
+      const bits = m[1].trim().split(/\s+/);
+      return bits.length > 1 ? bits[1] : bits[0];
+    };
+    const keyClass = (sel) => (sel.trim().match(/\.([A-Za-z0-9_-]+)\s*$/) || [])[1];
+    const centred = new Set();
+    for (const [sel, body] of rules) {
+      if (sideOf(body) !== 'auto') continue;
+      for (const one of sel.split(',')) { const k = keyClass(one); if (k) centred.add(k); }
+    }
+    const lost = [];
+    for (const [sel, body] of rules) {
+      if (!/^#overlay\[data-game/.test(sel)) continue;
+      const side = sideOf(body);
+      if (!side || side === 'auto') continue;
+      for (const one of sel.split(',')) {
+        const k = keyClass(one);
+        if (k && centred.has(k)) lost.push(one.trim() + ' → margin ' + side);
+      }
+    }
+    check('no rule in the shell un-centres something the app centres',
+      lost.length === 0, lost.join(' | ') || centred.size + ' centred classes, none lost');
+  }
+
+  /* **There is no global `.hide`** (HANDOFF section 2), so the class the
+     calendar button is hidden with has to be given one of its own. Without
+     it, `_calBtn` toggled a class that did nothing and the calendar went on
+     being offered twice. */
+  check('the row calendar has a hide rule of its own, since nothing else does',
+    /\.game-cal\.hide\s*\{[^}]*display:\s*none/.test(shell), 'no .game-cal.hide');
+
+  /* **Fit has to mean the whole board, not the whole width.** Picross and
+     scrabble both worked their fitted square out from the width alone, which
+     was harmless for as long as the page scrolled past a board that was too
+     tall. The stage has a fixed height now and the same arithmetic cut the
+     bottom off: measured at 390x600, the label said Fit with 162 pixels of
+     picross below the fold. Asserted on the source because jsdom reports
+     every `clientHeight` as 0 and both deliberately fall back to the width. */
+  for (const [game, near] of [['picross', "'pix-scroll'"], ['scrabble', "'sc-boardwrap'"]]) {
+    const at = html.indexOf('_fitCell(){', Math.max(0, html.indexOf(near) - 4000));
+    const body = at > 0 ? html.slice(at, at + 700) : '';
+    check(`${game} fits the board both ways, not just across`,
+      /clientHeight/.test(body) && /Math\.min\(/.test(body),
+      body ? body.replace(/\s+/g, ' ').slice(0, 110) : 'not found');
+  }
+
+  /* **And it has to ask once the box has stopped moving.** Working the square
+     out and then checking it are both done against a pane that is a frame
+     stale on the paint which opens a game: the dock has not landed and the
+     clue track is not drawn. At 780x560 that was one square too many and the
+     bottom row sat 30 pixels under the fold still saying Fit. Each game
+     watches its own box and redoes the sum when it really changes size. */
+  for (const [game, flag, paint] of [
+    ['picross', 'pane._pixFit = true;', 'Picross._paintZoom()'],
+    ['scrabble', 'wrap._scFit = true;', 'Scrabble._sizeBoard()'],
+  ]) {
+    /* The flag is matched in full, including `= true;`. Matching the name
+       alone let a watcher renamed to `_pixFitOff` and returned out of still
+       satisfy this, with the observer underneath it unreachable. */
+    const at = html.indexOf(flag);
+    const body = at > 0 ? html.slice(at, at + 420) : '';
+    check(`${game} works Fit out again when its box changes size`,
+      at > 0 && /new ResizeObserver/.test(body) && body.includes(paint)
+        && /<=\s*1\.001/.test(body),
+      at > 0 ? body.replace(/\s+/g, ' ').slice(0, 100) : 'no watcher');
+  }
+  /* And a watch nothing starts is not a watch. */
+  check('and both games start that watch when they draw',
+    (html.split('this._watchFit();').length - 1) === 2,
+    (html.split('this._watchFit();').length - 1) + ' call sites, wanted 2');
 }
 
 // --- resetting a shared game ------------------------------------------------
@@ -8034,11 +8521,18 @@ check('only the holder sees management buttons', $h('sync-people').querySelector
 {
   const W = [[host, $h, 'Host'], [guest, $g, 'Friend'], [third, $t, 'Third']];
   for (const [w, $w] of W) await openGame(w, $w, 'mrwhite');
-  await until(() => W.every(([w]) => w.__r.MrWhite.view));
+  /* Reported rather than thrown: `until` gives up by throwing, and a throw in
+     this file's top-level chain is swallowed by the handler at the bottom and
+     takes every block after this one with it. */
+  const allIn = await until(() => W.every(([w]) => w.__r.MrWhite.view),
+    'all three windows in the lobby', 8000).then(() => true, () => false);
 
-  const view = (w) => w.__r.MrWhite.view;
+  /* And read defensively, for the same reason: a window that never arrived has
+     no view, and asking it for its phase is the same dead run by another
+     route. */
+  const view = (w) => w.__r.MrWhite.view || {};
   check('everybody in the room lands in the same lobby',
-    W.every(([w]) => view(w).phase === 'lobby' && view(w).seats === 3),
+    allIn && W.every(([w]) => view(w).phase === 'lobby' && view(w).seats === 3),
     W.map(([w]) => `${view(w).phase}/${view(w).seats}`).join(' '));
   /* **Counted from the catalogue, not written down here.** It said six, and
      adding a seventh set made it say six about a list of seven — the same
@@ -8492,7 +8986,11 @@ const handTo = (name) => {
 };
 check('the host can see Friend to hand the timer to', !!handTo('Friend'),
   [...$h('sync-people').querySelectorAll('.sync-who')].map((x) => x.textContent).join(' | '));
-handTo('Friend').click();
+/* Guarded, like the removal and the castle are, and for the reason given
+   above both of them: when the row has not arrived this is a flake that has
+   already been reported, and reaching into it turns one red check into a run
+   that stops here. */
+{ const row = handTo('Friend'); if (row) row.click(); }
 await wait(60);
 check('handing over asks first, even in a full room', !$h('confirm').classList.contains('hide'));
 $h('confirm-yes').click();
@@ -9699,6 +10197,21 @@ try {
     ['pix-sizes', 'pix-grid', 'pix-banner', 'pix-meta', 'pix-clear', 'pix-fill', 'pix-mark']
       .filter((id) => !($x(id) && $x(id).closest('#game-picross'))).join(', ') || 'all seven');
 
+  /* **The calendar was offered twice.** The header carries a button into a
+     dated game's back catalogue, and the row under it carried a second one
+     saying "Calendar" in words, an inch apart and doing the same thing. The
+     row's is tied to the header's rather than dropped, so a game whose header
+     button is not showing keeps the only way in it has -- which is what the
+     second half of this checks. */
+  check('the header offers the calendar while a dated game is open',
+    !$x('ov-cal').classList.contains('hide'));
+  check('and the row does not offer it a second time',
+    $x('pix-list').classList.contains('hide'));
+  X.Arcade._calBtn('');
+  check('but the row offers it again wherever the header does not',
+    !$x('pix-list').classList.contains('hide'));
+  X.Arcade._calBtn('picross');
+
   check('the picross card opens a grid of its own size, with a clue for every line',
     $x('pix-grid').querySelectorAll('.pix-cell').length === P.size * P.size
     && $x('pix-grid').querySelectorAll('.pix-rc').length === P.size
@@ -9973,15 +10486,21 @@ try {
   /* **The archive is reachable without finishing today's.** Picross registered
      with the daily system from the start — records, streaks, per-day stats —
      but the only door to the calendar was the win banner, so every other day
-     was behind today's puzzle. The crossword has carried a History button on
-     its screen all along; this is the same button in the same place. */
+     was behind today's puzzle.
+
+     **Which door it is has changed and the guarantee has not.** This used to
+     name `pix-list`, the button saying "Calendar" in picross's own row; the
+     header carries one for every dated game now, so the row's was a second
+     copy of it an inch away and the row's is the one that went. So: a door on
+     the screen, not the win banner, and press whichever one is showing. */
   {
     const cal = () => $x('dcal') || $x('dcal-overlay');
     $x('pix-close')?.click();
+    const up = (id) => !!$x(id) && !$x(id).classList.contains('hide');
+    const door = up('ov-cal') ? 'ov-cal' : (up('pix-list') ? 'pix-list' : '');
     check('picross offers its archive on the screen, not only after a win',
-      !!$x('pix-list') && !$x('pix-list').classList.contains('hide'),
-      $x('pix-list') ? $x('pix-list').textContent : 'no button');
-    $x('pix-list').click();
+      !!door, door || 'neither the header nor the row offers a way in');
+    if (door) $x(door).click();
     await wait(150);
     check('and the button opens the calendar',
       !!cal() && !cal().classList.contains('hide'),

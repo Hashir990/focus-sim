@@ -367,7 +367,16 @@ body[data-light="skyline"] #cal-overlay,
 body[data-light="skyline"] #stats-overlay,
 body[data-light="skyline"] #ach-overlay,
 body[data-light="skyline"] #sync-overlay,
-body[data-light="skyline"] #drawer{
+body[data-light="skyline"] #drawer,
+body[data-amb="city"],
+#app[data-amb="city"],
+body[data-amb="city"] #overlay,
+body[data-amb="city"] #quotes-overlay,
+body[data-amb="city"] #cal-overlay,
+body[data-amb="city"] #stats-overlay,
+body[data-amb="city"] #ach-overlay,
+body[data-amb="city"] #sync-overlay,
+body[data-amb="city"] #drawer{
   --accent:#ffc46b; --glow:rgba(255,196,107,.34);
   --bg:#0a1122; --bg2:#212a44; --text:#f6efe2; --muted:#8a8fa4;
   --track:rgba(255,224,182,.10);
@@ -386,7 +395,16 @@ body[data-light="space"] #cal-overlay,
 body[data-light="space"] #stats-overlay,
 body[data-light="space"] #ach-overlay,
 body[data-light="space"] #sync-overlay,
-body[data-light="space"] #drawer{
+body[data-light="space"] #drawer,
+body[data-amb="adrift"],
+#app[data-amb="adrift"],
+body[data-amb="adrift"] #overlay,
+body[data-amb="adrift"] #quotes-overlay,
+body[data-amb="adrift"] #cal-overlay,
+body[data-amb="adrift"] #stats-overlay,
+body[data-amb="adrift"] #ach-overlay,
+body[data-amb="adrift"] #sync-overlay,
+body[data-amb="adrift"] #drawer{
   /* The glow is deliberately weaker than any other look's. Everything else
      here is faint on purpose — stars that come and go, a galaxy you half
      notice — and a halo at the usual strength sits in front of all of it and
@@ -549,7 +567,16 @@ body[data-light="beach"] #cal-overlay,
 body[data-light="beach"] #stats-overlay,
 body[data-light="beach"] #ach-overlay,
 body[data-light="beach"] #sync-overlay,
-body[data-light="beach"] #drawer{
+body[data-light="beach"] #drawer,
+body[data-amb="sea"],
+#app[data-amb="sea"],
+body[data-amb="sea"] #overlay,
+body[data-amb="sea"] #quotes-overlay,
+body[data-amb="sea"] #cal-overlay,
+body[data-amb="sea"] #stats-overlay,
+body[data-amb="sea"] #ach-overlay,
+body[data-amb="sea"] #sync-overlay,
+body[data-amb="sea"] #drawer{
   --accent:#ff9d4d; --glow:rgba(255,124,150,.42);
   --bg:#1a1030; --bg2:#3d1f4d; --text:#f6e9f2; --muted:#a98fb8;
 }
@@ -720,51 +747,21 @@ body.away .beach-wave-foam{ animation-play-state:paused }
    ships (see the beach block in the body) and simply never shows. */
 .beach-palms{ display:none !important }
 
-/* **Three tracks that wear a look's colours rather than their own.** Night
-   city is Skyline, Morning sea is Beach, Adrift is Deep space -- the same
-   values, written out again because a track is selected by `data-amb` and a
-   look by `data-light`, and there is no selector that means both. Copied
-   deliberately: sharing them through a third class would mean a change to one
-   silently moving the other, and these are meant to match only for as long as
-   somebody wants them to. */
-body[data-amb="city"],
-#app[data-amb="city"],
-body[data-amb="city"] #overlay,
-body[data-amb="city"] #quotes-overlay,
-body[data-amb="city"] #cal-overlay,
-body[data-amb="city"] #stats-overlay,
-body[data-amb="city"] #ach-overlay,
-body[data-amb="city"] #sync-overlay,
-body[data-amb="city"] #drawer{
-  --accent:#ffc46b; --glow:rgba(255,196,107,.34);
-  --bg:#0a1122; --bg2:#212a44; --text:#f6efe2; --muted:#8a8fa4;
-  --track:rgba(255,224,182,.10);
-}
-body[data-amb="sea"],
-#app[data-amb="sea"],
-body[data-amb="sea"] #overlay,
-body[data-amb="sea"] #quotes-overlay,
-body[data-amb="sea"] #cal-overlay,
-body[data-amb="sea"] #stats-overlay,
-body[data-amb="sea"] #ach-overlay,
-body[data-amb="sea"] #sync-overlay,
-body[data-amb="sea"] #drawer{
-  --accent:#ff9d4d; --glow:rgba(255,124,150,.42);
-  --bg:#1a1030; --bg2:#3d1f4d; --text:#f6e9f2; --muted:#a98fb8;
-}
-body[data-amb="adrift"],
-#app[data-amb="adrift"],
-body[data-amb="adrift"] #overlay,
-body[data-amb="adrift"] #quotes-overlay,
-body[data-amb="adrift"] #cal-overlay,
-body[data-amb="adrift"] #stats-overlay,
-body[data-amb="adrift"] #ach-overlay,
-body[data-amb="adrift"] #sync-overlay,
-body[data-amb="adrift"] #drawer{
-  --accent:#eef1f8; --glow:rgba(238,241,248,.18);
-  --bg:#04030b; --bg2:#260c1e; --text:#eef2ff; --muted:#8c7f94;
-  --track:rgba(238,242,255,.08);
-}
+/* **Three tracks that wear a look's colours rather than their own**, and
+   wear them from the look's own rule.
+
+   Night city is Skyline, Morning sea is Beach, Adrift is Deep space. These
+   were three copies of three palettes, kept here on the argument that a track
+   is picked by `data-amb` and a look by `data-light`, no selector means
+   both, and the pair should be free to stop matching. They are not meant to
+   stop matching -- that each one *is* the other is the whole idea of them --
+   so three palettes maintained in two places each was only three chances to
+   drift apart quietly.
+
+   No selector means both, but a selector list does. Each track's selectors
+   are in its look's rule now, above, and the declarations are written once.
+   The same was done to the JS in the same pass: a track says `like:'skyline'`
+   and `embLook` reads the rest off the light. */
 body[data-amb="rain"],
 #app[data-amb="rain"],
 body[data-amb="rain"] #overlay,

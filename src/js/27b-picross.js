@@ -502,13 +502,28 @@
        rules in 41-picross.css), so the only honest source for how wide it ended
        up is the element itself. Falls back to the CSS cap if it is asked before
        anything has been laid out. */
+    /** The square at which the whole picture is on screen: both ways.
+
+        **Both**, because the box it sits in has a height now. The clue tracks
+        come off each axis first -- the row numbers off the width, the column
+        numbers off the height -- and the smaller of the two answers wins,
+        because a square that fits across and not down does not fit.
+
+        The height is allowed to be unknown: before the stage has been laid out
+        `clientHeight` is 0, and answering 0 there would collapse the grid to
+        nothing on the first paint. Width alone is the right fallback, and the
+        next paint has both. */
     _fitCell(){
       const box = $('pix-grid'), pane = $('pix-scroll');
       if(!box || !pane) return 0;
-      const gut = box.querySelector('.pix-rows');
-      const wide = pane.clientWidth - (gut ? gut.offsetWidth : 0);
+      const rows = box.querySelector('.pix-rows');
+      const cols = box.querySelector('.pix-cols');
       const n = this.size || 1;
-      return wide > 0 ? Math.floor(wide / n) : 0;
+      const wide = pane.clientWidth - (rows ? rows.offsetWidth : 0);
+      const tall = pane.clientHeight - (cols ? cols.offsetHeight : 0);
+      const byW = wide > 0 ? Math.floor(wide / n) : 0;
+      const byH = tall > 0 ? Math.floor(tall / n) : 0;
+      return byH > 0 ? Math.min(byW, byH) : byW;
     },
 
     /** Hold the clue tracks against the edge of the box as it is panned. */
@@ -612,54 +627,98 @@
       pane.addEventListener('scroll', ()=>{ Picross._pin(); }, {passive:true});
     },
 
+    /** **Fit, asked again once the box has stopped moving.**
+
+        `_paintZoom` works the square out from the pane and then checks the
+        answer against the pane -- both of which are a frame stale on the paint
+        that opens a game, because the dock has not landed and the column clues
+        are not drawn yet. At 780x560 that was one square too many and the
+        bottom row sat 30 pixels under the fold saying Fit.
+
+        Watching the pane answers it properly: whenever it really changes size
+        the sum is done again against the size it now has. No loop is possible
+        -- the pane is sized by the stage above it, not by the board inside it,
+        so a smaller square does not resize the pane. Only at Fit, because
+        zoomed in the overflow is the point. */
+    _watchFit(){
+      const pane = $('pix-scroll');
+      if(!pane || pane._pixFit || typeof ResizeObserver !== 'function') return;
+      pane._pixFit = true;
+      let w = 0, h = 0;
+      new ResizeObserver(()=>{
+        const nw = pane.clientWidth, nh = pane.clientHeight;
+        if(nw === w && nh === h) return;
+        w = nw; h = nh;
+        if((Picross._zoom || 1) <= 1.001) Picross._paintZoom();
+      }).observe(pane);
+    },
+
     /** Put the current zoom on the grid, and say so on the button. */
     _paintZoom(){
       const box = $('pix-grid');
       if(!box) return;
       const z = this._zoom || 1;
-      if(z <= 1){
-        /* Back to the stylesheet's own fitting. The inline size has to be
-           cleared, not set to the fitted number: leaving a pixel value behind
-           would freeze the puzzle at whatever the box happened to be when it
-           was last zoomed, and it would stop following a window being resized. */
+      /* **The size is always said outright, Fit included.**
+
+         It used to be handed back to the stylesheet at 1, and the stylesheet
+         fits the width: `min(n * --pix-max, 100% - gutter)` has no idea the
+         box has a height. That is what left a board whose label said Fit with
+         its bottom rows off the screen. The fitted square is worked out here,
+         where both axes are known, and written down every time -- which also
+         means it follows a window being resized, because every resize repaints.
+
+         `zoomed` still marks the state rather than carrying the size: it is
+         what swaps the track from the clamped min() to plain arithmetic, and
+         at Fit the clamp is exactly what is wanted. */
+      const cell = this._fitCell();
+      if(cell > 0){
+        box.classList.toggle('zoomed', z > 1.001);
+        const top = PIC_ZOOMS[PIC_ZOOMS.length - 1];
+        box.style.setProperty('--pix-max', zoomBox(cell, z, top).cell + 'px');
+        /* **At Fit, check rather than trust.** The arithmetic above divides
+           the box by the number of squares, and it is a few pixels out: the
+           clue track it subtracts is measured before the new square changes
+           it, and each cell's border is not in the division at all. So the
+           scroller is asked whether anything is still below the fold, and the
+           shortfall is taken off the square. Bounded to one correction --
+           shrinking cannot create overflow, so there is nothing to iterate. */
+        if(z <= 1.001){
+          const pane = $('pix-scroll');
+          const n = this.size || 1;
+          const over = pane ? pane.scrollHeight - pane.clientHeight : 0;
+          if(over > 0 && pane.clientHeight > 0){
+            const less = Math.max(1, Math.ceil(over / n));
+            const fixed = Math.max(4, zoomBox(cell, z, top).cell - less);
+            box.style.setProperty('--pix-max', fixed + 'px');
+          }
+        }
+      }else{
         box.classList.remove('zoomed');
         box.style.removeProperty('--pix-max');
-      }else{
-        const cell = this._fitCell();
-        if(cell > 0){
-          box.classList.add('zoomed');
-          box.style.setProperty('--pix-max', Math.round(cell * z) + 'px');
-        }
       }
       this._wirePan();
+      this._watchFit();
       this._wireGestures();
       this._pin();
       const lab = $('pix-zlabel');
-      if(lab) lab.textContent = z <= 1 ? T('Fit')
-        : (Math.round(z * 10) % 10 ? z.toFixed(1) : String(Math.round(z))) + '\u00d7';
+      if(lab) lab.textContent = zoomLabel(z);
       /* Compared against the ends rather than looked up in the list: a pinch
          leaves the zoom between two steps, and indexOf would then say -1 and
          light both buttons at the bottom of the range. */
       const out = $('pix-zout'), zin = $('pix-zin');
       if(out) out.disabled = z <= PIC_ZOOMS[0] + 0.001;
       if(zin) zin.disabled = z >= PIC_ZOOMS[PIC_ZOOMS.length - 1] - 0.001;
+      zoomDoubleTap($('pix-scroll'), ()=>Picross._zoom || 1,
+        (want, at)=>Picross.zoomTo(want, at));
     },
 
-    /** The nearest step to where a pinch left it, so the buttons still work
-        afterwards rather than jumping back to a number nobody chose. */
-    _nearestStep(){
-      const z = this._zoom || 1;
-      let best = 0;
-      for(let i = 1; i < PIC_ZOOMS.length; i++){
-        if(Math.abs(PIC_ZOOMS[i] - z) < Math.abs(PIC_ZOOMS[best] - z)) best = i;
-      }
-      return best;
-    },
-
-    /** Straight to a number, for a pinch. Between the ends of the step list. */
+    /** Straight to a number. The only way in: the buttons, the pinch and a
+        double tap all land here, so there is one clamp and one behaviour. */
     zoomTo(z, hold){
-      const lo = PIC_ZOOMS[0], hi = PIC_ZOOMS[PIC_ZOOMS.length - 1];
-      const next = Math.max(lo, Math.min(hi, z));
+      /* Snapped to a whole square first: the grid is drawn from `--pix-max`
+         and a fractional one puts every line in the picture between pixels.
+         See zoomBox in 09d-zoom.js. */
+      const next = zoomBox(this._fitCell(), z, PIC_ZOOMS[PIC_ZOOMS.length - 1]).zoom;
       if(Math.abs(next - (this._zoom || 1)) < 0.001) return;
       const pane = $('pix-scroll');
       const was = pane ? {w:pane.scrollWidth, h:pane.scrollHeight,
@@ -679,11 +738,16 @@
       }
     },
 
-    /** One step in or out, and keep the square you were looking at in view. */
+    /** In or out by a ratio, and keep the square you were looking at in view.
+
+        **Not a step through a list.** It was, and the list was the problem: a
+        pinch leaves the zoom at 1.7, the nearest entry is 1.5, and pressing +
+        went to 2 by way of forgetting where you were. A ratio from wherever it
+        actually is has no opinion about where it has been. */
     setZoom(step){
-      const i = this._nearestStep();
-      const next = PIC_ZOOMS[Math.max(0, Math.min(PIC_ZOOMS.length - 1, i + step))];
-      if(next === this._zoom) return;
+      const next = zoomStep(this._fitCell(), this._zoom || 1, step,
+        PIC_ZOOMS[PIC_ZOOMS.length - 1]).zoom;
+      if(Math.abs(next - (this._zoom || 1)) < 0.001) return;
       const pane = $('pix-scroll');
       /* Where the middle of the view was, as a fraction of the whole, so
          zooming goes in on what you were looking at rather than throwing you

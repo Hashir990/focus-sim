@@ -37,8 +37,12 @@
      it readable against the dark room is the halo in 04-timer.css, not the
      fill. */
   const SPIDER_INKS = ['#1e1f28', '#2b1a0f'];
+  /* `roof` and `floor` are the top and bottom edges. See the note beside
+     them in 04-timer.css: the rule against walking horizontally is about
+     crossing open space, and an edge is a surface like the side walls are. */
   const SPIDER_SPOTS = ['drop-l1', 'drop-l2', 'drop-r1', 'drop-r2',
                         'wall-l', 'wall-r', 'web-l', 'web-r',
+                        'roof-a', 'roof-b', 'floor-a', 'floor-b',
                         'bg-a', 'bg-b', 'bg-c', 'bg-d',
                         'diag-a', 'diag-b', 'diag-c', 'diag-d'];
   /* **The corner web's spokes, read off the drawing.**
@@ -272,7 +276,9 @@
   /* On a wall you see a spider from the side; hanging or crossing open space
      you see it from below. */
   function spiderShapeFor(kind){
-    if(kind === 'wall') return 'side';
+    /* The roof and the floor are walls turned a quarter, so they are looked
+       at the same way: along the surface. */
+    if(kind === 'wall' || kind === 'roof' || kind === 'floor') return 'side';
     if(kind === 'drop') return 'hang';
     return Math.random() < 0.5 ? 'top' : 'long';
   }
@@ -350,6 +356,17 @@
       const up = Math.random() < 0.5;
       el.className = 'spider sp-wall' + (right ? ' sp-right' : '') + (up ? ' sp-up' : '');
       const dur = Math.max(6, vh(124) / speed);
+      el.style.setProperty('--sp-dur', dur.toFixed(1) + 's');
+      el.innerHTML = svg;
+      spiderSit(el, dur);
+    }else if(kind === 'roof' || kind === 'floor'){
+      /* The same walk as the side walls, along the edge at the top or the
+         bottom. Across rather than down, so the distance is the window's
+         width and the duration is worked out from that -- a spider does not
+         speed up because the room is wider. */
+      const back = Math.random() < 0.5;
+      el.className = 'spider sp-' + kind + (back ? ' sp-back-way' : '');
+      const dur = Math.max(6, vw(124) / speed);
       el.style.setProperty('--sp-dur', dur.toFixed(1) + 's');
       el.innerHTML = svg;
       spiderSit(el, dur);

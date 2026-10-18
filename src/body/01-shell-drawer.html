@@ -141,10 +141,6 @@
        rings stop a strand short instead of closing. Generated from a seeded
        jitter, not typed, so it is reproducible and not a doodle. -->
     
-<!-- Where the spiders turn up. Empty until one is sent; see
-     39a-spiders.js. Fixed to the window like the webs, and behind
-     everything, because nothing in here is to be reached or read. -->
-<div class="spiders" id="spiders" aria-hidden="true"></div>
 
 <!-- **One web, spun twice.** These were torn: jittered spokes, rings
        that gave up part-way, holes, loose ends. Close up that is what a
@@ -173,3 +169,30 @@
       <path class="corner-web-rings" d="M16.4 0.5Q14.7 2.2 15.8 4.2Q14.0 5.2 14.8 7.2Q12.4 7.8 12.2 9.8Q10.1 9.9 9.8 11.9Q7.6 12.0 6.9 14.4Q5.0 13.5 4 15.2Q2.2 14.4 0.7 16.2M30.8 1Q27.7 4.1 29.7 7.9Q26.3 9.8 27.7 13.5Q23.1 14.6 22.9 18.4Q18.9 18.7 18.4 22.4Q14.3 22.6 12.9 27Q9.3 25.3 7.5 28.4Q4.0 26.9 1.3 30.3M48.2 1.6Q43.3 6.4 46.5 12.4Q41.1 15.3 43.4 21.1Q36.3 22.9 35.9 28.9Q29.6 29.3 28.8 35.1Q22.4 35.4 20.2 42.3Q14.6 39.8 11.8 44.6Q6.3 42.1 2 47.4M68.7 2.2Q61.8 9.1 66.3 17.7Q58.6 21.9 61.8 30.1Q51.7 32.6 51.2 41.2Q42.2 41.7 41.1 50Q31.9 50.5 28.7 60.3Q20.9 56.6 16.9 63.5Q9.1 60.0 2.9 67.6M92.3 3Q83.0 12.3 89.1 23.8Q78.8 29.4 83.1 40.5Q69.4 43.8 68.7 55.3Q56.7 56.0 55.2 67.1Q42.9 67.7 38.6 80.9Q28.0 76.0 22.6 85.3Q12.1 80.6 3.9 90.9M119 3.9Q107.0 15.8 114.8 30.7Q101.5 37.9 107 52.2Q89.5 56.5 88.6 71.3Q73.1 72.2 71.2 86.5Q55.4 87.3 49.8 104.3Q36.1 98.0 29.2 110Q15.6 103.9 5 117.1"/>
     </g>
 </svg>
+
+<!-- **The web the dial sits in, and it is in the room rather than on the
+     dial.** It used to live inside `.dial-wrap`, which is inside
+     `.stage` -- and `.stage` is a stacking context, so a spider could
+     be in front of this web or behind the clock but never both. Out
+     here it is one of the webs, and `glowFit` in 39-dial-glow.js puts
+     it where the dial is, the same way and at the same moment as the
+     glow. -->
+<!-- The Spiders web, behind the dial and only ever visible under that
+     light (04-timer.css shows it; 30-embers.css carries the palette).
+     Inline because the app ships as a single file and there is nowhere
+     to fetch an image from. Twelve spokes and five rings, each segment
+     sagging towards the centre — a web drawn with straight rings reads
+     as a dartboard. The geometry was generated, not typed. -->
+<svg class="dial-web" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+  <g class="dial-web-g">
+    <path class="dial-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
+    <path class="dial-web-rings" d="M120 90Q126.8 94.8 135 94Q138.5 101.5 146 105Q145.2 113.2 150 120Q145.2 126.8 146 135Q138.5 138.5 135 146Q126.8 145.2 120 150Q113.2 145.2 105 146Q101.5 138.5 94 135Q94.8 126.8 90 120Q94.8 113.2 94 105Q101.5 101.5 105 94Q113.2 94.8 120 90ZM120 68Q131.7 76.3 146 75Q152 88 165 94Q163.7 108.3 172 120Q163.7 131.7 165 146Q152 152 146 165Q131.7 163.7 120 172Q108.3 163.7 94 165Q88 152 75 146Q76.3 131.7 68 120Q76.3 108.3 75 94Q88 88 94 75Q108.3 76.3 120 68ZM120 46Q136.7 57.8 157 55.9Q165.5 74.5 184.1 83Q182.2 103.3 194 120Q182.2 136.7 184.1 157Q165.5 165.5 157 184.1Q136.7 182.2 120 194Q103.3 182.2 83 184.1Q74.5 165.5 55.9 157Q57.8 136.7 46 120Q57.8 103.3 55.9 83Q74.5 74.5 83 55.9Q103.3 57.8 120 46ZM120 24Q141.6 39.3 168 36.9Q179.1 60.9 203.1 72Q200.7 98.4 216 120Q200.7 141.6 203.1 168Q179.1 179.1 168 203.1Q141.6 200.7 120 216Q98.4 200.7 72 203.1Q60.9 179.1 36.9 168Q39.3 141.6 24 120Q39.3 98.4 36.9 72Q60.9 60.9 72 36.9Q98.4 39.3 120 24ZM120 4Q146.1 22.5 178 19.5Q191.4 48.6 220.5 62Q217.5 93.9 236 120Q217.5 146.1 220.5 178Q191.4 191.4 178 220.5Q146.1 217.5 120 236Q93.9 217.5 62 220.5Q48.6 191.4 19.5 178Q22.5 146.1 4 120Q22.5 93.9 19.5 62Q48.6 48.6 62 19.5Q93.9 22.5 120 4Z"/>
+    </g>
+  </g>
+</svg>
+
+<!-- Where the spiders turn up. Empty until one is sent; see 39a-spiders.js.
+     **Last of the three on this layer, which is what puts it in front of
+     them.** All of it is fixed at z 0, so the spider is over every web and
+     under `.stage` -- the clock, the buddy, everything you touch. -->
+<div class="spiders" id="spiders" aria-hidden="true"></div>

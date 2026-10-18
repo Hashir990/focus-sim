@@ -16,19 +16,6 @@
       <div class="cycle" id="cycle"></div>
 
       <div class="dial-wrap">
-        <!-- The Spiders web, behind the dial and only ever visible under that
-             light (04-timer.css shows it; 30-embers.css carries the palette).
-             Inline because the app ships as a single file and there is nowhere
-             to fetch an image from. Twelve spokes and five rings, each segment
-             sagging towards the centre — a web drawn with straight rings reads
-             as a dartboard. The geometry was generated, not typed. -->
-        <svg class="dial-web" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
-          <g class="dial-web-g">
-            <path class="dial-web-spokes" d="M120 120L120 2M120 120L179 17.8M120 120L222.2 61M120 120L238 120M120 120L222.2 179M120 120L179 222.2M120 120L120 238M120 120L61 222.2M120 120L17.8 179M120 120L2 120M120 120L17.8 61M120 120L61 17.8"/>
-            <path class="dial-web-rings" d="M120 90Q126.8 94.8 135 94Q138.5 101.5 146 105Q145.2 113.2 150 120Q145.2 126.8 146 135Q138.5 138.5 135 146Q126.8 145.2 120 150Q113.2 145.2 105 146Q101.5 138.5 94 135Q94.8 126.8 90 120Q94.8 113.2 94 105Q101.5 101.5 105 94Q113.2 94.8 120 90ZM120 68Q131.7 76.3 146 75Q152 88 165 94Q163.7 108.3 172 120Q163.7 131.7 165 146Q152 152 146 165Q131.7 163.7 120 172Q108.3 163.7 94 165Q88 152 75 146Q76.3 131.7 68 120Q76.3 108.3 75 94Q88 88 94 75Q108.3 76.3 120 68ZM120 46Q136.7 57.8 157 55.9Q165.5 74.5 184.1 83Q182.2 103.3 194 120Q182.2 136.7 184.1 157Q165.5 165.5 157 184.1Q136.7 182.2 120 194Q103.3 182.2 83 184.1Q74.5 165.5 55.9 157Q57.8 136.7 46 120Q57.8 103.3 55.9 83Q74.5 74.5 83 55.9Q103.3 57.8 120 46ZM120 24Q141.6 39.3 168 36.9Q179.1 60.9 203.1 72Q200.7 98.4 216 120Q200.7 141.6 203.1 168Q179.1 179.1 168 203.1Q141.6 200.7 120 216Q98.4 200.7 72 203.1Q60.9 179.1 36.9 168Q39.3 141.6 24 120Q39.3 98.4 36.9 72Q60.9 60.9 72 36.9Q98.4 39.3 120 24ZM120 4Q146.1 22.5 178 19.5Q191.4 48.6 220.5 62Q217.5 93.9 236 120Q217.5 146.1 220.5 178Q191.4 191.4 178 220.5Q146.1 217.5 120 236Q93.9 217.5 62 220.5Q48.6 191.4 19.5 178Q22.5 146.1 4 120Q22.5 93.9 19.5 62Q48.6 48.6 62 19.5Q93.9 22.5 120 4Z"/>
-            </g>
-          </g>
-        </svg>
         <div class="dial" id="dial">
           <div class="halo"></div>
           <svg viewBox="0 0 240 240" aria-hidden="true">

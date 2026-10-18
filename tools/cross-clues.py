@@ -4893,3 +4893,21 @@ CLUES.update({
     'variation':  'A change from the usual',
     'violent':    'Marked by brutal force',
 })
+
+CLUES.update({
+    'apologize':  'Say sorry',
+    'baker':      'Maker of loaves and buns',
+    'composing':  'Writing a piece of music',
+    'crest':      'Top of a wave or a hill',
+    'deposit':    'Pay money into a bank account',
+    'hurt':       'In pain, or to cause pain',
+    'lamp':       'Bedside light',
+    'leash':      'Strap for walking a dog',
+    'leisurely':  'Unhurried, at an easy pace',
+    'optical':    'Of the eye or of sight',
+    'pellet':     'Tiny ball of shot or feed',
+    'poll':       'Survey of opinion, or a vote',
+    'precision':  'Exactness',
+    'scum':       'Film of froth on a pond',
+    'strength':   'Power of the muscles',
+})

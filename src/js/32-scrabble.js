@@ -18,7 +18,16 @@
   const SC_ALPHA = 'abcdefghijklmnopqrstuvwxyz';
   const SC_QUIET_END = 6;        // scoreless turns in a row that end the game
   const SC_LABEL = {d:'2L', t:'3L', D:'2W', T:'3W', '*':''};
-  const SC_ZOOMS = [0, 26, 34, 44];   // 0 = fit the width; then fixed square sizes
+  /* **How far in it goes, and nothing about the way there.** Four fixed
+     square sizes were what made this feel like a control rather than a board:
+     a pinch would track your fingers and then land on whichever of the four
+     was nearest. It is a plain multiplier of the fitted size now, anywhere
+     between 1 and this, and it stays exactly where it is put. See 09d-zoom.js.
+
+     Three: a square fitted to a phone is about 22px, so this is 66 -- a
+     thumb's width, and about as far in as a fifteen-wide board has detail to
+     show. */
+  const SC_ZMAX = 3;
   const SC_DRAG_SLOP = 6;             // px before a press counts as a drag
 
   const Scrabble = {
@@ -32,7 +41,7 @@
     swapMode:false,        // the Swap button is a two-press affair
     swapSel:[],            // rack indices marked for a swap
     blankAt:null,          // {r,c,ri} while the blank chooser is open
-    zoom:0,                // 0 = fit the width, then bigger
+    zoom:1,                // a multiplier of the fitted square size; 1 = fit
     drag:null,             // the press in progress: a tap until it moves
     pinch:null,            // {from, zoom} while two fingers are on the board
 
@@ -63,8 +72,14 @@
       this._wireDrag();
       this._wirePinch();
 
-      $('sc-zin').onclick = ()=>this.setZoom(this.zoom + 1);
-      $('sc-zout').onclick = ()=>this.setZoom(this.zoom - 1);
+      /* A ratio from wherever it is, not a step to a fixed size, so a press
+         after a pinch carries on from the pinch instead of undoing it. */
+      $('sc-zin').onclick = ()=>this.setZoom(zoomStep(this._fitCell(), this.zoom, 1, SC_ZMAX).zoom);
+      $('sc-zout').onclick = ()=>this.setZoom(zoomStep(this._fitCell(), this.zoom, -1, SC_ZMAX).zoom);
+      zoomDoubleTap($('sc-boardwrap'), ()=>Scrabble.zoom,
+        (z, at)=>Scrabble.setZoom(z, at && {
+          x:at.x + $('sc-boardwrap').getBoundingClientRect().left,
+          y:at.y + $('sc-boardwrap').getBoundingClientRect().top }));
       window.addEventListener('resize', ()=>{
         if(Arcade.open && Arcade.active === 'scrabble') this._sizeBoard();
       });
@@ -101,9 +116,26 @@
        a pinch, or the middle of the viewport for the buttons. Without it the
        board grows from its top-left corner and whatever you were looking at
        slides away, which is the opposite of what a pinch is asking for. */
+    /** The fitted square: what one is when the whole board is on screen.
+
+        Both ways, for the reason picross gives at its own `_fitCell`: fifteen
+        squares that fit across a phone and not down it are fifteen squares
+        with the bottom row missing. The height is optional -- it is 0 until
+        the wrapper has been laid out, and width alone is the right answer
+        until then. */
+    _fitCell(){
+      const wrap = $('sc-boardwrap');
+      const gaps = 6 + 14;              // the wrapper's padding, then the 14 gaps
+      const availW = ((wrap && wrap.clientWidth) || 340) - gaps;
+      const availH = ((wrap && wrap.clientHeight) || 0) - gaps;
+      const byW = Math.floor(availW / SCR_SIZE);
+      const byH = availH > 0 ? Math.floor(availH / SCR_SIZE) : 0;
+      return Math.max(16, byH > 0 ? Math.min(byW, byH) : byW);
+    },
     setZoom(z, anchor){
-      const want = Math.max(0, Math.min(SC_ZOOMS.length - 1, z));
-      if(want === this.zoom) return;
+      // snapped to a whole square before anything is compared — see zoomBox
+      const want = zoomBox(this._fitCell(), z, SC_ZMAX).zoom;
+      if(Math.abs(want - this.zoom) < 0.001) return;
       const wrap = $('sc-boardwrap'), board = $('sc-board');
       let keep = null;
       if(wrap && board){
@@ -124,20 +156,43 @@
       }
       this.render();
     },
+    /** **Fit, asked again once the wrapper has a size.**
+
+        The square is worked out from the wrapper, and on the paint that opens
+        a game the wrapper has not been laid out yet: its height reads 0 and
+        the fit quietly falls back to the width, which is exactly the answer
+        that put the bottom row under the fold. Watching it means the sum is
+        redone against the size it really has, the first time it has one, and
+        every time it changes after that. It cannot feed itself -- the wrapper
+        is sized by the shell above it, not by the board inside it. See
+        `_watchFit` in 27b-picross.js, which carries the long version. */
+    _watchFit(){
+      const wrap = $('sc-boardwrap');
+      if(!wrap || wrap._scFit || typeof ResizeObserver !== 'function') return;
+      wrap._scFit = true;
+      let w = 0, h = 0;
+      new ResizeObserver(()=>{
+        const nw = wrap.clientWidth, nh = wrap.clientHeight;
+        if(nw === w && nh === h) return;
+        w = nw; h = nh;
+        if((Scrabble.zoom || 1) <= 1.001) Scrabble._sizeBoard();
+      }).observe(wrap);
+    },
+
     _sizeBoard(){
       const board = $('sc-board'), wrap = $('sc-boardwrap');
       if(!board || !wrap) return;
-      let cell = SC_ZOOMS[this.zoom];
-      if(!cell){
-        const avail = (wrap.clientWidth || 340) - 6 - 14;   // padding, then the 14 gaps
-        cell = Math.max(16, Math.floor(avail / SCR_SIZE));
-      }
+      this._watchFit();
+      const cell = zoomBox(this._fitCell(), this.zoom || 1, SC_ZMAX).cell;
       board.style.setProperty('--sc-cell', cell + 'px');
       const lab = $('sc-zlabel');
-      if(lab) lab.textContent = this.zoom ? '×' + (this.zoom + 1) : 'Fit';
+      if(lab) lab.textContent = zoomLabel(this.zoom);
+      /* Compared against the ends rather than against a list position: the
+         zoom is a number anywhere in the range now, so "can I go further" is
+         arithmetic and not an index. */
       const zin = $('sc-zin'), zout = $('sc-zout');
-      if(zin) zin.disabled = this.zoom >= SC_ZOOMS.length - 1;
-      if(zout) zout.disabled = this.zoom <= 0;
+      if(zin) zin.disabled = this.zoom >= SC_ZMAX - 0.001;
+      if(zout) zout.disabled = this.zoom <= 1.001;
     },
 
     /* ---- picking tiles up and putting them down ----
@@ -287,11 +342,12 @@
         pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
         if(pts.size !== 2 || !this.pinch) return;
         if(e.cancelable) e.preventDefault();
-        const ratio = span() / (this.pinch.from || 1);
-        // a step per 25% change, so it takes a deliberate spread to move a level
-        const step = Math.round((ratio - 1) / 0.25);
-        const want = Math.max(0, Math.min(SC_ZOOMS.length - 1, this.pinch.zoom + step));
-        if(want !== this.zoom) this.setZoom(want, mid());
+        /* **Straight from the fingers.** This used to quantise the spread --
+           a level per twenty-five per cent -- so the board sat still through
+           most of a pinch and then jumped. The ratio between how far apart the
+           fingers are now and how far apart they started is the zoom, and that
+           is the whole of it. */
+        this.setZoom(this.pinch.zoom * (span() / (this.pinch.from || 1)), mid());
       }, {passive:false});
 
       const drop = e=>{

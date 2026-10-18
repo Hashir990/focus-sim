@@ -179,28 +179,33 @@
      accent:'#f0a05a', fx:'sparks', fxc:'#ffc083', fxc2:'#ff8f4d', fxm:.6, fxw:2.6,
      fxflick:1},
 
-    /* **Three that are a look's own sound.** Every track above invented its
-       own palette and its own weather; these take one that already exists, so
-       Skyline, Beach and Deep space each have something to hear as well as
-       something to see. The accent and the effect are deliberately identical
-       to the light's -- that is the point of them, and it is why there is no
-       new weather here to write.
+    /* **Three that are a look's own sound, and `like` is how they say so.**
 
-       They are still bought and chosen like any other track, and a track still
-       puts the light out: picking Night city while Skyline is on changes
-       nothing you can see, which is the right answer rather than a missed
-       opportunity. */
+       Every track above invented its own palette and its own weather; these
+       three take one that already exists, so Skyline, Beach and Deep space
+       each have something to hear as well as something to see.
+
+       They used to carry a copy of the light's accent, effect and palette.
+       The copies were identical -- they had been kept in step by hand -- and
+       Adrift's was eleven colours of it. A shelf where changing Deep space
+       silently leaves Adrift looking like the old Deep space is a bug waiting
+       for somebody to notice a mismatch months later, so the look is named
+       rather than repeated: `embLook` reads it off the light, and there is
+       one place to change each of them.
+
+       They are still bought and chosen like any other track, and a track
+       still puts the light out: picking Night city while Skyline is on
+       changes nothing you can see, which is the right answer rather than a
+       missed opportunity -- and now it is true by construction. */
     {id:'city', name:'Night city', note:'Traffic, a long way down', cost:260,
-     accent:'#ffc46b', fx:'towers', fxm:1, fxc:'#04060e'},
+     like:'skyline'},
     {id:'sea', name:'Morning sea', note:'Water, and birds over it', cost:240,
-     accent:'#ff9d4d', fx:'bokeh', fxc:'#ffb36b', fxc2:'#e28cb4', fxm:1},
+     like:'beach'},
     /* The name is the piece's name, by the person who wrote it, so it is left
        alone in every language the way Spider-Man was. See the Sound section of
        the credits. */
     {id:'adrift', name:'Adrift', note:'A synth, much further out', cost:300,
-     accent:'#9fc4ff', fx:'stars', fxc:'#ffffff', fxc2:'#cfe3ff', fxm:1,
-     fxpal:['#ffffff', '#cfe3ff', '#ffffff', '#ffe6bd', '#b7d2ff', '#ffffff',
-            '#ffd3a0', '#e6efff', '#ffffff', '#9fc4ff', '#fff4e2']},
+     like:'space'},
   ];
 ;
   const EMB_SND = 'snd-';                       // how a sound is filed in `own`
@@ -318,6 +323,20 @@
 
   function embLight(id){ return EMB_LIGHTS.find(l=>l.id === id) || EMB_LIGHTS[0]; }
   function embSound(id){ return EMB_SOUNDS.find(s=>s.id === id) || null; }
+  /** **What a shelf item looks like, following `like` if it has one.**
+
+      Three tracks borrow a light's appearance rather than carrying their own
+      -- see the note beside them in EMB_SOUNDS. Everything that paints from a
+      shelf item goes through here, so the borrowing is in one place and a
+      light edited once is edited everywhere it shows.
+
+      The item's own identity wins over the light's: it keeps its id, its name,
+      its note and its price, and takes only the look. */
+  function embLook(x){
+    if(!x || !x.like) return x;
+    return Object.assign({}, embLight(x.like),
+      {id:x.id, name:x.name, note:x.note, cost:x.cost, like:x.like});
+  }
   /** Free, or bought. Asked by the ambience picker before it plays anything. */
   function embHasSound(id){
     const s = embSound(id);
@@ -725,7 +744,7 @@
       try{
         if(typeof AMB === 'object' && AMB.id && AMB.id !== 'off'){
           const sd = embSound(AMB.id);
-          if(sd) return sd;
+          if(sd) return embLook(sd);
         }
       }catch(e){}
       return embLight(this.light);
@@ -862,9 +881,11 @@
             try{ on = mine && AMB.id === sd.id; }catch(e){}
             const afford = this.have >= sd.cost;
             const lock = lvlTag(sd.cost, mine);
+            /* Its swatch is the colour it will actually paint with, which for
+               the three that borrow one is the light's -- see `embLook`. */
             return '<button class="emb-light' + (mine ? ' mine' : '') + (on ? ' on' : '')
               + (!mine && !afford ? ' far' : '') + (lock ? ' lock' : '') + '" data-sound="' + esc(sd.id) + '"'
-              + ' style="--lit:' + sd.accent + '">'
+              + ' style="--lit:' + embLook(sd).accent + '">'
               + '<i class="emb-dot"></i>'
               + '<b>' + esc(sd.name) + '</b>'
               + '<em>' + (mine ? (on ? 'playing' : (sd.cost ? 'owned' : 'free')) : (lock ? esc(lock) : embPrice(sd.cost))) + '</em>'

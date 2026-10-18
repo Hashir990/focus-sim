@@ -281,6 +281,7 @@
     close(){
       this._leaveActive();
       this.open=false; $('overlay').classList.add('hide');
+      $('overlay').removeAttribute('data-game');
       try{ glowFit(); }catch(e){}     // the dial is back; so is its glow
     },
     back(){
@@ -308,6 +309,8 @@
     _picker(){
       try{ playStop(); }catch(e){}
       this.active=null;
+      // back to being a page, with its margins and its full header
+      $('overlay').removeAttribute('data-game');
       this._calBtn('');
       $('picker').classList.remove('hide');
       for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.add('hide'); }
@@ -386,6 +389,13 @@
     },
     async _showGame(g){
       $('picker').classList.add('hide');
+      /* **Which board is open, said out loud on the overlay.** Everything in
+         05a-gameshell.css hangs off this: the header thins out, the column
+         gives up its width, and the game's own controls take the bottom of the
+         screen. Without it the arcade is one page with thirteen things pasted
+         into it, which is exactly what it looked like. */
+      $('overlay').setAttribute('data-game', g);
+      this._headRoom();
       for(const id in GAMES){ const el=$(GAMES[id].el); if(el) el.classList.toggle('hide', id!==g); }
       const def=GAMES[g];
       $('ov-title').textContent = def ? def.title : 'Rest arcade';
@@ -396,12 +406,52 @@
       try{ if(def) playStart(g); }catch(e){}
       if(def){ try{ await def.game().enter(); }catch(e){} }
     },
+    /** The calendar, offered once.
+
+        Every game with dated editions carries a button into its back
+        catalogue in its own top row, and the header carries one too -- so a
+        crossword showed an icon and the word "Calendar" an inch apart, doing
+        the same thing. The header's is the one that survives: it is in the
+        same place for every game, and the row it was crowding is the row that
+        has to fit on a phone.
+
+        Tied to the header button rather than hidden outright, so a game whose
+        header button is not showing keeps the only way in it has. `.game-cal`
+        is the marker; a new dated game gets this by wearing it. */
+    /** **How much room the floating header needs, from the header.**
+
+        In full bleed the header is taken out of the flow and floated over the
+        board, and the body keeps a strip of padding at the top for it to
+        float over. That strip used to be a number someone wrote down, and it
+        was twelve pixels short of the truth, which put the top of every game
+        underneath the header with no scroll to recover it.
+
+        Measured here, after `data-game` is set, because the header is a
+        different height in full bleed than it is on the shelf --
+        `getBoundingClientRect` forces the layout, so this reads the one that
+        is about to be painted and not the one that just was. Then watched,
+        because the safe area, the clock's width and the system font size all
+        move it. */
+    _headRoom(){
+      const head = document.querySelector('#overlay .ov-head');
+      const ov = $('overlay');
+      if(!head || !ov) return;
+      const put = ()=>{
+        const h = Math.round(head.getBoundingClientRect().height);
+        if(h > 0) ov.style.setProperty('--ov-head-h', h + 'px');
+      };
+      put();
+      if(head._ovHead || typeof ResizeObserver !== 'function') return;
+      head._ovHead = true;
+      new ResizeObserver(put).observe(head);
+    },
     _calBtn(g){
       const b=$('ov-cal');
       if(!b) return;
       let has=false;
       try{ has = !!(g && dailyDef(g)); }catch(e){}
       b.classList.toggle('hide', !has);
+      document.querySelectorAll('.game-cal').forEach((el)=>el.classList.toggle('hide', has));
     }
   };
 
