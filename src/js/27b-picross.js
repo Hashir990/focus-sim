@@ -502,28 +502,20 @@
        rules in 41-picross.css), so the only honest source for how wide it ended
        up is the element itself. Falls back to the CSS cap if it is asked before
        anything has been laid out. */
-    /** The square at which the whole picture is on screen: both ways.
+    /** The square at which the whole picture is on screen across.
 
-        **Both**, because the box it sits in has a height now. The clue tracks
-        come off each axis first -- the row numbers off the width, the column
-        numbers off the height -- and the smaller of the two answers wins,
-        because a square that fits across and not down does not fit.
-
-        The height is allowed to be unknown: before the stage has been laid out
-        `clientHeight` is 0, and answering 0 there would collapse the grid to
-        nothing on the first paint. Width alone is the right fallback, and the
-        next paint has both. */
+        **Width only, which is right again.** It fitted both axes for as long
+        as the board lived in a stage of a fixed height; the page scrolls once
+        more, so a board taller than the screen carries on down it the way it
+        always did, and taking the height into account would shrink a puzzle
+        for a fold it no longer has to respect. */
     _fitCell(){
       const box = $('pix-grid'), pane = $('pix-scroll');
       if(!box || !pane) return 0;
-      const rows = box.querySelector('.pix-rows');
-      const cols = box.querySelector('.pix-cols');
+      const gut = box.querySelector('.pix-rows');
+      const wide = pane.clientWidth - (gut ? gut.offsetWidth : 0);
       const n = this.size || 1;
-      const wide = pane.clientWidth - (rows ? rows.offsetWidth : 0);
-      const tall = pane.clientHeight - (cols ? cols.offsetHeight : 0);
-      const byW = wide > 0 ? Math.floor(wide / n) : 0;
-      const byH = tall > 0 ? Math.floor(tall / n) : 0;
-      return byH > 0 ? Math.min(byW, byH) : byW;
+      return wide > 0 ? Math.floor(wide / n) : 0;
     },
 
     /** Hold the clue tracks against the edge of the box as it is panned. */
@@ -627,77 +619,31 @@
       pane.addEventListener('scroll', ()=>{ Picross._pin(); }, {passive:true});
     },
 
-    /** **Fit, asked again once the box has stopped moving.**
-
-        `_paintZoom` works the square out from the pane and then checks the
-        answer against the pane -- both of which are a frame stale on the paint
-        that opens a game, because the dock has not landed and the column clues
-        are not drawn yet. At 780x560 that was one square too many and the
-        bottom row sat 30 pixels under the fold saying Fit.
-
-        Watching the pane answers it properly: whenever it really changes size
-        the sum is done again against the size it now has. No loop is possible
-        -- the pane is sized by the stage above it, not by the board inside it,
-        so a smaller square does not resize the pane. Only at Fit, because
-        zoomed in the overflow is the point. */
-    _watchFit(){
-      const pane = $('pix-scroll');
-      if(!pane || pane._pixFit || typeof ResizeObserver !== 'function') return;
-      pane._pixFit = true;
-      let w = 0, h = 0;
-      new ResizeObserver(()=>{
-        const nw = pane.clientWidth, nh = pane.clientHeight;
-        if(nw === w && nh === h) return;
-        w = nw; h = nh;
-        if((Picross._zoom || 1) <= 1.001) Picross._paintZoom();
-      }).observe(pane);
-    },
-
     /** Put the current zoom on the grid, and say so on the button. */
     _paintZoom(){
       const box = $('pix-grid');
       if(!box) return;
       const z = this._zoom || 1;
-      /* **The size is always said outright, Fit included.**
-
-         It used to be handed back to the stylesheet at 1, and the stylesheet
-         fits the width: `min(n * --pix-max, 100% - gutter)` has no idea the
-         box has a height. That is what left a board whose label said Fit with
-         its bottom rows off the screen. The fitted square is worked out here,
-         where both axes are known, and written down every time -- which also
-         means it follows a window being resized, because every resize repaints.
-
-         `zoomed` still marks the state rather than carrying the size: it is
-         what swaps the track from the clamped min() to plain arithmetic, and
-         at Fit the clamp is exactly what is wanted. */
-      const cell = this._fitCell();
-      if(cell > 0){
-        box.classList.toggle('zoomed', z > 1.001);
-        const top = PIC_ZOOMS[PIC_ZOOMS.length - 1];
-        box.style.setProperty('--pix-max', zoomBox(cell, z, top).cell + 'px');
-        /* **At Fit, check rather than trust.** The arithmetic above divides
-           the box by the number of squares, and it is a few pixels out: the
-           clue track it subtracts is measured before the new square changes
-           it, and each cell's border is not in the division at all. So the
-           scroller is asked whether anything is still below the fold, and the
-           shortfall is taken off the square. Bounded to one correction --
-           shrinking cannot create overflow, so there is nothing to iterate. */
-        if(z <= 1.001){
-          const pane = $('pix-scroll');
-          const n = this.size || 1;
-          const over = pane ? pane.scrollHeight - pane.clientHeight : 0;
-          if(over > 0 && pane.clientHeight > 0){
-            const less = Math.max(1, Math.ceil(over / n));
-            const fixed = Math.max(4, zoomBox(cell, z, top).cell - less);
-            box.style.setProperty('--pix-max', fixed + 'px');
-          }
-        }
-      }else{
+      if(z <= 1){
+        /* Back to the stylesheet's own fitting. The inline size has to be
+           cleared, not set to the fitted number: leaving a pixel value behind
+           would freeze the puzzle at whatever the box happened to be when it
+           was last zoomed, and it would stop following a window being resized. */
         box.classList.remove('zoomed');
         box.style.removeProperty('--pix-max');
+      }else{
+        /* **Snapped to a whole square, which is not the shell's doing.** The
+           board is drawn from `--pix-max` and a fractional one puts every
+           line in the picture between pixels; `zoomBox` rounds it and hands
+           back the zoom that square really is. See 09d-zoom.js. */
+        const cell = this._fitCell();
+        if(cell > 0){
+          box.classList.add('zoomed');
+          box.style.setProperty('--pix-max',
+            zoomBox(cell, z, PIC_ZOOMS[PIC_ZOOMS.length - 1]).cell + 'px');
+        }
       }
       this._wirePan();
-      this._watchFit();
       this._wireGestures();
       this._pin();
       const lab = $('pix-zlabel');

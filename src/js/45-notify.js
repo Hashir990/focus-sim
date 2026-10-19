@@ -65,7 +65,43 @@
         const now = await this.api.checkPermissions();
         this.ready = !!(now && now.display === 'granted');
       }catch(e){ this.ready = false; }
+      await this.exactCheck();
       this.sync();
+    },
+
+    /** **Whether Android will let us name a minute.**
+
+        From Android 14 an app targeting 33 or later is *not* given
+        `SCHEDULE_EXACT_ALARM` on installation: it is denied until somebody
+        turns it on. A copy sideloaded and updated in place since before that
+        keeps the grant it already had, which is why the timer went quiet only
+        for people who got the app from Google Play -- every one of those is a
+        fresh install.
+
+        Asked rather than assumed, and the answer is kept so `post` can
+        schedule the end of a block inexactly when it has to. On anything
+        without the call -- an older plugin, a desktop, a browser -- the
+        catch leaves `exact` true, which is the right answer there. */
+    exact: true,
+    async exactCheck(){
+      if(!this.api || typeof this.api.checkExactNotificationSetting !== 'function') return;
+      try{
+        const st = await this.api.checkExactNotificationSetting();
+        this.exact = !st || st.exact_alarm !== 'denied';
+      }catch(e){}
+    },
+
+    /** The system screen that turns exact alarms on. Nothing calls this on
+        its own: being sent to a settings page you did not ask for is worse
+        than a notification arriving a minute late. It is offered where the
+        other notification settings are. */
+    async exactAsk(){
+      if(!this.api || typeof this.api.changeExactNotificationSetting !== 'function') return false;
+      try{ await this.api.changeExactNotificationSetting(); }catch(e){}
+      await this.exactCheck();
+      this.key = '';            // so the next sync reschedules with the new answer
+      this.sync();
+      return this.exact;
     },
 
     /* Called from render(), which runs on every state change. Keyed so that the
@@ -85,6 +121,14 @@
       const focus = S.mode === 'focus';
       const ends = new Date(S.endAt);
       const hhmm = ends.toLocaleTimeString(langLocale() || [], {hour:'2-digit', minute:'2-digit'});
+      /* **Two calls, not one.**
+
+         These went in a single `schedule()`, and the one below asks for an
+         exact alarm. When Android refuses that -- which from 14 on it does to
+         every fresh install until somebody says otherwise -- the call fails
+         and takes the ongoing notification with it. One refusal, and the
+         timer has nothing to say at all. Separately, the thing that needs no
+         permission is posted whatever happens to the thing that does. */
       try{
         this.api.schedule({notifications:[
           /* The ongoing one. No countdown in it on purpose: a notification the
@@ -99,17 +143,43 @@
             ongoing: true, autoCancel: false, smallIcon: 'ic_stat_icon_config_sample',
             channelId: 'focus-timer',
           },
-          /* And the one that matters: handed to Android now, fired by Android
-             then, whether or not this page is ever given another instruction. */
+        ]});
+      }catch(e){}
+      /* And the one that matters: handed to Android now, fired by Android
+         then, whether or not this page is ever given another instruction.
+
+         `allowWhileIdle` is what makes it exact, and it is only asked for
+         when Android has said it is allowed. Without it the alarm is
+         inexact -- Android may hold it back to batch it with others, so the
+         end of a block can arrive a minute or so late. That is worse than
+         exact and very much better than nothing, which is what asking for
+         exact and being refused actually produces. */
+      try{
+        this.api.schedule({notifications:[
           {
             id: NOTE_DONE,
             title: T(focus ? 'Focus block done' : 'Break over'),
             body: T(focus ? 'Time for a break.' : 'Back to it when you are ready.'),
-            schedule: {at: ends, allowWhileIdle: true},
+            schedule: this.exact ? {at: ends, allowWhileIdle: true} : {at: ends},
             channelId: 'focus-timer',
           },
         ]});
-      }catch(e){}
+      }catch(e){
+        /* Refused anyway: drop the exactness and take the late one. The flag
+           is corrected too, so the next block does not try the same thing. */
+        this.exact = false;
+        try{
+          this.api.schedule({notifications:[
+            {
+              id: NOTE_DONE,
+              title: T(focus ? 'Focus block done' : 'Break over'),
+              body: T(focus ? 'Time for a break.' : 'Back to it when you are ready.'),
+              schedule: {at: ends},
+              channelId: 'focus-timer',
+            },
+          ]});
+        }catch(e2){}
+      }
     },
 
     clear(){

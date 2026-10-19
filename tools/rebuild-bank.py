@@ -1470,6 +1470,12 @@ BANNED |= set("""
 threesome methyl
 """.split())
 
+# 2026-10-19. `cum` glosses as a bodily fluid and is only ever Latin filler in
+# "magna cum laude"; `gui` is jargon an ordinary solver would not reach for.
+BANNED |= set("""
+cum gui
+""".split())
+
 # 2026-09-23. Hashir lifted three whole clusters. The words are gone from the
 # blocks above rather than listed here, so this note is the only record of what
 # they were and why the bans went:

@@ -118,19 +118,13 @@
        slides away, which is the opposite of what a pinch is asking for. */
     /** The fitted square: what one is when the whole board is on screen.
 
-        Both ways, for the reason picross gives at its own `_fitCell`: fifteen
-        squares that fit across a phone and not down it are fifteen squares
-        with the bottom row missing. The height is optional -- it is 0 until
-        the wrapper has been laid out, and width alone is the right answer
-        until then. */
+        Across only. It took the height into account while the board sat in a
+        stage of a fixed height; the page scrolls again, so a board taller
+        than the screen carries on down it. */
     _fitCell(){
       const wrap = $('sc-boardwrap');
-      const gaps = 6 + 14;              // the wrapper's padding, then the 14 gaps
-      const availW = ((wrap && wrap.clientWidth) || 340) - gaps;
-      const availH = ((wrap && wrap.clientHeight) || 0) - gaps;
-      const byW = Math.floor(availW / SCR_SIZE);
-      const byH = availH > 0 ? Math.floor(availH / SCR_SIZE) : 0;
-      return Math.max(16, byH > 0 ? Math.min(byW, byH) : byW);
+      const avail = ((wrap && wrap.clientWidth) || 340) - 6 - 14;  // padding, then the 14 gaps
+      return Math.max(16, Math.floor(avail / SCR_SIZE));
     },
     setZoom(z, anchor){
       // snapped to a whole square before anything is compared — see zoomBox
@@ -156,33 +150,9 @@
       }
       this.render();
     },
-    /** **Fit, asked again once the wrapper has a size.**
-
-        The square is worked out from the wrapper, and on the paint that opens
-        a game the wrapper has not been laid out yet: its height reads 0 and
-        the fit quietly falls back to the width, which is exactly the answer
-        that put the bottom row under the fold. Watching it means the sum is
-        redone against the size it really has, the first time it has one, and
-        every time it changes after that. It cannot feed itself -- the wrapper
-        is sized by the shell above it, not by the board inside it. See
-        `_watchFit` in 27b-picross.js, which carries the long version. */
-    _watchFit(){
-      const wrap = $('sc-boardwrap');
-      if(!wrap || wrap._scFit || typeof ResizeObserver !== 'function') return;
-      wrap._scFit = true;
-      let w = 0, h = 0;
-      new ResizeObserver(()=>{
-        const nw = wrap.clientWidth, nh = wrap.clientHeight;
-        if(nw === w && nh === h) return;
-        w = nw; h = nh;
-        if((Scrabble.zoom || 1) <= 1.001) Scrabble._sizeBoard();
-      }).observe(wrap);
-    },
-
     _sizeBoard(){
       const board = $('sc-board'), wrap = $('sc-boardwrap');
       if(!board || !wrap) return;
-      this._watchFit();
       const cell = zoomBox(this._fitCell(), this.zoom || 1, SC_ZMAX).cell;
       board.style.setProperty('--sc-cell', cell + 'px');
       const lab = $('sc-zlabel');
