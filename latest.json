@@ -1,6 +1,6 @@
 {
-  "version": "1.5.4",
-  "notes": "The games look the way they did before the last update again, keeping the zoom that settles on whole squares when you pinch it. And the timer can speak on a phone that got the app from Google Play: Android no longer lets a freshly installed app name an exact minute, and asking for one anyway was costing you both the notification that says a block is over and the one that sits there while it runs. It asks for the exact minute where it is allowed to and takes a near enough one where it is not, so the end of a block arrives either way.",
+  "version": "1.5.5",
+  "notes": "The countdown is set in Gabarito now, heavier and larger in the ring than before, and it keeps the same share of the dial at every window size. Deleting your account can also be asked for on the web, not only from inside the app, which is what Google Play asks of anything that lets you make one. And the privacy policy no longer counts the typefaces the app fetches, having counted them wrong.",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-10-19T11:48:22.226Z"
+  "at": "2026-10-19T13:18:23.839Z"
 }
