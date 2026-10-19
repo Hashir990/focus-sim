@@ -59,11 +59,30 @@ GitHub Pages is on, serving `/docs` from `master`:
 https://hashir990.github.io/focus-sim/privacy.html
 ```
 
-That is the URL for the Console's **Privacy policy** field and for the account
-deletion question. The page is regenerated from `aboutPrivacy()` on every
-build, so it cannot drift from the copy inside the app — but it only *changes*
-on the web when the repository is pushed. Until the rename is pushed it still
-says the old name.
+That is the URL for the Console's **Privacy policy** field. The page is
+regenerated from `aboutPrivacy()` on every build, so it cannot drift from the
+copy inside the app — but it only *changes* on the web when the repository is
+pushed.
+
+### 2a. Account deletion — a second URL, and it is a separate field
+
+An app that lets somebody make an account has to offer deletion **in two
+places**: inside the app, and at a web address. This one does the first —
+Delete account, in the account panel on Your focus — and the second is:
+
+```
+https://hashir990.github.io/focus-sim/delete-account.html
+```
+
+That goes in the Console's own **account deletion URL** field, not the privacy
+policy one. It was missing: the policy named an email address, and an address
+in a policy is not the web resource that field asks for. Google's conditions
+for the page are that it names the app, says what is deleted and what is kept,
+has no hidden steps and no broken links; it is generated beside the policy by
+`tools/make-privacy.mjs` so the owner and the contact address on the two
+cannot disagree.
+
+Both pages only reach the web when the repository is pushed.
 
 ---
 

@@ -24,7 +24,7 @@
 
    All three are SIL Open Font Licence, like everything they replace, and all
    three are credited on the About page. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&family=Literata:ital,opsz,wght@1,7..72,400;1,7..72,500;1,7..72,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@600;700;800&family=Gabarito:wght@700;800;900&family=Literata:ital,opsz,wght@1,7..72,400;1,7..72,500;1,7..72,600&display=swap');
 
 :root{
   --bg:#0b1220; --bg2:#111a2c;
@@ -103,6 +103,14 @@ body{
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;
   /* The name and the screen titles, and nothing else. */
   --title:'Syne','Plus Jakarta Sans',system-ui,sans-serif;
+  /* **The countdown, and nothing else.** A clock face has one hard
+     requirement before any question of how it looks: every digit the same
+     width, or the numerals shuffle sideways once a second in front of
+     somebody trying to concentrate. Gabarito's are, with `tabular-nums` on,
+     which was measured before it was chosen. It falls back through the
+     interface face rather than to a system one, so a window that never
+     reaches Google Fonts still gets tabular figures. */
+  --clock:'Gabarito','Plus Jakarta Sans',system-ui,sans-serif;
   color:var(--text);
   background:var(--bg);
   transition:background 1.1s ease;

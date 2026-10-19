@@ -29,7 +29,7 @@
         + '房间不保留任何东西：关掉它，任何服务器上都不会留下记录。</p>'
         + '<p><b>检查新版本。</b>桌面版会向发布页询问是否有更新的版本。'
         + '这个请求只携带“有某台设备问过”这一件事。</p>'
-        + '<p><b>字体。</b>应用启动时会从 Google Fonts 加载两款字体，'
+        + '<p><b>字体。</b>应用启动时会从 Google Fonts 加载字体，'
         + '这意味着 Google 能看到有一台设备请求了它们。</p>'
 
         + '<h4>从不收集的</h4>'
@@ -133,7 +133,7 @@
         + '<p class="about-lede">由 ' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' 制作。它站在许多人的作品之上。</p>'
         + '<h4>字体</h4>'
-        + '<p>Tokotype 的 <b>Plus Jakarta Sans</b>、Bonjour Monde 的 <b>Syne</b>，以及 TypeTogether 的 <b>Literata</b>，'
+        + '<p>Tokotype 的 <b>Plus Jakarta Sans</b>、Bonjour Monde 的 <b>Syne</b>、Naipe Foundry 的 <b>Gabarito</b>，以及 TypeTogether 的 <b>Literata</b>，'
         + '均采用 SIL 开放字体许可协议。</p>'
         + '<h4>代码</h4>'
         + '<p><b>PeerJS</b>（MIT）承载“一起专注”的直接连接。'

@@ -32,7 +32,7 @@
         + 'ルームには何も残りません。閉じれば、どのサーバーにも記録は残りません。</p>'
         + '<p><b>新しいバージョンの確認。</b>デスクトップ版は、新しいビルドがあるかどうかを'
         + 'リリースページに問い合わせます。この通信が運ぶのは「どこかの端末が尋ねた」という事実だけです。</p>'
-        + '<p><b>書体。</b>起動時に Google Fonts から2つの書体を読み込みます。'
+        + '<p><b>書体。</b>起動時に Google Fonts から書体を読み込みます。'
         + 'そのため、ある端末が書体を要求したことが Google に伝わります。</p>'
 
         + '<h4>決して集めないもの</h4>'
@@ -150,7 +150,7 @@
         + '<p class="about-lede">制作は ' + aboutWho(ABOUT_OWNER, 'the developer')
         + '。ほかの人たちの仕事の上に成り立っています。</p>'
         + '<h4>書体</h4>'
-        + '<p>Tokotype による <b>Plus Jakarta Sans</b>、Bonjour Monde による <b>Syne</b>、TypeTogether による <b>Literata</b>。'
+        + '<p>Tokotype による <b>Plus Jakarta Sans</b>、Bonjour Monde による <b>Syne</b>、Naipe Foundry による <b>Gabarito</b>、TypeTogether による <b>Literata</b>。'
         + 'どちらも SIL Open Font License のもとで使用しています。</p>'
         + '<h4>コード</h4>'
         + '<p>「みんなで集中」の直接接続は <b>PeerJS</b>（MIT）。'

@@ -31,7 +31,7 @@
         + 'रूम कुछ भी नहीं रखता: उसे बंद कीजिए, और किसी सर्वर पर कोई रिकॉर्ड नहीं बचता।</p>'
         + '<p><b>नए वर्शन की जाँच।</b> डेस्कटॉप ऐप रिलीज़ पेज से पूछता है कि कोई नया बिल्ड है या नहीं। '
         + 'उस अनुरोध में इसके सिवा कुछ नहीं जाता कि किसी डिवाइस ने पूछा है।</p>'
-        + '<p><b>फ़ॉन्ट।</b> खुलते समय ऐप Google Fonts से दो फ़ॉन्ट लोड करता है, '
+        + '<p><b>फ़ॉन्ट।</b> खुलते समय ऐप Google Fonts से अपने फ़ॉन्ट लोड करता है, '
         + 'यानी Google को इतना दिखता है कि किसी डिवाइस ने उन्हें माँगा।</p>'
 
         + '<h4>जो कभी इकट्ठा नहीं किया जाता</h4>'
@@ -146,7 +146,7 @@
         + '<p class="about-lede">' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' ने बनाया। यह दूसरों के काम पर टिका है।</p>'
         + '<h4>टाइप</h4>'
-        + '<p>Tokotype का <b>Plus Jakarta Sans</b>, Bonjour Monde का <b>Syne</b>, और TypeTogether का <b>Literata</b>। '
+        + '<p>Tokotype का <b>Plus Jakarta Sans</b>, Bonjour Monde का <b>Syne</b>, Naipe Foundry का <b>Gabarito</b>, और TypeTogether का <b>Literata</b>। '
         + 'दोनों SIL Open Font License के तहत।</p>'
         + '<h4>कोड</h4>'
         + '<p>"साथ में फ़ोकस" के सीधे कनेक्शन <b>PeerJS</b> (MIT) से चलते हैं। '

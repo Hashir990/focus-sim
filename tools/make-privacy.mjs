@@ -151,9 +151,57 @@ ${policy.split('</p>').join('</p>\n')}
 </html>
 `;
 
+  /* **And the deletion page, which Play asks for separately.**
+
+     An app with accounts needs deletion offered inside it *and* at a web
+     address, and the address goes in its own Play Console field. It is
+     generated here rather than written once by hand for the reason the
+     policy is: the owner and the contact address appear on both, and a page
+     maintained separately is a page that disagrees eventually.
+
+     It deliberately does not restate the retention wording. That lives in
+     the policy, one link away; a second copy of it here would be a third
+     thing to keep in step. */
+  const del = page
+    .replace('<h1>Privacy</h1>', '<h1>Delete your account</h1>')
+    .replace('<p>What the app keeps, what leaves your device, and what is never collected.</p>',
+      '<p>How to remove your focUS simulator account and everything stored for it.</p>')
+    .replace('<title>Privacy &middot; focUS simulator</title>',
+      '<title>Delete your account &middot; focUS simulator</title>')
+    /* The policy's footer says it is generated from the text inside the app,
+       which is true of that page and not of this one -- this page is written
+       here. A claim that is almost true is the wrong thing to carry onto a
+       page a store reviews. */
+    .replace('This page is generated from the policy inside the app, so the two always\n    say the same thing.',
+      'Deleting from inside the app and asking here reach the same place.\n    What is kept, and for how long, is in the privacy policy.')
+    .replace(/<main>[\s\S]*<\/main>/,
+      ['<main>',
+       '<h4>In the app</h4>',
+       '<p>Open the menu, then <b>Your focus</b>, and use <b>Delete account</b> in the',
+       'account panel. It asks for your password, tells you what is about to go, and',
+       'then removes the account and everything the server holds for it. The device',
+       'is left signed out, as it was before you ever signed in.</p>',
+       '<h4>By email</h4>',
+       '<p>If you cannot reach the app &mdash; a lost device, an uninstalled copy &mdash;',
+       'email <a href="mailto:' + esc(email) + '">' + esc(email) + '</a> from the address',
+       'the account was made with and ask for it to be deleted. It is read by a person,',
+       'and nothing else is needed from you.</p>',
+       '<h4>What goes</h4>',
+       '<p>The account itself, the email address and username on it, and the progress',
+       'stored against it: your focus history, your embers and what you have bought',
+       'with them, your saved games, and your friends list. Deleting is not',
+       'deactivating &mdash; there is nothing left to sign back into.</p>',
+       '<p>Anything held only on your device is not on the server to delete; to clear',
+       'that too, use <b>Reset progress</b> in the app\'s menu on each device.</p>',
+       '<h4>What is kept</h4>',
+       '<p>Nothing. Data on the server is kept while the account exists and no longer.',
+       'The full picture is in the <a href="privacy.html">privacy policy</a>.</p>',
+       '</main>'].join('\n'));
+
   mkdirSync(join(root, 'docs'), { recursive: true });
   writeFileSync(join(root, 'docs', 'privacy.html'), page, 'utf8');
-  return page.length;
+  writeFileSync(join(root, 'docs', 'delete-account.html'), del, 'utf8');
+  return page.length + del.length;
 }
 
 /* Run directly, as well as from build.mjs. */

@@ -66,7 +66,11 @@
       + '<p><b>Checking for a new version.</b> The desktop app asks the releases '
       + 'page whether a newer build exists. That request carries nothing but the '
       + 'fact that some device asked.</p>'
-      + '<p><b>Typefaces.</b> The app loads two typefaces from Google Fonts when '
+      /* **No number here.** It said "two" and the app loads four. A count in
+         a policy has to be edited every time the type changes and is wrong
+         the first time somebody forgets, which in a document a store reviews
+         for accuracy is a worse kind of wrong than untidy. */
+      + '<p><b>Typefaces.</b> The app loads its typefaces from Google Fonts when '
       + 'it opens, which means Google can see that a device asked for them.</p>'
 
       + '<h4>What is never collected</h4>'
@@ -112,8 +116,9 @@
       + '<p class="about-lede">Built by ' + aboutWho(ABOUT_OWNER, 'the developer')
       + '. It stands on other people’s work.</p>'
       + '<h4>Type</h4>'
-      + '<p><b>Plus Jakarta Sans</b> by Tokotype, <b>Syne</b> by Bonjour Monde, and '
-      + '<b>Literata</b> by TypeTogether. All under the SIL Open Font License.</p>'
+      + '<p><b>Plus Jakarta Sans</b> by Tokotype, <b>Syne</b> by Bonjour Monde, '
+      + '<b>Gabarito</b> by Naipe Foundry, and <b>Literata</b> by TypeTogether. '
+      + 'All under the SIL Open Font License.</p>'
       + '<h4>Code</h4>'
       + '<p><b>PeerJS</b> carries Focus together’s direct connections (MIT). '
       + '<b>Electron</b> makes the desktop app, and <b>Capacitor</b> the phone '

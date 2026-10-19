@@ -7749,8 +7749,16 @@ await openGame(guest, $g, 'scrabble');
      somebody trying to concentrate. */
   check('and its digits cannot change width as it counts',
     /font-variant-numeric:\s*tabular-nums/.test(clock || ''), clock || 'rule missing');
-  check('and it is set in the face the app keeps for its own voice',
-    /font-family:\s*var\(--title\)/.test(clock || ''), clock || 'rule missing');
+  check('and it is set in the face kept for it alone',
+    /font-family:\s*var\(--clock\)/.test(clock || ''), clock || 'rule missing');
+  /* **A face on the clock is a face to credit.** Three were credited on the
+     About page because the project credits the type it uses; a fourth that
+     arrived without one would be the kind of omission nobody notices for a
+     year. Asked of every language, because the page is seven whole documents
+     rather than one assembled from pieces. */
+  check('and the face it uses is credited, in every language',
+    (html.match(/Gabarito<\/b>/g) || []).length >= 7,
+    (html.match(/Gabarito<\/b>/g) || []).length + ' credits, wanted 7');
 }
 
 // --- in front of the web, behind the clock ----------------------------------

@@ -490,9 +490,14 @@ body.away .dial-web-spokes, body.away .dial-web-rings{ animation-play-state:paus
    way to an 8, which is the one thing a clock in front of somebody trying to
    concentrate must not do. */
 .clock{
-  font-family:var(--title);
-  font-size:calc(var(--dial, 300px) * .185);
-  font-weight:700; letter-spacing:-.012em; line-height:1.02;
+  font-family:var(--clock);
+  /* `.238`, not `.185`. Gabarito is narrower than the face before it -- at
+     the old fraction it filled 0.467 of the dial where Syne filled 0.572 --
+     so the same number would have made the countdown smaller rather than
+     more prominent. This puts it at about 0.60 of the ring, which is a
+     little more than Syne had and still well clear of it. */
+  font-size:calc(var(--dial, 300px) * .238);
+  font-weight:800; letter-spacing:-.012em; line-height:1.02;
   font-variant-numeric:tabular-nums; margin-top:2px;
 }
 /* **Bounded, so a longer phrase shrinks rather than escaping the dial.** The

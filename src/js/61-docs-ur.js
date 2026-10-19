@@ -31,7 +31,7 @@
         + 'روم کچھ محفوظ نہیں رکھتا: اسے بند کریں، اور کسی سرور پر کوئی ریکارڈ باقی نہیں رہتا۔</p>'
         + '<p><b>نئے ورژن کی جانچ۔</b> ڈیسک ٹاپ ایپ ریلیز پیج سے پوچھتی ہے کہ کوئی نیا بلڈ موجود ہے یا نہیں۔ '
         + 'اس درخواست میں اس کے سوا کچھ نہیں جاتا کہ کسی ڈیوائس نے پوچھا ہے۔</p>'
-        + '<p><b>فونٹ۔</b> کھلتے وقت ایپ Google Fonts سے دو فونٹ لوڈ کرتی ہے، '
+        + '<p><b>فونٹ۔</b> کھلتے وقت ایپ Google Fonts سے اپنے فونٹ لوڈ کرتی ہے، '
         + 'یعنی Google کو اتنا نظر آتا ہے کہ کسی ڈیوائس نے انہیں طلب کیا۔</p>'
 
         + '<h4>جو کبھی جمع نہیں کیا جاتا</h4>'
@@ -144,7 +144,7 @@
         + '<p class="about-lede">' + aboutWho(ABOUT_OWNER, 'the developer')
         + ' نے بنایا۔ یہ دوسروں کے کام پر کھڑا ہے۔</p>'
         + '<h4>ٹائپ</h4>'
-        + '<p>Tokotype کا <b>Plus Jakarta Sans</b>، Bonjour Monde کا <b>Syne</b>، اور TypeTogether کا <b>Literata</b>۔ '
+        + '<p>Tokotype کا <b>Plus Jakarta Sans</b>، Bonjour Monde کا <b>Syne</b>، Naipe Foundry کا <b>Gabarito</b>، اور TypeTogether کا <b>Literata</b>۔ '
         + 'دونوں SIL Open Font License کے تحت۔</p>'
         + '<h4>کوڈ</h4>'
         + '<p>"مل کر فوکس" کے براہِ راست تعلقات <b>PeerJS</b> (MIT) سے چلتے ہیں۔ '
