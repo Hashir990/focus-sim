@@ -1,6 +1,6 @@
 {
-  "version": "1.5.3",
-  "notes": "Every game now fills the screen with its controls under your thumb, boards fit it and sit in the middle rather than against the top, and picross and scrabble zoom by pinching and settle on whole squares. The line above a board is no longer hidden under the header, the crossword keeps its clue and its keyboard in place while you read the clue list, and the break can no longer be ended by accident from inside a game. The countdown has a face of its own that scales with the dial, and the spiders walk the roof and the floor, keep to the wall, move their legs while they do, and pass behind the clock instead of over it.",
+  "version": "1.5.4",
+  "notes": "The games look the way they did before the last update again, keeping the zoom that settles on whole squares when you pinch it. And the timer can speak on a phone that got the app from Google Play: Android no longer lets a freshly installed app name an exact minute, and asking for one anyway was costing you both the notification that says a block is over and the one that sits there while it runs. It asks for the exact minute where it is allowed to and takes a near enough one where it is not, so the end of a block arrives either way.",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-10-18T16:10:00.058Z"
+  "at": "2026-10-19T11:48:22.226Z"
 }
