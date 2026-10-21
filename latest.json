@@ -1,6 +1,6 @@
 {
-  "version": "1.5.5",
-  "notes": "The countdown is set in Gabarito now, heavier and larger in the ring than before, and it keeps the same share of the dial at every window size. Deleting your account can also be asked for on the web, not only from inside the app, which is what Google Play asks of anything that lets you make one. And the privacy policy no longer counts the typefaces the app fetches, having counted them wrong.",
+  "version": "1.5.6",
+  "notes": "The calendar no longer draws a box over the dates you focused on. Chess pieces are drawn now rather than borrowed from whatever font the phone has, so both sides can be seen on every square. In Spymaster a long word gets smaller instead of breaking in half, and the board fills the width on the spymaster's screen as well. The spiders on the walls have their feet on them. Your level runs much further: the same shelf is spread over forty-five levels instead of twelve, so something keeps opening as the hours add up, and nothing takes longer to earn than it did. A room holds up to twelve people.",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-10-19T13:18:23.839Z"
+  "at": "2026-10-21T15:24:01.950Z"
 }
