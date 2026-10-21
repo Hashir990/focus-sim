@@ -175,6 +175,27 @@ of them run in the sandbox.
 
 ## 6. Gotchas that have each cost real time
 
+- **A short class name is a global, and two features will eventually pick the
+  same one.** The calendar has marked a focused day with `.cal-cell .lvl` --
+  a bar 15px by 4 -- for a long time. The level block in the shop was added
+  later, in another file, as a bare `.lvl`. Specificity decided it the way
+  you would expect and the result was still wrong: the calendar's two-class
+  selector won every property *both* rules set, and lost every property only
+  the newcomer had. `.lvl` carries `padding:11px 13px` and a border, the
+  calendar's rule says nothing about either, so they applied — and a 15×4 bar
+  rendered at roughly 43×28, a slab across every date in the month. It
+  shipped like that.
+
+  There is no check for the general case and there should not be: "a class
+  styled both bare and as a descendant" describes almost every class in the
+  file, because `.dial` and `.dial-wrap .dial` are one feature talking about
+  itself. What made this a bug was two *unrelated* features choosing the same
+  short word, which is a judgement. The habit that avoids it is the one the
+  level block now follows — a family prefix, `lvl-box`, `lvl-head`,
+  `lvl-track` — and the thing to be suspicious of is any new rule whose
+  selector is a single word short enough that somebody else might want it.
+  Same family as the `.hide` note below.
+
 - **A bottom-sticky control stops sticking once you reach it.** `position:
   sticky; bottom:0` holds a box at the bottom of the screen only while its own
   place in the document is still below the fold; scroll past that and it is
@@ -1331,9 +1352,14 @@ device-local until `npm run accounts:deploy`.
 `37a-level.js`. One idea in three places: a number that only goes up and is
 never spent.
 
-- **The level is hours of focus**, triangular (level n at the nth triangular
-  number of hours), derived from the log plus `adjust` read back as the hours
-  those carried embers must have been. Nothing new is written down. Achievement
+- **The level is hours of focus**, `(n-1)^1.24` blocks of twenty-five minutes
+  (one block to level 2, six and a half hours to 10, forty-five to 45),
+  derived from the log plus `adjust` read back as the hours those carried
+  embers must have been. It was triangular in hours until the shelf turned
+  out to be entirely inside the first twelve levels; the exponent is the one
+  that lands the dearest thing there is on level 45, so the ladder and the
+  shelf run out together. Nothing opened later than it used to -- a finer
+  ladder rounds the gate down less far. Nothing new is written down. Achievement
   payouts deliberately do not raise it, which is the only thing the gate has to
   bite on.
 - **The gate is a fraction of each thing's own price**, `LVL_GATE = 0.55`, so

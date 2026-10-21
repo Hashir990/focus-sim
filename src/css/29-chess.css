@@ -79,9 +79,34 @@
 .ch-sq.last{ box-shadow:inset 0 0 0 99px var(--glow) }
 .ch-sq.sel{ box-shadow:inset 0 0 0 3px var(--accent) }
 .ch-sq.check{ box-shadow:inset 0 0 0 99px rgba(240,122,122,.34) }
-.ch-p{ position:relative; z-index:1; pointer-events:none }
-.ch-p.w{ color:#f6f8fc; text-shadow:0 1px 2px rgba(0,0,0,.55) }
-.ch-p.b{ color:#10151f; text-shadow:0 1px 1px rgba(255,255,255,.18) }
+/* **A fill and an outline in opposite tones**, which is the whole reason
+   the pieces are drawn rather than typed -- see the note in 36-chess.js.
+   Either colour of piece has to read on either colour of square, and the
+   squares are themed, so they are not a fixed pair of colours to design
+   against. An outline in the opposite tone to the fill holds up on both.
+
+   `paint-order:stroke fill` puts the outline behind the fill. Each piece
+   is built from overlapping parts -- a head and a body, a crown and a
+   collar -- and without this the outline of each part is drawn over the
+   ones in front of it, which shows as a seam through the middle of every
+   piece. Behind the fill, the stroke only appears where nothing covers
+   it, which is exactly the silhouette. */
+.ch-p{ position:relative; z-index:1; pointer-events:none;
+       display:block; width:1em; height:1em }
+/* On the board a piece is measured against its square rather than against
+   the font: at 1em it sat in the middle with half the square empty, which
+   reads as small pieces on a big board rather than as a chessboard. */
+.ch-sq .ch-p{ width:78%; height:78% }
+.ch-svg{ display:block; width:100%; height:100%;
+  fill:var(--pc-fill); stroke:var(--pc-line); stroke-width:1.5;
+  stroke-linejoin:round; paint-order:stroke fill;
+}
+.ch-p.w{ --pc-fill:#f3f6fb; --pc-line:#121a26 }
+.ch-p.b{ --pc-fill:#222c3c; --pc-line:#c9d6e8 }
+/* Taken pieces are a row of one side's losses, so there is nothing for a
+   second tone to tell apart: they follow the row's own muted colour. */
+.ch-gone{ display:inline-block; width:1em; height:1em }
+.ch-gone .ch-svg{ fill:currentColor; stroke:none }
 
 /* where a piece may go: a dot on an empty square, a ring round a capture */
 .ch-sq.go::after{
@@ -106,6 +131,7 @@
   font-family:inherit; font-size:27px; line-height:1;
   display:flex; flex-direction:column; align-items:center; gap:3px;
 }
+.ch-promo-b .ch-p{ margin:0 auto }
 .ch-promo-b:hover{ border-color:var(--accent) }
 .ch-promo-b em{ font-style:normal; font-size:10.5px; color:var(--muted) }
 

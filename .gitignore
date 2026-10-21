@@ -38,3 +38,5 @@ npm-debug.log*
 .idea/
 .vscode/
 tools/slice-run.mjs
+
+Google Play assets/

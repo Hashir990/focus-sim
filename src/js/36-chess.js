@@ -24,10 +24,60 @@
      There is deliberately no computer to play against. This is a break from
      work, not a chess app. */
 
-  const CH_GLYPH = {
-    K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙',
-    k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟',
+  /* **Drawn here rather than typed.**
+
+     The pieces were the Unicode chess block, which is two different
+     designs in one range: the white six are outlines and the black six
+     are solid. Recolouring them does not fix that -- an outline filled
+     with the page's own pale ink is a hairline on a light square, and a
+     solid one in near-black is a silhouette on a dark one -- so half the
+     board was hard to see at any moment, and which half depended on
+     whichever font the device happened to have, because nothing here
+     ships one. On the phone it was worse than on the desktop, which is
+     the way round that matters.
+
+     These are the app's own shapes: one silhouette per piece, filled and
+     outlined in opposite tones, so a piece reads on either colour of
+     square whichever side it belongs to. `paint-order:stroke fill` in the
+     stylesheet puts the outline behind the fill, which is why the pieces
+     below can be built out of overlapping parts without seams showing
+     where the parts meet. The viewBox is 24 square like every other icon
+     in the app, and they all stand on the same plinth. */
+  const CH_FOOT = 'M7.4 16.6h9.2l1.05 2.8a.85.85 0 0 1-.8 1.15H7.15'
+    + 'a.85.85 0 0 1-.8-1.15Z';
+  const CH_ART = {
+    p: 'M12 3.7a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z'
+     + 'M9.2 9.7h5.6c.15 2.8-.85 4.7-1.25 7.3h-3.1C10.05 14.4 9.05 12.5 9.2 9.7Z',
+    r: 'M6.9 4.3h2.5v1.8h1.35V4.3h2.5v1.8h1.35V4.3h2.5v4.4H6.9Z'
+     + 'M8.7 8.7h6.6l-.6 8.3H9.3Z',
+    n: 'M9.1 17c-.15-2.4.5-4 1.7-5.5.95-1.2 1.3-1.85.85-2.35-.45-.5-1.15-.15-1.85.45'
+     + '-.72.62-1.45 1.05-2.1.72-.66-.33-.72-1.15-.2-2.05.95-1.65 2.45-3 4.2-3.85'
+     + 'l.15-2.3 1.7 1.45c2.5-.1 4.25 1.45 4.7 3.85.38 2 .2 4.6-.1 6.55'
+     + '-.1.74-.18 1.4-.22 2.03Z',
+    b: 'M12 2.9a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3Z'
+     + 'M12 4.4c2.75 2.3 4.05 4.5 4.05 6.5 0 2-1.8 3.35-4.05 3.35S7.95 12.9 7.95 10.9'
+     + 'c0-2 1.3-4.2 4.05-6.5Z'
+     + 'M8.9 14h6.2l.45 3H8.45Z',
+    q: 'M6.5 4.1a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z'
+     + 'M9.25 3.3a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z'
+     + 'M12 2.9a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z'
+     + 'M14.75 3.3a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z'
+     + 'M17.5 4.1a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z'
+     + 'M6.5 6.1 7.95 13.9h8.1L17.5 6.1l-2.75 3.3L12 4.3 9.25 9.4Z'
+     + 'M7.9 13.8h8.2l.4 3.2H7.5Z',
+    k: 'M11.15 2.3h1.7v1.6h1.6v1.7h-1.6v1.6h-1.7V5.6h-1.6V3.9h1.6Z'
+     + 'M12 7.3c3.1 0 4.85 2.05 4.85 4.1 0 1.65-.8 2.95-1.5 4.2H8.65'
+     + 'c-.7-1.25-1.5-2.55-1.5-4.2 0-2.05 1.75-4.1 4.85-4.1Z'
+     + 'M8.5 15.3h7l.35 1.8H8.15Z',
   };
+  /** One piece, as a drawing. `code` is the FEN letter; the case picks the
+      colour in the stylesheet, not here. */
+  function chArt(code){
+    const d = CH_ART[String(code).toLowerCase()];
+    if(!d) return '';
+    return '<svg class="ch-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+      + '<path d="' + d + CH_FOOT + '"/></svg>';
+  }
   const CH_VALUE = {p:1, n:3, b:3, r:5, q:9, k:0};
   const CH_FULL = {p:'pawn', n:'knight', b:'bishop', r:'rook', q:'queen', k:'king'};
   const CH_SAVE = 'focus_chess';
@@ -502,7 +552,8 @@
         if(sq === checked) cls.push('check');
         html += '<button class="'+cls.join(' ')+'" data-sq="'+sq+'"'
           + ' aria-label="'+chName(sq)+(p ? ' ' + CH_FULL[p.toLowerCase()] : '')+'">'
-          + (p ? '<span class="ch-p'+(chWhite(p) ? ' w' : ' b')+'">'+CH_GLYPH[p]+'</span>' : '')
+          + (p ? '<span class="ch-p'+(chWhite(p) ? ' w' : ' b')+'" data-p="'+p+'">'
+              + chArt(p)+'</span>' : '')
           + '</button>';
       }
       $('ch-board').innerHTML = html;
@@ -558,7 +609,7 @@
       if(this.pendPromo){
         $('ch-promo-row').innerHTML = CH_PROMOS.map(p=>
           '<button class="ch-promo-b" data-p="'+p+'">'
-          + CH_GLYPH[side === 'w' ? p.toUpperCase() : p]
+          + '<span class="ch-p '+side+'">'+chArt(p)+'</span>'
           + '<em>'+CH_FULL[p]+'</em></button>').join('');
       }
     },
@@ -585,7 +636,7 @@
       return out;
     },
     _takenRow(t, edge){
-      return t.men.map(p=>'<span class="ch-gone">'+CH_GLYPH[p]+'</span>').join('')
+      return t.men.map(p=>'<span class="ch-gone">'+chArt(p)+'</span>').join('')
         + (edge > 0 ? '<em>+'+edge+'</em>' : '');
     },
   };

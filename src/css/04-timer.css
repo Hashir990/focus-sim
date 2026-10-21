@@ -254,10 +254,16 @@ body[data-light="spiderman"] .spiders{
    `clamp(9px, 3.2vw, 30px)` was fifteen pixels off it on a phone, which is a
    spider walking *near* a wall. A few pixels is the whole range that reads
    as on it. */
-.sp-wall{ left:clamp(3px, 1.1vw, 8px);
+/* **And the offset is to the foot, not to the drawing.** The box is a
+   plan view with legs reaching out both sides, and its outermost foot is
+   a few units in from the edge of it -- how many depends on which of the
+   two shapes came up and how big it is, which is why the drawing hands
+   that over as `--sp-foot` rather than it being guessed here. Taking it
+   off puts the foot a pixel from the wall instead of the box. */
+.sp-wall{ left:calc(1px - var(--sp-foot, 0px));
           animation:sp-walkdown var(--sp-dur, 60s) linear forwards }
 .sp-wall .sp-body{ transform:scaleY(-1) }
-.sp-wall.sp-right{ left:auto; right:clamp(3px, 1.1vw, 8px) }
+.sp-wall.sp-right{ left:auto; right:calc(1px - var(--sp-foot, 0px)) }
 .sp-wall.sp-right .sp-body{ transform:scale(-1, -1) }
 .sp-far{ opacity:.58 }
 @keyframes sp-walkdown{

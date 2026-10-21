@@ -745,6 +745,18 @@
           try{ conn.close(); }catch(e){}
           return;
         }
+        /* **Twelve to a room**, counted the way `syncPeople` counts: the
+           host plus everyone connected who is not still at the door.
+           Somebody already in it is not counted again, so a reconnection
+           is never turned away by the cap it is itself part of. Told why,
+           rather than dropped silently the way a block is -- a full room
+           is nothing to do with them. */
+        if(syncIsHost() && !SYNC.roster[conn.peer]
+           && syncPeople().length >= SYNC_ROOM_MAX){
+          try{ syncSend(conn, {t:'full'}); }catch(e){}
+          setTimeout(()=>{ try{ conn.close(); }catch(e){} }, 400);
+          return;
+        }
         try{ if(m.card && code) friendSawCard(code, m.card); }catch(e){}
         /* **Somebody we do not know waits outside.** Not in the roster, so no
            broadcast reaches them and nothing about them reaches the room except
@@ -778,6 +790,17 @@
       }
 
       /* ---- the door, from both sides ---- */
+      else if(m.t === 'full'){
+        /* **Leave first, then say why.** `syncRender` builds the status
+           line from the mode, so setting the text and rendering after it
+           put "In ABC123" straight back over the top -- and left
+           somebody who was refused looking like they were in a room they
+           were not. `syncLeave(true)` is what the other refusal does,
+           which is the right company for this one. */
+        SYNC.held = false;
+        syncLeave(true);
+        syncSetStatus(T('That room is full'));
+      }
       else if(m.t === 'wait'){
         /* We are the one outside. Nothing is wrong and nothing is broken; say
            so plainly rather than leaving "Connecting..." up for a minute. */
@@ -1467,6 +1490,12 @@
   }
 
   /* ---- screen ---- */
+  /** **How many fit in a room.** Twelve, which is what the listing says.
+      The crowd on the clock screen draws at most five of them -- see
+      `Buddy.CROWD` in 46-buddy.js -- because a room of twelve all doing
+      their antic at once is not a room, it is weather. */
+  const SYNC_ROOM_MAX = 12;
+
   function syncPeople(){
     if(syncIsHost()){
       /* Built from the connections, not from the roster of names. Those are

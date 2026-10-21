@@ -4951,3 +4951,39 @@ CLUES.update({
     'veer':       'Swerve suddenly off course',
     'versatile':  ('Good at many different things', 'Adaptable to many uses'),
 })
+
+# 2026-10-20 run
+CLUES.update({
+    'adversely':  'In a harmful or unfavourable way',
+    'bandit':     'Outlaw who robs travellers',
+    'bedtime':    'When children are sent upstairs to sleep',
+    'coy':        'Shy and playfully reluctant',
+    'goalie':     'Last line of defence on the ice or pitch',
+    'hone':       'Sharpen a knife or a skill',
+    'kit':        'Gear for a sport, or a set of tools',
+    'leader':     'One who heads the pack',
+    'owner':      'Holder of the deeds',
+    'paper':      'Daily read, or sheet to write on',
+    'personnel':  'Staff of a company',
+    'rodeo':      'Cowboy show with bucking broncos',
+    'star':       'Night-sky twinkler',
+    'swede':      'Native of Stockholm',
+    'uniformly':  'Evenly, all the same way',
+    'vest':       'Waistcoat, or undershirt in America',
+})
+
+CLUES.update({
+    'admit':     'Let in, or own up to',
+    'amplify':   'Make louder or bigger',
+    'apex':      'Very top of a pyramid or career',
+    'china':     'Fine porcelain, or the country it is named for',
+    'duck':      'Dodge a punch by bending down',
+    'faded':     'Lost its colour, like old jeans',
+    'knowingly': 'On purpose, with full awareness',
+    'limp':      'Soft and floppy, like a wet lettuce',
+    'motor':     'Engine that makes a machine go',
+    'nation':    'Country and its people',
+    'shard':     'Sharp sliver of broken glass',
+    'vowel':     'A, E, I, O or U',
+    'watered':   'Diluted, like weak squash',
+})

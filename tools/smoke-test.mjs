@@ -4001,6 +4001,28 @@ check('every effect a look can choose has a rule to draw it', (() => {
   check('each of them somewhere the others are not',
     spots.every(Boolean) && new Set(spots).size === spots.length,
     spots.join(' ') || 'no spots');
+
+  /* **A wall spider is placed by where its foot is, not where its box is.**
+
+     The drawing is a side view in a 60-unit box and its outermost foot sits
+     eight units in from the edge of that box, so putting the box a few
+     pixels off the window left the foot seven to thirteen pixels off the
+     wall -- a spider walking down a wall it is not touching. The inset
+     depends on the drawing and on how big this one is, so the drawing hands
+     it over and the stylesheet subtracts it, which is why the box now
+     starts outside the window and the foot lands on the edge. */
+  {
+    const w = summon('wall');
+    /* Only the number is asked for here. This DOM does not lay anything
+       out, so `calc()` never resolves and the position cannot be read;
+       that the stylesheet subtracts this from the edge is checked against
+       the rule itself further down. Measured in a real window it comes
+       out at one pixel, on both walls, at every size. */
+    const inset = w ? parseFloat(w.style.getPropertyValue('--sp-foot')) : NaN;
+    check('and it is told how far in its own foot is',
+      !!w && inset > 0 && inset < 12,
+      w ? 'foot ' + w.style.getPropertyValue('--sp-foot') : 'no wall spider turned up');
+  }
   /* **Nothing walks across the room.** A spider tracking sideways through
      open space, with or without a line under it, does not read as a spider:
      it reads as a sticker being dragged over a picture.
@@ -6516,6 +6538,14 @@ if (keepBtn) {
   outsider.close();
   host.__r.syncRender();
   await wait(60);
+/* **The twelve-to-a-room cap is not checked here yet.** The cap itself is
+   in `29-sync.js`, in the `hello` handler beside blocking. Filling the
+   room with stand-in entries in `SYNC.conns` does not hold: they carry no
+   heartbeat, so the sweep clears them before the next arrival knocks, and
+   the host is back to one connection by the time the cap would be read.
+   A real test wants stand-ins that are touched like live peers, or twelve
+   windows. Written down rather than left as a check that goes red. */
+
 }
 
 // Presence is a probe, not a subscription: reach for the code and see if
@@ -7714,6 +7744,48 @@ await openGame(guest, $g, 'scrabble');
     $h('sc-zlabel').textContent);
 }
 
+// --- one short class name, two features --------------------------------------
+/* The calendar marks a focused day with `.cal-cell .lvl`, a bar fifteen
+   pixels by four. The shop's level block was added later, in another file,
+   as a bare `.lvl`. The calendar's selector is the more specific of the two,
+   so it won every property they both set -- and lost every property only the
+   newcomer had, so `padding:11px 13px` and a border landed on every marked
+   day in the month. A fifteen-by-four bar came out forty-three by
+   twenty-eight, sitting across the date it annotates, and it shipped.
+
+   **There is no general check here, and that is deliberate.** The first
+   attempt asked whether any class is styled both bare and as a descendant,
+   and flagged a hundred of them on the first run: `.dial` and
+   `.dial-wrap .dial` are one feature talking about itself, which is how CSS
+   is written. What made `.lvl` a bug was two *unrelated* features picking
+   the same short word, and no pattern can see "unrelated". The rule belongs
+   in a person's head -- it is in HANDOFF section 6 beside the note about
+   there being no global `.hide` -- and what is left here is the one
+   collision that actually happened. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  /* **What "bare" means, read properly.** The first version of this asked
+     for a `.lvl{` whose previous character is not a word character -- and
+     the previous character in `.cal-cell .lvl{` is a space. The second
+     clause was therefore false exactly when the first was true, and the
+     check reported the bug on a tree where it had already been fixed. A
+     check that cannot pass teaches people to scroll past a red line.
+
+     Bare means the selector is those four characters and nothing else, so
+     that is what is looked at: every selector list between braces, split
+     on its commas and trimmed. Walking the braces also sees a rule nested
+     inside a @media block, which the pattern could not. */
+  const selectors = [];
+  for (const m of css.matchAll(/(?:^|[{}])([^{}]*)\{/g)) {
+    for (const one of m[1].split(',')) selectors.push(one.trim());
+  }
+  const bare = selectors.filter((sel) => sel === '.lvl');
+  check('the calendar keeps its own day marker',
+    /\.cal-cell\s+\.lvl\s*\{/.test(css) && bare.length === 0,
+    bare.length ? bare.length + ' bare .lvl rule(s) are back'
+      : selectors.length + ' selectors, none of them a bare .lvl');
+}
+
 // --- the countdown ----------------------------------------------------------
 /* The numerals were sized from the window's height while the dial around
    them followed the shorter axis, so the two scaled apart: on a tall narrow
@@ -7852,17 +7924,32 @@ await openGame(guest, $g, 'scrabble');
       /kind === 'roof' \|\| kind === 'floor'/.test(html), 'no branch for them');
   }
 
-  /* **And the one on a wall is on it, not in the crack beside it.**
-     `left:1px` put half the animal outside the window with the legs on that
-     side gone, which reads as a smudge on the glass. */
+  /* **And the one on a wall has its feet on it.**
+
+     This used to ask that the rule not say `left:1px` and that it did say
+     `clamp(`, which was a proxy for the bug of the day: `left:1px` put
+     half the animal outside the window with the legs on that side gone,
+     and read as a smudge on the glass. The clamp fixed that and caused
+     the opposite one -- the box was a few pixels off the wall and the
+     drawing's outermost foot is another four or five in from the edge of
+     the box, so the animal walked down a wall it was not touching.
+
+     The box now starts *outside* the window by exactly the inset of the
+     foot, which the drawing hands over as `--sp-foot`, so the foot lands
+     on the edge and the body -- twenty units further in -- stays well
+     clear of it. By the old test that is the forbidden thing, which is
+     why the old test had to go rather than be worked around. */
   const wall = rule('.sp-wall{');
-  check('a spider on the wall is not pressed into the edge of the window',
-    !!wall && !/left:\s*1px/.test(wall) && /left:\s*clamp\(/.test(wall),
+  check('a spider on the wall is placed by where its foot is',
+    !!wall && /left:\s*calc\(1px - var\(--sp-foot/.test(wall),
     wall || 'rule missing');
   const wallR = rule('.sp-wall.sp-right{');
-  check('and nor is the one on the other wall',
-    !!wallR && !/right:\s*1px/.test(wallR) && /right:\s*clamp\(/.test(wallR),
+  check('and so is the one on the other wall',
+    !!wallR && /right:\s*calc\(1px - var\(--sp-foot/.test(wallR),
     wallR || 'rule missing');
+  check('and the drawing is what says how far in its foot is',
+    /--sp-foot/.test(html) && /SPIDER_SHAPES\[shape\]/.test(html),
+    'no --sp-foot written from the shape');
 }
 
 // --- a look written down twice ----------------------------------------------
@@ -8114,6 +8201,16 @@ check('there are sixty-four squares', $h('ch-board').querySelectorAll('[data-sq]
   `${$h('ch-board').querySelectorAll('[data-sq]').length}`);
 check('and thirty-two pieces', $h('ch-board').querySelectorAll('.ch-p').length === 32,
   `${$h('ch-board').querySelectorAll('.ch-p').length}`);
+/* **Every one of them drawn.** The pieces were Unicode glyphs, which are
+   outlines for one side and solids for the other and whatever the device's
+   font decides for both; half the board was hard to see. A missing entry in
+   the art table would put an empty span on a square and read, from every
+   other check here, as a piece that is present. */
+check('and each one is a drawing, not a glyph',
+  [...$h('ch-board').querySelectorAll('.ch-p')]
+    .every((el) => el.querySelector('svg path[d]') && !el.textContent.trim()),
+  [...$h('ch-board').querySelectorAll('.ch-p')]
+    .filter((el) => !el.querySelector('svg path[d]')).length + ' without art');
 check('whoever asked plays White', /White/.test($h('ch-vs').textContent), $h('ch-vs').textContent);
 check('the other one plays Black', /Black/.test($g('ch-vs').textContent), $g('ch-vs').textContent);
 check('White is told to move', /Your move/.test($h('ch-turn').textContent), $h('ch-turn').textContent);
@@ -8264,8 +8361,8 @@ await until(() => /axb8=Q/.test($h('ch-moves').textContent)
   && /axb8=Q/.test($g('ch-moves').textContent));
 check('choosing makes the move', /axb8=Q/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
 check('and there is a new queen on the board',
-  sqOf($h, 'b8').querySelector('.ch-p').textContent === '♕',
-  sqOf($h, 'b8').textContent);
+  (sqOf($h, 'b8').querySelector('.ch-p') || {}).dataset?.p === 'Q',
+  sqOf($h, 'b8').innerHTML.slice(0, 60));
 check('the other side sees it too', /axb8=Q/.test($g('ch-moves').textContent), $g('ch-moves').textContent);
 check('and the chooser has gone', !shown(host, 'ch-promo'));
 
@@ -8287,10 +8384,10 @@ check('tapping your own rook castles', /O-O/.test($g('ch-moves').textContent), $
    TypeError that ends the run twenty blocks early. */
 const pieceAt = (sq) => {
   const el = sqOf($g, sq).querySelector('.ch-p');
-  return el ? el.textContent : '';
+  return el ? el.dataset.p : '';
 };
-check('the king ends up on g1', pieceAt('g1') === '♔', sqOf($g, 'g1').textContent);
-check('and the rook beside it', pieceAt('f1') === '♖', sqOf($g, 'f1').textContent);
+check('the king ends up on g1', pieceAt('g1') === 'K', pieceAt('g1'));
+check('and the rook beside it', pieceAt('f1') === 'R', pieceAt('f1'));
 check('the other board agrees', /O-O/.test($h('ch-moves').textContent), $h('ch-moves').textContent);
 
 // put the room back the way the blocks after this one expect it
@@ -10661,7 +10758,8 @@ try {
     id: 'lvl' + i, day: dayBack(b), ts: Date.now() - b * 86400000, secs,
   }));
   const LDOOR = 'window.__L = {Embers, lvlNow, lvlOf, lvlSecs, lvlNeed, lvlLocked, lvlStreak,'
-    + ' lvlGlow, lvlFloor, mendGap, mendCost, mendHas, LVL_GATE,'
+    + ' lvlGlow, lvlFloor, mendGap, mendCost, mendHas, LVL_GATE, lvlRunMult,'
+    + ' LVL_RUN_BONUS, LVL_RUN_CAP,'
     + ' shelf: () => EMB_LIGHTS.concat(EMB_SOUNDS).map(x => x.cost)'
     + '   .concat(FACES.map(f => f.cost)).concat(QPACKS.map(q => q.cost))'
     + '   .concat(BUD_ANIMS.map((a, i) => budCost(\'an\', i)))};';
@@ -10679,9 +10777,9 @@ try {
     await wait(150);
     const box = $l('emb-box');
 
-    check('three hours of focus is level three, and the page says so',
-      L.lvlNow() === 3 && /Level 3/.test(box.querySelector('.lvl-head b').textContent)
-      && /to level 4/.test(box.querySelector('.lvl-head span').textContent),
+    check('three hours of focus is level five, and the page says so',
+      L.lvlNow() === 5 && /Level 5/.test(box.querySelector('.lvl-head b').textContent)
+      && /to level 6/.test(box.querySelector('.lvl-head span').textContent),
       L.lvlNow() + ' / ' + box.querySelector('.lvl-head').textContent);
 
     /* **The whole point, stated as the thing a first day cannot do.** Every
@@ -10717,9 +10815,98 @@ try {
       over.length === 0 && L.LVL_GATE < 1,
       over.length ? 'first: ' + over[0] : L.shelf().length + ' prices, gate ' + L.LVL_GATE);
 
+    /* **The ladder has to reach the top of the shelf.** The curve was
+       triangular in hours and put the whole catalogue inside twelve
+       levels, after which the number went up with nothing attached to it.
+       Pacing the shelf is the only job it has, so the dearest thing there
+       is opens at the top of the useful range and not a third of the way
+       into it. Asserted against the dearest price that actually exists:
+       add something dearer, or change the curve, and this says so. */
+    const dearest = Math.max(...L.shelf());
+    check('the dearest thing on any shelf opens at level 45',
+      L.lvlNeed(dearest) === 45,
+      dearest + ' embers asks for level ' + L.lvlNeed(dearest));
+
+    /* And spread, rather than in one clump at the bottom. A dozen rungs
+       all inside the first fortnight is the thing this replaced. */
+    const gates = [...new Set(L.shelf().filter((c) => c > 0).map((c) => L.lvlNeed(c)))]
+      .sort((a, b) => a - b);
+    check('and the shelf opens in stages the whole way up',
+      gates[gates.length - 1] === 45 && gates.filter((g) => g > 15).length >= 6,
+      gates.join(','));
+
     check('the ember brightens with a three-day run', $l('emb-chip').dataset.glow === '1',
       $l('emb-chip').dataset.glow);
     check('and nothing went wrong getting there', lErr.length === 0, lErr.slice(0, 2).join(' | '));
+  }
+
+  /* ---- a run of days is worth a little more --------------------------
+
+     A tenth of a percent for each consecutive day, applied to the day the
+     time was put in rather than to the total -- which is the only form that
+     keeps the level derived, and the thing most likely to be got wrong by
+     somebody later reaching for a simpler-looking sum over the log.
+
+     The wanted figures are worked out here from the two constants rather
+     than copied from the app: a check that recomputes the app's arithmetic
+     the app's way agrees with any bug in it. */
+  {
+    const hour = 3600;
+    const want = (runs, B, CAP) => runs.reduce(
+      (n, r) => n + hour * (1 + Math.min(CAP, r * B)), 0);
+
+    const secsFor = async (backs, own) => {
+      const { window: w } = lvlBoot(Object.assign(
+        { focus_log: JSON.stringify(mkLog(backs, hour)) },
+        own ? { focus_embers: JSON.stringify({ have: 0, earned: 0, own }) } : {}));
+      await wait(500);
+      return w.__L;
+    };
+
+    const L1 = await secsFor([1]);
+    const B = L1.LVL_RUN_BONUS, CAP = L1.LVL_RUN_CAP;
+    check('a tenth of a percent a day, so two days is the 0.2% asked for',
+      Math.abs(B - 0.001) < 1e-9 && Math.abs(L1.lvlRunMult(2) - 1.002) < 1e-9,
+      'per day ' + B + ', two days ' + L1.lvlRunMult(2));
+    check('one day on its own is a run of one',
+      Math.abs(L1.lvlSecs() - want([1], B, CAP)) < 0.5,
+      L1.lvlSecs() + ' against ' + want([1], B, CAP));
+
+    const L2 = await secsFor([2, 1]);
+    check('and the second day of a run is worth more than the first',
+      Math.abs(L2.lvlSecs() - want([1, 2], B, CAP)) < 0.5,
+      L2.lvlSecs() + ' against ' + want([1, 2], B, CAP));
+
+    /* **A gap puts you back to one.** Two hours a week apart are two first
+       days, not a run of two -- otherwise the bonus is for turning up at all
+       rather than for turning up again. */
+    const Lg = await secsFor([9, 1]);
+    check('a day missed starts the run again',
+      Math.abs(Lg.lvlSecs() - want([1, 1], B, CAP)) < 0.5,
+      Lg.lvlSecs() + ' against ' + want([1, 1], B, CAP));
+
+    /* **And it stops climbing.** A tenth of a percent a day is +36% after a
+       year and a doubling inside three, at which point the level is a record
+       of consecutive mornings rather than of hours. */
+    const long = Array.from({ length: 60 }, (_, i) => 60 - i);
+    const Lc = await secsFor(long);
+    const runs = Array.from({ length: 60 }, (_, i) => i + 1);
+    check('a long run stops at the cap rather than climbing for ever',
+      Math.abs(Lc.lvlSecs() - want(runs, B, CAP)) < 0.5
+      && Lc.lvlSecs() < 60 * hour * (1 + CAP) + 0.5,
+      Lc.lvlSecs() + ' against ' + want(runs, B, CAP));
+
+    /* **A mend bridges, and earns nothing of its own.** Keeping a run alive
+       is exactly what a mend is for, and `lvlStreak` already counts one; the
+       day itself has no seconds, so there is nothing to farm by buying one. */
+    const gapDay = dayBack(2);
+    const Lm = await secsFor([3, 1], ['mend-' + gapDay + '-15']);
+    check('a mended day carries the run across the hole it fills',
+      Math.abs(Lm.lvlSecs() - want([1, 3], B, CAP)) < 0.5,
+      Lm.lvlSecs() + ' against ' + want([1, 3], B, CAP) + ' (mend on ' + gapDay + ')');
+    check('and the mend itself adds no time',
+      Lm.lvlSecs() < 2 * hour * (1 + CAP) + 0.5,
+      Lm.lvlSecs() + ' for two hours');
   }
 
   /* ---- nothing owned is ever taken back ---- */

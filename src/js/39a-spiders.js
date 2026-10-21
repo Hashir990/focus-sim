@@ -338,7 +338,21 @@
     const secs = (px)=>Math.max(6, px / speed).toFixed(1) + 's';
     const vh = (n)=>n / 100 * (window.innerHeight || 800);
     const vw = (n)=>n / 100 * (window.innerWidth || 1200);
-    const svg = spiderSvg(ink, spiderShapeFor(kind), size);
+    const shape = spiderShapeFor(kind);
+    const svg = spiderSvg(ink, shape, size);
+    /* **How far in from the edge of the drawing its outermost foot is.**
+       60 shape units are drawn 30px wide, so a unit is half a pixel at
+       size 1. The drawings are symmetric, so the same number serves
+       either wall -- the right-hand one is the same drawing mirrored.
+
+       `spiderShapeFor` answers with a *name*, not a shape, which is worth
+       saying out loud: reading `.feet` off the name threw on every single
+       spawn, the throw was swallowed by the catch around the scheduler's
+       call, and the whole look quietly had no spiders in it at all. */
+    const sh = SPIDER_SHAPES[shape];
+    const footIn = sh && sh.feet
+      ? Math.min(...sh.feet.map((f) => f[0])) * 0.5 * size
+      : 0;
 
     if(kind === 'drop'){
       /* **From the top edge, under a corner web.** Not from a point part way
@@ -355,6 +369,7 @@
       const right = tag[0] === 'r';
       const up = Math.random() < 0.5;
       el.className = 'spider sp-wall' + (right ? ' sp-right' : '') + (up ? ' sp-up' : '');
+      el.style.setProperty('--sp-foot', footIn.toFixed(1) + 'px');
       const dur = Math.max(6, vh(124) / speed);
       el.style.setProperty('--sp-dur', dur.toFixed(1) + 's');
       el.innerHTML = svg;

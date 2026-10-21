@@ -45,24 +45,49 @@
 
   /* **The curve, and why it is this one.**
 
-     Level 2 is an hour, level 3 is three, level 4 is six: the nth level is the
-     nth triangular number of hours. It is the gentlest curve that still slows
-     down. Early levels arrive inside a morning, which is when somebody is
-     deciding whether any of this is worth doing, and by level twelve it is
-     asking for a week of evenings per step. The dearest thing in the shop is
-     about seventy-five hours of focus, which lands around level twelve, so the
-     top of the shelf and the top of the useful range of this curve are the
-     same place by construction rather than by coincidence. */
-  function lvlFloor(n){ return Math.max(0, (n - 1) * n / 2) * 3600; }
+     Level 2 is one block, and the dearest thing in the shop opens at level 45.
+
+     **It used to be triangular in hours** -- level n at the nth triangular
+     number of them -- which is the gentlest curve that still slows down, and
+     it put the entire shelf inside the first twelve levels. Everything above
+     that was a number going up with nothing attached to it: by the end of a
+     fortnight the level had paced everything it was ever going to pace, and
+     the rest of it was decoration. The shelf is the only job this number has.
+
+     So the same shelf is spread over forty-five levels instead of twelve.
+     `(n - 1)^1.24` blocks of twenty-five minutes: one block to level 2, six
+     and a half hours to level 10, sixteen to 20, and forty-five hours to 45,
+     where the dearest clock face is. The exponent is what keeps it slowing
+     down -- the step from 44 to 45 is about an hour and a quarter, the step
+     from 1 to 2 is the twenty-five minutes you just did.
+
+     **Nothing got harder.** The gate below is a fraction of a price in hours,
+     and `lvlFloor(lvlNeed(c))` is the hours it actually takes; a finer ladder
+     rounds that down less far, so every tile on the shelf opens at the same
+     hour as before or a little earlier. The numbers beside them are bigger;
+     the waiting is not. Nobody's level falls either, since more levels fit
+     under the same hours.
+
+     1.24 is not arbitrary. The dearest thing on any shelf is 500 embers,
+     which the gate reads as 45.8 hours, and 1.24 is the exponent that lands
+     that on 45 rather than between two levels. The useful top of the ladder
+     and the top of the shelf are the same place by construction, as they were
+     before; there is simply a great deal more ladder. Re-check it if anything
+     dearer than 500 is ever added. */
+  const LVL_STEP = 1500;        // one 25-minute block: the hours for level 2
+  const LVL_POW = 1.24;
+  function lvlFloor(n){
+    return Math.pow(Math.max(0, n - 1), LVL_POW) * LVL_STEP;
+  }
   /** Which level that many seconds of focus is. Inverts `lvlFloor`.
 
-      The epsilon is not superstition: `lvlFloor` is exact in seconds, but the
-      division by 3600 and the square root are not obliged to be, and being one
-      ten-thousandth of an hour short of level nine would show a level eight to
-      somebody who had just watched the bar fill. */
+      The epsilon is not superstition: `lvlFloor` is exact enough in seconds,
+      but a power and its inverse power are not obliged to agree in the last
+      bit, and landing a thousandth of a second short of level nine would show
+      a level eight to somebody who had just watched the bar fill. */
   function lvlOf(secs){
-    const h = Math.max(0, secs || 0) / 3600;
-    return Math.max(1, Math.floor((1 + Math.sqrt(1 + 8 * h)) / 2 + 1e-9));
+    const x = Math.max(0, secs || 0) / LVL_STEP;
+    return Math.max(1, Math.floor(1 + Math.pow(x, 1 / LVL_POW) + 1e-9));
   }
 
   /* **What counts as an hour.** Finished focus out of the log, plus `adjust`
@@ -78,9 +103,82 @@
 
      Achievements are the deliberate exception. They pay embers and they do not
      pay hours, which is what leaves the level with anything to do. */
+  /* **A day inside a run is worth slightly more than the same day alone.**
+
+     A tenth of a percent for each consecutive day, so two days is 0.2% and a
+     fortnight is 1.4%. Capped at five percent, which arrives at fifty days:
+     uncapped, a tenth of a percent a day is +36% after a year and a doubling
+     inside three, and a level that is mostly a record of consecutive mornings
+     is no longer a record of hours.
+
+     It is applied per day rather than to the total because that is the only
+     form that stays derived -- see `lvlSecs`. */
+  const LVL_RUN_BONUS = 0.001;
+  const LVL_RUN_CAP = 0.05;
+
+  /** A day key as a count of days, for arithmetic on dates without timezones
+      getting into it: both ends go through the same conversion, and only the
+      difference is ever used. */
+  function lvlDayNum(key){
+    const p = String(key || '').split('-');
+    if(p.length !== 3) return NaN;
+    return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000);
+  }
+  function lvlDayKey(num){
+    const d = new Date(num * 86400000);
+    const pad = (x)=>String(x).padStart(2, '0');
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+  }
+
+  /** What a day's seconds are multiplied by, given the run it was part of. */
+  function lvlRunMult(run){
+    return 1 + Math.min(LVL_RUN_CAP, Math.max(0, run) * LVL_RUN_BONUS);
+  }
+
+  /* **The hours, with each day credited at the rate its own run had reached.**
+
+     This used to be one sum over the log. It is now a sum over the *days*,
+     in order, carrying the length of the run as it goes -- because the bonus
+     is a fact about the day the time was put in and cannot be recovered from
+     the total afterwards. Same input, same output, on every device: nothing
+     new is written down, which is the whole argument for the level being
+     what it is. */
   function lvlSecs(){
     let n = 0;
-    try{ for(const r of LOG) n += Math.max(0, (r && r.secs) || 0); }catch(e){}
+    try{
+      const byDay = Object.create(null);
+      for(const r of LOG){
+        const k = (r && r.day) || dayKey(r && r.ts);
+        if(!k) continue;
+        byDay[k] = (byDay[k] || 0) + Math.max(0, (r && r.secs) || 0);
+      }
+      const days = Object.keys(byDay).sort();
+      let run = 0, was = NaN;
+      for(const k of days){
+        const now = lvlDayNum(k);
+        if(!isFinite(now)){ n += byDay[k]; continue; }
+        if(!isFinite(was)) run = 1;
+        else {
+          const gap = now - was;
+          if(gap <= 0) { /* same day twice: the sort says otherwise, but be safe */ }
+          else if(gap === 1) run += 1;
+          else {
+            /* A mend on every missing day keeps the run going. Bounded,
+               because a two-year gap is not worth four hundred lookups to
+               discover what the first one already told us. */
+            let whole = gap < 400;
+            for(let i = 1; whole && i < gap; i++) if(!mendHas(lvlDayKey(was + i))) whole = false;
+            run = whole ? run + gap : 1;
+          }
+        }
+        was = now;
+        n += byDay[k] * lvlRunMult(run);
+      }
+    }catch(e){
+      /* Whatever went wrong, the hours are still the hours. */
+      n = 0;
+      try{ for(const r of LOG) n += Math.max(0, (r && r.secs) || 0); }catch(e2){}
+    }
     try{ n += Math.max(0, Embers.adjust | 0) * EMB_PER; }catch(e){}
     return n;
   }
@@ -103,10 +201,12 @@
      it at the same moment, and the gate would never be visible at all.
      Charging much less than half would mean it never bites.
 
-     At 0.55 the dearest shelf (450 embers, seventy-five hours) opens at level
-     nine, which is thirty-six hours: three weeks of ordinary evenings, and
-     flatly impossible on a first day whatever is claimed or granted. The cheap
-     end lands at level two or three, which is the same afternoon. And because
+     At 0.55 the dearest thing on any shelf (500 embers, eighty-three hours)
+     opens at level 45, which is forty-five hours: three weeks of ordinary
+     evenings, and flatly impossible on a first day whatever is claimed or
+     granted. The cheap end lands around level six, which is the same
+     afternoon. In between, the shelf opens a few tiles at a time all the way
+     up -- 19, 22, 25, 29, 34, 39, 41, 45 for the lights alone. And because
      the fraction is below one, a windfall of bonus embers still buys something
      sooner than the clock would have, about half of the wait, rather than
      buying nothing at all, which is the point of a bonus. */
@@ -149,7 +249,11 @@
   function lvlHtml(){
     const s = lvlStep();
     const pc = Math.max(2, Math.min(100, Math.round(s.at / s.of * 100)));
-    return '<div class="lvl" data-lvl="' + s.n + '">'
+    /* `lvl-box`, not `lvl`. The calendar marks a focused day with a
+       `.lvl` of its own and has since long before this existed; a bare
+       `lvl` here leaked its padding and border into every day cell in the
+       month, turning a four-pixel bar into a slab across the date. */
+    return '<div class="lvl-box" data-lvl="' + s.n + '">'
       + '<div class="lvl-head"><b>' + esc(T('Level {n}', {n:s.n})) + '</b>'
       + '<span>' + esc(T('{d} to level {n}', {d:fmtDur(s.left), n:s.n + 1})) + '</span></div>'
       + '<div class="lvl-track"><i style="width:' + pc + '%"></i></div>'

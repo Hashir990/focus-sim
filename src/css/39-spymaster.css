@@ -138,12 +138,30 @@
 }
 .sm-grid[data-noting="1"] .sm-card[disabled]{ outline:none }
 
+/* **`minmax(0, 1fr)`, not `1fr`.** A `1fr` track is `minmax(auto, 1fr)`,
+   and `auto` is the content's minimum width -- which, once the words
+   stopped being allowed to break mid-word, became the whole word. One
+   long word therefore widened its own column and narrowed the other
+   four, so a grid of twenty-five equal cards came out visibly uneven
+   with space going spare. Flooring the minimum at nought keeps the five
+   columns equal and lets a word overflow instead, which `_fitWords` in
+   36b-spymaster.js then sizes down to fit. */
 .sm-grid{
-  display:grid; grid-template-columns:repeat(5, 1fr); gap:5px;
+  display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:5px;
   margin:0 0 10px;
 }
+/* **Width from the column, height from the ratio -- not the other way
+   round.** With only `aspect-ratio` set, a row whose height is being
+   squeezed hands the card a height and the ratio derives the width from
+   it, so the five cards came out 58px wide inside 83px columns and the
+   grid sat in the middle of its own space with gaps down both sides.
+   That happened on the spymaster's screen and not the guesser's, because
+   the spymaster has the clue box above the board taking the room. Taking
+   the width from the column and letting the height follow puts the board
+   back to the full width on both. */
 .sm-card{
-  position:relative; min-width:0; aspect-ratio:1.25;
+  position:relative; min-width:0; width:100%; align-self:start;
+  aspect-ratio:1.25;
   display:flex; align-items:center; justify-content:center; padding:2px;
   border-radius:9px; border:1px solid var(--line); background:var(--card);
   color:var(--text); font:inherit; cursor:pointer;
@@ -151,9 +169,14 @@
   touch-action:manipulation;
   transition:background .25s ease, color .25s ease, border-color .25s ease, transform .12s ease;
 }
+/* **Never broken across two lines.** A word split in the middle -- UNICOR
+   over N -- is unreadable in a game whose whole move is reading a word,
+   and overflow-wrap:anywhere was doing it to every word wider than its
+   card. Anything too wide is brought down to fit by _fitWords in
+   36b-spymaster.js instead. */
 .sm-card span{
   font-size:10.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
-  line-height:1.1; text-align:center; overflow-wrap:anywhere;
+  line-height:1.1; text-align:center; white-space:nowrap;
 }
 .sm-card:disabled{ cursor:default }
 .sm-card:not(:disabled):hover{ border-color:var(--muted) }

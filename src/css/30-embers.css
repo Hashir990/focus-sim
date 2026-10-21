@@ -204,8 +204,16 @@
 .emb-light.lock em{ color:color-mix(in srgb, var(--accent) 68%, var(--muted)) }
 
 /* ---- the level, above the shelves it decides ----
-   Hours of focus, counted a way that cannot be spent. See 37a-level.js. */
-.lvl{
+   Hours of focus, counted a way that cannot be spent. See 37a-level.js.
+
+   **`lvl-box`, because `lvl` was taken.** The calendar has marked a focused
+   day with a `.lvl` bar since long before this block existed. A bare `.lvl`
+   here lost to `.cal-cell .lvl` on everything the calendar sets and won on
+   everything it does not -- so the padding and border below were applied to
+   every marked day in the month, and a fifteen-by-four bar came out
+   forty-three by twenty-eight, covering the date. A short class name is a
+   global; see the note about `.hide` in HANDOFF section 2. */
+.lvl-box{
   margin:13px 0 0; padding:11px 13px; border-radius:13px;
   border:1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   background:color-mix(in srgb, var(--accent) 7%, transparent);
@@ -224,7 +232,7 @@
   box-shadow:0 0 9px var(--glow);
   transition:width .4s ease;
 }
-.lvl .emb-sub{ margin-top:8px }
+.lvl-box .emb-sub{ margin-top:8px }
 @media (prefers-reduced-motion:reduce){ .lvl-track i{ transition:none } }
 
 /* ---- the palettes ----

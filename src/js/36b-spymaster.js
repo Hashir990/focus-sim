@@ -43,6 +43,13 @@
      Eight letters at most, because the grid is five across on a phone and a
      long word on a small card is a word in a font nobody can read. The smoke
      test holds that line. */
+  /* The padding either side of a word inside its card, and how small one
+     is allowed to get before it is left to overflow. Nine characters is
+     the longest word in the list and lands around eight pixels on a
+     phone, so the floor is a backstop rather than a thing that bites. */
+  const SM_WORD_PAD = 6;
+  const SM_WORD_MIN = 7;
+
   const SM_WORDS = (
     'bank, bark, bat, bear, bell, belt, board, bolt, bond, boot, bow, box, '
     + 'bridge, bug, button, cabin, cap, capital, card, cast, cell, chain, '
@@ -553,6 +560,39 @@
       setTimeout(()=>{ const b = $('sm-banner'); if(b) b.classList.add('hide'); }, 3600);
     },
 
+    /* **A long word gets smaller rather than broken.**
+
+       The cards are a fifth of a narrow screen each, which is about nine
+       characters at the size the stylesheet asks for, and the list has
+       words of nine. `overflow-wrap:anywhere` let them break, so UNICORN
+       came out as UNICOR / N -- a word split across two lines in the
+       middle of a game about reading words. The stylesheet now refuses to
+       wrap and this brings anything too wide back down to fit.
+
+       **Measured, not guessed at a character width.** With `nowrap` a
+       span's `scrollWidth` is the width the word actually wants, whatever
+       the font turns out to be, so the ratio of that to the room it has
+       is the exact amount to come down by. Every read happens before
+       every write: interleaving them is twenty-five layouts instead of
+       one, on a grid that redraws on every turn. */
+    _fitWords(){
+      const grid = $('sm-grid');
+      if(!grid) return;
+      const spans = [...grid.querySelectorAll('.sm-card span')];
+      if(!spans.length) return;
+      for(const sp of spans) sp.style.fontSize = '';
+      let base = 0;
+      try{ base = parseFloat(getComputedStyle(spans[0]).fontSize) || 0; }catch(e){}
+      if(!base) return;
+      const want = spans.map(sp=>[sp.scrollWidth, sp.parentNode.clientWidth - SM_WORD_PAD]);
+      spans.forEach((sp, i)=>{
+        const [need, room] = want[i];
+        if(!(need > 0) || !(room > 0) || need <= room) return;
+        const size = Math.max(SM_WORD_MIN, base * room / need);
+        sp.style.fontSize = size.toFixed(1) + 'px';
+      });
+    },
+
     _paintNums(){
       $('sm-nums').querySelectorAll('[data-n]').forEach(b=>{
         b.classList.toggle('on', Number(b.dataset.n) === this.n);
@@ -665,6 +705,7 @@
           + (mk ? '<i class="sm-note" aria-hidden="true"></i>' : '')
           + '</button>';
       }).join('');
+      this._fitWords();
 
       /* The row only exists for somebody who can write on the board. A
          spectator and a spymaster both see the marks and neither can make
