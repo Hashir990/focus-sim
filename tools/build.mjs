@@ -264,11 +264,21 @@ function verify() {
   return false;
 }
 
-/** The one thing that isn't inside index.html — warn loudly if it's missing. */
-function checkAudio() {
-  const dir = join(DIST, 'audio');
-  const want = ['rain', 'forest', 'cafe', 'office', 'campfire'];
-  const missing = want.filter((n) => !existsSync(join(dir, n + '.mp3')));
+/** The one thing that isn't inside index.html — warn loudly if it's missing.
+ *
+ *  **Asked of the page, not of a list kept here.** This held five names and a
+ *  hardcoded `.mp3`, so it was wrong twice at once: it had not heard of the
+ *  three tracks added since, and when the format changed it reported the five
+ *  it did know as missing while they sat there as .ogg. The paths are in
+ *  `AMB_TRACKS`, which is the thing the app actually fetches. */
+function checkAudio(html) {
+  const map = (html.match(/var AMB_TRACKS = \{([\s\S]*?)\n {2}\};/) || [])[1] || '';
+  const want = [...map.matchAll(/(\w+):'(audio\/[^']+)'/g)].map((m) => [m[1], m[2]]);
+  if (!want.length) {
+    console.log('! could not find AMB_TRACKS to check dist/audio against');
+    return;
+  }
+  const missing = want.filter(([, path]) => !existsSync(join(DIST, path))).map(([id]) => id);
   if (missing.length) {
     console.log(`! dist/audio is missing: ${missing.join(', ')} — run  bash tools/encode-audio.sh`);
   }
@@ -278,7 +288,7 @@ const run = () => {
   const t = Date.now();
   const html = build();
   console.log(`built dist/index.html — ${(html.length / 1024).toFixed(1)} KB in ${Date.now() - t}ms`);
-  checkAudio();
+  checkAudio(html);
 };
 
 run();

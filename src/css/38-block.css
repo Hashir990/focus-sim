@@ -225,8 +225,10 @@
   font:inherit; color:var(--text); background:var(--card); border:1px solid var(--line);
   border-radius:10px; padding:7px 9px; color-scheme:dark;
 }
+/* Enough room below it to come to rest clear of the sticky save row
+   rather than stopping half under it. */
 .blk-delete{
-  display:block; width:100%; margin:24px 0 8px; padding:12px; border-radius:14px; font:inherit; cursor:pointer;
+  display:block; width:100%; margin:24px 0 20px; padding:12px; border-radius:14px; font:inherit; cursor:pointer;
   border:1px solid color-mix(in srgb, #f07070 45%, var(--line)); background:transparent; color:#f0a0a0;
 }
 .blk-code{
@@ -341,9 +343,26 @@
    pressed by accident, and seeing "Saved" is worth something on its own. */
 .blk-saverow{
   position:sticky; bottom:0; z-index:2;
-  margin:14px -4px 0; padding:10px 4px calc(6px + env(safe-area-inset-bottom));
-  background:linear-gradient(180deg, transparent 0%, var(--bg) 42%);
+  /* **Out to the scroller's edges, and flush with its floor.**
+     `position:sticky` is held inside the scroller's *content* box, so every
+     pixel of padding under `.ov-body` is a pixel the bar is lifted off the
+     bottom of the screen -- and the form goes on scrolling through the gap
+     underneath it. That gap is the whole of the "floating" the bar was
+     accused of. The scroller's bottom padding is dropped below and the bar
+     carries the safe area itself; the negative margin takes it out over the
+     side gutters so nothing passes it there either. */
+  margin:14px calc(-1 * var(--ov-pad)) 0;
+  padding:10px var(--ov-pad) calc(10px + env(safe-area-inset-bottom));
+  /* **It has to look pinned.** Same background and same width as every
+     row above it meant a control hovering in the middle of the form read
+     as a row of the form that had come loose. An edge says it is in front
+     of the page rather than part of it. */
+  border-top:1px solid var(--line);
+  box-shadow:0 -10px 18px -12px rgba(0,0,0,.9);
+  /* Opaque, so the form passes behind the button rather than through it. */
+  background:var(--bg);
 }
+#block-rule-overlay .ov-body{ padding-bottom:0 }
 .blk-save{
   width:100%; padding:12px; border-radius:12px;
   border:1px solid var(--line); background:var(--card); color:var(--muted);

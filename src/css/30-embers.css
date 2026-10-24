@@ -592,7 +592,8 @@ body[data-amb="sea"] #drawer{
 /* The sky, top to bottom: violet, magenta, and the orange sitting on the water.
    The horizon band is narrow on purpose — widen it and the whole screen goes
    orange, and the interface is read against this. */
-body[data-light="beach"] .app{
+body[data-light="beach"] .app,
+body[data-amb="sea"] .app{
   background:
     linear-gradient(180deg,
       #1a1030 0%,
@@ -621,22 +622,35 @@ body[data-light="beach"] .app{
    edge that reads against both the orange above the waterline and the plum
    below it, and its own shadow, because on a gradient this busy a flat panel
    needs a lift to look like a thing you can press. */
-body[data-light="beach"] .arcade-btn{
+/* **And the track gets the look whole, not the colours out of it.**
+   Sunset Beach borrows this look through `like:'beach'`, which hands it the
+   palette and the weather -- but a look is more than its tokens. The sky
+   gradient, the tide, and the arcade button sitting on the horizon were all
+   written against `data-light` alone, and a track sets `data-amb` and puts
+   `data-light` to `none`. So the sound arrived with the beach's colours and
+   none of its beach, which is what "it should have all the beach visual
+   effects" meant. Every rule the look has now names both. */
+body[data-light="beach"] .arcade-btn,
+body[data-amb="sea"] .arcade-btn{
   border-color:#bb90ff;
   background:linear-gradient(180deg, rgba(66,30,114,.94), rgba(42,20,74,.94));
   color:#f6e9f2;
   box-shadow:0 8px 22px rgba(18,9,38,.5);
 }
-body[data-light="beach"] .arcade-btn:hover{
+body[data-light="beach"] .arcade-btn:hover,
+body[data-amb="sea"] .arcade-btn:hover{
   border-color:#d8c0ff;
   background:linear-gradient(180deg, rgba(88,42,146,.96), rgba(58,28,102,.96));
 }
-body[data-light="beach"] .arcade-ic{
+body[data-light="beach"] .arcade-ic,
+body[data-amb="sea"] .arcade-ic{
   color:#ecd9ff; background:rgba(152,106,226,.36);
 }
 /* Against the violet rather than against the sky, so it can be quiet again. */
-body[data-light="beach"] .arcade-txt em{ color:#cdb4e4 }
-body[data-light="beach"] .arcade-go{ color:#ecd9ff; opacity:1 }
+body[data-light="beach"] .arcade-txt em,
+body[data-amb="sea"] .arcade-txt em{ color:#cdb4e4 }
+body[data-light="beach"] .arcade-go,
+body[data-amb="sea"] .arcade-go{ color:#ecd9ff; opacity:1 }
 
 /* ---- the tide ----
 
@@ -674,7 +688,8 @@ body[data-light="beach"] .arcade-go{ color:#ecd9ff; opacity:1 }
    is not a `background-position` animation. Each layer travels exactly one tile
    per cycle, so the last frame is the first: change a `background-size` and its
    keyframe has to change with it. */
-body[data-light="beach"] .beach-sea{
+body[data-light="beach"] .beach-sea,
+body[data-amb="sea"] .beach-sea{
   display:block; position:fixed; inset:var(--winbar) 0 0 0; z-index:0; pointer-events:none;
   overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,

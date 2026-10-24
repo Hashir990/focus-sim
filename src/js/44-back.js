@@ -31,6 +31,12 @@
     {id:'prof-overlay',   close:()=>{ const b = $('prof-close'); if(b) b.click(); }},
     /* Above App blocking, for the same reason: the picker opens from it. */
     {id:'block-apps-overlay', close:()=>{ const b = $('block-apps-close'); if(b) b.click(); }},
+    /* **And the rule editor, between the two.** It opens from the
+       blocking page and the picker opens from it, so it sits here. It was
+       missing, and because it covers the page it opened from there was
+       nothing listed underneath to take the press: the watcher parked no
+       entry and Back walked straight out of the app. */
+    {id:'block-rule-overlay', close:()=>{ const b = $('block-rule-close'); if(b) b.click(); }},
     {id:'block-overlay',  close:()=>{ const b = $('block-close'); if(b) b.click(); }},
     {id:'sync-overlay',   close:()=>{ const b = $('sync-close'); if(b) b.click(); }},
     {id:'ach-overlay',    close:()=>{ const b = $('ach-close'); if(b) b.click(); }},

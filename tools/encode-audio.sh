@@ -1,8 +1,27 @@
 #!/bin/bash
 # Cuts the full-length source recordings down to the tracks the app ships.
 #
-#   audio-src/<name>.mp3   full recording (1-4 hours, 55-235 MB) — not in git
-#   dist/audio/<name>.mp3  45 min, mono, 32 kbps, ~10.3 MB
+#   audio-src/<name>.<ext>  full recording (1-4 hours, 55-235 MB) — not in git
+#   dist/audio/<name>.ogg   45 min, mono, 32 kbps Opus, ~10 MB
+#
+# **Opus, not MP3, and the bitrate did not change.** These were 32 kbps MP3,
+# which is below what that codec can do this material at: night city, café and
+# morning sea were reported as scratchy, and measuring them said why. Against
+# the lossless reference the encode is made from, MP3 at 32 kbps loses the top
+# two octaves outright — morning sea came back 20.0 dB down between 12 and
+# 16 kHz, night city 12.4 dB, café 13.8 dB, with 8-10 kHz already 3-5 dB light.
+# That band is where the birds, the traffic detail and the crockery live, and
+# what is left when they go is hiss and warble. Opus at the same 32 kbps holds
+# every band within 0.6 dB of the reference on two of the three and 1.5 dB on
+# the café, in a slightly *smaller* file.
+#
+# Do not be tempted to judge this with a waveform difference: MP3 scores better
+# on one. Above roughly 6 kHz Opus stops reproducing the waveform and rebuilds
+# the band from its shape, which a subtraction punishes and an ear does not.
+# Per-band energy is the measurement that matches what you hear.
+#
+# Audio is 76 of the app's 83 MB, so a bitrate rise is not free the way this
+# was. 32 kbps stays.
 #
 # The recordings are slowed to 75% speed to make them calmer to work to. atempo
 # does this by time-stretching, so pitch is unchanged — rain doesn't drop into a
@@ -49,7 +68,19 @@ for pair in $TRACKS; do
   for ext in mp3 m4a opus wav flac; do
     [ -f "audio-src/$n.$ext" ] && { src="audio-src/$n.$ext"; break; }
   done
-  [ -n "$src" ] || { echo "skip $n (nothing at audio-src/$n.*)"; continue; }
+  # **And a recording may not be in audio-src at all.** Several of these
+  # arrived as downloads with the uploader's title still on them and were
+  # linked into audio-src rather than copied, which does not survive moving
+  # the checkout between machines — a dead link reads exactly like a missing
+  # file. `audio-src/sources.txt` is the way back: one `name<TAB>path` per
+  # line, paths relative to the repo. It is gitignored with the rest of
+  # audio-src, because the recordings are not ours to redistribute.
+  if [ -z "$src" ] && [ -f audio-src/sources.txt ]; then
+    line=$(grep -P "^$n\t" audio-src/sources.txt 2>/dev/null | head -1 || true)
+    cand="${line#*$'\t'}"
+    [ -n "$cand" ] && [ -f "$cand" ] && src="$cand"
+  fi
+  [ -n "$src" ] || { echo "skip $n (nothing at audio-src/$n.* and no sources.txt entry)"; continue; }
 
   # campfire's source is only 60 min, so it starts at 0; the others skip a
   # minute of intro. Adrift is 144 seconds end to end and every one of them is
@@ -83,10 +114,22 @@ for pair in $TRACKS; do
   LEN="-t 2025"
   [ "$n" = adrift ] && LEN=""
 
+  # 48 kHz because that is the only rate Opus works at internally; handing it
+  # anything else just moves the resampler. 60 ms frames rather than the
+  # default 20, which at this bitrate spends meaningfully less of it on frame
+  # headers — there is no latency to protect in a 45-minute loop.
   ffmpeg -v error -y -ss "$start" $LEN -i "$src" \
     -af "$FILT" \
-    -ac 1 -ar 32000 -c:a libmp3lame -b:a 32k -write_xing 1 \
-    "dist/audio/$n.mp3"
+    -ac 1 -ar 48000 -c:a libopus -b:a 32k -vbr on \
+    -compression_level 10 -application audio -frame_duration 60 \
+    "dist/audio/$n.ogg"
+
+  # The MP3 this replaces, once the replacement exists. `build.files` ships
+  # `dist/audio/**`, so one left behind is ten megabytes of app nobody plays.
+  if [ -f "dist/audio/$n.mp3" ]; then
+    rm -f "dist/audio/$n.mp3"
+    echo "  removed the old dist/audio/$n.mp3"
+  fi
 done
 
 echo

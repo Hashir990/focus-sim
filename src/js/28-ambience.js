@@ -1,5 +1,9 @@
   /* ---------------- AMBIENCE ----------------
-     Real recordings, 45 minutes each, in dist/audio/. They are the only part of the
+     Real recordings, 45 minutes each, as 32 kbps mono Opus in dist/audio/.
+     Opus rather than MP3 because MP3 cannot carry this material at this
+     bitrate: see the measurements at the top of tools/encode-audio.sh. Both
+     runtimes are Chromium, which has decoded Ogg Opus since long before the
+     oldest Android this app runs on. They are the only part of the
      app that isn't inside the single HTML file — an hour of audio can't be
      inlined, so `audio/` ships alongside index.html and every packaging target
      copies it.
@@ -42,15 +46,15 @@
   }
 
   var AMB_TRACKS = {
-    rain:'audio/rain.mp3', forest:'audio/forest.mp3', cafe:'audio/cafe.mp3',
-    office:'audio/office.mp3', campfire:'audio/campfire.mp3',
+    rain:'audio/rain.ogg', forest:'audio/forest.ogg', cafe:'audio/cafe.ogg',
+    office:'audio/office.ogg', campfire:'audio/campfire.ogg',
     /* Three that belong to a look rather than standing on their own: a city at
        night under Skyline's amber, a morning sea under Beach's, and a synth
        under Deep space's white. They bring those palettes with them the same
        way every other track brings its own. The last is two and a half minutes
        rather than forty-five, because it is a composed piece and not a
        recording of a place; the loop machinery below does not care. */
-    city:'audio/city.mp3', sea:'audio/sea.mp3', adrift:'audio/adrift.mp3',
+    city:'audio/city.ogg', sea:'audio/sea.ogg', adrift:'audio/adrift.ogg',
   };
 
   /* Per-track trim, so no ambience is louder than another.
@@ -58,7 +62,13 @@
      Measured with ebur128 after encoding; each track is scaled down to match the
      quietest (café, at -30.5 LUFS). Doing it here rather than baking gain into the
      files avoids a second lossy encode — and re-encoding an already-32 kbps file
-     is exactly how you reintroduce the artifacts we just removed. */
+     is exactly how you reintroduce the artifacts we just removed.
+
+     The numbers are the ones measured on the MP3s these replaced. They are
+     ratios between the tracks rather than absolute levels, and the Opus
+     encode changed neither the gain in the filter chain nor the material, so
+     they carry over; if a track ever sounds out of step with the others,
+     re-measure the set rather than nudging one. */
   var AMB_GAIN = {
     rain: 0.79,       // -28.5 LUFS
     forest: 0.68,     // -27.1
@@ -146,7 +156,7 @@
   /* The seam, decided once a beat rather than scheduled in advance.
 
      Scheduling would mean trusting `duration` at the moment a track starts, and
-     for a streamed mp3 that number arrives late and sometimes changes. Asking
+     for a streamed file that number arrives late and sometimes changes. Asking
      how much is left, twelve times a second, needs no trust at all, and it is
      right again immediately after a seek, a stall, or a tab that was asleep. */
   function ambSeam(){

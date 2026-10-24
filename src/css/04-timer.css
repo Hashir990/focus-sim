@@ -170,8 +170,14 @@ body[data-light="spiderman"] .spiders{
    One set of keyframes for both corners: the offsets are set per spider and
    the right-hand one is pinned to the right edge, so its numbers carry the
    opposite sign. */
-.sp-web{ top:0; left:0; animation:sp-onweb var(--sp-dur, 30s) ease-in-out forwards }
-.sp-web.sp-right{ left:auto; right:0 }
+/* Started from the web's corner, not the window's -- the two stopped being
+   the same thing when the drawing was pushed off the screen, and a spider
+   measuring its spoke from the old one walks beside the strand. */
+.sp-web{
+  top:calc(var(--web-out, 0px) * -1); left:calc(var(--web-out, 0px) * -1);
+  animation:sp-onweb var(--sp-dur, 30s) ease-in-out forwards;
+}
+.sp-web.sp-right{ left:auto; right:calc(var(--web-out, 0px) * -1) }
 /* Along the spoke it was given, not at a fixed angle that happened to look
    right for one of them. See SPIDER_SPOKES in 39a-spiders.js. */
 .sp-web .sp-body{ transform:rotate(var(--sp-turn, 135deg)) }
@@ -325,16 +331,37 @@ body.away .spider, body.away .sp-strip, body.away .sp-thread{
    rather than the content — and off entirely under every other light. Mirrored
    in CSS for the right-hand one, which is why both carry the same path data. */
 .corner-web{ display:none }
+/* **The corner it hangs in is off the screen, and so is its own edge.**
+   Anchored exactly at the window's corner, the drawing showed every one of
+   its boundaries: the outermost ring landed on the top edge and on the side
+   a measurable distance in, the spokes were clipped square where they ran
+   out of the viewBox, and the old mask only reached nothing at 88% of the
+   box diagonal -- a third of the way *past* the ring, so the ring itself
+   stayed on screen at about a third opacity. A web with a visible rim is a
+   sticker of a web.
+
+   Two changes, and they only work together. The box is pushed up and out by
+   a seventh of itself, which takes the knot at the middle and both runs of
+   ring-ends along the walls off the screen, so the strands leave the frame
+   instead of stopping in it. And the fade now reaches nothing at 71% of the
+   diagonal, which is where the outermost ring is -- so the ring goes out
+   exactly as it arrives and there is no edge left anywhere.
+
+   Bigger to pay for both: a seventh is lost off the corner and the fade
+   starts earlier, so at the old 190px what was left read as a smudge. The
+   two are one number because the spiders walk these spokes -- see
+   `spiderWebSize` in 39a-spiders.js, which carries the same figures, and
+   `.sp-web` below, which starts from the same displaced corner. */
+body[data-light="spiderman"]{
+  --web-s:min(48vw,270px);
+  --web-out:calc(var(--web-s) * .14);
+}
 body[data-light="spiderman"] .corner-web{
-  display:block; position:fixed; top:var(--winbar); z-index:0; pointer-events:none;
-  /* Bigger again, now that it is a torn web rather than a solid fan. The old
-     note here said 190px reached a third of the way across a phone and stopped
-     being a corner, and that was true of a dense quarter-disc: at that size it
-     read as a panel. An irregular one with holes in it does not fill the space
-     it covers, so it can be larger and still be a corner. */
-  width:min(34vw,190px); height:min(34vw,190px);
-  -webkit-mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
-  mask-image:radial-gradient(circle at 0 0, #000 30%, transparent 88%);
+  display:block; position:fixed; z-index:0; pointer-events:none;
+  width:var(--web-s); height:var(--web-s);
+  top:calc(var(--winbar) - var(--web-out));
+  -webkit-mask-image:radial-gradient(circle at 0 0, #000 40%, transparent 71%);
+  mask-image:radial-gradient(circle at 0 0, #000 40%, transparent 71%);
 }
 /* Breathing in and out, and deliberately not together. Two durations that do
    not divide into each other, one of them started part-way through, so the pair
@@ -345,12 +372,12 @@ body[data-light="spiderman"] .corner-web{
    shorthand at all (it reports animation-name: none for even a trivial one), so
    written this way the smoke test can actually see it. */
 body[data-light="spiderman"] .corner-web-l{
-  left:0;
+  left:calc(var(--web-out) * -1);
   animation-name:web-breathe; animation-duration:21s;
   animation-timing-function:ease-in-out; animation-iteration-count:infinite;
 }
 body[data-light="spiderman"] .corner-web-r{
-  right:0; transform:scaleX(-1);
+  right:calc(var(--web-out) * -1); transform:scaleX(-1);
   animation-name:web-breathe; animation-duration:29.3s; animation-delay:-9.4s;
   animation-timing-function:ease-in-out; animation-iteration-count:infinite;
 }

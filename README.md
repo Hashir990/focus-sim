@@ -343,17 +343,27 @@ inlined, so it ships as `dist/audio/` next to it:
 | length | 45 min each |
 | speed | slowed to **0.75x**, pitch unchanged |
 | tone | 7 dB off the low shelf, sub-bass below 55 Hz removed |
-| format | mono MP3, 32 kbps, 32 kHz |
-| size | 10.3 MB each, **52 MB total** |
+| format | mono Opus, 32 kbps, 48 kHz |
+| size | 9.5-9.9 MB each, **66 MB total** across eight tracks |
 | level | -26.5 to -30.5 LUFS as encoded, matched at playback by `AMB_GAIN` |
 
+**Opus, not MP3, and the bitrate did not change.** At 32 kbps MP3 loses the top two
+octaves outright: measured against the lossless reference each file is cut from, morning
+sea came back 20.0 dB down between 12 and 16 kHz, night city 12.4 dB, cafe 13.8 dB. That
+is where birdsong, traffic detail and crockery live, and what is left without them is
+hiss. Opus at the same bitrate holds every band within 0.6 dB, in a slightly smaller
+file. Do not judge this with a waveform difference, which favours MP3 -- above about
+6 kHz Opus rebuilds the band from its shape rather than its samples. Both runtimes are
+Chromium, which has decoded Ogg Opus since long before the oldest Android this app runs
+on. The measurements are at the top of `tools/encode-audio.sh`.
+
 `preload="none"`, and only the chosen track is ever fetched — the app does not pull
-69 MB at startup.
+66 MB at startup.
 
 The slow-down is a time-stretch, not a pitch shift — rain doesn't drop into a growl and
 birdsong stays birdsong. 33 min 45 s of source yields 45 minutes.
 
-**Café is stretched with `librubberband`, the other four with `atempo`.** atempo is a
+**Café is stretched with `librubberband`, the other recordings with `atempo`.** atempo is a
 simple overlap-add: fine on steady noise, but at 0.75x it mangles voices, and the café
 chatter came out warbling. A phase vocoder holds speech together. It costs about 5x more
 to encode, which is why only the one track that needs it uses it. Café also gets a deeper

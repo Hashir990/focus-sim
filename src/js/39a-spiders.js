@@ -60,10 +60,12 @@
   const SPIDER_SPOKES = [[153.9, 5.0], [148.5, 39.7], [138.4, 67.5], [114.6, 92.2],
                          [92.1, 111.9], [64.3, 134.9], [37.7, 142.2], [6.5, 151.4]];
   /* The box those numbers are in, and how big the web is drawn: see the
-     `.corner-web` rule, width:min(34vw,190px). */
+     `.corner-web` rule, which must carry the same two figures -- it is
+     `--web-s:min(48vw,270px)` there. A spider placed from the wrong size
+     walks along a strand that is not where it thinks it is. */
   const SPIDER_WEB_BOX = 120;
   function spiderWebSize(){
-    return Math.min(0.34 * (window.innerWidth || 1200), 190);
+    return Math.min(0.48 * (window.innerWidth || 1200), 270);
   }
   /* The animations that mean the visit is over. One per kind of journey; the
      walk cycle runs forever and must not be mistaken for one. */
@@ -473,9 +475,12 @@
       const len = Math.hypot(spoke[0], spoke[1]);
       const ux = spoke[0] / len, uy = spoke[1] / len;
       /* Far enough out not to be in the knot at the corner, and stopping
-         before the mask fades the web away under it. */
+         before the mask fades the web away under it. The far end came in
+         when the fade did: it used to reach nothing at 88% of the box
+         diagonal and now reaches it at 71%, so a walk that ended at the old
+         distance ends on bare screen. */
       const r0 = len * scale * 0.2;
-      const r1 = len * scale * (0.5 + Math.random() * 0.28);
+      const r1 = len * scale * (0.38 + Math.random() * 0.26);
       el.style.setProperty('--sp-x0', (ux * r0 * sgn).toFixed(0) + 'px');
       el.style.setProperty('--sp-y0', (uy * r0).toFixed(0) + 'px');
       el.style.setProperty('--sp-x1', (ux * r1 * sgn).toFixed(0) + 'px');

@@ -4,7 +4,7 @@
  *
  *   npm test
  */
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, openSync, readSync, closeSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -1482,7 +1482,10 @@ await wait(60);
    the button appears, in the middle of the screen, which is where that band is.
    The override has to exist and has to not be built from the accent again. */
 {
-  const beach = (html.match(/body\[data-light="beach"\] \.arcade-btn\{([^}]*)\}/) || [])[1] || '';
+  /* The selector is a list now -- the sound that borrows this look needs the
+     same rule, and it arrives under `data-amb` rather than `data-light` -- so
+     the brace is no longer attached to the light's own selector. */
+  const beach = (html.match(/body\[data-light="beach"\] \.arcade-btn[^{]*\{([^}]*)\}/) || [])[1] || '';
   check('the beach gives the way into the arcade its own colour',
     /background\s*:/.test(beach) && /border-color\s*:/.test(beach)
     && !/var\(--accent\)/.test(beach), beach.replace(/\s+/g, ' ').trim() || 'no rule');
@@ -2042,12 +2045,26 @@ check('written down, so they survive the app closing',
      is that every light there is has a tile, so that is the second check. */
   const lm = html.match(/const EMB_LIGHTS = \[([\s\S]*?)\n {2}\];/);
   const lightIds = [...lm[1].matchAll(/\{id:'([a-z]+)'/g)].map((m) => m[1]);
+  /* **A look can be in the catalogue and off the shelf.** The beach is: it is
+     reached by playing Sunset Beach, and carries `via:'sea'` to say so. It
+     stays in the catalogue because the sound borrows it with `like`, because
+     people who bought it still own it, and because `EMB_WAS` has already
+     charged for it. So the shelf is the catalogue minus those, and the ones
+     marked `via` have to be absent rather than merely unaccounted for -- the
+     first version of this counted tiles against the whole catalogue and would
+     have gone red for the right reason and the wrong one at once. */
+  const viaIds = [...lm[1].matchAll(/\{id:'([a-z]+)'[^}]*?via:'/g)].map((m) => m[1]);
+  const onShelf = lightIds.filter((id) => viaIds.indexOf(id) < 0);
   check('there is a shelf of lights to spend them on',
-    shelf().length === lightIds.length && lightIds.length >= 8,
-    `${shelf().length} tiles for ${lightIds.length} lights`);
+    shelf().length === onShelf.length && onShelf.length >= 8,
+    `${shelf().length} tiles for ${onShelf.length} shelved lights`
+    + (viaIds.length ? ` (${viaIds.join(' ')} reached by a sound)` : ''));
   check('and every light in the catalogue has a tile on it',
-    lightIds.every((id) => shelf().some((el) => el.dataset.light === id)),
-    lightIds.filter((id) => !shelf().some((el) => el.dataset.light === id)).join(' '));
+    onShelf.every((id) => shelf().some((el) => el.dataset.light === id)),
+    onShelf.filter((id) => !shelf().some((el) => el.dataset.light === id)).join(' '));
+  check('while a look reached through a sound is not on the shelf as well',
+    viaIds.length > 0 && !viaIds.some((id) => shelf().some((el) => el.dataset.light === id)),
+    viaIds.length ? viaIds.join(' ') + ' kept off the shelf' : 'nothing is marked via');
   /* **And a palette to go with it.** A look owns every colour on screen, and
      it does that through nine selectors in 30-embers.css that have to be
      written out per light — see the note above them. Miss the `#app` one and
@@ -2072,6 +2089,50 @@ check('written down, so they survive the app closing',
       short.length === 0,
       short.map((id) => id + ' misses ' + scopes(id).join(' ')).join(' | '));
 
+/* **The track that borrows a look has to get all of it, not the colours.**
+
+   `like:'beach'` hands Sunset Beach the palette and the weather through
+   `embLook`, and for a long time that looked like enough. It is not: a look
+   is also the rules written against it by hand, and the beach has seven of
+   those -- the sky gradient on `.app`, the tide, and the four that colour the
+   way into the arcade. A track sets `data-amb` and puts `data-light` to
+   `none`, so every one of them missed, and the sound arrived with the right
+   orange and no beach in it.
+
+   Rather than list the seven, this asks the stylesheet: take every selector
+   written for the borrowed look, and require the borrowing track to appear
+   beside it. A rule added to the beach later is covered the day it is added,
+   which is the half that a list of seven would not do. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const lm = (html.match(/const EMB_LIGHTS = \[([\s\S]*?)\n {2}\];/) || [])[1] || '';
+  const sm = (html.match(/const EMB_SOUNDS = \[([\s\S]*?)\n {2}\];/) || [])[1] || '';
+  /* Every sound that borrows a look, as {sound id, look id}. */
+  /* **Within one entry, not across them.** `[\s\S]*?` is lazy but it will
+     still cross a `}` to find a `like:`, so café -- which borrows nothing --
+     was paired with the next entry that does, and the check reported it
+     missing every rule of a look it has no connection to. */
+  const borrows = [...sm.matchAll(/\{id:'(\w+)'[^{}]*?like:'(\w+)'/g)]
+    .map((m) => ({ snd: m[1], look: m[2] }));
+  const missing = [];
+  for (const b of borrows) {
+    for (const m of bare.matchAll(/(?:^|[{}])([^{}]*)\{/g)) {
+      const sels = m[1].split(',').map((x) => x.trim()).filter(Boolean);
+      const mine = sels.filter((x) => x.includes('[data-light="' + b.look + '"]'));
+      if (!mine.length) continue;
+      /* The palette block is what `embLook` already covers, and it names the
+         track itself; anything else has to name it too. */
+      const covered = sels.some((x) => x.includes('[data-amb="' + b.snd + '"]'));
+      if (!covered) missing.push(b.snd + ' misses "' + mine[0] + '"');
+    }
+  }
+  check('a sound that borrows a look gets every rule that look has',
+    borrows.length > 0 && missing.length === 0,
+    missing.length ? missing.slice(0, 3).join(' | ')
+      : borrows.map((b) => b.snd + '<-' + b.look).join(' ') + ', all rules shared');
+}
+
     /* **A track paints the room too, and by a different attribute.** Playing
        one puts the light out and takes the colours over, through `data-amb`
        rather than `data-light` — so a track added without its own block looks
@@ -2092,7 +2153,15 @@ check('written down, so they survive the app closing',
        not inlined: `dist/audio/` ships beside index.html, so a track can be on
        the shelf, cost embers, paint the room and then play nothing at all.
        Asked of the disk, because that is what gets packaged. */
-    const noFile = soundIds.filter((id) => !existsSync(join(root, 'dist', 'audio', id + '.mp3')));
+    /* The path comes from `AMB_TRACKS` rather than being spelled out here.
+       It used to be `id + '.mp3'`, which made this a check on the format as
+       much as on the file: changing the codec reported all eight tracks as
+       missing while they sat on disk under their new extension. */
+    const trackPath = {};
+    for (const m of (html.match(/var AMB_TRACKS = \{([\s\S]*?)\n {2}\};/) || ['', ''])[1]
+      .matchAll(/(\w+):'(audio\/[^']+)'/g)) trackPath[m[1]] = m[2];
+    const noFile = soundIds.filter((id) =>
+      !trackPath[id] || !existsSync(join(root, 'dist', trackPath[id])));
     check('and a recording on disk to play',
       noFile.length === 0, noFile.join(' ') || soundIds.length + ' files');
 
@@ -3604,10 +3673,50 @@ for (const id of ['cafe']) {
   if (!ambBtn(id).classList.contains('on')) ambProblems.push(`${id}: button not marked active`);
   const el = window.document.querySelector('audio');
   if (!el) ambProblems.push(`${id}: no audio element`);
-  else if (el.src.indexOf(`audio/${id}.mp3`) === -1) ambProblems.push(`${id}: src is ${el.src}`);
-  if (!window.__media.plays.some((s) => s.indexOf(`audio/${id}.mp3`) !== -1)) ambProblems.push(`${id}: never played`);
+  else if (el.src.indexOf(`audio/${id}.ogg`) === -1) ambProblems.push(`${id}: src is ${el.src}`);
+  if (!window.__media.plays.some((s) => s.indexOf(`audio/${id}.ogg`) !== -1)) ambProblems.push(`${id}: never played`);
 }
 check('an owned ambience loads and plays its track', ambProblems.length === 0, ambProblems.slice(0, 3).join(' | '));
+/* **Every track the app asks for has to be a file, and the right kind.**
+
+   The tracks are the one part of the app that is not inside index.html, so
+   nothing links the path in `AMB_TRACKS` to what is on disk: the page asks
+   for `audio/sea.ogg`, the WebView gets a 404, and the failure is silence
+   with no error anybody sees. Changing the format is exactly when the two
+   sides come apart -- rename the files and not the map, or encode seven of
+   the eight, and the app is quiet about it.
+
+   So this reads the paths out of the built page and goes and looks. The
+   header check is four bytes of container and eight of codec: an MP3 left
+   behind under an .ogg name, or a half-written file from an encode that was
+   interrupted, is not an Ogg Opus stream and says so here rather than on
+   somebody's phone. */
+{
+  const dir = join(dirname(htmlPath), 'audio');
+  const map = (html.match(/var AMB_TRACKS = \{([\s\S]*?)\n {2}\};/) || [])[1] || '';
+  const want = [...map.matchAll(/(\w+):'(audio\/[^']+)'/g)].map((m) => ({ id: m[1], path: m[2] }));
+  const bad = [];
+  for (const t of want) {
+    const file = join(dirname(htmlPath), t.path);
+    if (!existsSync(file)) { bad.push(t.id + ': no ' + t.path); continue; }
+    const fd = openSync(file, 'r');
+    const head = Buffer.alloc(36);
+    readSync(fd, head, 0, 36, 0);
+    closeSync(fd);
+    const size = statSync(file).size;
+    if (head.slice(0, 4).toString('latin1') !== 'OggS') {
+      bad.push(t.id + ': not an Ogg container');
+    } else if (head.slice(28, 36).toString('latin1') !== 'OpusHead') {
+      bad.push(t.id + ': Ogg but not Opus');
+    } else if (size < 100000) {
+      bad.push(t.id + ': only ' + size + ' bytes');
+    }
+  }
+  check('every ambience track is on disk as the Opus the page asks for',
+    want.length >= 8 && bad.length === 0,
+    bad.length ? bad.slice(0, 3).join(' | ')
+      : want.length + ' tracks, all Ogg Opus in ' + dir.replace(/\\/g, '/'));
+}
 /* Every track that is not free and not bought, taken from the catalogue rather
    than listed here: this named four of them, and a fifth added later would
    have been locked, untested, and nobody the wiser. */
@@ -3686,6 +3795,73 @@ check('every effect a look can choose has a rule to draw it', (() => {
     const short = needs[l.fx].filter((v) => bs.some((b) => !b.style.getPropertyValue(v)));
     check('and every speck carries what its rule reads',
       short.length === 0, short.join(' ') || 'all set');
+  }
+
+  /* **First frost is mostly soft dots, and the stylesheet has to say so.**
+
+     The note above the snow rules has always claimed real snow is mostly
+     small pellets with a cut crystal here and there. The rules did the
+     reverse -- five cut flakes to every two pellets -- and a sky of
+     six-armed stars reads as tinsel. The pellet is the base rule now and a
+     crystal is every fourth particle, so this counts the field rather than
+     reading the selectors: of the specks actually built, the plain ones
+     have to outnumber the cut ones by some distance. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join(String.fromCharCode(10));
+    const frost = V.lights.find((x) => x.id === 'frost');
+    V.vfxSet('snow', (frost && frost.fxc) || '#fff', frost && frost.fxc2, 1);
+    const bs = [...pane.querySelectorAll('b')];
+    /* **Read off the stylesheet, not written out again here.** The first
+       version of this listed the five crystal selectors itself, so changing
+       them in the CSS moved the field and not the check -- it stayed green
+       with crystals on every other particle. The pellet is the base rule and
+       carries no `nth-child`, so every `nth-child` in the snow rules is a
+       crystal by definition: take whatever is there and count against it. */
+    const sel = [...new Set(css.match(/\.vfx\[data-fx="snow"\] b:nth-child\([^)]*\)/g) || [])];
+    const cut = bs.filter((b) => sel.some((one) => b.matches(one))).length;
+    const dots = bs.length - cut;
+    check('first frost falls mostly as soft dots, not cut crystals',
+      bs.length > 6 && sel.length > 0 && dots > cut * 2,
+      dots + ' dots to ' + cut + ' crystals, out of ' + bs.length
+      + ' (' + (sel.length || 'no') + ' crystal rules)');
+    /* And a dot is small. The whole point of them is the far ones. */
+    const base = (css.match(/\.vfx\[data-fx="snow"\] b\{([^}]*)\}/) || [])[1] || '';
+    check('and a dot is the small blurred one, written on the particle itself',
+      /border-radius:50%/.test(base) && /width:calc\(var\(--s\) \* \.\d+\)/.test(base)
+      && /filter:blur\(\.35px\)/.test(base),
+      base.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim().slice(0, 80));
+  }
+
+  /* **The corner web's size lives in two files and they must agree.**
+
+     The spiders walk the web's own spokes, and they find them by scaling
+     SPIDER_SPOKES by the web's drawn size -- a number `spiderWebSize()`
+     carries in JS and `--web-s` carries in CSS. Nothing connects the two but
+     a comment in each. Change one and the drawing stays where it is while
+     every spider on it walks beside the strand instead of along it, which
+     looks like a drawing fault rather than a number fault and is the sort of
+     thing that gets looked at for an hour. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join(String.fromCharCode(10));
+    const inCss = css.match(/--web-s:min\((\d+(?:\.\d+)?)vw,\s*(\d+)px\)/);
+    const inJs = html.match(
+      /function spiderWebSize\(\)\{\s*return Math\.min\(([\d.]+) \* \(window\.innerWidth \|\| \d+\), (\d+)\)/);
+    const same = !!inCss && !!inJs
+      && Math.abs(Number(inCss[1]) / 100 - Number(inJs[1])) < 1e-9
+      && inCss[2] === inJs[2];
+    check('the spiders are told the same web size the CSS draws',
+      same,
+      !inCss ? 'no --web-s in the stylesheet'
+        : !inJs ? 'spiderWebSize() did not parse'
+          : 'css min(' + inCss[1] + 'vw,' + inCss[2] + 'px) vs js min('
+            + (Number(inJs[1]) * 100) + 'vw,' + inJs[2] + 'px)');
+    /* And the spiders start from the web's corner, which is off the screen.
+       `.sp-web` reads the same `--web-out` the drawing is shifted by; if it
+       stops doing that the animals walk from the window's corner instead. */
+    const sp = (css.match(/\.sp-web\{([^}]*)\}/) || [])[1] || '';
+    check('and they start from the web corner rather than the window corner',
+      /--web-out/.test(sp) && /\.sp-web\.sp-right\{[^}]*--web-out/.test(css),
+      sp.replace(/\s+/g, ' ').trim().slice(0, 90) || 'no .sp-web rule');
   }
 
   /* **A dark accent needs a label written for it.**
@@ -7784,6 +7960,35 @@ await openGame(guest, $g, 'scrabble');
     /\.cal-cell\s+\.lvl\s*\{/.test(css) && bare.length === 0,
     bare.length ? bare.length + ' bare .lvl rule(s) are back'
       : selectors.length + ' selectors, none of them a bare .lvl');
+}
+
+// --- the rule editor's save bar ---------------------------------------------
+/* **A sticky bar is held inside its scroller's content box, not its padding
+   box.** The save row is `position:sticky; bottom:0` at the end of the rule
+   editor, and for a while it did not sit on the bottom of the screen: it
+   floated above it with the form sliding through the gap underneath, which
+   is what the bar was reported for. The gap was `.ov-body`'s own bottom
+   padding. Every pixel of it lifts the bar by a pixel, because that padding
+   is outside the box sticky is allowed to reach.
+
+   Then it was made worse here, deliberately and wrongly: an 84px floor was
+   added so the field above could scroll clear of the bar, and 84px of floor
+   put the bar 84px up the screen, in the middle of the form, across the
+   message field. No floor is needed -- the row is the last thing in the
+   form, so nothing can come to rest under it.
+
+   The check reads the stylesheet rather than measuring, because this suite
+   has no layout. What it guards is the one number that decides it. */
+{
+  const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join('\n');
+  const scroller = (css.match(/#block-rule-overlay\s+\.ov-body\s*\{([^}]*)\}/) || [])[1] || '';
+  const row = (css.match(/\.blk-saverow\s*\{([^}]*)\}/) || [])[1] || '';
+  const pad = ((scroller.match(/padding-bottom\s*:\s*([^;]+)/) || [])[1] || '').trim();
+  const stuck = /position\s*:\s*sticky/.test(row) && /(?:^|[;\s])bottom\s*:\s*0\s*(?:;|$)/.test(row);
+  check('the rule editor save bar reaches the bottom of its scroller',
+    stuck && /^0(?:px)?$/.test(pad),
+    stuck ? 'scroller padding-bottom: ' + (pad || "(none, so .ov-body's own 24px applies)")
+      : 'the bar is not sticky to bottom:0');
 }
 
 // --- the countdown ----------------------------------------------------------

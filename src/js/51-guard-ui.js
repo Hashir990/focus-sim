@@ -27,10 +27,24 @@
       why:'Not for drawing over anything. Android only lets a background app open a screen if it has this, and the blocking screen is a screen.',
       act:'Open settings',
     },
+    /* **This row is the prominent disclosure Google Play asks for**, and
+       it has to carry three things rather than two: why the accessibility
+       service is needed, what it reads, and what becomes of what it
+       reads. The third is the sentence in the policy about collecting
+       data through the API, and it was the one missing -- it was only
+       ever said on Android's own dialog, which comes after the decision
+       rather than before it. The wording matches guard_service_desc in
+       the plugin's strings.xml on purpose: Android shows that one
+       verbatim a moment later, and two different accounts of the same
+       thing is what a review notices. */
     {
       id:'accessibility',
       name:'App blocking service',
-      why:'To know which app is in front. If you block websites it reads the browser\'s address bar; nothing else on your screen.',
+      why:'To notice which app comes to the front, so blocking can stand in '
+        + 'front of the ones you chose. If you block websites it reads your '
+        + 'browser\'s address bar, and nothing else on your screen. It keeps '
+        + 'app and site names with times on this device, and sends nothing '
+        + 'anywhere.',
       act:'Open settings',
     },
   ];
@@ -811,10 +825,16 @@
     let hard = guardSwitch('blr-hard', r.hard, 'Block outright',
       'No way through at all while this rule is in force. Just the screen and Close.');
     if(!r.hard){
-      hard += '<p class="blk-lab">The pause</p>' + guardSteps(r, ['pause', 'step'])
-        + '<p class="blk-lab">What it asks you</p>'
-        + '<input class="blk-find blk-field" id="blr-prompt" maxlength="120" placeholder="Take a breath." value="' + esc(r.prompt) + '">';
+      hard += '<p class="blk-lab">The pause</p>' + guardSteps(r, ['pause', 'step']);
     }
+    /* **The words are yours either way.** `ShieldActivity` reads the
+       rule's prompt and draws it without ever asking whether the rule is
+       hard, so keeping this behind the switch only stopped somebody
+       writing the sentence that screen was going to show regardless. The
+       pause settings above stay behind it, because a pause length means
+       nothing when there is no way through. */
+    hard += '<p class="blk-lab">' + T('What it says') + '</p>'
+      + '<input class="blk-find blk-field" id="blr-prompt" maxlength="120" placeholder="Take a breath." value="' + esc(r.prompt) + '">';
     h += guardSec('How hard it stops you', true, hard);
 
     /* ---- and the rest, which is how you get past it ---- */
@@ -1029,9 +1049,11 @@
     on('#blr-delete', 'onclick', ()=>{
       const r = guardRule();
       if(!r) return;
-      askConfirm('Delete “' + guardRuleTitle(r) + '”?',
-        'Everything in it stops being blocked' + (guardLocked(Guard.cfg) ? ' once the lock lets the change through.' : '.'),
-        'Delete', ()=>{
+      askConfirm(T('Delete “{name}”?', {name:guardRuleTitle(r)}),
+        guardLocked(Guard.cfg)
+          ? T('Everything in it stops being blocked once the lock lets the change through.')
+          : T('Everything in it stops being blocked.'),
+        T('Delete'), ()=>{
           const id = r.id;
           Guard.draft = null;         // nothing left for it to be saved onto
           guardChange(c=>{ c.rules = c.rules.filter(x=>x.id !== id); });

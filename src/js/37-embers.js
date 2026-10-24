@@ -124,7 +124,15 @@
        exception beside it. A focus app is mostly used in the evening anyway.
        Now it is dark like the rest, the exceptions are gone, and the motes are
        the warm glare coming off water under a low sun. See 30-embers.css. */
+    /* **Not on the looks shelf any more: it is reached by playing the sound.**
+       It stays in this list rather than being deleted, and for three reasons.
+       Sunset Beach is `like:'beach'`, so the look has to still be here to be
+       borrowed. Anyone who bought it still owns it, and `grand` still has to
+       be able to price what they own. And `EMB_WAS` is a receipt -- the entry
+       beside it there cannot be taken back. `via` is what keeps it off the
+       shelf; nothing else reads it. */
     {id:'beach', name:'Beach', note:'A sunset, and a tide coming in', cost:350,
+     via:'sea',
      accent:'#ff9d4d', fx:'bokeh', fxc:'#ffb36b', fxc2:'#e28cb4', fxm:1},
     {id:'fireworks', name:'Fireworks', note:'Rockets, bursts, embers coming down', cost:425,
      accent:'#ff7ab8', fx:'fw', fxc:'#ffe066', fxc2:'#ff7ab8', fxm:1,
@@ -199,7 +207,7 @@
        missed opportunity -- and now it is true by construction. */
     {id:'city', name:'Night city', note:'Traffic, a long way down', cost:260,
      like:'skyline'},
-    {id:'sea', name:'Morning sea', note:'Water, and birds over it', cost:240,
+    {id:'sea', name:'Sunset Beach', note:'Waves, birds, and a low sun', cost:240,
      like:'beach'},
     /* The name is the piece's name, by the person who wrote it, so it is left
        alone in every language the way Spider-Man was. See the Sound section of
@@ -341,6 +349,13 @@
   function embHasSound(id){
     const s = embSound(id);
     if(!s) return id === 'off';
+    /* **The beach was bought as a look by some people, and is a sound now.**
+       Taking it off the looks shelf would otherwise mean somebody who paid
+       350 for it cannot choose it again once they pick another look. Read
+       here rather than written into `own` on load: nothing is rewritten, so
+       the merge rules in 47-merge.js and server/accounts.js stay the
+       byte-identical pair they have to be. */
+    if(id === 'sea' && Embers.own.indexOf('beach') >= 0) return true;
     return s.cost === 0 || Embers.own.indexOf(EMB_SND + id) >= 0;
   }
 
@@ -852,7 +867,7 @@
            sound replaces the look rather than extinguishing it, and that is
            also plainer about what actually happens. */
         + pane('looks', '<p class="emb-head">Looks <em>one at a time</em></p>'
-        + '<div class="emb-lights">' + embByPrice(EMB_LIGHTS).map(l=>{
+        + '<div class="emb-lights">' + embByPrice(EMB_LIGHTS.filter(l=>!l.via)).map(l=>{
             const mine = this.own.indexOf(l.id) >= 0;
             let on = this.light === l.id;
             try{ if(AMB.id !== 'off') on = false; }catch(e){}

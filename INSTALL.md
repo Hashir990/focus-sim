@@ -18,7 +18,7 @@ The whole app is one HTML file plus the sound files it plays.
 
    ```
    dist/index.html
-   dist/audio/          (cafe.mp3, campfire.mp3, forest.mp3, office.mp3, rain.mp3)
+   dist/audio/          (cafe.ogg, campfire.ogg, forest.ogg, office.ogg, rain.ogg)
    ```
 
    Delete `dist/dev-unlocked.html` from the copy.
