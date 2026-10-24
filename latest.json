@@ -1,6 +1,6 @@
 {
-  "version": "1.5.6",
-  "notes": "The calendar no longer draws a box over the dates you focused on. Chess pieces are drawn now rather than borrowed from whatever font the phone has, so both sides can be seen on every square. In Spymaster a long word gets smaller instead of breaking in half, and the board fills the width on the spymaster's screen as well. The spiders on the walls have their feet on them. Your level runs much further: the same shelf is spread over forty-five levels instead of twelve, so something keeps opening as the hours add up, and nothing takes longer to earn than it did. A room holds up to twelve people.",
+  "version": "1.5.7",
+  "notes": "Back no longer leaves the app. On Android 16 it had started closing focUS from whatever screen you were on instead of closing what was open; now it closes a game, then a page, and only then puts the app in the background. The Saved bar in a blocking rule sits on the floor of the screen rather than floating across the message above it. You can change what a blocked app says to you, and the screen can be turned black and white while one is in front. The whole app blocking page is in all seven languages.\n\nNight city, Cafe and Morning sea were scratchy, and are not any more. Every ambience track is re-encoded, and the top two octaves come back - which is where the birds, the traffic and the crockery live. First frost falls mostly as small soft dots now, with a cut crystal here and there, rather than the other way round. The spiders' corner webs run off the top and sides of the screen instead of stopping in mid-air.\n\nBeach has left the themes shop and is in the ambience shop as Sunset Beach, bringing the whole look with it - the sunset, the tide and all. If you already bought Beach, you have it.",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-10-21T15:24:01.950Z"
+  "at": "2026-10-24T10:40:30.323Z"
 }
