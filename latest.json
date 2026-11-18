@@ -1,6 +1,6 @@
 {
-  "version": "1.5.8",
-  "notes": "Release v1.5.8",
+  "version": "1.5.9",
+  "notes": "Embers cannot be taken away by a price change any more.\n\nThe balance was worked out by adding up what everything you own costs today, and charging you that. So whenever a price went up, everybody who already owned the thing was re-charged at the new price for something they had bought at the old one. If that came to more than your hours had earned, the balance sat at zero and every ember after it vanished into the gap. Buying has always been refused unless you can afford it, so this was never anyone spending too much; it was the app re-pricing its own history.\n\nWhat something cost is now written down the first time it is seen, and never looked up again. Nothing about your balance changes today, because the number written down is the one you were already being charged. What changes is that no price can ever move it again, on this device or any other signed in to the same account.",
   "url": "https://github.com/Hashir990/focus-sim/releases/latest",
-  "at": "2026-11-18T06:38:43.438Z"
+  "at": "2026-11-18T09:48:02.867Z"
 }
