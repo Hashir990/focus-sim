@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launch screen, drawn by the app rather than by the toolchain.
+
+  This replaces Capacitor's `splash.png`, which was its own logo centred on
+  white — a bright flash and somebody else's mark in front of a dark navy app
+  called something else.
+
+  A layer-list rather than a bitmap, so there is one file instead of ten: the
+  colour fills the window and the icon is centred at a fixed size, which is
+  what the ten per-density PNGs were doing by being ten different sizes.
+
+  On Android 12 and up this is only the fallback — the system draws its own
+  launch screen from `windowSplashScreenBackground` and
+  `windowSplashScreenAnimatedIcon` in styles.xml, and those are set to the
+  same colour and the same mark so the two agree. On Android 11 and below
+  there is no system splash and this is the whole of it.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item>
+        <bitmap
+            android:src="@mipmap/ic_launcher_foreground"
+            android:gravity="center"
+            android:width="192dp"
+            android:height="192dp" />
+    </item>
+</layer-list>

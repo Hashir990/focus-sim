@@ -212,6 +212,12 @@ BANNED |= set("""
 rudd bethel para hart planar dis omega
 """.split())
 
+# Read off the 2026-11-06 run: `lewd` is crude-adjacent and not a word a solver
+# should be handed in a relaxing puzzle, and `pussy` glosses as a crude term.
+BANNED |= set("""
+lewd pussy
+""".split())
+
 # Read off the first two 15x15s. A grid this size reaches much further into the
 # short-word list than a nine does, so it surfaces the tiers faster: `cock` and
 # `pee` are the crude one, `lea` the crosswordese meadow beside `roe` and
@@ -367,6 +373,28 @@ midget
 # study-app crossword, and it sat only in a grid built this run.
 BANNED |= set("""
 sex
+""".split())
+
+# 2026-11-14, read off this run's two sevens. `oomf` is internet shorthand for
+# "one of my followers" and is the `acc`/`wta` tier exactly: letters nobody
+# spells out from the crossings and a sense no solver reaches for. It sat only
+# in a seven built this run, so banning it costs one grid and nothing shipped,
+# which is the whole difference.
+#
+# `fro` was read in the same pass and kept. It is the fragment tier `lam`,
+# `haw` and `hale` are in — met only inside "to and fro" — but it is neither
+# crude nor unknown, and it sits in three shipped puzzles (7#122, 9#29, 9#124),
+# so `--prune` would take them for a word every solver understands on sight. It
+# joins `roe`, `pta`, `atp`, `amd` and `lam` as a candidate for the next pass
+# that clears the bank anyway.
+#
+# Kept on their merits from the same fill: `ufc`, `css` and `vpn` are initials a
+# solver says out loud, the `dna`/`fbi`/`mlb`/`nba` tier rather than `wta`'s;
+# `bobby`, `brr`, `eek`, `yeet`, `buns`, `loo` and `anon` are all ordinary and
+# all but `buns` already sit in shipped puzzles, `buns` clueing as the bread
+# rather than the `cob`-as-swan sense its gloss leads with.
+BANNED |= set("""
+oomf
 """.split())
 
 # `atp` was banned in a third pass on 2026-09-04 and the ban was taken straight
@@ -1474,6 +1502,41 @@ threesome methyl
 # "magna cum laude"; `gui` is jargon an ordinary solver would not reach for.
 BANNED |= set("""
 cum gui
+""".split())
+
+# 2026-10-30. `coon` surfaced in a 7x7; it is a slur as well as an obscure
+# animal shorthand.
+BANNED |= set("""
+coon
+""".split())
+
+# 2026-10-31: poop (crude-sounding, ambiguous), distal (anatomy jargon)
+BANNED |= set("""
+poop distal
+""".split())
+
+# 2026-11-01: slut (a slur first, whatever the dictionary says)
+BANNED |= set("""
+slut
+""".split())
+
+# 2026-11-15, read off this run's fill. `genital` is the anatomy tier the list
+# has excluded since the first pass — `vagina`, `anus` and `phallus` were lifted
+# in the 2026-09-23 clusters and this is the same word in adjective form, and it
+# is not what anybody wants handed to them in a focus timer. `lube` reads as the
+# personal-lubricant sense before the grease-gun one, which puts it beside
+# `lewd` as crude-adjacent rather than crude; the mechanical gloss does not
+# rescue it. Both sat only in grids built this run, so pruning them costs
+# nothing already shipped.
+#
+# `uma` was read in the same pass and kept, against its tier. It is a first name
+# wearing a common-noun gloss, the `chico`/`marc` pattern, and on the rule alone
+# it would go. It sits in ten shipped puzzles including a fifteen, which is the
+# `bur`/`roc` case the list has deferred before: banning it would prune ten
+# grids and spend the whole run rebuilding them. It is the obvious candidate for
+# a pass that has room for it.
+BANNED |= set("""
+genital lube
 """.split())
 
 # 2026-09-23. Hashir lifted three whole clusters. The words are gone from the

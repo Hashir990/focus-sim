@@ -15,7 +15,7 @@ This file is the list, in the order the Console asks for it.
 | **Package name** | `com.uswork.focussimulator`. Final. Play records it on the first upload and it can never be changed afterwards, which is why it was settled before any of this. |
 | **Version** | Read from `package.json` by `android/app/build.gradle`. 1.5.1 becomes `versionCode` 10501 and `versionName` "1.5.1". `npm run ship:release -- -Bump patch` moves both. |
 | **Target API** | 36, on Capacitor 8, AGP 8.13.0, Gradle 8.14.3, JDK 21. `minSdk` is 24. |
-| **Signing** | Wired to `android/keystore.properties`, which is git-ignored and does not exist yet. See below. |
+| **Signing** | Wired to `android/keystore.properties`, which is git-ignored. It exists on this machine; a fresh clone has to make it. See below. |
 | **Shrinking** | Off, deliberately. The accessibility service is found by name; R8 renames it and blocking silently never starts. The note is beside the setting. |
 | **The Android project** | In version control, so a signed upload is reproducible from a clone. |
 | **Account deletion** | In the app, under Account on Your focus, and on the server. |

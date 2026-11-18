@@ -1,7 +1,7 @@
   /* ---------------- AMBIENCE ----------------
      Real recordings, 45 minutes each, as 32 kbps mono Opus in dist/audio/.
      Opus rather than MP3 because MP3 cannot carry this material at this
-     bitrate: see the measurements at the top of tools/encode-audio.sh. Both
+     bitrate: see the measurements at the top of tools/encode-audio.mjs. Both
      runtimes are Chromium, which has decoded Ogg Opus since long before the
      oldest Android this app runs on. They are the only part of the
      app that isn't inside the single HTML file — an hour of audio can't be
@@ -57,25 +57,38 @@
     city:'audio/city.ogg', sea:'audio/sea.ogg', adrift:'audio/adrift.ogg',
   };
 
-  /* Per-track trim, so no ambience is louder than another.
+  /* **Nothing is trimmed per track any more, because nothing needs to be.**
 
-     Measured with ebur128 after encoding; each track is scaled down to match the
-     quietest (café, at -30.5 LUFS). Doing it here rather than baking gain into the
-     files avoids a second lossy encode — and re-encoding an already-32 kbps file
-     is exactly how you reintroduce the artifacts we just removed.
+     This was a hand-measured number per track, scaling each one down to
+     match the quietest. It had two faults and both were audible. Three of
+     the eight were never given an entry at all -- city, sea and adrift --
+     so they played at the file's own level while the other five were pulled
+     down, and the set drifted 7.7 LU apart from end to end. And a number
+     measured against one encode does not survive the next one.
 
-     The numbers are the ones measured on the MP3s these replaced. They are
-     ratios between the tracks rather than absolute levels, and the Opus
-     encode changed neither the gain in the filter chain nor the material, so
-     they carry over; if a track ever sounds out of step with the others,
-     re-measure the set rather than nudging one. */
-  var AMB_GAIN = {
-    rain: 0.79,       // -28.5 LUFS
-    forest: 0.68,     // -27.1
-    cafe: 1.00,       // -30.5, the quietest, so it sets the reference
-    office: 0.63,     // -26.5
-    campfire: 0.88,   // -29.4
-  };
+     Every track is now normalised to the same loudness as it is encoded,
+     with a true-peak ceiling, so they arrive matched and there is nothing
+     left for this to correct. See tools/encode-audio.mjs. */
+
+  /* **The slider is a loudness control, and loudness is not amplitude.**
+
+     `el.volume` is linear amplitude: half way along is 6 dB down, which is
+     nowhere near half as loud, so almost the whole usable range was crushed
+     into the bottom of the slider and everything above the middle was
+     "loud". Raising it to a power spreads it out. 1.7 is the exponent that
+     puts the midpoint about 10 dB down, which is the classic figure for
+     half as loud.
+
+     `AMB_MAX` is the ceiling, and it is the number to change if the top of
+     the slider is still too much: the tracks are -26 LUFS, so 0.5 means a
+     full slider plays at about -32 LUFS. */
+  var AMB_MAX = 0.5;
+  var AMB_CURVE = 1.7;
+
+  function ambAmp(v){
+    var x = Math.max(0, Math.min(1, v));
+    return AMB_MAX * Math.pow(x, AMB_CURVE);
+  }
 
   var AMB_FADE = 3;          // seconds, the length of the overlap
 
@@ -150,7 +163,7 @@
   }
 
   function ambLevel(el){
-    return AMB.vol * (AMB_GAIN[AMB.id] || 1) * ambFadeFactor(el);
+    return ambAmp(AMB.vol) * ambFadeFactor(el);
   }
 
   /* The seam, decided once a beat rather than scheduled in advance.

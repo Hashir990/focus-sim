@@ -167,10 +167,22 @@ await wait(800);
   check('the menu stops claiming the data stays on this device',
     /synced to your account/.test(a.getElementById('acc-where').textContent),
     a.getElementById('acc-where').textContent);
-  check('and the corner becomes who you are',
-    /hashir/.test(a.getElementById('acc-chip').textContent)
-    && !a.getElementById('acc-chip').classList.contains('out'),
-    a.getElementById('acc-chip').textContent);
+  /* **The corner says you are signed in; it no longer says who.** This used
+     to look for the username in the bar, and the username is what had to
+     come out of it: `focUS simulator` and a name up to twenty characters
+     were fighting over the same row on every phone. So the test is the other
+     way round now -- a mark rather than a name, and the name checked to be
+     absent, because putting it back is the regression. Where the name *is*
+     stays checked three lines up, on the panel this opens. */
+  {
+    const chip = a.getElementById('acc-chip');
+    check('and the corner becomes a mark rather than your name',
+      !!chip.querySelector('svg')
+      && !/hashir/.test(chip.textContent)
+      && !chip.classList.contains('out'),
+      chip.className + ' / ' + (chip.querySelector('svg') ? 'svg' : 'no svg')
+      + ' / ' + JSON.stringify(chip.textContent));
+  }
 
   /* The buddy only exists once there is an account to keep him in, so this is
      the only place the picker can be looked at. */

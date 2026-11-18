@@ -355,7 +355,7 @@ hiss. Opus at the same bitrate holds every band within 0.6 dB, in a slightly sma
 file. Do not judge this with a waveform difference, which favours MP3 -- above about
 6 kHz Opus rebuilds the band from its shape rather than its samples. Both runtimes are
 Chromium, which has decoded Ogg Opus since long before the oldest Android this app runs
-on. The measurements are at the top of `tools/encode-audio.sh`.
+on. The measurements are at the top of `tools/encode-audio.mjs`.
 
 `preload="none"`, and only the chosen track is ever fetched — the app does not pull
 66 MB at startup.
@@ -376,8 +376,9 @@ mean re-encoding an already-32 kbps file, which is exactly how you reintroduce a
 Put the full-length recordings in `audio-src/<name>.mp3` and run:
 
 ```bash
-bash tools/encode-audio.sh          # all five
-bash tools/encode-audio.sh rain     # just one
+node tools/encode-audio.mjs         # all eight
+node tools/encode-audio.mjs rain    # just one
+node tools/encode-audio.mjs --dry   # choose the windows, encode nothing
 ```
 
 The per-track gains in that script were measured with `ebur128`. Sources are gitignored,

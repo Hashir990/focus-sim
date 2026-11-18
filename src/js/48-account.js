@@ -497,8 +497,21 @@
       if(!on) return;
       chip.classList.toggle('out', !this.token);
       chip.classList.toggle('busy', !!this.busy);
+      /* **A face, not a name.** Signed in, this put the username in the bar
+         beside the wordmark, and the two ran into each other: `focUS
+         simulator` is nine characters of logotype and a name can be twenty,
+         so on a phone one of them was always being squeezed or clipped. The
+         name is still one tap away on the page this opens, and it is on the
+         page it opens *to*, which is where somebody looking for it goes.
+
+         Signed out it stays a word, because "Sign in" is an invitation and an
+         invitation has to say what it is. The drawing is the same weight and
+         box as the chat button beside it -- 24-unit viewBox, stroked, no
+         fill -- so the corner reads as one set of controls. */
       chip.innerHTML = this.token
-        ? '<i></i><span translate="no">' + esc(this.username) + '</span>'
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+          + '<circle cx="12" cy="8.5" r="3.5"></circle>'
+          + '<path d="M5 19.5a7 7 0 0 1 14 0"></path></svg>'
         : '<span>Sign in</span>';
       chip.setAttribute('aria-label', this.token ? T('Account: {name}', {name:this.username}) : T('Sign in'));
     },
@@ -576,34 +589,67 @@
         return;
       }
       box.innerHTML = '<p class="emb-head">Account <em>optional: carry your history between devices</em></p>'
-        + '<div class="acc-form">'
-        + '<input id="acc-email" type="email" placeholder="Email" autocomplete="email" />'
-        + '<input id="acc-user" class="hide" type="text" placeholder="Username" autocomplete="username" maxlength="20" />'
-        + '<input id="acc-pass" type="password" placeholder="Password" autocomplete="current-password" />'
+        /* **A real `<form>`, because that is what a password manager looks
+           for.** The fields already carried `type` and `autocomplete` and
+           still were not offered for filling or saving: browsers and the
+           Android autofill service find a sign-in by finding a form with a
+           password in it, and these were three inputs loose in a div. Chrome
+           in particular will not offer to *save* a password outside one, so
+           signing in on a phone meant typing the whole thing every time.
+
+           `name` as well as `id` -- some managers key off one and some off
+           the other -- and the Sign in button is the submit, so the keyboard's
+           Go key does what the button does rather than nothing. The submit
+           handler cancels the navigation; there is nowhere for this page to
+           post to. */
+        + '<form class="acc-form" id="acc-form" autocomplete="on">'
+        + '<input id="acc-email" name="email" type="email" placeholder="Email"'
+        + ' autocomplete="email" inputmode="email" enterkeyhint="next" />'
+        + '<input id="acc-user" name="username" class="hide" type="text" placeholder="Username"'
+        + ' autocomplete="username" maxlength="20" />'
+        + '<input id="acc-pass" name="password" type="password" placeholder="Password"'
+        + ' autocomplete="current-password" enterkeyhint="go" />'
         + '<div class="acc-acts">'
-        + '<button class="mini-btn" id="acc-in">Sign in</button>'
-        + '<button class="mini-btn" id="acc-new">Make an account</button>'
+        + '<button class="mini-btn" id="acc-in" type="submit">Sign in</button>'
+        + '<button class="mini-btn" id="acc-new" type="button">Make an account</button>'
         + '</div>'
         + '<button type="button" class="acc-forgot" id="acc-forgot">Forgotten your password?</button>'
-        + '<p class="acc-note" id="acc-msg">' + esc(this.note) + '</p></div>';
-      const msg = (t)=>{ this.note = t; const m = $('acc-msg'); if(m) m.textContent = t; };
+        + '<p class="acc-note' + (this.noteBad ? ' bad' : '') + '" id="acc-msg">'
+        + esc(this.note) + '</p></form>';
+      /* **A refusal is red; everything else is not.** One grey line said both
+         "One moment…" and "that email and password do not match", so the one
+         message that means you have to do something about it looked exactly
+         like the one that means wait. `bad` is the only difference, and it
+         carries the state on `this` so a re-render keeps it. */
+      const msg = (t, bad)=>{
+        this.note = t; this.noteBad = !!bad;
+        const m = $('acc-msg');
+        if(m){ m.textContent = t; m.classList.toggle('bad', !!bad); }
+      };
       const go = async (fn)=>{
         msg('One moment…');
         try{ await fn(); }
-        catch(e){ msg(e.message || 'that did not work'); return; }
-        this.note = ''; this.render();
+        catch(e){ msg(e.message || 'that did not work', true); return; }
+        this.note = ''; this.noteBad = false; this.render();
       };
       /* `signInAsk` may put a dialog up and return before anything happens, so
          this cannot be wrapped in `go()` — that would sit on "One moment…"
          while the person reads the warning, and clear it if they cancel. It
          reports through the callback instead. */
-      $('acc-in').onclick = ()=>{
+      /* **Submit rather than click**, so the keyboard's Go key and the
+         button are the same action and the browser counts this as a sign-in
+         it can offer to remember. `preventDefault` because there is nowhere
+         to post to; the form exists to be recognised, not to navigate. */
+      const signIn = (e)=>{
+        if(e) e.preventDefault();
         msg('');
         Account.signInAsk($('acc-email').value, $('acc-pass').value, (err)=>{
-          if(err){ msg(err.message || 'that did not work'); return; }
-          this.note = ''; this.render();
+          if(err){ msg(err.message || 'that did not work', true); return; }
+          this.note = ''; this.noteBad = false; this.render();
         });
       };
+      const form = $('acc-form'); if(form) form.onsubmit = signIn;
+      $('acc-in').onclick = signIn;
       $('acc-new').onclick = ()=>{
         const u = $('acc-user');
         /* The username field only appears when it is wanted. Two buttons and
@@ -611,7 +657,7 @@
            shown yet reads as a choice you have not made. */
         if(u.classList.contains('hide')){
           u.classList.remove('hide');
-          msg('Pick a username. It is what other people see.');
+          msg('Pick a username. It is what other people see.', false);
           u.focus();
           return;
         }

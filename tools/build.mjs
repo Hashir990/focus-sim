@@ -280,7 +280,7 @@ function checkAudio(html) {
   }
   const missing = want.filter(([, path]) => !existsSync(join(DIST, path))).map(([id]) => id);
   if (missing.length) {
-    console.log(`! dist/audio is missing: ${missing.join(', ')} — run  bash tools/encode-audio.sh`);
+    console.log(`! dist/audio is missing: ${missing.join(', ')} — run  node tools/encode-audio.mjs`);
   }
 }
 

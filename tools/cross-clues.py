@@ -4987,3 +4987,505 @@ CLUES.update({
     'vowel':     'A, E, I, O or U',
     'watered':   'Diluted, like weak squash',
 })
+
+CLUES.update({
+    'arcade':    'Hall of pinball and video games',
+    'bump':      'Knock into, or a lump in the road',
+    'command':   'Order given by an officer',
+    'genuinely': 'In a truly honest way',
+    'homer':     'Baseball hit over the fence',
+    'illegally': 'Against the law',
+    'jailed':    'Locked up for a crime',
+    'nose':      'Face part used for smelling',
+    'peek':      'Quick sly look',
+    'skyline':   'City outline against the horizon',
+    'swim':      'Cross the pool with strokes',
+    'taps':      'Faucets at the sink',
+    'trustee':   'One who manages property for others',
+})
+
+# 2026-10-29 run
+CLUES.update({
+    'allowance':  'Pocket money a child gets each week',
+    'clinic':     'Small place for check-ups and minor treatment',
+    'fueling':    'Filling up the tank',
+    'gurney':     'Wheeled stretcher in a hospital',
+    'holocaust':  'Nazi genocide of Europe\'s Jews',
+    'ignorance':  'Not knowing, as in "bliss"',
+    'long':       'Yearn, or not short',
+    'meter':      'Taxi device that tots up the fare',
+    'mist':       'Light fog, or cloud of fine spray',
+    'newbie':     'Rookie who just joined',
+    'notion':     'Vague idea or fancy',
+    'owned':      'Beaten badly, in gamer slang',
+    'reckoning':  'Day of judgment, or a final tally',
+    'remains':    'Is left over; what is left behind',
+    'renewable':  'Like wind and solar power',
+    'sentence':   'Words ending in a full stop, or a judge\'s ruling',
+    'tense':      'On edge, or past and present, grammatically',
+    'tweet':      'Short post on the bird app, or a chirp',
+    'unload':     'Take the cargo off the truck',
+    'waste':      'Squander, or rubbish',
+    'watts':      'Units of electric power',
+})
+
+CLUES.update({
+    'remains':    'What is left behind after a fire',
+})
+
+# 2026-10-30
+CLUES.update({
+    'sauce':      'Ketchup or gravy, say',
+    'pains':      'Aches, or great efforts taken',
+    'hospice':    'Place offering end-of-life care',
+    'raj':        'British rule in India',
+    'evasion':    'Dodging a question or a tax bill',
+    'rich':       'Wealthy',
+    'stadium':    'Arena for football or baseball',
+    'hype':       'Exaggerated publicity',
+    'cure':       'Remedy that ends an illness',
+    'drug':       'Pill or powder from the pharmacy',
+    'encounter':  'Run into by chance',
+    'undertake':  'Take on a task',
+    'liner':      'Big ship that carries passengers',
+    'concerned':  'Worried',
+    'childhood':  'Years before the teens',
+    'story':      'Tale, or a floor of a building',
+    'toll':       'Fee on a bridge, or a bell\'s slow ring',
+    'relapse':    'Fall back into old habits after improving',
+})
+
+# 2026-10-31 run
+CLUES.update({
+    'astute':     'Sharp and quick to see how things stand',
+    'dune':       'Hill of sand shaped by wind',
+    'ghastly':    'Horrible, or very unwell',
+    'liaison':    'Go-between linking two groups',
+    'mesh':       'Fit together, like gears',
+    'missy':      'Cheeky young lady, in a scolding tone',
+    'prairie':    'Flat grassland of the American Midwest',
+    'presenter':  'Host who introduces a TV show',
+    'rent':       'Monthly payment to a landlord',
+    'rigid':      'Stiff and unbending',
+    'ripe':       'Ready to be picked and eaten',
+    'roaring':    'Like a lion, or a fire in the grate',
+    'sham':       'Fake, or a fraud',
+    'technique':  'Method or skill used for a task',
+})
+
+# 2026-11-01 run
+CLUES.update({
+    'alarmed':    'Suddenly frightened',
+    'banish':     'Send away for good',
+    'beggar':     'Person asking passers-by for coins',
+    'bologna':    'Italian city famed for its meat sauce',
+    'borrow':     'Take now and give back later',
+    'broke':      'Out of money',
+    'budget':     'Plan for spending income',
+    'charmed':    'Delighted, or protected by a spell',
+    'convinced':  'Sure about it',
+    'coyote':     'Howling wild dog of the American West',
+    'crate':      'Wooden box for shipping goods',
+    'declare':    'Announce openly',
+    'deepen':     'Make more profound or lower',
+    'escape':     'Get away from captivity',
+    'essential':  'Absolutely needed',
+    'farce':      'Silly comedy full of slapstick',
+    'fast':       'Quick, or go without food',
+    'grate':      ('Shred cheese on a metal tool', 'Iron frame holding a fire'),
+    'greed':      'Wanting far more than you need',
+    'hands':      'Clock pointers, or a ship\'s crew',
+    'harm':       'Injure or damage',
+    'harvest':    'Gather in the ripe crop',
+    'horror':     'Scary film genre',
+    'ignored':    'Paid no attention to',
+    'indie':      'Made outside the big studios',
+    'loaded':     'Carrying a full charge, or very rich',
+    'manhood':    'Adult male years',
+    'niche':      'Alcove in a wall, or a specialist market',
+    'ordeal':     'Painful, trying experience',
+    'police':     'Officers who patrol the streets',
+    'purge':      'Clear out unwanted people or things',
+    'recover':    'Get better after an illness',
+    'reef':       'Ridge of coral near the surface',
+    'reign':      'A monarch\'s time on the throne',
+    'seven':      'Number of days in a week',
+    'slider':     'Mini burger, or a baseball pitch',
+    'smell':      'Sense that uses the nose',
+    'snout':      'Pig\'s long nose',
+    'stardom':    'Fame as a celebrity',
+    'stein':      'Large beer mug',
+    'urine':      'Liquid waste from the kidneys',
+})
+
+# 2026-11-02 run
+CLUES.update({
+    'admirer':   'Fan who looks up to someone',
+    'annex':     'Take over a neighbour\'s territory',
+    'avenger':   'Marvel hero, or one who seeks revenge',
+    'blues':     'Music born in the Mississippi Delta',
+    'book':      'Reserve a table or a hotel room',
+    'code':      'Secret system of letters and symbols',
+    'completed': 'Finished off',
+    'famed':     'Celebrated far and wide',
+    'fax':       'Old office machine that sends pages by phone line',
+    'inflict':   'Cause pain or damage to someone',
+    'lite':      'Low-calorie, in brand-name spelling',
+    'lotus':     'Water lily sacred in Asia',
+    'mark':      'Tick off, or a grade on a test',
+    'perm':      'Curly hairdo made at a salon',
+    'rouse':     'Wake from sleep',
+    'sadly':     'Unfortunately, as a sigh might say',
+    'snort':     'Noisy breath through the nose, like a pig\'s',
+    'spoil':     'Ruin, or pamper too much',
+    'stony':     'Cold and unfeeling, like a glare',
+    'synod':     'Church council',
+    'teach':     'Be a classroom instructor',
+    'tiny':      'Very small indeed',
+    'unplanned': 'Not arranged in advance',
+})
+
+# 2026-11-05 run
+CLUES.update({
+    'aggregate':  'Total, as in a sum of parts',
+    'anatomy':    'Study of the body\'s structure',
+    'barrier':    'Fence or wall that blocks the way',
+    'chit':       'Small signed note of money owed',
+    'crisp':      'Pleasantly firm and crunchy',
+    'discovery':  'Finding something for the first time',
+    'intake':     'Amount taken in, as of food or air',
+    'mom':        'Mother, informally',
+    'mystery':    'Whodunit, say',
+    'primitive':  'Very early or basic in form',
+    'rumor':      'Story going round with no proof',
+    'shot':       'Single firing of a gun',
+    'simulated':  'Made to look real but not genuine',
+    'stiffness':  'What a sore back may cause',
+    'stub':       'Torn ticket remainder',
+    'tension':    'Strain, as in a tightly pulled rope',
+    'veal':       'Calf meat',
+    'viewers':    'TV audience',
+})
+
+# 2026-11-06 run.
+CLUES.update({
+    'absent':     'Not here when the register is called',
+    'appetite':   'What a long walk may give you for dinner',
+    'assist':     'Lend a hand',
+    'audit':      'Official check of the accounts',
+    'boarding':   'Getting on a plane or ship',
+    'bray':       'Donkey\'s loud call',
+    'bulletin':   'Short news report',
+    'cheek':      'Rosy part of the face',
+    'credit':     'Praise for a job well done',
+    'creepy':     'Spooky in a skin-crawling way',
+    'crime':      'Theft or fraud, say',
+    'domestic':   'Of the home, or not foreign',
+    'earthy':     'Like soil, or a little rough and ready',
+    'extent':     'How far something reaches',
+    'fiasco':     'Total disaster',
+    'figure':     'Work out, as a sum',
+    'forage':     'Search about for food',
+    'gallop':     'Horse\'s fastest pace',
+    'gilt':       'Thin layer of gold paint',
+    'hop':        'Little jump on one foot',
+    'ironic':     'Opposite to what you would expect',
+    'kiwi':       'Fuzzy green fruit',
+    'love':       'Zero, in tennis',
+    'mortality':  'Fact that we do not live forever',
+    'pistol':     'Small handgun',
+    'proclaim':   'Announce publicly',
+    'rotor':      'Spinning blade of a helicopter',
+    'soap':       'Bar for washing hands',
+    'telling':    'Revealing, as a detail may be',
+    'thou':       'Old way to say "you"',
+    'toss':       'Throw lightly',
+    'wired':      'Fitted with cables, or buzzing with energy',
+})
+CLUES.update({
+    'telling':    'Revealing, as a small detail',
+})
+CLUES.update({
+    'anime':      'Japanese cartoons with big-eyed heroes',
+    'bloom':      'Flower opening up',
+    'bosom':      'Chest, in an old-fashioned word',
+    'guideline':  'Rule of thumb to follow',
+    'herein':     'In this very document',
+    'lack':       'Not have enough of',
+    'limbo':      'Dance under a lowered bar',
+    'mound':      'Small hill, or pitcher\'s perch',
+    'pair':       'Two of a kind',
+    'potential':  'Capable of developing later',
+    'probe':      'Question closely, or space explorer',
+    'regrets':    'Words in a polite decline of an invitation',
+    'tail':       'Follow someone secretly',
+    'terminate':  'Bring to a stop',
+    'visible':    'Able to be seen',
+})
+
+# 2026-11-08 run
+CLUES.update({
+    'along':     'Moving forward, or together with someone',
+    'apostle':   'One of the twelve who followed Jesus',
+    'blot':      'Ink stain on the page',
+    'currently': 'Right now',
+    'driven':    'Taken somewhere by car',
+    'elected':   'Chosen at the ballot box',
+    'gunshot':   'Bang from a pistol',
+    'hip':       'Joint where the leg meets the body',
+    'jive':      'Lively swing dance of the 1950s',
+    'outline':   'Rough sketch of the main points',
+    'pilot':     'Person at the controls of a plane',
+    'rose':      'Thorny bloom, or got up from a seat',
+    'snap':      'Crack suddenly, or take a quick photo',
+    'trapped':   'Caught with no way out',
+    'twentieth': 'Place after nineteenth',
+    'yoke':      'Wooden frame joining a pair of oxen',
+})
+
+# 2026-11-09 run
+CLUES.update({
+    'alleged':   'Claimed, but not yet proven',
+    'alpha':     'Greek A, or the first of a series',
+    'correlate': 'Show a link between two things',
+    'cured':     'Preserved with salt or smoke',
+    'holy':      'Sacred, like a shrine or a grail',
+    'know':      'Be aware of, as a fact',
+    'magma':     'Molten rock beneath a volcano',
+    'nominee':   'Person put forward for an award',
+    'probation': 'Test period for a new employee',
+    'rope':      'Thick cord for tying or climbing',
+    'roper':     'Cowboy who lassos calves',
+    'song':      'Tune with words',
+    'sparse':    'Thinly scattered',
+    'spent':     'Used up, or paid out',
+    'statutory': 'Required by law',
+    'teacher':   'Classroom leader',
+})
+
+# 2026-11-10 run
+CLUES.update({
+    'arresting': 'Strikingly eye-catching',
+    'blind':     'Unable to see',
+    'boxer':     'Gloved fighter in a ring',
+    'camp':      'Stay overnight in a tent',
+    'cologne':   'Scent splashed on after shaving',
+    'elegant':   'Graceful and stylish',
+    'epoch':     'Long span of history, or an era',
+    'goodbye':   'Parting word',
+    'notch':     'V-shaped cut, or a step up a scale',
+    'orchestra': 'Large group of musicians with a conductor',
+    'spawn':     'Lay eggs, as frogs and fish do',
+    'spirit':    'Ghost, or the soul of a thing',
+})
+
+# 2026-11-12 run
+CLUES.update({
+    'amnesty':   'Official pardon for a group of offenders',
+    'appointed': 'Named to a post',
+    'arguing':   'Having a heated disagreement',
+    'arrears':   'Payments that should have been made already',
+    'ascending': 'Going up',
+    'awful':     'Really bad',
+    'brand':     "Maker's name on a product",
+    'capable':   'Up to the job',
+    'causal':    'To do with cause and effect',
+    'chunk':     'Thick lump broken off something',
+    'clean':     'Free of dirt',
+    'dandy':     'Just fine, or a flashy dresser',
+    'dimension': 'Length, width or height',
+    'erosion':   ('Wearing away of rock by wind and water',
+                  'Slow loss of trust or support'),
+    'essence':   'The heart of the matter',
+    'fork':      'Prongs for eating, or a split in the road',
+    'gathering': 'Group of people come together',
+    'genealogy': 'Family tree research',
+    'hogan':     'Navajo dwelling of logs and earth',
+    'hydrate':   'Add water to',
+    'itchy':     'Needing a scratch',
+    'joy':       'Great happiness',
+    'left':      'Opposite of right',
+    'mail':      'Letters through the door',
+    'narrative': 'The story as it is told',
+    'necessary': "Can't be done without",
+    'offside':   'Ahead of the ball, against the rules',
+    'paired':    'Put together in twos',
+    'particle':  'Speck of matter',
+    'principal': 'Head of a school',
+    'rapidly':   'At speed',
+    'reasoning': 'The thinking behind a conclusion',
+    'reinforce': 'Strengthen with extra support',
+    'sabbath':   'Weekly day of rest and worship',
+    'sacrifice': 'Give up something you value',
+    'shelled':   'Had its husk or pod removed',
+    'slit':      'Long narrow cut',
+    'sushi':     'Raw fish on seasoned rice',
+    'tailor':    'One who makes suits to measure',
+    'taker':     "One who accepts what's offered",
+    'tango':     'Close-held Argentine ballroom dance',
+    'teenager':  'Someone between thirteen and nineteen',
+    'toasted':   'Browned under the grill',
+    'tub':       'Wide vessel you might bathe in',
+    'upwards':   'Towards a higher place',
+    'utopia':    "Perfect society that doesn't exist",
+    'ware':      'Goods offered for sale',
+    'wavy':      'Full of gentle curves',
+    'whole':     'Complete, with nothing missing',
+})
+
+# 2026-11-13 run. Read off two new puzzles at each of 5x5, 7x7 and 9x9; no
+# 15x15 was due (day 317 is not divisible by five). Nothing in the fill earned
+# a ban, so this block is purely the thirteen answers still running on a
+# WordNet gloss. The usual gloss traps: `stern` came through as "severely
+# simple" rather than the strict sense, `vantage` as "quality of having a
+# superior or more favorable position", `skill` as "ability that has been
+# acquired by training", and `pretended` as "adopted in order to deceive".
+# `fermi` surfaced in the nine and is deliberately not here — extra-answers.py
+# already clues it as the physicist, which is the `sagan`/`cicero` tier the ban
+# list settled, so it is kept rather than banned as a surname.
+CLUES.update({
+    'beginning': 'Where the story starts',
+    'condemn':   'Denounce, or sentence in court',
+    'ethanol':   'The alcohol in beer and wine',
+    'finger':    'What you point with',
+    'instill':   'Plant an idea or a value gradually',
+    'lupus':     'Autoimmune illness affecting skin and joints',
+    'muck':      'Farmyard dirt and mud',
+    'occur':     'Happen, or take place',
+    'pretended': 'Faked it, as an illness',
+    'skill':     'Knack built up by practice',
+    'soggy':     'Wet right through, like old cereal',
+    'stern':     'Strict and unsmiling',
+    'vantage':   'Spot with the better view',
+})
+
+
+# 2026-11-14. Thirteen answers off this run's two nines, two sevens and two
+# fives. `--clues` had glosses for two of them that show why the file exists:
+# OFFENSIVE came out as "Action of attacking an enemy", which is the military
+# noun rather than the adjective anyone means, and REFEREE as "The chief
+# official who is expected to ensure fair play", a gloss that reads like a
+# rulebook. AROUSAL is one of the twenty-one Hashir lifted on 2026-09-23, and
+# the note there asked for a hand clue the first time the fill reached it: this
+# is that clue, on the waking sense rather than the one the gloss leads with.
+# BUNS takes the bread rather than the backside, the same call the file already
+# makes for COB and TOM.
+CLUES.update({
+    'arousal':   'Being woken up or stirred into alertness',
+    'bleak':     'Grim, cold and cheerless',
+    'body':      'Everything from head to toe',
+    'bravely':   'Without flinching',
+    'buns':      'Soft bread rolls, sometimes iced',
+    'comb':      'Toothed thing for tidying hair',
+    'favor':     'A kind turn done for someone else',
+    'fold':      'Bend over on itself',
+    'fostering': 'Taking a child into your home for a time',
+    'hill':      'A rise in the ground',
+    'hut':       'Rough little shelter',
+    'offensive': 'Rude enough to cause real upset',
+    'referee':   'Whistle-blower in the middle of the pitch',
+})
+
+# 2026-11-15. Twelve read off today's fill, and the glosses were wrong about the
+# sense in half of them: INTRO came through as the act of making one person
+# known to another rather than the opening of a song, SHADES as "something that
+# reminds you of someone" rather than sunglasses, PUMP as "deliver forth", and
+# PLOTTED as an adverb — "with planning and intention" — when the answer is a
+# verb. AMATEUR glossed as the adjective. The rest were simply rulebook-dry.
+CLUES.update({
+    'amateur':   'One who plays for love, not money',
+    'asset':     'Something of value you own',
+    'endlessly': 'On and on without stopping',
+    'intro':     'Opening bars of a song',
+    'legal':     'Within the law',
+    'pane':      'Single sheet of window glass',
+    'pest':      'Nuisance in the garden',
+    'plotted':   'Schemed in secret',
+    'pump':      'It moves water through a pipe',
+    'shades':    'Sunglasses, informally',
+    'spice':     'Pepper or cinnamon',
+    'wedding':   'Day the rings go on',
+})
+
+
+# 2026-11-16. Thirty-one read off today's fill — two fives, two sevens, two
+# nines and the fifteen. The fifteen carried most of them, and as usual the
+# glosses were wrong about the sense more often than they were dry: BELL came
+# through as an English painter (Vanessa), YOGI as a United States baseball
+# player (Berra), CALLER as the Scots dialect adjective "fresh", RUFF as the
+# card-play verb rather than the Elizabethan collar, SLUG as "be idle" rather
+# than the garden animal, SOME as "remarkable", UPBEAT as the unaccented beat
+# of a bar, INSTEAD as "on the contrary", and CICERO as a unit of type the
+# width of an em. CICERO is the one-famous-thing proper noun the `uma` note
+# settled; clued as the orator, which is the only thing a solver means by it.
+# Nothing in today's answers reached a banned tier — the fifteen's ~90 entries
+# came back clean, which is the first time that has happened.
+CLUES.update({
+    'according': '___ to: as stated by',
+    'acoustics': 'How sound carries in a hall',
+    'agreeable': 'Pleasant to be around',
+    'awesome':   'Really impressive',
+    'bell':      'It rings at the end of class',
+    'boredom':   'Restless feeling of having nothing to do',
+    'braced':    'Readied oneself for a shock',
+    'call':      'Ring up on the phone',
+    'caller':    'The voice on the other end of the line',
+    'cheer':     'Shout of support from the stands',
+    'cicero':    'Roman orator and statesman',
+    'crisis':    'Moment when everything hangs in the balance',
+    'enact':     'Make into law',
+    'enough':    'As much as is needed',
+    'equal':     'The same in size or value',
+    'flame':     'Tongue of fire',
+    'instead':   'In place of something else',
+    'limo':      'Long car hired for a prom',
+    'namely':    'That is to say',
+    'quarterly': 'Four times a year',
+    'ruff':      'Stiff pleated collar in a Tudor portrait',
+    'slug':      'Slimy garden pest',
+    'some':      'A few, but not all',
+    'stitching': 'Line of sewing along a seam',
+    'total':     'Sum of all the parts',
+    'twice':     'On two occasions',
+    'unlucky':   'Dogged by bad fortune',
+    'upbeat':    'Cheerful and optimistic',
+    'verse':     'Stanza of a poem',
+    'wife':      'The woman in a marriage',
+    'yogi':      'Practitioner of yoga',
+})
+
+# Read off the 2026-11-17 fill: the eight answers in that run's six new grids
+# (two each at 5x5, 7x7 and 9x9) that were still carried by a WordNet gloss.
+# Each appears exactly once in the bank, so each takes a single clue. The
+# glosses they replace were the usual first-sense misses — `savage` came out as
+# "marked by extreme and violent energy", which is the adjective nobody reaches
+# for first.
+CLUES.update({
+    'chevron':   'V-shaped stripe on a sleeve',
+    'cost':      'What you pay for it',
+    'dime':      'Ten cents, in America',
+    'haircut':   'What the barber gives you',
+    'heiress':   'Woman in line for the fortune',
+    'lance':     'Long weapon of a charging knight',
+    'light':     'What a lamp gives off',
+    'savage':    'Brutally fierce',
+})
+
+# 2026-11-18. Seven answers off today's fill — two 9x9s, two 7x7s and two 5x5s
+# landed, and only these were still on a WordNet gloss. The glosses are the
+# usual trouble: ACREAGE as "area of ground used for some particular purpose",
+# ENTRY as "act of entering", GRANITE as a plutonic igneous rock with a visibly
+# crystalline texture, DROPPING as "coming down freely under the influence of
+# gravity". `volta` and `kris` were read in the same pass and both stay — each
+# already carries a hand clue (cross-phrases.py and the block above), and the
+# `kris`/`pec`/`vac`/`fam` note settled that an opaque gloss argues for a clue
+# rather than a ban.
+CLUES.update({
+    'acreage':   'How much land a farm covers',
+    'beige':     'Colour between cream and light brown',
+    'chained':   'Fastened with links of metal',
+    'dropping':  'Falling, or letting something fall',
+    'entry':     'Way in, or the act of going in',
+    'granite':   'Hard speckled rock for kitchen worktops',
+    'pier':      'Walkway out over the sea at a resort',
+})

@@ -186,7 +186,7 @@
        that actually carry it here, which are height, width and how far down the
        window grid is lit. The haze at the top of the frame is the mask on the
        pane, and that stays. */
-    towers: {n:16, variants:4, cap:22, sort:'s',
+    towers: {n:16, variants:4, cap:22, sort:'s', fog:2,
              v:{s:[13, 48, 'vh'], w:[20, 66, 'px'], t:[58, 146, 's'],
                 x:[-6, 100, '%'], dx:[-8, 8, 'vw'],
                 wx:[4.5, 8.5, 'px'], wy:[6.5, 11.5, 'px'], dk:[9, 30, 'px']}},
@@ -356,9 +356,42 @@
        order rather than rolled separately, so a tower's distance and its size
        can never disagree with each other. */
     if(spec.sort && rows.length > 1){
-      rows.forEach((row, n)=>row.bits.push('--dp:' + (n / (rows.length - 1)).toFixed(3)));
+      rows.forEach((row, n)=>{
+        const dp = n / (rows.length - 1);
+        row.dp = dp;
+        row.bits.push('--dp:' + dp.toFixed(3));
+        /* **How much of its drift a tower actually takes.** The sideways
+           sway is what the comment above calls the only thing turning
+           sixteen rectangles into a distance, and until now every tower
+           took the whole of its own random amount -- so a far one could
+           swing further than a near one, which is the one thing that
+           cannot happen when you look at a real skyline. A quarter at the
+           back, all of it at the front. */
+        row.bits.push('--par:' + (0.25 + 0.75 * dp).toFixed(3));
+      });
     }
-    for(const row of rows){
+    /* **Air, in between.** Haze on a tower is the colour the air lends it;
+       this is the air itself, as sheets the city is seen through. Depth comes
+       from one thing being in front of another, and the only way these specks
+       say what is in front is the order they are written in -- so the sheets
+       are written in among them. Everything emitted before a sheet is behind
+       it and is read through it; everything after is this side of it and is
+       not.
+
+       It is also what lets a far tower stand further away. Their feet are
+       lifted off the bottom of the screen by `--dp` so they sit back across
+       the ground, which on its own would leave them hanging in the air; the
+       sheet in front covers where the ground should be. The two go together
+       and neither works alone. */
+    let placed = 0;
+    for(let i = 0; i < rows.length; i++){
+      if(spec.fog){
+        while(placed < spec.fog && rows[i].dp >= (placed + 1) / (spec.fog + 1)){
+          html += '<i class="vfx-fog" data-f="' + placed + '"></i>';
+          placed++;
+        }
+      }
+      const row = rows[i];
       html += '<b' + row.v + ' style="' + row.bits.join(';') + '">'
         + (spec.child ? '<i></i>' : '')
         + (spec.sparks ? vfxSparks(spec) : '')

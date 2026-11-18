@@ -1890,8 +1890,19 @@ body[data-amb="campfire"] #drawer{
 /* Signed out it is an invitation, so it carries the accent rather than sitting
    as one more grey control you can leave alone. */
 .acc-chip.out{ border-color:var(--accent); color:var(--accent) }
-/* The name can be twenty characters and the bar cannot. */
+/* "Sign in" is the only text this carries now; signed in it is a drawing.
+   Kept because the invitation still has to fit. */
 .acc-chip span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+/* **Signed in, it is a round icon button like the one beside it.** The name
+   used to live here and collided with the wordmark on any phone. Same box
+   and the same stroke weight as `.chat-btn`, so the corner is one set of
+   controls rather than a pill and two circles. */
+.acc-chip:has(svg){ padding:0; width:34px; height:34px; justify-content:center }
+.acc-chip svg{
+  width:18px; height:18px;
+  stroke:currentColor; stroke-width:2; fill:none;
+  stroke-linecap:round; stroke-linejoin:round;
+}
 .acc-chip i{
   width:7px; height:7px; flex:0 0 auto; border-radius:50%;
   background:var(--accent); box-shadow:0 0 7px var(--glow);
@@ -1913,6 +1924,12 @@ body[data-amb="campfire"] #drawer{
 .acc-acts{ display:flex; gap:7px }
 .acc-acts .mini-btn{ flex:1 }
 .acc-note{ font-size:11.5px; color:var(--muted); line-height:1.45; min-height:1em }
+/* **A refusal reads as one.** "that email and password do not match" was the
+   same grey as "One moment…", so the line that means stop and the line that
+   means wait were indistinguishable. Not the accent: under half these looks
+   the accent *is* warm, and an orange refusal on an orange shelf says
+   nothing. A red that holds on every background instead. */
+.acc-note.bad{ color:#ff8d7e; font-weight:600 }
 /* Standing clear of the buttons above it. At 9px it read as a caption belonging
    to Sign out, which is the one thing it must not look like. */
 .acc-hint{ font-size:11.5px; color:var(--muted); line-height:1.5; margin:16px 0 0 }

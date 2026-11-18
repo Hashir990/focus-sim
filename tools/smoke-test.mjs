@@ -30,6 +30,25 @@ const htmlPath = process.argv[2] ? resolve(process.argv[2]) : join(root, 'dist',
    it runs on happens to be set up. */
 const html = readFileSync(htmlPath, 'utf8').replace(/const ACC_URL = '[^']*'/, "const ACC_URL = ''");
 
+/** The priciest look that is actually on the shelf.
+ *
+ *  Two level tests used to name Deep space, which was the dearest of them
+ *  all until it came off the shelf and became the Deep space track instead.
+ *  Naming one is what broke; asking the catalogue does not. A look carrying
+ *  `via` is reached by playing a sound and has no tile to click. */
+function dearestShelved() {
+  const body = (html.match(/const EMB_LIGHTS = \[([\s\S]*?)\n {2}\];/) || ['', ''])[1];
+  let best = null;
+  for (const m of body.matchAll(/\{id:'(\w+)'[^{}]*?cost:(\d+)[^{}]*?\}/g)) {
+    const entry = m[0];
+    if (/\bvia:'/.test(entry)) continue;
+    const cost = Number(m[2]);
+    if (!best || cost > best.cost) best = { id: m[1], cost };
+  }
+  return best || { id: 'fireworks', cost: 0 };
+}
+
+
 // jsdom can't navigate (blob download, location.reload) or paint to a canvas.
 // All three are fine in a real browser, so they are not real failures.
 const IGNORE = /Not implemented: (navigation|HTMLCanvasElement|HTMLMediaElement)/;
@@ -1333,9 +1352,32 @@ check('a double-digit patch version counts as newer', (() => {
     [/\bfeel free to\b|\bdon(?:'|’)?t hesitate\b/i, 'invitation formula'],
     [/\bDelve\b|\btapestry of\b|\bIt(?:'|’)?s important to (?:note|remember)\b/i, 'generated prose'],
   ];
-  /* Single-quoted string literals from the concatenated app source. Good enough
-     to catch prose; it is not trying to parse JavaScript. */
-  const strings = [...html.matchAll(/'((?:[^'\\\n]|\\.){12,240})'/g)].map((m) => m[1]);
+  /* **The app's own words, which is not everything in the built file.**
+
+     This read the built page, and the built page also carries the puzzle
+     banks. A crossword clue arrived reading `"Lean on me" — and I'll help
+     you carry on, or ___`, and the first person in it is Bill Withers', not
+     the app's. That bank is append-only and updates in the background, so a
+     clue quoting anybody would have turned this red on whatever day it
+     landed, for a sentence nobody here wrote and nobody here may edit.
+
+     The same line is already drawn elsewhere: what is not the app's own
+     words — a username, an English crossword clue, a word-game board — is
+     marked `translate="no"` and left alone. So this reads the sources rather
+     than the build, less the `*-data.js` banks. That is the same text the
+     build concatenates, so a phrase added anywhere a person writes copy is
+     still caught wherever it came from. */
+  const srcText = ['js', 'css', 'body']
+    .flatMap((d) => {
+      const dir = join(root, 'src', d);
+      return readdirSync(dir)
+        .filter((f) => !/-data\.js$/.test(f))
+        .map((f) => readFileSync(join(dir, f), 'utf8'));
+    })
+    .join('\n');
+  /* Single-quoted string literals. Good enough to catch prose; it is not
+     trying to parse JavaScript. */
+  const strings = [...srcText.matchAll(/'((?:[^'\\\n]|\\.){12,240})'/g)].map((m) => m[1]);
   const caught = [];
   for (const str of strings) {
     for (const [re, why] of tells) {
@@ -2172,6 +2214,85 @@ check('written down, so they survive the app closing',
     check('and is wired into the engine that plays it',
       soundIds.every((id) => wired.includes(id)),
       soundIds.filter((id) => !wired.includes(id)).join(' ') || wired.length + ' wired');
+  }
+
+  /* **Depth in the skyline, and the three things that make it.**
+
+     Towers used to be hazed by colour and nothing else: every one stood on
+     the same line at the bottom of the screen, every one was equally sharp,
+     and each took the whole of its own random sideways drift, so a far one
+     could sway further than a near one. The haze was carrying distance by
+     itself and it could not.
+
+     Three cues now, and all of them hang off `--dp`, the depth the builder
+     works out from where a tower ended up in the sorted order. The feet come
+     up off the bottom with distance, the drift is scaled down with it, and
+     sheets of air are written in among the towers so some are seen through
+     atmosphere and some are not. */
+  {
+    const css = [...window.document.querySelectorAll('style')].map((n) => n.textContent).join(String.fromCharCode(10));
+    const bRule = (css.match(/\.vfx\[data-fx="towers"\] b\{([^}]*)\}/) || [])[1] || '';
+    const kf = (css.match(/@keyframes vfxTower\{([\s\S]*?)\n\}/) || [])[1] || '';
+
+    check('a tower stands further back the further back it is',
+      /bottom:calc\(\(1 - var\(--dp[^)]*\)\) \* var\(--twr-lift\)\)/.test(bRule.replace(/\s+/g, ' ')),
+      (bRule.match(/bottom:[^;]*/) || ['no bottom'])[0]);
+
+    check('and sways less, instead of as much as any other',
+      /var\(--dx\) \* var\(--par/.test(kf.replace(/\s+/g, ' ')),
+      kf.replace(/\s+/g, ' ').trim().slice(0, 70) || 'no keyframe');
+
+    /* The sheets have to be *among* the towers. All of them at the front is
+       a filter over the city; all at the back is a backdrop. Neither is
+       layering, and both would pass a check that only counted them. */
+    /* Reached through the door rather than the `V`/`pane` pair, which belong
+       to a different block further down; this check wants to sit beside the
+       two stylesheet ones it goes with. */
+    const V2 = window.__m.vfx;
+    const pane2 = window.document.getElementById('vfx');
+    V2.vfxSet('towers', '#04060e', null, 1);
+    const kids = [...pane2.children];
+    const fogAt = kids.map((el, i) => (el.classList.contains('vfx-fog') ? i : -1)).filter((i) => i >= 0);
+    const towers = kids.filter((el) => el.tagName === 'B').length;
+    check('and the air between them is written in among them',
+      fogAt.length >= 2 && towers >= 8
+      && fogAt[0] > 0 && fogAt[fogAt.length - 1] < kids.length - 1,
+      fogAt.length + ' sheets at ' + fogAt.join(',') + ' of ' + kids.length
+      + ' (' + towers + ' towers)');
+  }
+
+  /* **A weather effect may not redefine a token the whole app reads.**
+
+     `--lift` is a box-shadow in 00-tokens-base.css that seven files read.
+     The towers' new ground offset was called `--lift` too, declared on the
+     pane, which quietly turned it into a length for everything inside --
+     and nothing inside happens to use it, so it broke nothing and would
+     have sat there until something did. The names are short because they
+     are local; that is exactly what makes the collision easy and silent.
+
+     Narrow on purpose: this asks only whether a weather file declares a
+     name the token file owns. HANDOFF section 6 has the general rule, and a
+     general check for it flags a hundred honest cases. */
+  {
+    const baseCss = readFileSync(join(root, 'src', 'css', '00-tokens-base.css'), 'utf8');
+    const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+    const names = (t) => new Set([...strip(t).matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((m) => m[1]));
+    const tokens = names(baseCss);
+    const clash = [];
+    /* **The weather file only.** This listed 30-embers.css too and went
+       red on seven tokens, every one of them correct: repainting --accent,
+       --bg and --text per look is the whole job of that file. A look owns
+       the palette; the weather borrows it. Same lesson as the bare `.lvl`
+       note further up -- the general form of this check is all false
+       positives, and what is worth guarding is the narrow case that
+       actually happened. */
+    for (const f of ['31-vfx.css']) {
+      const own = names(readFileSync(join(root, 'src', 'css', f), 'utf8'));
+      for (const n of own) if (tokens.has(n)) clash.push(f + ' redefines ' + n);
+    }
+    check('a weather effect does not redefine a base token',
+      clash.length === 0,
+      clash.join(' | ') || tokens.size + ' tokens, none taken over');
   }
   /* ---- quote packs ---------------------------------------------------------
 
@@ -7991,6 +8112,62 @@ await openGame(guest, $g, 'scrabble');
       : 'the bar is not sticky to bottom:0');
 }
 
+/* ---- embers only move for time, achievements and buying ----
+
+   The balance is derived: `have = earned - spent`, floored at nought. That
+   floor is where both "my embers reset to 0" reports came from. Not embers
+   being taken away — the priced spend overtaking what the log could account
+   for, after a price rise was applied to things people had already bought.
+   Once the floor is reached every ember earned afterwards disappears into
+   it, which is what makes it look like a reset rather than a shortfall.
+
+   Two things are checked here, and both are about what must NOT happen:
+   nothing may fall into the hole, and a balance may not be recomputed from
+   a log that has not loaded. Neither is reachable through the interface, so
+   both are driven through the record itself. */
+{
+  const EDOOR = 'window.__eb = {Embers, get log(){ return LOG; },'
+    + ' setLog(v){ LOG = v; }, EMB_LIGHTS};';
+  /* A device that owns a lot and has barely any log: exactly the shape a
+     price rise leaves behind. */
+  const dear = [...(html.match(/const EMB_LIGHTS = \[([\s\S]*?)\n {2}\];/) || ['', ''])[1]
+    .matchAll(/\{id:'(\w+)'[^{}]*?cost:(\d+)/g)]
+    .map((m) => ({ id: m[1], cost: Number(m[2]) }))
+    .filter((l) => l.cost > 0);
+  const owned = dear.map((l) => l.id);
+  const priced = dear.reduce((n, l) => n + l.cost, 0);
+
+  const { window: ew } = boot(withDoor(html, EDOOR), {
+    focus_embers: JSON.stringify({ earned: 0, have: 0, adjust: 0, own: owned, claimed: [] }),
+    focus_log: JSON.stringify([{ id: 'a', ts: Date.now(), day: '2026-01-01', secs: 600 }]),
+  });
+  await wait(700);
+  const E = ew.__eb;
+
+  if (!E) {
+    check('the embers record can be reached', false, 'no door');
+  } else {
+    /* **Named so it cannot be mistaken for a pass.** The shortfall is real
+       and is not fixed; this records its size rather than asserting it away,
+       so a release that makes it worse is visible. The fix is a row in
+       EMB_WAS for anything whose price rises — see the note in 37-embers.js. */
+    const d = E.Embers.reconcile();
+    check('a device owning more than its log can pay for sits at zero, not below',
+      E.Embers.have === 0 && d.spent > E.Embers.earned,
+      `earned ${E.Embers.earned}, priced spend ${d.spent}, short by ${d.spent - E.Embers.earned}`);
+
+    /* A log that has not arrived is not a log that is empty. Deriving in that
+       gap writes nought over a real balance, and the sync paths call
+       `reconcile()` straight after a merge. */
+    const keepEarned = E.Embers.earned, keepHave = E.Embers.have;
+    E.setLog([]);
+    E.Embers.reconcile();
+    check('and a balance is not recomputed from a log that has not loaded',
+      E.Embers.earned === keepEarned && E.Embers.have === keepHave,
+      `earned ${E.Embers.earned} vs ${keepEarned}, have ${E.Embers.have} vs ${keepHave}`);
+  }
+}
+
 // --- the countdown ----------------------------------------------------------
 /* The numerals were sized from the window's height while the dial around
    them followed the shorter axis, so the two scaled apart: on a tall narrow
@@ -10998,12 +11175,18 @@ try {
 
     /* A locked tile says what it needs and does not take the embers, which is
        a different refusal from "not enough" and has to read as one. */
-      const dear = tiles().find((b) => b.dataset.light === 'space');
+    /* The dearest one still on the shelf, read off the shelf rather than
+       named: the look this used to name is reached by playing a track now,
+       so it has no tile and this crashed on `undefined.click()`. */
+    const dear = shut[shut.length - 1];
+    const dearId = dear && dear.dataset.light;
+    check('there is a dear locked tile to tap', !!dear,
+      tiles().map((b) => b.dataset.light).join(' '));
     dear.click();
     await wait(120);
     check('tapping one says which level opens it, and buys nothing',
       /Level \d/.test($l('toast').textContent)
-      && box.dataset.own.indexOf('space') < 0
+      && box.dataset.own.indexOf(dearId) < 0
       && lw.document.getElementById('confirm').classList.contains('hide'),
       $l('toast').textContent + ' / ' + box.dataset.own);
 
@@ -11118,22 +11301,25 @@ try {
   {
     const { window: ow } = lvlBoot({
       focus_log: JSON.stringify(mkLog([0], 600)),
-      focus_embers: JSON.stringify({ have: 0, earned: 1, own: ['seaglass', 'space'], light: 'space' }),
+      focus_embers: JSON.stringify({ have: 0, earned: 1,
+        own: ['seaglass', dearestShelved().id], light: dearestShelved().id }),
     });
     await wait(600);
     const $o = (id) => ow.document.getElementById(id);
     $o('emb-chip').click();
     await wait(150);
+    const owned = dearestShelved().id;
     const tile = [...$o('emb-box').querySelectorAll('[data-light]')]
-      .find((b) => b.dataset.light === 'space');
-    /* Ten minutes of focus is level one and Deep space wants nine. It was
-       bought, so the gate is not asked: a thing that goes grey because a rule
-       arrived after the purchase is the shape of the bug the price rise was. */
+      .find((b) => b.dataset.light === owned);
+    /* Ten minutes of focus is level one and the dearest look wants far more.
+       It was bought, so the gate is not asked: a thing that goes grey because
+       a rule arrived after the purchase is the shape of the bug the price
+       rise was. */
     check('a thing already yours stays yours whatever level says otherwise',
       ow.__L.lvlNow() === 1 && tile.classList.contains('mine')
       && !tile.classList.contains('lock')
       && !/Level/.test(tile.querySelector('em').textContent)
-      && ow.document.body.dataset.light === 'space',
+      && ow.document.body.dataset.light === owned,
       'L' + ow.__L.lvlNow() + ' ' + tile.className + ' ' + tile.querySelector('em').textContent);
   }
 
@@ -11658,7 +11844,7 @@ try {
 {
   const { window: sw } = boot(withDoor(html,
     'window.__a = {AMB, ambSeam, ambLevel, ambElement, AMB_FADE, AMB_ARM,'
-    + ' AMB_TRACKS, AMB_GAIN};'));
+    + ' AMB_TRACKS, ambAmp, AMB_MAX, AMB_CURVE};'));
   await wait(600);
   const A = sw.__a;
 
@@ -11726,7 +11912,10 @@ try {
   check('and the beats that follow do not start it over again',
     b.__played === 1, 'played ' + b.__played);
 
-  const gain = A.AMB_GAIN.rain || 1;
+  /* The crossfade is checked against whatever one element plays at, which
+     is no longer a per-track number -- every track is matched as it is
+     encoded, and the slider's position is all that is left. */
+  const gain = A.ambAmp(A.AMB ? A.AMB.vol : 0.7) || 1;
   let worst = 1;
   for (let i = 0; i <= 12; i++) {
     const into = (i / 12) * A.AMB_FADE;

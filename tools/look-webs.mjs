@@ -28,7 +28,7 @@ const shim = `<script>
 </script>`;
 
 const at = html.lastIndexOf('})();');
-const door = '\nwindow.__look = {Embers, vfxSet, vfxApply};\n';
+const door = '\nwindow.__look = {Embers, vfxSet, vfxApply, T, Tn, Account, AcctPage};\n';
 const page = (html.slice(0, at) + door + html.slice(at)).replace('<script>', shim + '\n<script>');
 
 const TYPES = { '.ogg':'audio/ogg', '.opus':'audio/ogg', '.mp3':'audio/mpeg',

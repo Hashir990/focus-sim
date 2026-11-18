@@ -15,8 +15,30 @@
         <item name="android:background">@null</item>
     </style>
 
+    <!--
+      **The white screen with somebody else's logo on it.**
 
+      This was Capacitor's stock `@drawable/splash` — a 720×1280 PNG of the
+      Capacitor mark, centred on white — and it is what every cold start
+      opened with: a bright white flash and a logo belonging to a toolchain,
+      in front of an app that is dark navy and called something else.
+
+      It cannot be removed outright. From Android 12 the system draws a
+      launch screen whether or not an app asks for one; the only question is
+      what it draws. So it draws this app: the launcher icon on the same
+      #0E1729 the icon itself sits on, which is near enough the app's own
+      background that the handover is not a flash of anything. On Android 11
+      and below there is no system splash and `android:background` is all
+      that shows, so it is the same colour there and the start is simply dark.
+
+      `postSplashScreenTheme` is what the window becomes once the web view is
+      up; without it the launch theme stays on and the background shows
+      through anywhere the page does not paint.
+    -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:background">@drawable/splash_screen</item>
     </style>
 </resources>

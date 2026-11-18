@@ -158,7 +158,19 @@
        gap between the colours is the lava, here it is the sameness with a few
        exceptions in it. The cloud behind them is painted, not thrown; see the
        nebula note in 31-vfx.css. */
+    /* **Off the looks shelf: it is reached by playing the track.** Same as
+       the beach above, and for the same three reasons -- the sound borrows
+       it with `like`, people who bought it still own it, and `EMB_WAS` has
+       already charged for it.
+
+       Unlike the beach, nothing had to be shared to make this work. The
+       palette block in 30-embers.css already names `body[data-amb="adrift"]`
+       beside `body[data-light="space"]`, the weather is copied whole by
+       `embLook`, and the nebula and its galaxies hang off `data-fx="stars"`
+       rather than off the look. The track has always looked exactly like
+       this; what it did not have was the shelf to itself. */
     {id:'space', name:'Deep space', note:'Stars, and a nebula drifting through', cost:450,
+     via:'adrift',
      accent:'#9fc4ff', fx:'stars', fxc:'#ffffff', fxc2:'#cfe3ff', fxm:1,
      /* Mostly white, because stars are, with two blues and two warm ones in
         eleven. **The accent stays blue-white on purpose**: the room it is seen
@@ -209,10 +221,18 @@
      like:'skyline'},
     {id:'sea', name:'Sunset Beach', note:'Waves, birds, and a low sun', cost:240,
      like:'beach'},
-    /* The name is the piece's name, by the person who wrote it, so it is left
-       alone in every language the way Spider-Man was. See the Sound section of
-       the credits. */
-    {id:'adrift', name:'Adrift', note:'A synth, much further out', cost:300,
+    /* **The tile carries the look's name now, not the piece's.** It read
+       Adrift, which is what Hayden Folker called it, and that is why the note
+       here used to say the name must be left alone in every language. The
+       shelf entry is the deep space look as much as it is the piece now that
+       the look has nowhere else to live, so the tile says Deep space and
+       reuses that string's translations.
+
+       **The credit did not move.** "Adrift by Hayden Folker" is on the About
+       page, in the Sound section, which is where the licence asks for it and
+       where it has always been. If the piece's own title belongs on the tile
+       as well, the note beside it is the place for it. */
+    {id:'adrift', name:'Deep space', note:'A synth, much further out', cost:300,
      like:'space'},
   ];
 ;
@@ -356,6 +376,7 @@
        the merge rules in 47-merge.js and server/accounts.js stay the
        byte-identical pair they have to be. */
     if(id === 'sea' && Embers.own.indexOf('beach') >= 0) return true;
+    if(id === 'adrift' && Embers.own.indexOf('space') >= 0) return true;
     return s.cost === 0 || Embers.own.indexOf(EMB_SND + id) >= 0;
   }
 
@@ -481,7 +502,13 @@
       const n = Math.floor(this.bank / EMB_PER);
       if(n > 0){
         this.bank -= n * EMB_PER;
-        this.credit(n, n + (n === 1 ? ' ember' : ' embers'));
+        /* **Through `Tn`, not glued together.** This was `n + ' ember'`, which
+           is a sentence built out of pieces -- so it stayed English in all
+           seven languages, and where the space goes was decided here rather
+           than by each language. Japanese wants none; Arabic and Russian want
+           a different word for two, a few and many. One catalogue entry owns
+           all of that, and `{n} embers` already existed for the shelf. */
+        this.credit(n, Tn('{n} ember', '{n} embers', n));
       }else{
         this.save();
         this._mark();
@@ -552,14 +579,58 @@
 
     reconcile(){
       const self = this;
-      const d = embersFrom(LOG, this.own, this.claimed, this.feats, this.adjust,
+      const derive = ()=>embersFrom(LOG, self.own, self.claimed, self.feats, self.adjust,
         (id)=>self.paidFor(id), (id)=>self.payout(id));
+      let d = derive();
+
+      /* **Not guarded on an empty log, and that was tried.**
+
+         Deriving while `LOG` is still loading produces nought from nothing,
+         and `save()` then writes it over the real balance — which is a
+         plausible route to "embers reset to 0", since the sync paths in
+         48-account.js call this straight after a merge. Refusing to derive
+         from an empty log looks like the fix and is not: a device can
+         legitimately have earned something with no log at all, because
+         `adjust` and claimed achievements are also earnings. Freezing the
+         balance in that case breaks handing anything back — the suite says
+         so in five places, starting with "handing the packs back leaves the
+         balance where it started".
+
+         Telling the two apart needs a signal from the loader saying the log
+         has arrived, which does not exist yet. Start-up orders this
+         correctly by hand (see 90-init.js); the sync paths do not, and that
+         is the gap. */
+
       /* First run after the derivation existed: whatever the old stored number
          was above what can be explained is written down as carried history. */
       if(!this.adjust && this.earned > d.earned){
         this.adjust = this.earned - d.earned;
-        return this.reconcile();
+        d = derive();
       }
+
+      /* **The hole is still here, and it cannot be closed from this end.**
+
+         `have` is `earned - spent` floored at zero, so once the priced spend
+         passes what the log accounts for, every ember earned afterwards
+         disappears into the shortfall. That is both "embers reset to 0"
+         reports: a price went up, the sum was recomputed over things people
+         had already bought, and the difference came out of them.
+
+         Carrying the shortfall in `adjust` was tried here and is wrong. It
+         raises `earned` for good, so the moment the owned list shrinks again
+         — handing a quote pack back, anything that un-owns — the difference
+         falls out as free embers. The suite caught it in five places; see
+         "handing the packs back leaves the balance where it started".
+
+         There is no fix at this end because the information is not here: a
+         shortfall says the catalogue now charges more than this device could
+         ever have paid, and only a record of what it *did* pay can undo
+         that. That record is `EMB_WAS` and `EMB_WAS_BUD` above, and the
+         honest statement of the bug is that they are maintained by hand and
+         have been missed twice. Anything that rises needs its row, in the
+         same release. `tools/embers-audit.mjs` prices a real save item by
+         item and says which ones are over. */
+
       this.earned = d.earned;
       this.have = d.have;
       this.bank = d.bank;

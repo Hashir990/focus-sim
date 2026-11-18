@@ -33,6 +33,28 @@
       t.classList.toggle('over', S.remaining<=0);
     }
   }
+  /* Said once per painter, not once a second: a thing failing twelve times a
+     second fills the console and hides whatever came before it. */
+  const RENDER_WARNED = {};
+  function renderWarn(who, e){
+    if(RENDER_WARNED[who]) return;
+    RENDER_WARNED[who] = true;
+    try{ console.error('render: ' + who + ' threw, and the rest of the frame went on without it', e); }catch(x){}
+  }
+
+  /** The setup screen's own controls. Lifted out of `render` so it can be
+      painted before anything that is allowed to fail. */
+  function paintSetup(){
+    $('f-num').textContent=S.focusMin; $('r-num').textContent=S.breakMin;
+    const rs=$('rest-summary');
+    if(rs) rs.textContent = T('{m} min', {m:S.breakMin}) + ' · ' + (S.repeat>0 ? '×'+S.repeat : T('endless'));
+    $('f-minus').disabled = S.focusMin<=5; $('f-plus').disabled = S.focusMin>=120;
+    $('r-minus').disabled = S.breakMin<=5; $('r-plus').disabled = S.breakMin>=30;
+    markPresets();
+    $('t-auto').classList.toggle('on', S.autoContinue);
+    $('t-sound').classList.toggle('on', S.sound);
+  }
+
   function render(){
     /* **The phone's copy of the clock, kept up to date here.** Everything that
        has to know about the block while the web view is frozen — the ongoing
@@ -43,8 +65,26 @@
     try{ guardPushTimer(); }catch(e){}
     document.getElementById('app').setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
     document.body.setAttribute('data-phase', S.mode==='setup' ? '' : S.mode);
-    tasksRefresh();
-    paintDate();
+    /* **The numbers first, then the decoration.**
+
+       The setup screen was painted at the bottom of this function, after the
+       tasks panel, the date, the embers, the glow and the buddy. Six painters
+       stood between pressing 50 and the screen saying 50, and two of them
+       were not wrapped -- so anything `tasksRefresh()` or `paintDate()` threw
+       on, for any reason, took the rest of `render()` with it. The chip
+       handler is `setter(v); render();`, so `S.focusMin` had already changed:
+       the number in the middle simply stopped following the buttons, while
+       the app otherwise looked fine. It is a hard fault to find from the
+       outside because everything still *works*, it just does not redraw.
+
+       The controls somebody is touching are painted before anything
+       optional now, so nothing drawn for decoration can stop them. */
+    if(S.mode==='setup') paintSetup();
+    /* Wrapped like their neighbours -- but not silently. A painter that
+       throws every second should say so once in the console rather than
+       disappear, which is how this went unnoticed in the first place. */
+    try{ tasksRefresh(); }catch(e){ renderWarn('tasksRefresh', e); }
+    try{ paintDate(); }catch(e){ renderWarn('paintDate', e); }
     try{ Embers.paint(); }catch(e){}
     try{ glowFit(); }catch(e){}
     /* Cheap on purpose: `stage()` compares a signature and returns without
@@ -52,17 +92,7 @@
        once a second for the whole of a block. */
     try{ Buddy.stage(); }catch(e){}
 
-    if(S.mode==='setup'){
-      $('f-num').textContent=S.focusMin; $('r-num').textContent=S.breakMin;
-      const rs=$('rest-summary');
-      if(rs) rs.textContent = T('{m} min', {m:S.breakMin}) + ' · ' + (S.repeat>0 ? '×'+S.repeat : T('endless'));
-      $('f-minus').disabled = S.focusMin<=5; $('f-plus').disabled = S.focusMin>=120;
-      $('r-minus').disabled = S.breakMin<=5; $('r-plus').disabled = S.breakMin>=30;
-      markPresets();
-      $('t-auto').classList.toggle('on', S.autoContinue);
-      $('t-sound').classList.toggle('on', S.sound);
-      return;
-    }
+    if(S.mode==='setup') return;
 
     // timer view
     $('phase-name').textContent = S.mode==='focus' ? 'Focus' : (S.restIsLong ? 'Long rest' : 'Rest');
