@@ -125,6 +125,27 @@ function mergeSet(a, b) {
   }
   return out;
 }
+/* ---- what each thing cost, per device ----
+   Prices are frozen when a thing is first seen owned, so two devices that met
+   a price rise at different moments hold different numbers for the same id.
+   The lower one is the right one: it is the earlier record, from before
+   whatever rise the other device has already met, and the union must never
+   charge somebody more than one of their own devices says they paid. */
+function mergePaid(a, b) {
+  const A = (a && typeof a === 'object' && !Array.isArray(a)) ? a : {};
+  const B = (b && typeof b === 'object' && !Array.isArray(b)) ? b : {};
+  const out = {};
+  for (const src of [A, B]) {
+    for (const id in src) {
+      if (!Object.prototype.hasOwnProperty.call(src, id)) continue;
+      const n = Number(src[id]);
+      if (!isFinite(n) || n < 0) continue;
+      out[id] = (out[id] == null) ? n : Math.min(out[id], n);
+    }
+  }
+  return out;
+}
+
 function mergeFeats(a, b) {
   const out = Object.assign({}, a || {}), other = b || {};
   for (const k in other) {
@@ -412,6 +433,7 @@ function mergeSnapshots(local, remote, at) {
        agree on all twelve. Dropping this key would re-charge the difference at
        the new price — see EMB_WAS in 37-embers.js. */
     grand: mergeSet(A.grand, B.grand),
+    paid: mergePaid(A.paid, B.paid),
     /* Grandfathered prices, unioned exactly like `own`: a device that met the
        price rise owning ten things and one that met it owning twelve should
        agree on all twelve. Dropping this key would re-charge the difference at

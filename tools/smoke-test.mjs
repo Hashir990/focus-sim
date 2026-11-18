@@ -8165,6 +8165,52 @@ await openGame(guest, $g, 'scrabble');
     check('and a balance is not recomputed from a log that has not loaded',
       E.Embers.earned === keepEarned && E.Embers.have === keepHave,
       `earned ${E.Embers.earned} vs ${keepEarned}, have ${E.Embers.have} vs ${keepHave}`);
+
+    /* **A price may rise; a bill may not.** The whole of the fix, stated as
+       the thing that must stay true: what a device is charged for something
+       it owns is what it was charged the first time, whatever the catalogue
+       says later. Buying is gated on `have >= cost`, so a bill that outruns
+       the log was never somebody overspending -- it was the shop re-pricing
+       their history, and this is what stops it. */
+    {
+      const first = E.Embers.own.find((id) => E.Embers.paid[id] > 0);
+      check('every owned thing has what it cost written against it',
+        !!first && E.Embers.own.every((id) => typeof E.Embers.paid[id] === 'number'),
+        E.Embers.own.length + ' owned, '
+        + E.Embers.own.filter((id) => typeof E.Embers.paid[id] === 'number').length + ' priced');
+
+      if (first) {
+        /* **Against something nothing grandfathered.** The first version of
+           this doubled the price of an item the fixture already owned, and
+           `load()` grandfathers everything a device owns when it first meets
+           a rise -- so `paidFor` was returning the frozen EMB_WAS price and
+           the check passed with the whole fix deleted. It has to be a thing
+           bought *after* that, which is the only case the catalogue can still
+           re-price, and the only case this fix exists for. */
+        const fresh = E.EMB_LIGHTS.find((l) => l.cost > 0);
+        E.Embers.own = E.Embers.own.filter((id) => id !== fresh.id);
+        if (Array.isArray(E.Embers.grand)) {
+          E.Embers.grand = E.Embers.grand.filter((id) => id !== fresh.id);
+        }
+        delete E.Embers.paid[fresh.id];
+        E.Embers.own.push(fresh.id);
+        E.Embers.reconcile();
+        check('while something newly owned is written down at its real price',
+          E.Embers.paid[fresh.id] === fresh.cost && fresh.cost > 0,
+          fresh.id + ' recorded as ' + E.Embers.paid[fresh.id] + ', shelf says ' + fresh.cost);
+
+        /* The shop doubles overnight. The bill may not move. */
+        const before = E.Embers.reconcile().spent;
+        const shelfWas = fresh.cost;
+        fresh.cost = shelfWas * 2 + 500;
+        const after = E.Embers.reconcile().spent;
+        fresh.cost = shelfWas;
+        check('and a price going up afterwards does not change the bill',
+          after === before,
+          fresh.id + ' paid ' + E.Embers.paid[fresh.id] + ', shelf went ' + shelfWas
+          + ' to ' + (shelfWas * 2 + 500) + ', spend ' + before + ' then ' + after);
+      }
+      }
   }
 }
 

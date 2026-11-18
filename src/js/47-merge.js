@@ -323,6 +323,27 @@
     return (Number(B.at) || 0) > (Number(A.at) || 0) ? B : A;
   }
 
+  /* ---- what each thing cost, per device ----
+     Prices are frozen when a thing is first seen owned, so two devices that met
+     a price rise at different moments hold different numbers for the same id.
+     The lower one is the right one: it is the earlier record, from before
+     whatever rise the other device has already met, and the union must never
+     charge somebody more than one of their own devices says they paid. */
+  function mergePaid(a, b) {
+    const A = (a && typeof a === 'object' && !Array.isArray(a)) ? a : {};
+    const B = (b && typeof b === 'object' && !Array.isArray(b)) ? b : {};
+    const out = {};
+    for (const src of [A, B]) {
+      for (const id in src) {
+        if (!Object.prototype.hasOwnProperty.call(src, id)) continue;
+        const n = Number(src[id]);
+        if (!isFinite(n) || n < 0) continue;
+        out[id] = (out[id] == null) ? n : Math.min(out[id], n);
+      }
+    }
+    return out;
+  }
+
   /* ---- embers, derived ----
      `priceOf(id)` gives what an owned thing cost; `payout(id)` gives what a
      claimed achievement paid. Both are passed in rather than reached for, so
@@ -443,6 +464,7 @@
          should agree on all twelve. Dropping this key would re-charge the
          difference at the new price — see EMB_WAS in 37-embers.js. */
       grand: mergeSet(A.grand, B.grand),
+      paid: mergePaid(A.paid, B.paid),
       claimed: mergeSet(A.claimed, B.claimed),
       feats: mergeFeats(A.feats, B.feats),
       // the larger carried balance, so a merge can never lose history

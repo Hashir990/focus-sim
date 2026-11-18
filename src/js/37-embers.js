@@ -402,6 +402,24 @@
        `load()` looks for; an empty array is a device that met it owning
        nothing, which is a different thing and must not migrate twice. */
     grand:null,
+    /* **What each owned thing actually cost, the day it was got.**
+
+       The balance is `earned - SUM(price of everything owned)`, and until now
+       that sum was taken from the catalogue — today's catalogue. So raising a
+       price re-charged everybody who already owned the thing, at the new
+       price, for a purchase they made at the old one. If that pushed the sum
+       past what their log had earned, the balance floored at zero and every
+       ember after it fell into the gap. That is both "embers reset to 0"
+       reports, and buying is gated on `have >= cost`, so it was never anybody
+       overspending: it was the app re-pricing their history.
+
+       The answer is the one already used for a mended streak day, which
+       "carries what it cost inside its own id" because its price depended on
+       the day it was bought. This is that, for everything: a price is written
+       down once and never looked up again. After this, no price change can
+       move anybody's balance — there is no table to keep in step, which is
+       what failed twice. */
+    paid:{},
     claimed:[],         // achievements already paid out; see 40-achievements.js
     light:'seaglass',
     /* `loaded` is the re-entrancy latch and goes up *before* the await, so it
@@ -435,6 +453,7 @@
           this.bank = Math.max(0, Math.min(EMB_PER - 1, d.bank|0));
           this.own = Array.isArray(d.own) && d.own.length ? d.own : ['seaglass'];
           this.grand = Array.isArray(d.grand) ? d.grand : null;
+          this.paid = (d.paid && typeof d.paid === 'object' && !Array.isArray(d.paid)) ? d.paid : {};
           // Meadow became Fireworks; anybody who bought the one has the other
           if(this.own.indexOf('meadow') >= 0 && this.own.indexOf('fireworks') < 0){
             this.own.push('fireworks');
@@ -484,6 +503,7 @@
         adjust:this.adjust,
         have:this.have, earned:this.earned, bank:this.bank, own:this.own,
         grand:this.grand || [],
+        paid:this.paid || {},
         claimed:this.claimed, feats:this.feats, light:this.light,
       }));
     },
@@ -565,6 +585,10 @@
        the achievements page price the owned list with — `priceOf` is for
        what to write on a tile. */
     paidFor(id){
+      /* **What it cost beats what it costs.** Written down at first sight and
+         never revised; see `paid` above and the backfill in `reconcile`. */
+      const mine = this.paid && this.paid[id];
+      if(typeof mine === 'number' && isFinite(mine) && mine >= 0) return mine;
       const was = embWas(id);
       if(this.grand && was != null && this.grand.indexOf(id) >= 0) return was;
       return this.priceOf(id);
@@ -579,6 +603,32 @@
 
     reconcile(){
       const self = this;
+
+      /* **Prices are frozen here, not at the till.**
+
+         There are six places something can land in `own` — lights, sounds,
+         quote packs, faces, two for the buddy — plus the mend, plus the
+         developer grant. Writing the price at each of them means every new
+         kind of thing has to remember to, and the note on `priceOf` already
+         records what happens when one is missed: "an id this does not
+         recognise is a thing that was bought for nothing". One place that
+         sees everything owned cannot miss any of them.
+
+         So anything owned without a price written down gets today's answer
+         written down now — which, for something just bought, is exactly what
+         was paid, because the catalogue cannot have moved in between. For
+         something owned since before this existed it is the grandfathered
+         price if there is one and the current price otherwise, which is the
+         same answer it was already being charged. Nobody's balance moves on
+         the day this arrives; what changes is that it can never move again. */
+      if(!this.paid || typeof this.paid !== 'object') this.paid = {};
+      for(const id of (this.own || [])){
+        if(typeof this.paid[id] === 'number') continue;
+        const was = embWas(id);
+        const grandfathered = this.grand && was != null && this.grand.indexOf(id) >= 0;
+        this.paid[id] = Math.max(0, (grandfathered ? was : this.priceOf(id)) || 0);
+      }
+
       const derive = ()=>embersFrom(LOG, self.own, self.claimed, self.feats, self.adjust,
         (id)=>self.paidFor(id), (id)=>self.payout(id));
       let d = derive();
